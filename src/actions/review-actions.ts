@@ -1,0 +1,47 @@
+"use server";
+
+import { z } from "zod";
+import { revalidatePath } from "next/cache";
+import { auth } from "@/server/auth/auth";
+import { upsertReview } from "@/server/products/reviews";
+import { checkRateLimit, RATE_LIMIT_MESSAGE } from "@/server/rate-limit/limiter";
+
+const reviewSchema = z.object({
+  productId: z.string().min(1),
+  productSlug: z.string().min(1),
+  rating: z.number().int().min(1).max(5),
+  title: z.string().trim().max(150).optional().or(z.literal("")),
+  comment: z.string().trim().max(1000).optional().or(z.literal("")),
+});
+
+export async function submitReviewAction(input: unknown) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { ok: false as const, error: "Please sign in to leave a review." };
+  }
+  if (!(await checkRateLimit("review", session.user.id))) {
+    return { ok: false as const, error: RATE_LIMIT_MESSAGE };
+  }
+
+  const parsed = reviewSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, error: "Please choose a rating between 1 and 5." };
+  }
+
+  try {
+    await upsertReview({
+      userId: session.user.id,
+      productId: parsed.data.productId,
+      rating: parsed.data.rating,
+      title: parsed.data.title || undefined,
+      comment: parsed.data.comment || undefined,
+    });
+    revalidatePath(`/products/${parsed.data.productSlug}`);
+    return { ok: true as const };
+  } catch (err) {
+    return {
+      ok: false as const,
+      error: err instanceof Error ? err.message : "Could not save your review.",
+    };
+  }
+}

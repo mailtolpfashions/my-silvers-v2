@@ -1,0 +1,392 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────
+
+enum Role {
+  customer
+  admin
+  editor
+}
+
+enum PaymentMethod {
+  razorpay
+  cod
+}
+
+enum PaymentStatus {
+  pending
+  paying // transient "claimed" state — see fulfillOrder()
+  paid
+  failed
+  refunded
+}
+
+enum OrderStatus {
+  placed
+  confirmed
+  processing
+  shipped
+  delivered
+  cancelled
+  return_requested
+  returned
+  refunded
+}
+
+enum RefundStatus {
+  idle
+  processing
+  completed
+  failed
+}
+
+enum ContentStatus {
+  draft
+  published
+  archived
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────
+
+model User {
+  id                     String    @id @default(cuid())
+  name                   String?
+  email                  String    @unique
+  emailVerified          DateTime?
+  passwordHash           String? // null for OAuth-only or guest accounts
+  image                  String?
+  role                   Role      @default(customer)
+  phone                  String?
+  passwordResetTokenHash String?
+  passwordResetExpiresAt DateTime?
+  failedLoginAttempts    Int       @default(0)
+  lockedUntil            DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  addresses Address[]
+  orders    Order[]
+  cart      Cart?
+  wishlist  Wishlist?
+  reviews   Review[]
+
+  accounts Account[]
+  sessions Session[]
+
+  createdContentEntries   ContentEntry[] @relation("ContentEntryCreatedBy")
+  updatedContentEntries   ContentEntry[] @relation("ContentEntryUpdatedBy")
+  publishedContentEntries ContentEntry[] @relation("ContentEntryPublishedBy")
+  uploadedMedia           MediaAsset[]
+
+  @@index([role])
+}
+
+model Address {
+  id           String  @id @default(cuid())
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  label        String?
+  fullName     String
+  phone        String
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  state        String
+  pincode      String
+  isDefault    Boolean @default(false)
+
+  @@index([userId])
+  // Single-default-per-user invariant is enforced via a partial unique index,
+  // added in a raw-SQL migration (Prisma can't express partial unique indexes
+  // declaratively): CREATE UNIQUE INDEX one_default_address_per_user
+  // ON "Address"("userId") WHERE "isDefault" = true;
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Catalog ──────────────────────────────────────────────────────────────
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  image       String?
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+model Product {
+  id                String      @id @default(cuid())
+  name              String
+  slug              String      @unique
+  description       String?
+  shortDescription  String?
+  price             Decimal     @db.Decimal(10, 2)
+  compareAtPrice    Decimal?    @db.Decimal(10, 2)
+  images            String[] // Cloudinary URLs only — validated in server layer
+  videoUrl          String?
+  category          Category    @relation(fields: [categoryId], references: [id])
+  categoryId        String
+  weight            Decimal?    @db.Decimal(10, 3)
+  purity            String      @default("925 Sterling Silver")
+  dimensions        String?
+  sizes             String[]
+  material          String?
+  stock             Int         @default(0)
+  sku               String      @unique
+  isFeatured        Boolean     @default(false)
+  isBestseller      Boolean     @default(false)
+  isActive          Boolean     @default(true) // soft delete
+  tags              String[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  orderItems   OrderItem[]
+  reviews      Review[]
+  cartItems    CartItem[]
+  wishlistedIn Wishlist[]  @relation("WishlistProducts")
+
+  // Full-text search column — added as a generated tsvector column + GIN
+  // index via a raw-SQL migration (see prisma/migrations, product-search step).
+  // searchVector Unsupported("tsvector")?
+
+  @@index([categoryId, isActive])
+  @@index([price])
+  @@index([createdAt(sort: Desc)])
+  @@index([isActive, isFeatured])
+  @@index([isActive, isBestseller])
+}
+
+// ─── Cart / Wishlist / Reviews ─────────────────────────────────────────────
+
+model Cart {
+  id     String     @id @default(cuid())
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String     @unique
+  items  CartItem[]
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cartId    String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  quantity  Int
+
+  @@unique([cartId, productId])
+}
+
+model Wishlist {
+  id       String    @id @default(cuid())
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String    @unique
+  products Product[] @relation("WishlistProducts")
+}
+
+model Review {
+  id                 String   @id @default(cuid())
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId             String
+  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId          String
+  rating             Int
+  title              String?
+  comment            String?
+  isVerifiedPurchase Boolean  @default(false) // computed server-side only — never client-supplied
+  createdAt          DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([productId, createdAt(sort: Desc)])
+}
+
+model NewsletterSubscriber {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  subscribedAt DateTime @default(now())
+  active       Boolean  @default(true)
+
+  @@index([active])
+}
+
+// ─── Orders ─────────────────────────────────────────────────────────────────
+
+model Order {
+  id                   String        @id @default(cuid())
+  orderNumber          String        @unique // e.g. MYS-000001, from a Postgres sequence
+  user                 User          @relation(fields: [userId], references: [id])
+  userId               String
+  confirmationToken    String?       @unique // guest order access token
+  idempotencyKey       String?
+  items                OrderItem[]
+  shippingAddress      Json // point-in-time snapshot, NOT a live FK
+  paymentMethod        PaymentMethod
+  paymentStatus        PaymentStatus @default(pending)
+  orderStatus          OrderStatus   @default(placed)
+  refundStatus         RefundStatus  @default(idle)
+  razorpayOrderId      String?
+  razorpayPaymentId    String?       @unique
+  subtotal             Decimal       @db.Decimal(10, 2)
+  shippingCharge       Decimal       @db.Decimal(10, 2)
+  totalAmount          Decimal       @db.Decimal(10, 2)
+  notes                String?
+  returnReason         String?
+  returnRequestedAt    DateTime?
+  returnResolvedAt     DateTime?
+  refundAmount         Decimal?      @db.Decimal(10, 2)
+  refundProcessedAt    DateTime?
+  shiprocketOrderId    String?
+  shiprocketShipmentId String?
+  trackingNumber       String?
+  trackingUrl          String?
+  courierName          String?
+  shipmentCreatedAt    DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@unique([userId, idempotencyKey])
+  @@index([razorpayOrderId])
+  @@index([paymentStatus, createdAt]) // for the 24h stale-pending cron sweep
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([orderStatus, createdAt(sort: Desc)])
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productId String?
+  name      String // snapshot
+  image     String? // snapshot
+  price     Decimal  @db.Decimal(10, 2) // snapshot
+  quantity  Int
+  weight    Decimal? @db.Decimal(10, 3) // snapshot
+}
+
+// ─── CMS ────────────────────────────────────────────────────────────────────
+
+model ContentType {
+  id          String         @id @default(cuid())
+  name        String         @unique // 'homepage', 'page', 'blog', 'collection', 'announcement', 'banner'
+  label       String
+  icon        String?
+  description String?
+  isSingleton Boolean        @default(false)
+  isSystem    Boolean        @default(false) // seeded types; can't be deleted
+  fields      Json // array of FieldDefinition — see src/server/cms/content-types.ts
+  entries     ContentEntry[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model ContentEntry {
+  id                 String                @id @default(cuid())
+  contentType        ContentType           @relation(fields: [contentTypeId], references: [id])
+  contentTypeId      String
+  slug               String
+  status             ContentStatus         @default(draft)
+  data               Json // working draft copy
+  publishedData      Json? // decoupled snapshot at last publish
+  seoMetaTitle       String?
+  seoMetaDescription String?
+  seoOgImage         String?
+  seoCanonicalUrl    String?
+  seoNoIndex         Boolean               @default(false)
+  publishedAt        DateTime?
+  publishedBy        User?                 @relation("ContentEntryPublishedBy", fields: [publishedById], references: [id])
+  publishedById      String?
+  createdBy          User?                 @relation("ContentEntryCreatedBy", fields: [createdById], references: [id])
+  createdById        String?
+  updatedBy          User?                 @relation("ContentEntryUpdatedBy", fields: [updatedById], references: [id])
+  updatedById        String?
+  versions           ContentEntryVersion[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@unique([contentTypeId, slug])
+  @@index([contentTypeId, status])
+  @@index([contentTypeId, status, updatedAt(sort: Desc)])
+}
+
+model ContentEntryVersion {
+  id            String        @id @default(cuid())
+  entry         ContentEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  entryId       String
+  versionNumber Int
+  data          Json
+  status        ContentStatus
+  label         String?
+  savedById     String?
+  savedAt       DateTime      @default(now())
+
+  @@index([entryId, versionNumber])
+}
+
+model MediaAsset {
+  id           String   @id @default(cuid())
+  filename     String // Cloudinary public_id
+  originalName String
+  url          String
+  folder       String   @default("cms")
+  mimeType     String
+  size         Int
+  width        Int?
+  height       Int?
+  format       String?
+  alt          String?
+  tags         String[]
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id])
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  @@index([folder])
+}
