@@ -1,7 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { auth } from "@/server/auth/auth";
-import { getCartWithProducts } from "@/server/cart";
+import {
+  getCartWithProducts,
+  getWishlistProductIds,
+  getCartQuantityMap,
+} from "@/server/cart";
+import { CartRecommendations } from "@/components/storefront/cart/cart-recommendations";
 import { toPaise, MAX_ITEM_QUANTITY } from "@/server/orders/money";
 import { formatINR } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -21,7 +26,11 @@ export default async function CartPage() {
 }
 
 async function AuthedCart({ userId }: { userId: string }) {
-  const cart = await getCartWithProducts(userId);
+  const [cart, wishlistIds, cartQuantities] = await Promise.all([
+    getCartWithProducts(userId),
+    getWishlistProductIds(userId),
+    getCartQuantityMap(userId),
+  ]);
   const rows = (cart?.items ?? []).filter((i) => i.product.isActive);
 
   if (rows.length === 0) {
@@ -41,6 +50,7 @@ async function AuthedCart({ userId }: { userId: string }) {
   );
 
   return (
+    <>
     <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
       <div className="space-y-4">
         {rows.map((item) => (
@@ -65,9 +75,12 @@ async function AuthedCart({ userId }: { userId: string }) {
               <p className="mt-1 text-sm text-muted-foreground">
                 {formatINR(item.product.price.toString())}
               </p>
+              {/* No count — see src/lib/stock-label.ts. */}
               {item.product.stock < item.quantity && (
                 <p className="mt-1 text-xs text-destructive">
-                  Only {item.product.stock} left in stock
+                  {item.product.stock === 0
+                    ? "Now out of stock"
+                    : "We have fewer of these than you've added"}
                 </p>
               )}
             </div>
@@ -83,5 +96,14 @@ async function AuthedCart({ userId }: { userId: string }) {
         <CartSummary subtotalPaise={subtotalPaise} />
       </div>
     </div>
+
+    <CartRecommendations
+      excludeProductIds={rows.map((r) => r.productId)}
+      subtotalPaise={subtotalPaise}
+      isAuthed
+      wishlistIds={wishlistIds}
+      cartQuantities={cartQuantities}
+    />
+    </>
   );
 }
