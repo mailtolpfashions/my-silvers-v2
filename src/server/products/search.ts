@@ -9,6 +9,8 @@ export type ProductListItem = {
   images: string[];
   isBestseller: boolean;
   isFeatured: boolean;
+  /** Raw count — never render it directly, use src/lib/stock-label.ts. */
+  stock: number;
   categoryName: string;
 };
 
@@ -67,11 +69,12 @@ export async function searchProducts(params: {
       images: string[];
       isBestseller: boolean;
       isFeatured: boolean;
+      stock: number;
       categoryName: string;
     }>
   >(
     `SELECT p."id", p."name", p."slug", p."price"::text, p."compareAtPrice"::text as "compareAtPrice",
-            p."images", p."isBestseller", p."isFeatured", c."name" as "categoryName"
+            p."images", p."isBestseller", p."isFeatured", p."stock", c."name" as "categoryName"
      FROM "Product" p
      JOIN "Category" c ON c."id" = p."categoryId"
      WHERE ${whereSql}

@@ -13,11 +13,54 @@ export async function getCartWithProducts(userId: string) {
   });
 }
 
+/**
+ * Total units in the cart, for the header badge. Aggregates in the database
+ * rather than loading every item and its product just to sum a column.
+ */
+export async function getCartItemCount(userId: string): Promise<number> {
+  const result = await prisma.cartItem.aggregate({
+    where: { cart: { userId } },
+    _sum: { quantity: true },
+  });
+  return result._sum.quantity ?? 0;
+}
+
+/** Quantity of one product already in the cart — 0 when absent. */
+export async function getCartQuantityFor(userId: string, productId: string): Promise<number> {
+  const item = await prisma.cartItem.findFirst({
+    where: { cart: { userId }, productId },
+    select: { quantity: true },
+  });
+  return item?.quantity ?? 0;
+}
+
+/** Thrown when the product sold out between the page rendering and the click. */
+export class OutOfStockError extends Error {
+  constructor() {
+    super("OUT_OF_STOCK");
+    this.name = "OutOfStockError";
+  }
+}
+
+/** Thrown when the cart already holds every unit that remains in stock. */
+export class StockLimitReachedError extends Error {
+  constructor() {
+    super("STOCK_LIMIT_REACHED");
+    this.name = "StockLimitReachedError";
+  }
+}
+
 export async function addToCart(userId: string, productId: string, quantity = 1) {
   const product = await prisma.product.findFirst({
     where: { id: productId, isActive: true },
   });
   if (!product) throw new Error("PRODUCT_UNAVAILABLE");
+
+  // Stock is re-read here, not trusted from the page the customer is looking
+  // at — it may have been rendered minutes ago. This is a courtesy check for a
+  // clear, early error; the binding guarantee is still the conditional UPDATE
+  // in decrementStock() at order time. Nothing is reserved by adding to a cart.
+  if (product.stock <= 0) throw new OutOfStockError();
 
   const qty = Math.max(1, Math.min(MAX_ITEM_QUANTITY, Math.trunc(quantity) || 1));
   const cart = await prisma.cart.upsert({
@@ -29,7 +72,14 @@ export async function addToCart(userId: string, productId: string, quantity = 1)
   const existing = await prisma.cartItem.findUnique({
     where: { cartId_productId: { cartId: cart.id, productId } },
   });
-  const newQty = Math.min(MAX_ITEM_QUANTITY, (existing?.quantity ?? 0) + qty);
+  const currentQty = existing?.quantity ?? 0;
+
+  // Cap at whatever is actually in stock, so the cart can never ask for more
+  // than exists — which would otherwise only surface at checkout.
+  const ceiling = Math.min(MAX_ITEM_QUANTITY, product.stock);
+  if (currentQty >= ceiling) throw new StockLimitReachedError();
+
+  const newQty = Math.min(ceiling, currentQty + qty);
 
   await prisma.cartItem.upsert({
     where: { cartId_productId: { cartId: cart.id, productId } },

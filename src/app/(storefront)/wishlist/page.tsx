@@ -36,6 +36,7 @@ export default async function WishlistPage() {
                 images: product.images,
                 isBestseller: product.isBestseller,
                 isFeatured: product.isFeatured,
+                stock: product.stock,
                 categoryName: product.category.name,
               }}
             />

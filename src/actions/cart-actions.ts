@@ -10,11 +10,29 @@ async function requireUserId(): Promise<string> {
   return session.user.id;
 }
 
-export async function addToCartAction(productId: string, quantity = 1) {
+export type AddToCartResult =
+  | { ok: true }
+  | { ok: false; reason: "out_of_stock" | "stock_limit" | "unavailable" };
+
+export async function addToCartAction(
+  productId: string,
+  quantity = 1
+): Promise<AddToCartResult> {
   const userId = await requireUserId();
-  await cart.addToCart(userId, productId, quantity);
+  try {
+    await cart.addToCart(userId, productId, quantity);
+  } catch (error) {
+    // Returned rather than thrown: these are ordinary outcomes the shopper
+    // needs explaining, not failures.
+    if (error instanceof cart.OutOfStockError) return { ok: false, reason: "out_of_stock" };
+    if (error instanceof cart.StockLimitReachedError) return { ok: false, reason: "stock_limit" };
+    if (error instanceof Error && error.message === "PRODUCT_UNAVAILABLE") {
+      return { ok: false, reason: "unavailable" };
+    }
+    throw error;
+  }
   revalidatePath("/cart");
-  return { ok: true as const };
+  return { ok: true };
 }
 
 export async function setCartQuantityAction(productId: string, quantity: number) {

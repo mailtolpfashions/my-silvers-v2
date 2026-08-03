@@ -106,6 +106,7 @@ async function resolveOne(spec: SectionSpec, index: number): Promise<HomepageSec
       images: p.images,
       isBestseller: p.isBestseller,
       isFeatured: p.isFeatured,
+      stock: p.stock,
       categoryName: p.category.name,
     })),
   };

@@ -14,7 +14,13 @@ export function paiseToRupeeString(paise: number): string {
 
 export const FREE_SHIPPING_THRESHOLD_PAISE = 999 * 100;
 export const SHIPPING_CHARGE_PAISE = 49 * 100;
-export const MAX_ITEM_QUANTITY = 10;
+/**
+ * Per-item cap in a single order. Low for jewellery: pieces are often unique
+ * or near-unique, a genuine customer rarely wants more than a matching pair,
+ * and a large quantity of one design is more often a reseller or card testing.
+ * The effective cap is min(this, product.stock) — see server/cart.ts.
+ */
+export const MAX_ITEM_QUANTITY = 3;
 
 export function shippingChargePaise(subtotalPaise: number): number {
   return subtotalPaise >= FREE_SHIPPING_THRESHOLD_PAISE ? 0 : SHIPPING_CHARGE_PAISE;

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
+import { stockLabel, isScarce } from "@/lib/stock-label";
 import type { ProductListItem } from "@/server/products/search";
 
 const inr = new Intl.NumberFormat("en-IN", {
@@ -33,10 +34,16 @@ export function ProductCard({ product }: { product: ProductListItem }) {
           </div>
         )}
 
-        {product.isBestseller && (
+        {product.stock <= 0 ? (
           <Badge className="absolute left-3 top-3" variant="secondary">
-            Bestseller
+            Out of stock
           </Badge>
+        ) : (
+          product.isBestseller && (
+            <Badge className="absolute left-3 top-3" variant="secondary">
+              Bestseller
+            </Badge>
+          )
         )}
         {discount !== null && discount > 0 && (
           <Badge className="absolute right-3 top-3 bg-gold text-ink hover:bg-gold">
@@ -62,6 +69,10 @@ export function ProductCard({ product }: { product: ProductListItem }) {
             </span>
           )}
         </div>
+        {/* Scarcity, never a count — see src/lib/stock-label.ts. */}
+        {isScarce(product.stock) && (
+          <p className="text-xs font-medium text-gold-text">{stockLabel(product.stock)}</p>
+        )}
       </div>
     </Link>
   );
