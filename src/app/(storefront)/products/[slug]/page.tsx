@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import { auth } from "@/server/auth/auth";
 import { getProductBySlug } from "@/server/products/search";
-import { isInWishlist } from "@/server/cart";
+import { isInWishlist, getCartQuantityFor } from "@/server/cart";
+import { stockLabel, isScarce } from "@/lib/stock-label";
 import { Badge } from "@/components/ui/badge";
 import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
 import { WishlistButton } from "@/components/storefront/wishlist-button";
@@ -19,7 +20,12 @@ export default async function ProductDetailPage({
   if (!product) notFound();
 
   const isAuthed = !!session?.user?.id;
-  const inWishlist = isAuthed ? await isInWishlist(session.user.id, product.id) : false;
+  const [inWishlist, cartQuantity] = isAuthed
+    ? await Promise.all([
+        isInWishlist(session.user.id, product.id),
+        getCartQuantityFor(session.user.id, product.id),
+      ])
+    : [false, 0];
   const image = product.images[0];
 
   return (
@@ -75,13 +81,20 @@ export default async function ProductDetailPage({
               </div>
             )}
             <div className="flex justify-between border-b py-2">
-              <dt className="text-muted-foreground">Stock</dt>
-              <dd>{product.stock > 0 ? "In stock" : "Out of stock"}</dd>
+              <dt className="text-muted-foreground">Availability</dt>
+              <dd className={isScarce(product.stock) ? "font-medium text-gold-text" : ""}>
+                {stockLabel(product.stock)}
+              </dd>
             </div>
           </dl>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <AddToCartButton productId={product.id} stock={product.stock} isAuthed={isAuthed} />
+            <AddToCartButton
+              productId={product.id}
+              stock={product.stock}
+              isAuthed={isAuthed}
+              cartQuantity={cartQuantity}
+            />
             <WishlistButton
               productId={product.id}
               isAuthed={isAuthed}

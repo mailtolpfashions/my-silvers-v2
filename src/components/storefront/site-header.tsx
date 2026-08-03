@@ -1,12 +1,15 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingBag, Heart } from "lucide-react";
+import { Heart } from "lucide-react";
 import { auth } from "@/server/auth/auth";
+import { getCartItemCount } from "@/server/cart";
 import { Button } from "@/components/ui/button";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { CartButton } from "@/components/storefront/cart-button";
 
 export async function SiteHeader() {
   const session = await auth();
+  const cartCount = session?.user?.id ? await getCartItemCount(session.user.id) : 0;
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -40,11 +43,7 @@ export async function SiteHeader() {
               <Heart />
             </Link>
           </Button>
-          <Button asChild variant="ghost" size="icon" aria-label="Cart">
-            <Link href="/cart">
-              <ShoppingBag />
-            </Link>
-          </Button>
+          <CartButton isAuthed={!!session?.user} initialCount={cartCount} />
           {session?.user?.role === "admin" && (
             <Button asChild variant="ghost" size="sm">
               <Link href="/admin">Admin</Link>
