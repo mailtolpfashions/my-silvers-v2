@@ -5,12 +5,34 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ─── Tailwind theme mapping ──────────────────────────────────────────────────
+   Semantic shadcn tokens (left) resolve to the brand palette defined in :root.
+   Brand tokens are also exposed directly (bg-gold, text-ink, font-brand, …) so
+   components can reach for a brand colour when no semantic slot fits.
+   ─────────────────────────────────────────────────────────────────────────── */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+
+  --font-sans: var(--font-dm-sans);
+  --font-heading: var(--font-playfair);
+  --font-serif: var(--font-playfair);
+  --font-brand: var(--font-raleway);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+
+  /* ── Brand palette (direct utilities) ── */
+  --color-ivory: var(--ivory);
+  --color-ink: var(--ink);
+  --color-charcoal: var(--charcoal);
+  --color-warm-gray: var(--warm-gray);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-gold-subtle: var(--gold-subtle);
+  --color-gold-text: var(--gold-text);
+  --color-blush: var(--blush);
+  --color-surface: var(--surface);
+
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -28,6 +50,7 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -40,6 +63,8 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+
+  /* --radius 20px reproduces the old scale: sm 12 / md 16 / lg 20 / xl 28 */
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -49,83 +74,151 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ─── Light theme ─────────────────────────────────────────────────────────── */
+
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Brand palette — carried over verbatim from the previous storefront. */
+  --ivory: #fffdf8;
+  --ink: #0c0c0e;
+  --charcoal: #2d2d2d;
+  --warm-gray: #9a9a9a;
+  --gold: #c9a96e;
+  --gold-light: #d4b87e;
+  --gold-subtle: #f5ecd9;
+  --blush: #f5e6e0;
+  --surface: #f7f5f3;
+
+  /* Darkened gold for small text — the brand #C9A96E is only 2.20:1 on ivory
+     and fails WCAG AA. Use --gold for fills/borders/decoration, this for text. */
+  --gold-text: #8a6d33;
+
+  --background: var(--ivory);
+  --foreground: var(--charcoal);
+  --card: #ffffff;
+  --card-foreground: var(--charcoal);
+  --popover: #ffffff;
+  --popover-foreground: var(--charcoal);
+
+  --primary: var(--ink);
+  --primary-foreground: var(--ivory);
+  --secondary: var(--surface);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface);
+  /* Brand --color-muted was #7A7A8A (4.15:1 on ivory — under AA). Darkened. */
+  --muted-foreground: #6b6b7a;
+  --accent: var(--gold-subtle);
+  --accent-foreground: var(--ink);
+
+  /* Brand error was #EF4444 — only 3.76:1 against the white button label.
+     red-600 keeps the hue and reaches 4.83:1. */
+  --destructive: #dc2626;
+  --success: #22c55e;
+
+  /* Decorative dividers/card edges (exempt from the 3:1 rule) … */
+  --border: #e8e4e0;
+  /* … versus real control boundaries, which need 3:1 — this is 3.30:1. */
+  --input: #948b7e;
+  --ring: var(--gold-text);
+
+  --chart-1: var(--gold);
+  --chart-2: var(--gold-light);
+  --chart-3: var(--warm-gray);
+  --chart-4: var(--charcoal);
+  --chart-5: var(--ink);
+
+  --radius: 1.25rem;
+
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--charcoal);
+  --sidebar-primary: var(--ink);
+  --sidebar-primary-foreground: var(--ivory);
+  --sidebar-accent: var(--gold-subtle);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: #e8e4e0;
+  --sidebar-ring: var(--gold-text);
 }
 
+/* ─── Dark theme ──────────────────────────────────────────────────────────── */
+
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #0c0c0e;
+  --foreground: #f5f3ef;
+  --card: #17171a;
+  --card-foreground: #f5f3ef;
+  --popover: #17171a;
+  --popover-foreground: #f5f3ef;
+
+  /* Gold carries the accent on dark, where it finally has room to breathe. */
+  --primary: var(--gold);
+  --primary-foreground: var(--ink);
+  --secondary: #1f1f23;
+  --secondary-foreground: #f5f3ef;
+  --muted: #1f1f23;
+  --muted-foreground: #a8a8b4;
+  --accent: #26241f;
+  --accent-foreground: var(--gold-light);
+
+  --destructive: #f87171;
+  --success: #4ade80;
+
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 24%);
+  --ring: var(--gold);
+
+  --gold-text: var(--gold-light);
+
+  --chart-1: var(--gold);
+  --chart-2: var(--gold-light);
+  --chart-3: #a8a8b4;
+  --chart-4: #6b6b7a;
+  --chart-5: #f5f3ef;
+
+  --sidebar: #17171a;
+  --sidebar-foreground: #f5f3ef;
+  --sidebar-primary: var(--gold);
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent: #26241f;
+  --sidebar-accent-foreground: var(--gold-light);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: var(--gold);
 }
+
+/* ─── Base ────────────────────────────────────────────────────────────────── */
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
-  html {
-    @apply font-sans;
+  /* Playfair Display for headings — matches the previous storefront. */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading text-ink;
   }
+  .dark h1,
+  .dark h2,
+  .dark h3,
+  .dark h4,
+  .dark h5,
+  .dark h6 {
+    color: var(--foreground);
+  }
+}
+
+/* ─── Brand utilities ─────────────────────────────────────────────────────── */
+
+/* Letterspaced uppercase eyebrow above section headings. */
+.label-eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold-text);
+  line-height: 1;
 }
