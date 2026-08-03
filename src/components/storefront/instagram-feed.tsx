@@ -21,15 +21,23 @@ function InstagramGlyph({ className }: { className?: string }) {
   );
 }
 
-export async function InstagramFeed() {
+/** Heading and eyebrow come from the CMS homepage section that renders this. */
+export async function InstagramFeed({
+  title,
+  eyebrow,
+}: {
+  title?: string;
+  eyebrow?: string;
+} = {}) {
   const posts = await getInstagramFeed(8);
   if (posts.length === 0) return null;
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-16">
+      {eyebrow && <p className="label-eyebrow mb-2 text-center">{eyebrow}</p>}
       <div className="mb-6 flex items-center justify-center gap-2">
         <InstagramGlyph className="h-5 w-5" />
-        <h2 className="text-xl font-semibold">Follow us on Instagram</h2>
+        {title && <h2 className="text-xl font-semibold">{title}</h2>}
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {posts.map((post) => (

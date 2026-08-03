@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HeroCarousel, type HeroSlide } from "@/components/storefront/hero-carousel";
 import type { EntryData } from "@/server/cms/types";
 
 /**
@@ -9,16 +10,37 @@ import type { EntryData } from "@/server/cms/types";
  * between the real homepage (published data) and the live-preview pane
  * (draft data) — one renderer, no drift between preview and production.
  */
-export function HomepageView({ data }: { data: EntryData }) {
-  const heroTitle = (data.heroTitle as string) || "Jewellery, crafted for everyday wear.";
+export function HomepageView({
+  data,
+  heroSlides = [],
+}: {
+  data: EntryData;
+  /** Published `heroSlide` entries. When present they replace the single hero. */
+  heroSlides?: HeroSlide[];
+}) {
+  // No copy defaults here — every string is the CMS entry's to own. Each is
+  // rendered only when set, so clearing a field removes it rather than
+  // silently falling back to wording nobody can edit.
+  const heroTitle = data.heroTitle as string | undefined;
   const heroSubtitle = data.heroSubtitle as string | undefined;
-  const heroCta = (data.heroCta as string) || "Shop the collection";
+  const heroCta = data.heroCta as string | undefined;
   const heroLink = (data.heroLink as string) || "/products";
   const heroImage = data.heroImage as string | undefined;
   const heroBackground = data.heroBackground as string | undefined;
   const trustItems = (data.trustItems as Array<{ icon?: string; text?: string }>) ?? [];
   const testimonials =
     (data.testimonials as Array<{ name?: string; quote?: string; rating?: number }>) ?? [];
+
+  // Hero slides win when any are published; otherwise fall back to the single
+  // hero on the homepage singleton, so an empty slide list is never a blank page.
+  if (heroSlides.length > 0) {
+    return (
+      <>
+        <HeroCarousel slides={heroSlides} />
+        <HomepageSections trustItems={trustItems} testimonials={testimonials} />
+      </>
+    );
+  }
 
   return (
     <>
@@ -31,23 +53,28 @@ export function HomepageView({ data }: { data: EntryData }) {
             <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
               925 Sterling Silver
             </p>
-            <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
-              {heroTitle}
-            </h1>
+            {heroTitle && (
+              <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
+                {heroTitle}
+              </h1>
+            )}
             {heroSubtitle && (
               <p className={`mt-4 max-w-xl text-muted-foreground ${heroImage ? "" : "mx-auto"}`}>
                 {heroSubtitle}
               </p>
             )}
-            <Button asChild size="lg" className="mt-8">
-              <Link href={heroLink}>{heroCta}</Link>
-            </Button>
+            {heroCta && (
+              <Button asChild size="lg" className="mt-8">
+                <Link href={heroLink}>{heroCta}</Link>
+              </Button>
+            )}
           </div>
           {heroImage && (
             <div className="relative aspect-[4/3] overflow-hidden rounded-xl">
               <Image
                 src={heroImage}
-                alt={heroTitle}
+                // Decorative when there's no headline to describe it.
+                alt={heroTitle ?? ""}
                 fill
                 className="object-cover"
                 sizes="(max-width: 1024px) 100vw, 50vw"
@@ -58,6 +85,21 @@ export function HomepageView({ data }: { data: EntryData }) {
         </div>
       </section>
 
+      <HomepageSections trustItems={trustItems} testimonials={testimonials} />
+    </>
+  );
+}
+
+/** Trust bar + testimonials — shared by the carousel and single-hero layouts. */
+function HomepageSections({
+  trustItems,
+  testimonials,
+}: {
+  trustItems: Array<{ icon?: string; text?: string }>;
+  testimonials: Array<{ name?: string; quote?: string; rating?: number }>;
+}) {
+  return (
+    <>
       {trustItems.length > 0 && (
         <section className="border-y bg-muted/30">
           <div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-x-10 gap-y-3 px-4 py-5">

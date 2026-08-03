@@ -34,6 +34,41 @@ const systemContentTypes = [
         ],
       },
       {
+        name: "sections",
+        label: "Homepage sections — order here is the order on the page",
+        type: "array",
+        of: [
+          {
+            name: "type",
+            label: "Section type",
+            type: "select",
+            options: ["products", "collections", "instagram"],
+            required: true,
+          },
+          { name: "title", label: "Heading", type: "text" },
+          { name: "eyebrow", label: "Eyebrow", type: "text" },
+          {
+            name: "source",
+            label: "Products: which products",
+            type: "select",
+            options: ["newest", "bestseller", "featured", "category"],
+          },
+          {
+            name: "categorySlug",
+            label: "Products: category slug (when source is 'category')",
+            type: "text",
+          },
+          {
+            name: "featuredOnly",
+            label: "Collections: featured only",
+            type: "boolean",
+          },
+          { name: "limit", label: "How many items", type: "number" },
+          { name: "viewAllHref", label: "'View all' link (blank to hide)", type: "text" },
+          { name: "isActive", label: "Show this section", type: "boolean" },
+        ],
+      },
+      {
         name: "testimonials",
         label: "Testimonials",
         type: "array",
@@ -43,6 +78,30 @@ const systemContentTypes = [
           { name: "rating", label: "Rating", type: "number" },
         ],
       },
+    ],
+  },
+  {
+    name: "heroSlide",
+    label: "Hero slides",
+    icon: "gallery-horizontal",
+    isSingleton: false,
+    fields: [
+      { name: "eyebrow", label: "Eyebrow", type: "text" },
+      {
+        name: "headline",
+        label: "Headline (use a line break for two lines)",
+        type: "textarea",
+        required: true,
+      },
+      { name: "subline", label: "Subline", type: "textarea" },
+      { name: "ctaLabel", label: "Button label", type: "text" },
+      { name: "ctaHref", label: "Button link", type: "text" },
+      { name: "secondaryLabel", label: "Secondary link label", type: "text" },
+      { name: "secondaryHref", label: "Secondary link href", type: "text" },
+      { name: "media", label: "Background image or video", type: "image" },
+      { name: "overlayOpacity", label: "Overlay opacity (0–100)", type: "number" },
+      { name: "isActive", label: "Active", type: "boolean" },
+      { name: "sortOrder", label: "Sort order", type: "number" },
     ],
   },
   {
@@ -209,8 +268,73 @@ async function seedCatalog() {
   console.log("Seeded sample category + product.");
 }
 
+// ─── Default homepage entry ────────────────────────────────────────────────
+
+/**
+ * Gives a fresh database a working, EDITABLE homepage. These values live in the
+ * CMS entry rather than in code so an editor can change them on day one — the
+ * storefront components hold no copy of their own.
+ *
+ * Only created when absent: never overwrites a homepage someone has edited.
+ */
+async function seedDefaultHomepage() {
+  const contentType = await prisma.contentType.findUnique({ where: { name: "homepage" } });
+  if (!contentType) return;
+
+  const existing = await prisma.contentEntry.findFirst({
+    where: { contentTypeId: contentType.id },
+    select: { id: true },
+  });
+  if (existing) {
+    console.log("Homepage entry already exists — leaving its content unchanged.");
+    return;
+  }
+
+  const data = {
+    heroTitle: "Jewellery, crafted for everyday wear.",
+    heroSubtitle:
+      "Timeless 925 sterling silver pieces, designed to be worn every day — not just on special occasions.",
+    heroCta: "Shop the collection",
+    heroLink: "/products",
+    sections: [
+      {
+        type: "products",
+        title: "New arrivals",
+        eyebrow: "Just landed",
+        source: "newest",
+        limit: 8,
+        viewAllHref: "/products?sort=newest",
+        isActive: true,
+      },
+      {
+        type: "products",
+        title: "Bestsellers",
+        eyebrow: "Most loved",
+        source: "bestseller",
+        limit: 8,
+        viewAllHref: "/products",
+        isActive: true,
+      },
+    ],
+  };
+
+  await prisma.contentEntry.create({
+    data: {
+      contentTypeId: contentType.id,
+      slug: "homepage",
+      status: "published",
+      data,
+      publishedData: data,
+      publishedAt: new Date(),
+    },
+  });
+
+  console.log("Created a default published homepage entry (editable in the CMS).");
+}
+
 async function main() {
   await seedContentTypes();
+  await seedDefaultHomepage();
   await seedAdminUser();
   await seedCatalog();
 }

@@ -1,7 +1,9 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ShoppingBag, Heart } from "lucide-react";
 import { auth } from "@/server/auth/auth";
 import { Button } from "@/components/ui/button";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 
 export async function SiteHeader() {
   const session = await auth();
@@ -9,16 +11,26 @@ export async function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link href="/" className="text-lg font-semibold tracking-tight">
-          MY Silvers
+        <Link href="/" aria-label="MY Silvers — home">
+          <Image
+            src="/logo.png"
+            alt="MY Silvers"
+            width={519}
+            height={311}
+            priority
+            className="h-9 w-auto"
+          />
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm text-muted-foreground sm:flex">
           <Link href="/products" className="hover:text-foreground">
             Shop
           </Link>
-          <Link href="/category/rings" className="hover:text-foreground">
-            Rings
+          <Link href="/collections" className="hover:text-foreground">
+            Collections
+          </Link>
+          <Link href="/blog" className="hover:text-foreground">
+            Journal
           </Link>
         </nav>
 
@@ -45,9 +57,12 @@ export async function SiteHeader() {
               </Button>
             )}
           {session?.user ? (
-            <Button asChild variant="outline" size="sm">
-              <Link href="/account">Account</Link>
-            </Button>
+            <>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/account">Account</Link>
+              </Button>
+              <SignOutButton variant="ghost" />
+            </>
           ) : (
             <Button asChild size="sm">
               <Link href="/login">Sign in</Link>

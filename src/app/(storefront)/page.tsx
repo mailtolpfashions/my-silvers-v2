@@ -1,70 +1,37 @@
-import Link from "next/link";
-import { prisma } from "@/server/db";
-import { getPublishedEntry } from "@/server/cms/entries";
-import { Button } from "@/components/ui/button";
-import { ProductCard } from "@/components/storefront/product-card";
+import { getPublishedEntry, listPublishedEntries } from "@/server/cms/entries";
+import { toHeroSlides } from "@/server/cms/hero-slides";
+import { resolveHomepageSections } from "@/server/products/homepage-sections";
 import { HomepageView } from "@/components/storefront/cms/homepage-view";
-import { InstagramFeed } from "@/components/storefront/instagram-feed";
+import { HeroCarousel } from "@/components/storefront/hero-carousel";
+import { HomepageSection } from "@/components/storefront/homepage-section";
 
+/**
+ * The homepage decides nothing about content. Hero, sections, their order,
+ * headings, item counts and links all come from the CMS `homepage` entry and
+ * `heroSlide` entries. Add a section by extending the content type's field
+ * definitions in prisma/seed.ts — never by adding JSX here.
+ */
 export default async function HomePage() {
-  const [homepage, featured] = await Promise.all([
+  const [homepage, heroEntries] = await Promise.all([
     getPublishedEntry("homepage"),
-    prisma.product.findMany({
-      where: { isActive: true, isFeatured: true },
-      include: { category: true },
-      orderBy: { createdAt: "desc" },
-      take: 8,
-    }),
+    listPublishedEntries("heroSlide", 10),
   ]);
+
+  // Depends on the homepage entry, so it can't join the batch above.
+  const sections = await resolveHomepageSections(homepage?.data);
+  const heroSlides = toHeroSlides(heroEntries);
 
   return (
     <div>
       {homepage ? (
-        <HomepageView data={homepage.data} />
+        <HomepageView data={homepage.data} heroSlides={heroSlides} />
       ) : (
-        // Static fallback until the CMS homepage is published.
-        <section className="mx-auto max-w-6xl px-4 py-20 text-center">
-          <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
-            925 Sterling Silver
-          </p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
-            Jewellery, crafted for everyday wear.
-          </h1>
-          <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-            Timeless sterling silver pieces — rings, earrings, and more — designed
-            to be worn every day, not just on special occasions.
-          </p>
-          <Button asChild size="lg" className="mt-8">
-            <Link href="/products">Shop the collection</Link>
-          </Button>
-        </section>
+        heroSlides.length > 0 && <HeroCarousel slides={heroSlides} />
       )}
 
-      {featured.length > 0 && (
-        <section className="mx-auto max-w-6xl px-4 py-16">
-          <h2 className="mb-6 text-xl font-semibold">Featured</h2>
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
-            {featured.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={{
-                  id: product.id,
-                  name: product.name,
-                  slug: product.slug,
-                  price: product.price.toString(),
-                  compareAtPrice: product.compareAtPrice?.toString() ?? null,
-                  images: product.images,
-                  isBestseller: product.isBestseller,
-                  isFeatured: product.isFeatured,
-                  categoryName: product.category.name,
-                }}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      <InstagramFeed />
+      {sections.map((section) => (
+        <HomepageSection key={section.key} section={section} />
+      ))}
     </div>
   );
 }
