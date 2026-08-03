@@ -93,6 +93,11 @@ const homepage: EntrySpec = {
         isActive: true,
       },
       {
+        type: "banner",
+        bannerPosition: "homepage-mid",
+        isActive: true,
+      },
+      {
         type: "products",
         title: "Rings for every day",
         eyebrow: "Category",
