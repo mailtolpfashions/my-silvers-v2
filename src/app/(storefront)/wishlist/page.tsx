@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth/auth";
-import { getWishlistProducts } from "@/server/cart";
+import { getWishlistProducts, getCartQuantityMap } from "@/server/cart";
 import { ProductCard } from "@/components/storefront/product-card";
 import { Button } from "@/components/ui/button";
 
@@ -9,7 +9,10 @@ export default async function WishlistPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login?redirect=/wishlist");
 
-  const products = await getWishlistProducts(session.user.id);
+  const [products, cartQuantities] = await Promise.all([
+    getWishlistProducts(session.user.id),
+    getCartQuantityMap(session.user.id),
+  ]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -27,6 +30,10 @@ export default async function WishlistPage() {
           {products.map((product) => (
             <ProductCard
               key={product.id}
+              isAuthed
+              // Everything on this page is, by definition, wishlisted.
+              inWishlist
+              cartQuantity={cartQuantities.get(product.id) ?? 0}
               product={{
                 id: product.id,
                 name: product.name,

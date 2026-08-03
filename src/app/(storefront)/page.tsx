@@ -1,3 +1,5 @@
+import { auth } from "@/server/auth/auth";
+import { getCartQuantityMap, getWishlistProductIds } from "@/server/cart";
 import { getPublishedEntry, listPublishedEntries } from "@/server/cms/entries";
 import { toHeroSlides } from "@/server/cms/hero-slides";
 import { resolveHomepageSections } from "@/server/products/homepage-sections";
@@ -21,6 +23,12 @@ export default async function HomePage() {
   const sections = await resolveHomepageSections(homepage?.data);
   const heroSlides = toHeroSlides(heroEntries);
 
+  const session = await auth();
+  const userId = session?.user?.id;
+  const [wishlistIds, cartQuantities] = userId
+    ? await Promise.all([getWishlistProductIds(userId), getCartQuantityMap(userId)])
+    : [new Set<string>(), new Map<string, number>()];
+
   return (
     <div>
       {homepage ? (
@@ -30,7 +38,13 @@ export default async function HomePage() {
       )}
 
       {sections.map((section) => (
-        <HomepageSection key={section.key} section={section} />
+        <HomepageSection
+          key={section.key}
+          section={section}
+          isAuthed={!!userId}
+          wishlistIds={wishlistIds}
+          cartQuantities={cartQuantities}
+        />
       ))}
     </div>
   );

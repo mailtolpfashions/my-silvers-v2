@@ -34,11 +34,14 @@ export function AddToCartButton({
   isAuthed,
   /** Quantity already in the signed-in customer's cart. */
   cartQuantity = 0,
+  /** Compact rendering for listing cards: full width, small, no helper text. */
+  compact = false,
 }: {
   productId: string;
   stock: number;
   isAuthed: boolean;
   cartQuantity?: number;
+  compact?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -88,6 +91,31 @@ export function AddToCartButton({
         action: { label: "View cart", onClick: () => router.push("/cart") },
       });
     }
+  }
+
+  if (compact) {
+    return (
+      <Button
+        size="sm"
+        variant={inCart ? "outline" : "default"}
+        className="mt-3 w-full"
+        disabled={stock === 0 || isPending || atStockLimit}
+        onClick={handleClick}
+      >
+        {stock === 0 ? (
+          "Out of stock"
+        ) : isPending ? (
+          "Adding…"
+        ) : inCart ? (
+          <>
+            <Check className="size-3.5" />
+            In cart{quantityInCart > 1 && ` (${quantityInCart})`}
+          </>
+        ) : (
+          "Add to cart"
+        )}
+      </Button>
+    );
   }
 
   return (

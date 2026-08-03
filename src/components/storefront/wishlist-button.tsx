@@ -11,10 +11,13 @@ export function WishlistButton({
   productId,
   isAuthed,
   initialInWishlist,
+  /** Circular heart-only button, for the corner of a listing card. */
+  iconOnly = false,
 }: {
   productId: string;
   isAuthed: boolean;
   initialInWishlist: boolean;
+  iconOnly?: boolean;
 }) {
   const [inWishlist, setInWishlist] = useState(initialInWishlist);
   const [isPending, startTransition] = useTransition();
@@ -34,6 +37,22 @@ export function WishlistButton({
         toast.error("Could not update wishlist.");
       }
     });
+  }
+
+  if (iconOnly) {
+    return (
+      <Button
+        variant="secondary"
+        size="icon"
+        className="size-8 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background"
+        disabled={isPending}
+        onClick={handleClick}
+        aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
+        aria-pressed={inWishlist}
+      >
+        <Heart className={`size-4 ${inWishlist ? "fill-destructive text-destructive" : ""}`} />
+      </Button>
+    );
   }
 
   return (

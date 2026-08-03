@@ -25,6 +25,30 @@ export async function getCartItemCount(userId: string): Promise<number> {
   return result._sum.quantity ?? 0;
 }
 
+/**
+ * Cart quantities for the whole cart, keyed by product id. Listing pages need
+ * per-card state; one query beats one per card.
+ */
+export async function getCartQuantityMap(userId: string): Promise<Map<string, number>> {
+  const items = await prisma.cartItem.findMany({
+    where: { cart: { userId } },
+    select: { productId: true, quantity: true },
+  });
+  return new Map(items.map((i) => [i.productId, i.quantity]));
+}
+
+/**
+ * Ids of every product in the customer's wishlist. Covers the entire wishlist,
+ * not one page, so infinite-scroll appends need no extra fetch.
+ */
+export async function getWishlistProductIds(userId: string): Promise<Set<string>> {
+  const wishlist = await prisma.wishlist.findUnique({
+    where: { userId },
+    select: { products: { select: { id: true } } },
+  });
+  return new Set((wishlist?.products ?? []).map((p) => p.id));
+}
+
 /** Quantity of one product already in the cart — 0 when absent. */
 export async function getCartQuantityFor(userId: string, productId: string): Promise<number> {
   const item = await prisma.cartItem.findFirst({
