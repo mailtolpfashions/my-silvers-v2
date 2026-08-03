@@ -17,8 +17,36 @@ import {
 import { readGuestCart, clearGuestCart } from "@/lib/guest-cart";
 import { formatINRPaise } from "@/lib/format";
 import { shippingChargePaise } from "@/server/orders/money";
+import { INDIAN_STATES, MAX_ADDRESSES } from "@/lib/validation/account";
+import { saveCheckoutAddressAction } from "@/actions/account-actions";
 
 export type CheckoutLine = { name: string; quantity: number; pricePaise: number };
+
+export type SavedAddress = {
+  id: string;
+  label: string | null;
+  fullName: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2: string | null;
+  city: string;
+  state: string;
+  pincode: string;
+  isDefault: boolean;
+};
+
+const NEW_ADDRESS = "new";
+
+/**
+ * Razorpay's prefill.contact only accepts a bare 10-digit number or +91-prefixed
+ * E.164 — anything with spaces, dashes or a leading 0 is dropped, and the
+ * customer is asked for a number they already gave us.
+ */
+function normaliseContact(raw: string): string | undefined {
+  const digits = raw.replace(/\D/g, "");
+  const last10 = digits.slice(-10);
+  return /^[6-9]\d{9}$/.test(last10) ? `+91${last10}` : undefined;
+}
 
 type PendingPayment = {
   orderId: string;
@@ -33,12 +61,15 @@ export function CheckoutForm({
   userEmail,
   userName,
   initialLines,
+  savedAddresses = [],
 }: {
   isAuthed: boolean;
   userEmail?: string;
   userName?: string;
   /** Authed carts are resolved server-side; guests hydrate client-side. */
   initialLines: CheckoutLine[] | null;
+  /** The signed-in customer's address book; empty for guests. */
+  savedAddresses?: SavedAddress[];
 }) {
   const router = useRouter();
   const [lines, setLines] = useState<CheckoutLine[] | null>(initialLines);
@@ -47,19 +78,42 @@ export function CheckoutForm({
   const [error, setError] = useState<string | null>(null);
   const [pendingPayment, setPendingPayment] = useState<PendingPayment | null>(null);
   const [paymentDismissed, setPaymentDismissed] = useState(false);
+  const [saveAddress, setSaveAddress] = useState(true);
+
+  // Preselect the default address so the common case is one click, not a form.
+  const preselected = savedAddresses.find((a) => a.isDefault) ?? savedAddresses[0];
+  const [selectedAddressId, setSelectedAddressId] = useState<string>(
+    preselected?.id ?? NEW_ADDRESS
+  );
 
   const [form, setForm] = useState({
     email: userEmail ?? "",
-    fullName: userName ?? "",
-    phone: "",
-    addressLine1: "",
-    addressLine2: "",
-    city: "",
-    state: "",
-    pincode: "",
+    fullName: preselected?.fullName ?? userName ?? "",
+    phone: preselected?.phone ?? "",
+    addressLine1: preselected?.addressLine1 ?? "",
+    addressLine2: preselected?.addressLine2 ?? "",
+    city: preselected?.city ?? "",
+    state: preselected?.state ?? "",
+    pincode: preselected?.pincode ?? "",
     notes: "",
     paymentMethod: "razorpay" as "razorpay" | "cod",
   });
+
+  /** Copies a saved address into the form, or clears it for manual entry. */
+  function chooseAddress(id: string) {
+    setSelectedAddressId(id);
+    const address = savedAddresses.find((a) => a.id === id);
+    setForm((f) => ({
+      ...f,
+      fullName: address?.fullName ?? userName ?? "",
+      phone: address?.phone ?? "",
+      addressLine1: address?.addressLine1 ?? "",
+      addressLine2: address?.addressLine2 ?? "",
+      city: address?.city ?? "",
+      state: address?.state ?? "",
+      pincode: address?.pincode ?? "",
+    }));
+  }
 
   // Guest: hydrate the order summary from localStorage + public summaries API.
   useEffect(() => {
@@ -116,7 +170,11 @@ export function CheckoutForm({
       currency: "INR",
       name: "MY Silvers",
       description: "Order payment",
-      prefill: { name: form.fullName, email: form.email, contact: form.phone },
+      prefill: {
+        name: form.fullName,
+        email: form.email,
+        contact: normaliseContact(form.phone),
+      },
       handler: async (resp) => {
         const result = await verifyPaymentAction({
           razorpayOrderId: resp.razorpay_order_id,
@@ -162,6 +220,20 @@ export function CheckoutForm({
       if (!result.ok) {
         setError(result.error);
         return;
+      }
+
+      // Fire-and-forget: the order is already placed, so a failure to save the
+      // address must never surface as a checkout error.
+      if (isAuthed && selectedAddressId === NEW_ADDRESS && saveAddress) {
+        void saveCheckoutAddressAction({
+          fullName: form.fullName,
+          phone: form.phone,
+          addressLine1: form.addressLine1,
+          addressLine2: form.addressLine2,
+          city: form.city,
+          state: form.state,
+          pincode: form.pincode,
+        });
       }
 
       if (result.razorpay) {
@@ -231,20 +303,121 @@ export function CheckoutForm({
 
           <fieldset className="space-y-4">
             <legend className="text-sm font-semibold">Shipping address</legend>
-            {field("fullName", "Full name", { required: true, autoComplete: "name" })}
-            {field("phone", "Phone", { required: true, autoComplete: "tel" })}
-            {field("addressLine1", "Address line 1", { required: true, autoComplete: "address-line1" })}
-            {field("addressLine2", "Address line 2 (optional)", { autoComplete: "address-line2" })}
-            <div className="grid grid-cols-2 gap-4">
-              {field("city", "City", { required: true, autoComplete: "address-level2" })}
-              {field("state", "State", { required: true, autoComplete: "address-level1" })}
-            </div>
-            {field("pincode", "Pincode", {
-              required: true,
-              autoComplete: "postal-code",
-              pattern: "[0-9]{6}",
-              title: "6-digit pincode",
-            })}
+
+            {savedAddresses.length > 0 && (
+              <div className="space-y-2">
+                {savedAddresses.map((address) => (
+                  <label
+                    key={address.id}
+                    className={`flex cursor-pointer gap-3 rounded-lg border p-3 text-sm transition-colors ${
+                      selectedAddressId === address.id ? "border-foreground bg-muted/50" : ""
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="savedAddress"
+                      className="mt-1"
+                      checked={selectedAddressId === address.id}
+                      onChange={() => chooseAddress(address.id)}
+                    />
+                    <span>
+                      <span className="font-medium">
+                        {address.fullName}
+                        {address.label && (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            ({address.label})
+                          </span>
+                        )}
+                      </span>
+                      <span className="block text-muted-foreground">
+                        {address.addressLine1}
+                        {address.addressLine2 ? `, ${address.addressLine2}` : ""}
+                      </span>
+                      <span className="block text-muted-foreground">
+                        {address.city}, {address.state} — {address.pincode}
+                      </span>
+                      <span className="block text-muted-foreground">{address.phone}</span>
+                    </span>
+                  </label>
+                ))}
+
+                <label className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm">
+                  <input
+                    type="radio"
+                    name="savedAddress"
+                    checked={selectedAddressId === NEW_ADDRESS}
+                    onChange={() => chooseAddress(NEW_ADDRESS)}
+                  />
+                  Deliver to a different address
+                </label>
+              </div>
+            )}
+
+            {/* Hidden (not just disabled) when a saved address is chosen —
+                `required` on an invisible input blocks submit with no visible
+                explanation. */}
+            {selectedAddressId === NEW_ADDRESS && (
+              <div className="space-y-4">
+                {field("fullName", "Full name", { required: true, autoComplete: "name" })}
+                {field("phone", "Mobile number", {
+                  required: true,
+                  type: "tel",
+                  inputMode: "numeric",
+                  autoComplete: "tel",
+                  placeholder: "9876543210",
+                  pattern: "(\\+?91|0)?[6-9][0-9]{9}",
+                  title: "10-digit Indian mobile number",
+                })}
+                {field("addressLine1", "Address line 1", {
+                  required: true,
+                  autoComplete: "address-line1",
+                })}
+                {field("addressLine2", "Address line 2 (optional)", {
+                  autoComplete: "address-line2",
+                })}
+                <div className="grid grid-cols-2 gap-4">
+                  {field("city", "City", { required: true, autoComplete: "address-level2" })}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="state">State</Label>
+                    <select
+                      id="state"
+                      required
+                      autoComplete="address-level1"
+                      value={form.state}
+                      onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))}
+                      className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+                    >
+                      <option value="" disabled>
+                        Select…
+                      </option>
+                      {INDIAN_STATES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {field("pincode", "Pincode", {
+                  required: true,
+                  autoComplete: "postal-code",
+                  pattern: "[0-9]{6}",
+                  title: "6-digit pincode",
+                })}
+
+                {isAuthed && savedAddresses.length < MAX_ADDRESSES && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={saveAddress}
+                      onChange={(e) => setSaveAddress(e.target.checked)}
+                      className="size-4 rounded border-input"
+                    />
+                    Save this address to my account
+                  </label>
+                )}
+              </div>
+            )}
           </fieldset>
 
           <fieldset className="space-y-2">

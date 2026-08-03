@@ -12,10 +12,15 @@ import {
   getClientIp,
   RATE_LIMIT_MESSAGE,
 } from "@/server/rate-limit/limiter";
+import { phoneSchema } from "@/lib/validation/account";
 
 const addressSchema = z.object({
   fullName: z.string().trim().min(2).max(100),
-  phone: z.string().trim().regex(/^[0-9+\-\s]{10,15}$/, "Enter a valid phone number"),
+  // Shared with the address book so orders and saved addresses store the same
+  // normalised 10-digit form. The previous regex allowed "+91 98765 43210",
+  // which Razorpay's prefill.contact silently rejects — the customer was then
+  // asked for a number they had already typed.
+  phone: phoneSchema,
   addressLine1: z.string().trim().min(3).max(200),
   addressLine2: z.string().trim().max(200).optional().or(z.literal("")),
   city: z.string().trim().min(2).max(100),

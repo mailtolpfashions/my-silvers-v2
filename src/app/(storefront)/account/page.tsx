@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth/auth";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 
 export default async function AccountPage() {
   const session = await auth();
@@ -13,12 +14,21 @@ export default async function AccountPage() {
         Signed in as {session.user.email} ({session.user.role})
       </p>
       <div className="mt-6 space-y-2">
+        <Link href="/account/profile" className="block text-sm underline">
+          Your details
+        </Link>
+        <Link href="/account/addresses" className="block text-sm underline">
+          Delivery addresses
+        </Link>
         <Link href="/account/orders" className="block text-sm underline">
           View your orders
         </Link>
         <Link href="/wishlist" className="block text-sm underline">
           Your wishlist
         </Link>
+      </div>
+      <div className="mt-8 border-t pt-6">
+        <SignOutButton />
       </div>
     </div>
   );
