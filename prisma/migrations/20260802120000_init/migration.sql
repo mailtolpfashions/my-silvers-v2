@@ -504,6 +504,14 @@ CREATE UNIQUE INDEX "one_default_address_per_user" ON "Address"("userId") WHERE 
 -- src/server/orders/order-number.ts via `SELECT nextval('order_number_seq')`.
 CREATE SEQUENCE "order_number_seq" START 1;
 
+-- array_to_string() is only STABLE (array element output functions aren't
+-- guaranteed immutable), and a generated column requires an IMMUTABLE
+-- expression — Postgres rejects it with 42P17. Joining a text[] is immutable in
+-- practice, so wrap it in an explicitly IMMUTABLE function.
+CREATE FUNCTION immutable_array_to_string(text[], text) RETURNS text
+  LANGUAGE sql IMMUTABLE PARALLEL SAFE AS
+$$ SELECT array_to_string($1, $2) $$;
+
 -- Full-text search over Product name/description/tags. Generated column so it
 -- stays in sync automatically; GIN index makes `websearch_to_tsquery` queries
 -- fast. Queried via prisma.$queryRaw in src/server/products/search.ts.
@@ -511,7 +519,7 @@ ALTER TABLE "Product" ADD COLUMN "searchVector" tsvector
   GENERATED ALWAYS AS (
     setweight(to_tsvector('english', coalesce("name", '')), 'A') ||
     setweight(to_tsvector('english', coalesce("description", '')), 'B') ||
-    setweight(to_tsvector('english', array_to_string("tags", ' ')), 'C')
+    setweight(to_tsvector('english', coalesce(immutable_array_to_string("tags", ' '), '')), 'C')
   ) STORED;
 
 CREATE INDEX "product_search_idx" ON "Product" USING GIN ("searchVector");

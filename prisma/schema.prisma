@@ -18,6 +18,14 @@ enum Role {
   editor
 }
 
+/// Salutation shown on invoices and in order correspondence. `ms` is included
+/// alongside mr/mrs so customers aren't forced to disclose marital status.
+enum Title {
+  mr
+  mrs
+  ms
+}
+
 enum PaymentMethod {
   razorpay
   cod
@@ -66,7 +74,11 @@ model User {
   passwordHash           String? // null for OAuth-only or guest accounts
   image                  String?
   role                   Role      @default(customer)
+  title                  Title?
   phone                  String?
+  /// Date only — no time component, and never used for anything but birthday
+  /// offers, so it stays nullable and optional at signup.
+  dateOfBirth            DateTime? @db.Date
   passwordResetTokenHash String?
   passwordResetExpiresAt DateTime?
   failedLoginAttempts    Int       @default(0)
@@ -194,8 +206,18 @@ model Product {
   cartItems    CartItem[]
   wishlistedIn Wishlist[]  @relation("WishlistProducts")
 
-  // Full-text search column — added as a generated tsvector column + GIN
-  // index via a raw-SQL migration (see prisma/migrations, product-search step).
+  // Full-text search column — a GENERATED ALWAYS ... STORED tsvector plus a GIN
+  // index, created by raw SQL in the init migration because Prisma can't
+  // express generated columns.
+  //
+  // ⚠️  DO NOT RUN `prisma migrate dev` ON THIS PROJECT.
+  // Prisma cannot model this column either way: left undeclared it plans to
+  // DROP "searchVector" (destroying product search); declared as
+  // Unsupported("tsvector") it tries to ALTER the column default, which
+  // Postgres rejects with 42601 on a generated column.
+  //
+  // Write migrations by hand in prisma/migrations/<timestamp>_<name>/migration.sql
+  // and apply them with `prisma migrate deploy`. See docs/migrations.md.
   // searchVector Unsupported("tsvector")?
 
   @@index([categoryId, isActive])
