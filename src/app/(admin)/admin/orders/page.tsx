@@ -85,10 +85,19 @@ export default async function AdminOrdersPage({
               return (
                 <TableRow key={order.id}>
                   <TableCell>
-                    <p className="text-sm font-medium">{order.orderNumber}</p>
+                    <Link
+                      href={`/admin/orders/${order.id}`}
+                      className="text-sm font-medium underline underline-offset-2"
+                    >
+                      {order.orderNumber}
+                    </Link>
                     <p className="text-xs text-muted-foreground">
                       {order.createdAt.toLocaleDateString("en-IN", { dateStyle: "medium" })} ·{" "}
                       {order.items.length} item{order.items.length === 1 ? "" : "s"}
+                    </p>
+                    {/* The product names are what an admin actually scans for. */}
+                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                      {order.items.map((i) => `${i.quantity} × ${i.name}`).join(", ")}
                     </p>
                   </TableCell>
                   <TableCell>

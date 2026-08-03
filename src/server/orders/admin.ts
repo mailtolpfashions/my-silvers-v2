@@ -182,6 +182,21 @@ export async function processReturn(
   return { refunded: false };
 }
 
+/** Everything an admin needs to pack, ship and support one order. */
+export async function getAdminOrder(orderId: string) {
+  return prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      // Line items keep name/price/image snapshots, so a since-deleted product
+      // still shows what was actually bought. sku/size live on the product.
+      items: {
+        include: { product: { select: { sku: true, slug: true, sizes: true } } },
+      },
+      user: { select: { id: true, name: true, email: true, phone: true, createdAt: true } },
+    },
+  });
+}
+
 export async function getAdminOrders(params: { status?: OrderStatus; page?: number }) {
   const page = Math.max(1, params.page ?? 1);
   const pageSize = 20;
