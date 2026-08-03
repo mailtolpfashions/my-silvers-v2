@@ -28,12 +28,26 @@ export function ProductGrid({
   initialHasMore,
   total,
   params,
+  isAuthed = false,
+  wishlistIds = [],
+  cartQuantities = {},
 }: {
   initialItems: ProductListItem[];
   initialHasMore: boolean;
   total: number;
-  params: { q?: string; category?: string; sort?: string };
+  params: {
+    q?: string;
+    category?: string;
+    sort?: string;
+    minPrice?: string;
+    maxPrice?: string;
+  };
+  isAuthed?: boolean;
+  /** Every wishlisted product id, so appended pages need no extra fetch. */
+  wishlistIds?: string[];
+  cartQuantities?: Record<string, number>;
 }) {
+  const wishlisted = new Set(wishlistIds);
   const [items, setItems] = useState(initialItems);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(initialHasMore);
@@ -97,7 +111,13 @@ export function ProductGrid({
           rows without pushing the columns apart and shrinking each image. */}
       <div className="mt-8 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
         {items.map((product) => (
-          <ProductCard key={product.id} product={product} />
+          <ProductCard
+            key={product.id}
+            product={product}
+            isAuthed={isAuthed}
+            inWishlist={wishlisted.has(product.id)}
+            cartQuantity={cartQuantities[product.id] ?? 0}
+          />
         ))}
       </div>
 

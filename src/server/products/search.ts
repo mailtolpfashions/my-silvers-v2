@@ -18,6 +18,9 @@ export async function searchProducts(params: {
   q?: string;
   categorySlug?: string;
   sort?: "newest" | "price-asc" | "price-desc" | "featured";
+  /** Rupees, inclusive. Ignored when not a finite non-negative number. */
+  minPrice?: number;
+  maxPrice?: number;
   page?: number;
   pageSize?: number;
 }): Promise<{ items: ProductListItem[]; total: number }> {
@@ -40,7 +43,10 @@ export async function searchProducts(params: {
   // `searchVector` tsvector column (not represented in schema.prisma — see
   // prisma/migrations for the column/index) is not expressible via the
   // Prisma query builder.
-  const whereClauses: string[] = [`p."isActive" = true`];
+  // Sold-out pieces are hidden from every storefront listing. They stay
+  // reachable at their own URL, so existing links, wishlists and search engine
+  // results don't break — the product page shows "Out of stock" instead.
+  const whereClauses: string[] = [`p."isActive" = true`, `p."stock" > 0`];
   const values: unknown[] = [];
 
   if (params.q && params.q.trim().length > 0) {
@@ -51,6 +57,20 @@ export async function searchProducts(params: {
   if (params.categorySlug) {
     values.push(params.categorySlug);
     whereClauses.push(`c."slug" = $${values.length}`);
+  }
+
+  // Price bounds arrive from the URL, so anything non-numeric or negative is
+  // dropped rather than reaching the query.
+  const minPrice = Number(params.minPrice);
+  if (Number.isFinite(minPrice) && minPrice > 0) {
+    values.push(minPrice);
+    whereClauses.push(`p."price" >= $${values.length}`);
+  }
+
+  const maxPrice = Number(params.maxPrice);
+  if (Number.isFinite(maxPrice) && maxPrice > 0) {
+    values.push(maxPrice);
+    whereClauses.push(`p."price" <= $${values.length}`);
   }
 
   const whereSql = whereClauses.join(" AND ");
