@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -30,21 +30,32 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
-  // The first slide must not animate in — it's above the fold on load.
-  const isFirstMount = useRef(true);
-  useEffect(() => {
-    isFirstMount.current = false;
-  }, []);
+  /**
+   * The first slide must not animate in — it's above the fold on load, and
+   * sliding the headline up on arrival reads as jank rather than polish.
+   *
+   * This is state, not a ref. It was a ref read during render, which React
+   * forbids: a ref mutation doesn't schedule a re-render, so the value the
+   * renderer sees is whatever happened to be there. Anything that decides what
+   * gets rendered has to be state.
+   */
+  const [hasAdvanced, setHasAdvanced] = useState(false);
 
-  const goTo = useCallback((i: number) => setActiveIndex(i), []);
-  const goNext = useCallback(
-    () => setActiveIndex((i) => (i + 1) % slides.length),
-    [slides.length]
-  );
-  const goPrev = useCallback(
-    () => setActiveIndex((i) => (i - 1 + slides.length) % slides.length),
-    [slides.length]
-  );
+  const goTo = useCallback((i: number) => {
+    setActiveIndex(i);
+    setHasAdvanced(true);
+  }, []);
+  const goNext = useCallback(() => {
+    setActiveIndex((i) => (i + 1) % slides.length);
+    setHasAdvanced(true);
+  }, [slides.length]);
+  const goPrev = useCallback(() => {
+    setActiveIndex((i) => (i - 1 + slides.length) % slides.length);
+    setHasAdvanced(true);
+  }, [slides.length]);
+
+  // Applied to the copy block on every slide except the one painted on load.
+  const entrance = hasAdvanced ? "animate-in fade-in slide-in-from-bottom-3" : "";
 
   useEffect(() => {
     if (slides.length <= 1 || isPaused) return;
@@ -65,7 +76,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
     <section
       aria-roledescription="carousel"
       aria-label="Featured collections"
-      className="relative w-full overflow-hidden bg-ink"
+      className="relative w-full overflow-hidden bg-graphite-950"
       style={{ height: "clamp(420px, 64vh, 660px)" }}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
@@ -98,7 +109,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                 alt=""
                 fill
                 className="object-cover object-center"
-                priority={i === 0}
+                preload={i === 0}
                 sizes="100vw"
               />
             ))}
@@ -122,14 +133,12 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
         }}
       />
 
-      <div className="relative z-10 mx-auto flex h-full max-w-[1600px] items-center px-4 sm:px-6 lg:px-8">
+      <div className="container-page relative z-10 flex h-full items-center">
         {/* Remounting on slide change replays the entrance animation. */}
         <div key={activeIndex} className="max-w-[540px] py-10">
           {slide.eyebrow && (
             <p
-              className={`mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-gold-light ${
-                isFirstMount.current ? "" : "animate-in fade-in slide-in-from-bottom-3"
-              }`}
+              className={`mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-brass-light ${entrance}`}
               style={{ animationDuration: "450ms" }}
             >
               {slide.eyebrow}
@@ -137,9 +146,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
           )}
 
           <h1
-            className={`font-heading text-white ${
-              isFirstMount.current ? "" : "animate-in fade-in slide-in-from-bottom-3"
-            }`}
+            className={`font-heading text-white ${entrance}`}
             style={{
               fontSize: "clamp(2rem, 4.5vw, 3.25rem)",
               lineHeight: 1.1,
@@ -157,9 +164,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
 
           {slide.subline && (
             <p
-              className={`mt-4 max-w-[420px] text-sm leading-relaxed text-white/80 md:text-base ${
-                isFirstMount.current ? "" : "animate-in fade-in slide-in-from-bottom-3"
-              }`}
+              className={`mt-4 max-w-[420px] text-sm leading-relaxed text-white/80 md:text-base ${entrance}`}
               style={{
                 animationDuration: "450ms",
                 animationDelay: "150ms",
@@ -172,9 +177,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
 
           {(slide.ctaLabel || slide.secondaryLabel) && (
             <div
-              className={`mt-8 flex flex-wrap items-center gap-5 ${
-                isFirstMount.current ? "" : "animate-in fade-in slide-in-from-bottom-3"
-              }`}
+              className={`mt-8 flex flex-wrap items-center gap-5 ${entrance}`}
               style={{
                 animationDuration: "450ms",
                 animationDelay: "220ms",
@@ -182,7 +185,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
               }}
             >
               {slide.ctaLabel && slide.ctaHref && (
-                <Button asChild size="lg" className="bg-gold text-ink hover:bg-gold-light">
+                <Button asChild size="lg" className="bg-brass text-graphite-950 hover:bg-brass-light">
                   <Link href={slide.ctaHref}>{slide.ctaLabel}</Link>
                 </Button>
               )}
@@ -232,7 +235,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                 <span
                   style={{ transform: i === activeIndex ? "scaleX(4)" : "scaleX(1)" }}
                   className={`block h-2 w-2 origin-left rounded-full transition-transform duration-300 ${
-                    i === activeIndex ? "bg-gold" : "bg-white/40"
+                    i === activeIndex ? "bg-brass" : "bg-white/40"
                   }`}
                 />
               </button>

@@ -31,7 +31,7 @@ export async function ReviewSection({
   const { reviews, averageRating, count } = await getProductReviews(productId);
 
   return (
-    <section className="mx-auto max-w-6xl border-t px-4 py-12">
+    <section className="container-detail border-t py-12">
       <div className="flex flex-wrap items-center gap-4">
         <h2 className="text-xl font-semibold">Reviews</h2>
         {count > 0 && (

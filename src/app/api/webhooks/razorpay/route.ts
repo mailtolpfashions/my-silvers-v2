@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { verifyWebhookSignature } from "@/server/payments/verify-signature";
 import { fulfillOrder, markPaymentFailed, PaymentError } from "@/server/orders/fulfill-order";
 import { checkRateLimit, getClientIp } from "@/server/rate-limit/limiter";
@@ -42,6 +43,11 @@ export async function POST(req: Request) {
             razorpayPaymentId: payment.id,
             source: "webhook",
           });
+          // revalidateTag, not updateTag: this is a Route Handler, where
+          // updateTag throws. Fulfilment moves stock, and listings filter on
+          // it. Two args is the Next 16 signature — the one-arg form is a
+          // TypeScript error.
+          revalidateTag("products", "max");
         }
         break;
       case "payment.failed":

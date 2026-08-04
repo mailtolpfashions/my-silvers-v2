@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,12 +63,42 @@ export function EntryEditor({
   const [isPending, startTransition] = useTransition();
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  /**
+   * The storefront path this entry becomes once published.
+   *
+   * Used to keep the preview on the draft: navigating the pane to the entry's
+   * own live URL — clicking the logo while previewing the homepage, say — would
+   * quietly swap your unsaved draft for the published page. Returning null means
+   * "this type has no page of its own" (hero slides, banners, announcements),
+   * and nothing is intercepted.
+   */
+  const livePath = (() => {
+    const slug = typeof data.slug === "string" ? data.slug : null;
+    switch (typeName) {
+      case "homepage":
+        return "/";
+      case "blog":
+        return slug ? `/blog/${slug}` : null;
+      case "page":
+        return slug ? `/p/${slug}` : null;
+      case "collection":
+        return slug ? `/collections/${slug}` : null;
+      default:
+        return null;
+    }
+  })();
+
   // ── Live preview: debounced same-origin postMessage into the iframe.
   // 400ms matches the old Studio's cadence; origin checks are trivial now
   // that editor and preview share one origin.
   useEffect(() => {
     if (!showPreview) return;
     const timeout = setTimeout(() => {
+      // Deliberately does NOT force the frame back to the preview route. You're
+      // allowed to click through the pane to check a link, and yanking it back
+      // mid-browse would make that impossible. If the frame has wandered off,
+      // the message is simply ignored and the "Back to preview" button returns
+      // it on demand.
       iframeRef.current?.contentWindow?.postMessage(
         { type: "cms-preview", contentType: typeName, data },
         window.location.origin
@@ -300,12 +330,54 @@ export function EntryEditor({
       </div>
 
       {showPreview && (
-        <div className="sticky top-6 hidden h-[calc(100vh-6rem)] xl:block">
+        <div className="sticky top-6 hidden h-[calc(100vh-6rem)] flex-col gap-2 xl:flex">
+          {/* Clicking through the pane is allowed, so there has to be a way
+              home. location.replace rather than reassigning src: the src string
+              is unchanged when you're already on a preview sub-path, and it
+              keeps the frame's history from filling with preview entries. */}
+          <div className="flex shrink-0 justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                iframeRef.current?.contentWindow?.location.replace(`/preview/${typeName}`);
+              }}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Back to preview
+            </Button>
+          </div>
           <iframe
             ref={iframeRef}
             src={`/preview/${typeName}`}
-            className="h-full w-full rounded-lg border bg-white"
+            className="h-full min-h-0 w-full flex-1 rounded-lg border bg-white"
             title="Live preview"
+            // Belt and braces alongside the child's ready handshake: any load of
+            // the frame gets the current draft pushed at it, so the pane can't
+            // be left showing stale content if a message is missed.
+            onLoad={() => {
+              const frame = iframeRef.current;
+              if (!frame) return;
+
+              // Runs on EVERY navigation inside the pane, and from the parent —
+              // which stays alive the whole time. That's what makes this work
+              // for the full journey: browse to /products, click the logo, and
+              // you land back on the draft rather than the published homepage.
+              try {
+                if (livePath && frame.contentWindow?.location.pathname === livePath) {
+                  frame.contentWindow.location.replace(`/preview/${typeName}`);
+                  return;
+                }
+              } catch {
+                // Same-origin only; ignore and fall through to the post below.
+              }
+
+              frame.contentWindow?.postMessage(
+                { type: "cms-preview", contentType: typeName, data },
+                window.location.origin
+              );
+            }}
           />
         </div>
       )}

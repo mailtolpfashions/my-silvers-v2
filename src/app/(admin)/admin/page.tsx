@@ -30,7 +30,7 @@ export default async function AdminDashboardPage() {
         {stats.pendingReturns > 0 && (
           <Link
             href="/admin/orders?status=return_requested"
-            className="rounded-md bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+            className="rounded-md bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-900"
           >
             {stats.pendingReturns} return request{stats.pendingReturns === 1 ? "" : "s"} pending
           </Link>

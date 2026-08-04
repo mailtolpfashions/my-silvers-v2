@@ -22,15 +22,48 @@ import type { FieldDefinition } from "@/server/cms/types";
 type Value = unknown;
 type OnChange = (value: Value) => void;
 
-function ImageField({ value, onChange }: { value: Value; onChange: OnChange }) {
+/** Cloudinary serves video from /video/upload/; also match bare extensions. */
+function isVideoUrl(url: string) {
+  return /\.(mp4|webm|mov|ogg)(\?|$)/i.test(url) || url.includes("/video/upload/");
+}
+
+/**
+ * Image or image-plus-video field.
+ *
+ * `accept="media"` widens the picker to video for the one renderer that handles
+ * it (the hero slide). The preview branches on the URL because next/image
+ * throws on a video source — which is why this couldn't simply be the existing
+ * ImageField with a looser filter.
+ */
+function ImageField({
+  value,
+  onChange,
+  accept = "image",
+}: {
+  value: Value;
+  onChange: OnChange;
+  accept?: "image" | "media";
+}) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const url = typeof value === "string" ? value : "";
+  const isVideo = url !== "" && isVideoUrl(url);
+  const noun = accept === "media" ? "media" : "image";
 
   return (
     <div className="flex items-center gap-3">
       {url ? (
         <div className="relative h-20 w-20 overflow-hidden rounded-md border">
-          <Image src={url} alt="" fill className="object-cover" sizes="80px" />
+          {isVideo ? (
+            <video
+              src={url}
+              muted
+              playsInline
+              preload="metadata"
+              className="h-full w-full bg-graphite-950 object-cover"
+            />
+          ) : (
+            <Image src={url} alt="" fill className="object-cover" sizes="80px" />
+          )}
         </div>
       ) : (
         <div className="flex h-20 w-20 items-center justify-center rounded-md border border-dashed">
@@ -39,7 +72,7 @@ function ImageField({ value, onChange }: { value: Value; onChange: OnChange }) {
       )}
       <div className="flex flex-col gap-2">
         <Button type="button" variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
-          {url ? "Change image" : "Choose image"}
+          {url ? `Change ${noun}` : `Choose ${noun}`}
         </Button>
         {url && (
           <Button type="button" variant="ghost" size="sm" onClick={() => onChange("")}>
@@ -51,6 +84,7 @@ function ImageField({ value, onChange }: { value: Value; onChange: OnChange }) {
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         onSelect={(asset) => onChange(asset.url)}
+        accept={accept}
       />
     </div>
   );
@@ -113,7 +147,7 @@ function ArrayField({
             </div>
           </div>
           <div className="space-y-3">
-            {subFields.map((sub) => (
+            {subFields.filter((sub) => isFieldVisible(sub, item)).map((sub) => (
               <FieldInput
                 key={sub.name}
                 field={sub}
@@ -208,6 +242,8 @@ export function FieldInput({
         );
       case "image":
         return <ImageField value={value} onChange={onChange} />;
+      case "media":
+        return <ImageField value={value} onChange={onChange} accept="media" />;
       case "date":
         return (
           <Input
@@ -269,4 +305,19 @@ export function FieldInput({
       {control}
     </div>
   );
+}
+
+/**
+ * Whether a field applies to the item currently being edited.
+ *
+ * Only meaningful inside arrays/objects, where sibling values are available —
+ * a top-level field has no siblings and is always shown.
+ */
+export function isFieldVisible(
+  field: FieldDefinition,
+  siblings: Record<string, unknown>
+): boolean {
+  if (!field.showWhen) return true;
+  const actual = siblings[field.showWhen.field];
+  return typeof actual === "string" && field.showWhen.equals.includes(actual);
 }

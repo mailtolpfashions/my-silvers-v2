@@ -43,7 +43,7 @@ export function CartButton({
         {count > 0 && (
           <span
             // Wider than tall past 9 so "12" doesn't get clipped by a circle.
-            className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-semibold leading-none text-ink"
+            className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brass px-1 text-[10px] font-semibold leading-none text-graphite-950"
             aria-hidden
           >
             {count > 99 ? "99+" : count}

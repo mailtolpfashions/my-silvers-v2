@@ -3,12 +3,18 @@
 @import "shadcn/tailwind.css";
 @plugin "@tailwindcss/typography";
 
+/* The site ships one light theme — there is no .dark block and nothing ever
+   sets that class. This variant is kept deliberately anyway: Tailwind's built-in
+   `dark:` is media-query based, so DELETING this line would make every dark:
+   utility in the shadcn primitives (button, input, select, badge, …) switch on
+   for any visitor whose OS prefers dark, against a light-only palette.
+   Redefining it to a class that is never applied keeps them all inert. */
 @custom-variant dark (&:is(.dark *));
 
 /* ─── Tailwind theme mapping ──────────────────────────────────────────────────
    Semantic shadcn tokens (left) resolve to the brand palette defined in :root.
-   Brand tokens are also exposed directly (bg-gold, text-ink, font-brand, …) so
-   components can reach for a brand colour when no semantic slot fits.
+   The raw ramp is exposed directly too (bg-brass, text-graphite-950, …) for the
+   cases where no semantic slot fits — see the note on when that's appropriate.
    ─────────────────────────────────────────────────────────────────────────── */
 
 @theme inline {
@@ -19,19 +25,47 @@
   --font-heading: var(--font-playfair);
   --font-serif: var(--font-playfair);
   --font-brand: var(--font-raleway);
-  --font-mono: var(--font-geist-mono);
 
-  /* ── Brand palette (direct utilities) ── */
-  --color-ivory: var(--ivory);
-  --color-ink: var(--ink);
-  --color-charcoal: var(--charcoal);
-  --color-warm-gray: var(--warm-gray);
-  --color-gold: var(--gold);
-  --color-gold-light: var(--gold-light);
-  --color-gold-subtle: var(--gold-subtle);
-  --color-gold-text: var(--gold-text);
-  --color-blush: var(--blush);
-  --color-surface: var(--surface);
+  /* ── Ramp vs semantic ─────────────────────────────────────────────────────
+     The ramp below (platinum/silver/graphite/brass) is the raw palette. The
+     semantic tokens further down — background, foreground, muted, card, accent
+     — are what components should normally use; they express intent rather than
+     a specific colour, which is what keeps a restyle to one file.
+
+     Reach past them to a ramp token only when the pairing is deliberate and
+     self-contained: a brass fill with a graphite label on a badge, or text over
+     an image. Prefer the semantic name everywhere else.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  /* ── Neutral ramp — cool, keyed to silver ── */
+  --color-platinum-50: var(--platinum-50);
+  --color-platinum-100: var(--platinum-100);
+  --color-platinum-200: var(--platinum-200);
+  --color-platinum-300: var(--platinum-300);
+  --color-silver-500: var(--silver-500);
+  --color-graphite-600: var(--graphite-600);
+  --color-graphite-800: var(--graphite-800);
+  --color-graphite-950: var(--graphite-950);
+
+  /* ── The single warm accent ── */
+  --color-brass: var(--brass);
+  --color-brass-light: var(--brass-light);
+  --color-brass-subtle: var(--brass-subtle);
+  --color-brass-text: var(--brass-text);
+
+  /* ── Fluid type scale — one source for heading sizes, so a section heading
+     can't drift between components the way text-2xl and an inline clamp() did. ── */
+  --text-display: clamp(2.5rem, 1.6rem + 4.2vw, 4.5rem);
+  --text-h1: clamp(2rem, 1.4rem + 2.6vw, 3.25rem);
+  --text-h2: clamp(1.5rem, 1.2rem + 1.4vw, 2.25rem);
+  --text-h3: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem);
+
+  /* Three widths, deliberately. Anything not on this list is a bug — the site
+     previously mixed max-w-[1600px] and max-w-6xl at random, so the catalogue
+     and a category page rendered visibly different card sizes. */
+  --container-page: 1600px; /* listings, homepage sections, header, footer */
+  --container-detail: 72rem; /* product detail + its reviews */
+  --container-prose: 42rem; /* journal posts, CMS pages, policies */
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -77,110 +111,74 @@
 /* ─── Light theme ─────────────────────────────────────────────────────────── */
 
 :root {
-  /* Brand palette — carried over verbatim from the previous storefront. */
-  --ivory: #fffdf8;
-  --ink: #0c0c0e;
-  --charcoal: #2d2d2d;
-  --warm-gray: #9a9a9a;
-  --gold: #c9a96e;
-  --gold-light: #d4b87e;
-  --gold-subtle: #f5ecd9;
-  --blush: #f5e6e0;
-  --surface: #f7f5f3;
+  /* ── Neutral ramp ─────────────────────────────────────────────────────────
+     Cool rather than the previous warm ivory. MY Silvers sells 925 sterling;
+     a gold-keyed neutral read as a borrowed Tanishq/Kalyan palette. Gold stays,
+     but demoted to the single warm accent below.
+     Ratios in comments are against --background (#f7f8f9). Every value here is
+     contrast-checked — keep it that way when editing. ────────────────────── */
+  --platinum-50: #fafbfc;
+  --platinum-100: #f7f8f9; /* page background */
+  --platinum-200: #eff2f3; /* muted fills, secondary surfaces */
+  --platinum-300: #e4e8ea; /* decorative hairlines and card edges */
+  --silver-500: #868f94; /* control borders — 3.10:1, meets the 3:1 rule */
+  --graphite-600: #5c666d; /* muted foreground — 5.52:1 */
+  --graphite-800: #2b3238; /* body ink — 12.22:1 */
+  --graphite-950: #12161a; /* headings, footer — 17.09:1 */
 
-  /* Darkened gold for small text — the brand #C9A96E is only 2.20:1 on ivory
-     and fails WCAG AA. Use --gold for fills/borders/decoration, this for text. */
-  --gold-text: #8a6d33;
+  /* ── Warm accent ──────────────────────────────────────────────────────────
+     One accent, two roles. --brass is for fills, borders and decoration only:
+     at 2.10:1 it is not legible as text. --brass-text is the text-safe variant,
+     4.55:1 at its worst (on --platinum-200). Never swap them. ─────────────── */
+  --brass: #c9a96e;
+  --brass-light: #d4b87e;
+  --brass-subtle: #f4ecdc;
+  --brass-text: #856a31;
 
-  --background: var(--ivory);
-  --foreground: var(--charcoal);
+  --background: var(--platinum-100);
+  --foreground: var(--graphite-800);
   --card: #ffffff;
-  --card-foreground: var(--charcoal);
+  --card-foreground: var(--graphite-800);
   --popover: #ffffff;
-  --popover-foreground: var(--charcoal);
+  --popover-foreground: var(--graphite-800);
 
-  --primary: var(--ink);
-  --primary-foreground: var(--ivory);
-  --secondary: var(--surface);
-  --secondary-foreground: var(--ink);
-  --muted: var(--surface);
-  /* Brand --color-muted was #7A7A8A (4.15:1 on ivory — under AA). Darkened. */
-  --muted-foreground: #6b6b7a;
-  --accent: var(--gold-subtle);
-  --accent-foreground: var(--ink);
+  --primary: var(--graphite-950);
+  --primary-foreground: var(--platinum-100);
+  --secondary: var(--platinum-200);
+  --secondary-foreground: var(--graphite-950);
+  --muted: var(--platinum-200);
+  --muted-foreground: var(--graphite-600);
+  --accent: var(--brass-subtle);
+  --accent-foreground: var(--graphite-950);
 
-  /* Brand error was #EF4444 — only 3.76:1 against the white button label.
-     red-600 keeps the hue and reaches 4.83:1. */
-  --destructive: #dc2626;
-  --success: #22c55e;
+  /* Both carry a white label, so they are rated against #fff, not the page. */
+  --destructive: #b3261e; /* 6.54:1 against a white label */
+  --success: #0f7b3d; /* 5.04:1 on the page background */
 
-  /* Decorative dividers/card edges (exempt from the 3:1 rule) … */
-  --border: #e8e4e0;
-  /* … versus real control boundaries, which need 3:1 — this is 3.30:1. */
-  --input: #948b7e;
-  --ring: var(--gold-text);
+  /* Decorative edges are exempt from the 3:1 rule … */
+  --border: var(--platinum-300);
+  /* … real control boundaries are not. --silver-500 is 3.10:1. */
+  --input: var(--silver-500);
+  --ring: var(--brass-text);
 
-  --chart-1: var(--gold);
-  --chart-2: var(--gold-light);
-  --chart-3: var(--warm-gray);
-  --chart-4: var(--charcoal);
-  --chart-5: var(--ink);
+  --chart-1: var(--brass);
+  --chart-2: var(--brass-light);
+  --chart-3: var(--silver-500);
+  --chart-4: var(--graphite-600);
+  --chart-5: var(--graphite-950);
 
-  --radius: 1.25rem;
+  /* 12px base. The old 20px made every card and input read as a soft app
+     surface; jewellery photography wants a quieter, more editorial frame. */
+  --radius: 0.75rem;
 
-  --sidebar: var(--surface);
-  --sidebar-foreground: var(--charcoal);
-  --sidebar-primary: var(--ink);
-  --sidebar-primary-foreground: var(--ivory);
-  --sidebar-accent: var(--gold-subtle);
-  --sidebar-accent-foreground: var(--ink);
-  --sidebar-border: #e8e4e0;
-  --sidebar-ring: var(--gold-text);
-}
-
-/* ─── Dark theme ──────────────────────────────────────────────────────────── */
-
-.dark {
-  --background: #0c0c0e;
-  --foreground: #f5f3ef;
-  --card: #17171a;
-  --card-foreground: #f5f3ef;
-  --popover: #17171a;
-  --popover-foreground: #f5f3ef;
-
-  /* Gold carries the accent on dark, where it finally has room to breathe. */
-  --primary: var(--gold);
-  --primary-foreground: var(--ink);
-  --secondary: #1f1f23;
-  --secondary-foreground: #f5f3ef;
-  --muted: #1f1f23;
-  --muted-foreground: #a8a8b4;
-  --accent: #26241f;
-  --accent-foreground: var(--gold-light);
-
-  --destructive: #f87171;
-  --success: #4ade80;
-
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 24%);
-  --ring: var(--gold);
-
-  --gold-text: var(--gold-light);
-
-  --chart-1: var(--gold);
-  --chart-2: var(--gold-light);
-  --chart-3: #a8a8b4;
-  --chart-4: #6b6b7a;
-  --chart-5: #f5f3ef;
-
-  --sidebar: #17171a;
-  --sidebar-foreground: #f5f3ef;
-  --sidebar-primary: var(--gold);
-  --sidebar-primary-foreground: var(--ink);
-  --sidebar-accent: #26241f;
-  --sidebar-accent-foreground: var(--gold-light);
-  --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: var(--gold);
+  --sidebar: var(--platinum-200);
+  --sidebar-foreground: var(--graphite-800);
+  --sidebar-primary: var(--graphite-950);
+  --sidebar-primary-foreground: var(--platinum-100);
+  --sidebar-accent: var(--brass-subtle);
+  --sidebar-accent-foreground: var(--graphite-950);
+  --sidebar-border: var(--platinum-300);
+  --sidebar-ring: var(--brass-text);
 }
 
 /* ─── Base ────────────────────────────────────────────────────────────────── */
@@ -199,15 +197,8 @@
   h4,
   h5,
   h6 {
-    @apply font-heading text-ink;
-  }
-  .dark h1,
-  .dark h2,
-  .dark h3,
-  .dark h4,
-  .dark h5,
-  .dark h6 {
-    color: var(--foreground);
+    @apply font-heading text-graphite-950;
+    font-weight: 500;
   }
 }
 
@@ -219,6 +210,209 @@
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--gold-text);
+  color: var(--brass-text);
   line-height: 1;
+}
+
+/* One page container. Replaces the max-w-[1600px] / max-w-6xl split, which had
+   the homepage hero sitting at a different width from the sections beneath it. */
+.container-page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--container-page);
+  padding-inline: 1rem;
+}
+@media (min-width: 640px) {
+  .container-page {
+    padding-inline: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .container-page {
+    padding-inline: 2rem;
+  }
+}
+
+/* Product detail and the reviews beneath it — these two must agree, or the
+   review block visibly steps out from the product above it. */
+.container-detail {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--container-detail);
+  padding-inline: 1rem;
+}
+@media (min-width: 640px) {
+  .container-detail {
+    padding-inline: 1.5rem;
+  }
+}
+
+/* Narrower measure for long-form copy — journal posts, CMS pages, policies. */
+.container-prose {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--container-prose);
+  padding-inline: 1rem;
+}
+
+/* Heading sizes as utilities so components stop hardcoding text-2xl and inline
+   clamp(). Pair with font-heading; these set size and rhythm only. */
+.text-display {
+  font-size: var(--text-display);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+}
+.text-h1 {
+  font-size: var(--text-h1);
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+}
+.text-h2 {
+  font-size: var(--text-h2);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+.text-h3 {
+  font-size: var(--text-h3);
+  line-height: 1.25;
+}
+
+/* A hairline in the accent, used to close a heading block. Purely decorative,
+   so --brass rather than --brass-text is correct here. */
+.rule-brass::after {
+  content: "";
+  display: block;
+  width: 2.5rem;
+  height: 1px;
+  margin-top: 1rem;
+  background: var(--brass);
+}
+
+/* ─── View transitions ────────────────────────────────────────────────────────
+   Navigation motion is done by the browser via React's <ViewTransition>, not a
+   JS animation library — so none of this costs anything in the client bundle.
+   Enabled by experimental.viewTransition in next.config.ts.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --vt-exit: 150ms;
+  --vt-enter: 210ms;
+}
+
+@keyframes vt-fade {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes vt-slide-y {
+  from {
+    transform: translateY(10px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes vt-slide-x {
+  from {
+    translate: var(--vt-slide-offset);
+  }
+  to {
+    translate: 0;
+  }
+}
+
+/* Softens pixel interpolation while a product image morphs between its card
+   and the product page. 400ms: slow enough to read, fast enough to feel direct. */
+::view-transition-group(.morph) {
+  animation-duration: 400ms;
+}
+::view-transition-image-pair(.morph) {
+  animation-name: vt-blur-through;
+}
+@keyframes vt-blur-through {
+  30% {
+    filter: blur(3px);
+  }
+}
+
+/* Suspense handoff. Asymmetric on purpose: the skeleton leaves quickly so it
+   stops competing for attention, the real content arrives more gently. */
+::view-transition-old(.reveal-out) {
+  animation:
+    var(--vt-exit) ease-out both vt-fade reverse,
+    var(--vt-exit) ease-out both vt-slide-y reverse;
+}
+::view-transition-new(.reveal-in) {
+  animation:
+    var(--vt-enter) ease-in var(--vt-exit) both vt-fade,
+    400ms ease-in both vt-slide-y;
+}
+
+/* Directional navigation. Left = deeper, right = back — violating that reads
+   as disorienting rather than merely wrong. */
+::view-transition-old(.nav-forward) {
+  --vt-slide-offset: -60px;
+  animation:
+    var(--vt-exit) ease-in both vt-fade reverse,
+    400ms ease-in-out both vt-slide-x reverse;
+}
+::view-transition-new(.nav-forward) {
+  --vt-slide-offset: 60px;
+  animation:
+    var(--vt-enter) ease-out var(--vt-exit) both vt-fade,
+    400ms ease-in-out both vt-slide-x;
+}
+::view-transition-old(.nav-back) {
+  --vt-slide-offset: 60px;
+  animation:
+    var(--vt-exit) ease-in both vt-fade reverse,
+    400ms ease-in-out both vt-slide-x reverse;
+}
+::view-transition-new(.nav-back) {
+  --vt-slide-offset: -60px;
+  animation:
+    var(--vt-enter) ease-out var(--vt-exit) both vt-fade,
+    400ms ease-in-out both vt-slide-x;
+}
+
+/* The header is the user's spatial anchor — if it slides with the content,
+   the whole viewport appears to move and the direction cue is lost. */
+::view-transition-group(site-header) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(site-header) {
+  /* Without this both headers are briefly painted at once and it flashes. */
+  display: none;
+}
+::view-transition-new(site-header) {
+  animation: none;
+}
+
+/* Motion: everything above is opt-in and must respect the OS setting.
+   Directional slides simulate movement across the viewport, which is the most
+   common trigger for motion sensitivity. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
 }

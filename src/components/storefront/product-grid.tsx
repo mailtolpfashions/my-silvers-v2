@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { ProductCard } from "@/components/storefront/product-card";
+import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
 import { Button } from "@/components/ui/button";
 import { loadMoreProducts } from "@/actions/product-list-actions";
 import type { ProductListItem } from "@/server/products/search";
@@ -28,9 +28,6 @@ export function ProductGrid({
   initialHasMore,
   total,
   params,
-  isAuthed = false,
-  wishlistIds = [],
-  cartQuantities = {},
 }: {
   initialItems: ProductListItem[];
   initialHasMore: boolean;
@@ -42,12 +39,7 @@ export function ProductGrid({
     minPrice?: string;
     maxPrice?: string;
   };
-  isAuthed?: boolean;
-  /** Every wishlisted product id, so appended pages need no extra fetch. */
-  wishlistIds?: string[];
-  cartQuantities?: Record<string, number>;
 }) {
-  const wishlisted = new Set(wishlistIds);
   const [items, setItems] = useState(initialItems);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(initialHasMore);
@@ -109,15 +101,9 @@ export function ProductGrid({
     <>
       {/* Wider gap between rows than columns — vertical breathing room separates
           rows without pushing the columns apart and shrinking each image. */}
-      <div className="mt-8 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+      <div className={`mt-8 ${PRODUCT_GRID_CLASS}`}>
         {items.map((product) => (
-          <ProductCard
-            key={product.id}
-            product={product}
-            isAuthed={isAuthed}
-            inWishlist={wishlisted.has(product.id)}
-            cartQuantity={cartQuantities[product.id] ?? 0}
-          />
+          <ProductCard key={product.id} product={product} morphName={productMorphName(product.id)} />
         ))}
       </div>
 

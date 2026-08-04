@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { prisma } from "@/server/db";
 import { requireRole } from "@/server/auth/require-role";
 import { assertAllowedMediaUrls } from "@/server/media/url-allowlist";
@@ -59,7 +59,8 @@ export async function saveCategoryAction(
     }
 
     revalidatePath("/admin/categories");
-    revalidatePath("/products");
+    updateTag("categories");
+    updateTag("products");
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to save category." };
@@ -70,6 +71,7 @@ export async function setCategoryActiveAction(id: string, isActive: boolean): Pr
   await requireRole("admin");
   await prisma.category.update({ where: { id }, data: { isActive } });
   revalidatePath("/admin/categories");
-  revalidatePath("/products");
+  updateTag("categories");
+  updateTag("products");
   return { ok: true };
 }

@@ -227,7 +227,7 @@ export function SearchBox({ className = "" }: { className?: string }) {
           <button
             type="button"
             onClick={submit}
-            className="w-full border-t px-4 py-2.5 text-left text-sm text-gold-text hover:bg-accent"
+            className="w-full border-t px-4 py-2.5 text-left text-sm text-brass-text hover:bg-accent"
           >
             See all results for &ldquo;{query.trim()}&rdquo;
           </button>

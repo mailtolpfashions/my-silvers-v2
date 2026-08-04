@@ -22,7 +22,7 @@ export default async function GuestOrderPage({
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       {placed && (
-        <p className="mb-6 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200">
+        <p className="mb-6 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800">
           Thank you! Your order has been placed successfully. Bookmark this page
           to check your order later — the link is unique to you.
         </p>

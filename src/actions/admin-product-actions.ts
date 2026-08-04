@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireRole } from "@/server/auth/require-role";
 import {
   createProduct,
@@ -59,7 +59,7 @@ export async function createProductAction(input: unknown): Promise<AdminActionRe
   try {
     await createProduct(toInput(parsed.data));
     revalidatePath("/admin/products");
-    revalidatePath("/products");
+    updateTag("products");
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to create product." };
@@ -75,7 +75,7 @@ export async function updateProductAction(id: string, input: unknown): Promise<A
   try {
     await updateProduct(id, toInput(parsed.data));
     revalidatePath("/admin/products");
-    revalidatePath("/products");
+    updateTag("products");
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to update product." };
@@ -86,7 +86,7 @@ export async function archiveProductAction(id: string): Promise<AdminActionResul
   await requireRole("admin");
   await archiveProduct(id);
   revalidatePath("/admin/products");
-  revalidatePath("/products");
+  updateTag("products");
   return { ok: true };
 }
 
@@ -94,7 +94,7 @@ export async function restoreProductAction(id: string): Promise<AdminActionResul
   await requireRole("admin");
   await restoreProduct(id);
   revalidatePath("/admin/products");
-  revalidatePath("/products");
+  updateTag("products");
   return { ok: true };
 }
 
@@ -102,6 +102,6 @@ export async function bulkImportProductsAction(rows: CsvRow[]) {
   await requireRole("admin");
   const result = await bulkImportProducts(rows);
   revalidatePath("/admin/products");
-  revalidatePath("/products");
+  updateTag("products");
   return result;
 }

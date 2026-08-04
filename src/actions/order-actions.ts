@@ -6,7 +6,7 @@ import { createOrder, OrderError } from "@/server/orders/create-order";
 import { fulfillOrder, PaymentError } from "@/server/orders/fulfill-order";
 import { cancelOrder, CancelError } from "@/server/orders/cancel-order";
 import { requestReturn, AdminOrderError } from "@/server/orders/admin";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import {
   checkRateLimit,
   getClientIp,
@@ -88,6 +88,11 @@ export async function placeOrderAction(input: unknown): Promise<PlaceOrderResult
     });
 
     revalidatePath("/cart");
+    // Placing an order decrements stock, and every listing filters stock > 0 —
+    // without this a sold-out piece lingers in cached grids. Cosmetic rather
+    // than an oversell risk (decrementStock's conditional UPDATE is still
+    // authoritative), but it looks broken.
+    updateTag("products");
     return {
       ok: true,
       orderId: result.order.id,
@@ -129,6 +134,7 @@ export async function verifyPaymentAction(input: unknown): Promise<VerifyPayment
   try {
     await fulfillOrder({ ...parsed.data, source: "client" });
     revalidatePath("/cart");
+    updateTag("products");
     return { ok: true };
   } catch (err) {
     if (err instanceof PaymentError) return { ok: false, error: err.message };

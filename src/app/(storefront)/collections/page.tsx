@@ -12,8 +12,8 @@ export default async function CollectionsPage() {
   const collections = await getCollections();
 
   return (
-    <div className="mx-auto max-w-[1600px] px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="text-3xl font-semibold tracking-tight">Collections</h1>
+    <div className="container-page py-10">
+      <h1 className="text-h1">Collections</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         {collections.length} {collections.length === 1 ? "collection" : "collections"}
       </p>
@@ -25,7 +25,7 @@ export default async function CollectionsPage() {
       ) : (
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {collections.map((collection, i) => (
-            <CollectionCard key={collection.id} collection={collection} priority={i < 3} />
+            <CollectionCard key={collection.id} collection={collection} preload={i < 3} />
           ))}
         </div>
       )}

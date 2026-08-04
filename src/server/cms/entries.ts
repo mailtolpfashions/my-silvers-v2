@@ -1,3 +1,4 @@
+import { cacheLife, cacheTag } from "next/cache";
 import { prisma } from "@/server/db";
 import type { Prisma, ContentEntry } from "@/generated/prisma/client";
 import { slugify } from "@/server/products/admin";
@@ -165,19 +166,23 @@ export async function publishEntry(entryId: string, userId: string) {
       },
     });
   });
+  // Returned so the calling action can invalidate the per-slug cache tag.
+  return { slug: entry.slug };
 }
 
 /** Admin-only. Reverts status; publishedData is retained for reference. */
 export async function unpublishEntry(entryId: string, userId: string) {
-  await prisma.contentEntry.update({
+  const entry = await prisma.contentEntry.update({
     where: { id: entryId },
     data: { status: "draft", updatedById: userId },
   });
+  return { slug: entry.slug };
 }
 
 /** Admin-only. */
 export async function deleteEntry(entryId: string) {
-  await prisma.contentEntry.delete({ where: { id: entryId } });
+  const entry = await prisma.contentEntry.delete({ where: { id: entryId } });
+  return { slug: entry.slug };
 }
 
 /** Admin-only. Restores a version's data as the working draft. */
@@ -247,7 +252,18 @@ export async function getSingletonEntry(typeName: string) {
 // ─── Public reads — THE only path the storefront may use ────────────────────
 // Only publishedData of published entries is ever exposed; drafts never leak.
 
+/**
+ * Cached per (type, slug). Invalidated from src/actions/cms-actions.ts when an
+ * entry is published, unpublished, deleted or rolled back — see the tag names
+ * used there. Without that wiring an editor's publish would not appear until
+ * the entry expired, which is the failure that erodes trust in a CMS fastest.
+ */
 export async function getPublishedEntry(typeName: string, slug?: string) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(`cms:${typeName}`);
+  if (slug) cacheTag(`cms:${typeName}:${slug}`);
+
   const entry = await prisma.contentEntry.findFirst({
     where: {
       contentType: { name: typeName },
@@ -273,6 +289,10 @@ export async function getPublishedEntry(typeName: string, slug?: string) {
 }
 
 export async function listPublishedEntries(typeName: string, take = 50) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(`cms:${typeName}`);
+
   const entries = await prisma.contentEntry.findMany({
     where: { contentType: { name: typeName }, status: "published" },
     orderBy: { publishedAt: "desc" },

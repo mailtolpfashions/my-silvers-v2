@@ -1,3 +1,5 @@
+import { cache } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import { prisma } from "@/server/db";
 
 export type ProductListItem = {
@@ -75,53 +77,129 @@ export async function searchProducts(params: {
 
   const whereSql = whereClauses.join(" AND ");
 
+  // Snapshot before LIMIT/OFFSET join the list — the count query shares the
+  // WHERE clause but takes none of the pagination params.
+  const whereValues = [...values];
+
   values.push(pageSize, offset);
   const limitParam = values.length - 1;
   const offsetParam = values.length;
 
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{
-      id: string;
-      name: string;
-      slug: string;
-      price: string;
-      compareAtPrice: string | null;
-      images: string[];
-      isBestseller: boolean;
-      isFeatured: boolean;
-      stock: number;
-      categoryName: string;
-    }>
-  >(
-    `SELECT p."id", p."name", p."slug", p."price"::text, p."compareAtPrice"::text as "compareAtPrice",
-            p."images", p."isBestseller", p."isFeatured", p."stock", c."name" as "categoryName"
-     FROM "Product" p
-     JOIN "Category" c ON c."id" = p."categoryId"
-     WHERE ${whereSql}
-     ORDER BY ${orderBy}
-     LIMIT $${limitParam} OFFSET $${offsetParam}`,
-    ...values
-  );
-
-  const countRows = await prisma.$queryRawUnsafe<Array<{ count: string }>>(
-    `SELECT COUNT(*)::text as count
-     FROM "Product" p
-     JOIN "Category" c ON c."id" = p."categoryId"
-     WHERE ${whereSql}`,
-    ...values.slice(0, values.length - 2)
-  );
+  // The two queries are independent; running them sequentially doubled the
+  // latency of every listing page for no reason.
+  const [rows, countRows] = await Promise.all([
+    prisma.$queryRawUnsafe<
+      Array<{
+        id: string;
+        name: string;
+        slug: string;
+        price: string;
+        compareAtPrice: string | null;
+        images: string[];
+        isBestseller: boolean;
+        isFeatured: boolean;
+        stock: number;
+        categoryName: string;
+      }>
+    >(
+      `SELECT p."id", p."name", p."slug", p."price"::text, p."compareAtPrice"::text as "compareAtPrice",
+              p."images", p."isBestseller", p."isFeatured", p."stock", c."name" as "categoryName"
+       FROM "Product" p
+       JOIN "Category" c ON c."id" = p."categoryId"
+       WHERE ${whereSql}
+       ORDER BY ${orderBy}
+       LIMIT $${limitParam} OFFSET $${offsetParam}`,
+      ...values
+    ),
+    prisma.$queryRawUnsafe<Array<{ count: string }>>(
+      `SELECT COUNT(*)::text as count
+       FROM "Product" p
+       JOIN "Category" c ON c."id" = p."categoryId"
+       WHERE ${whereSql}`,
+      ...whereValues
+    ),
+  ]);
 
   return { items: rows, total: Number(countRows[0]?.count ?? 0) };
 }
 
-export async function getProductBySlug(slug: string) {
+export const getProductBySlug = cache(async function getProductBySlug(slug: string) {
   return prisma.product.findFirst({
     where: { slug, isActive: true },
     include: { category: true },
   });
+});
+
+/**
+ * Products belonging to a collection.
+ *
+ * Collections are CMS entries with no Prisma relation to Product, so membership
+ * rides on `Product.tags` — a field that already existed, is admin-editable,
+ * and was read by nothing. The collection entry names a tag; every active,
+ * in-stock product carrying it belongs.
+ *
+ * The trade-off, stated plainly: ordering is by the same rules as any listing,
+ * not hand-curated. If merchandising later needs curated order, the upgrade is
+ * a ProductCollection join table with an explicit sortOrder.
+ */
+export async function getProductsByTag(tag: string, take = 12): Promise<ProductListItem[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("products", `products:tag:${normaliseTag(tag)}`);
+
+  const products = await prisma.product.findMany({
+    // Matches every other listing: sold-out pieces never appear in a grid.
+    where: { isActive: true, stock: { gt: 0 }, tags: { has: normaliseTag(tag) } },
+    include: { category: true },
+    orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
+    take: Math.min(60, Math.max(1, Math.trunc(take) || 12)),
+  });
+
+  return products.map(toProductListItem);
 }
 
+/** Tags are stored lower-cased on write (see server/products/admin.ts). */
+function normaliseTag(tag: string) {
+  return tag.trim().toLowerCase();
+}
+
+/** The single Prisma-row → card shape mapping, shared by every product query. */
+export function toProductListItem(p: {
+  id: string;
+  name: string;
+  slug: string;
+  price: { toString(): string };
+  compareAtPrice: { toString(): string } | null;
+  images: string[];
+  isBestseller: boolean;
+  isFeatured: boolean;
+  stock: number;
+  category: { name: string };
+}): ProductListItem {
+  return {
+    id: p.id,
+    name: p.name,
+    slug: p.slug,
+    price: p.price.toString(),
+    compareAtPrice: p.compareAtPrice?.toString() ?? null,
+    images: p.images,
+    isBestseller: p.isBestseller,
+    isFeatured: p.isFeatured,
+    stock: p.stock,
+    categoryName: p.category.name,
+  };
+}
+
+/**
+ * Cached rather than merely deduped: the header renders this on every single
+ * storefront page, and the catalogue's categories change perhaps monthly.
+ * Invalidated by src/actions/admin-category-actions.ts.
+ */
 export async function getActiveCategories() {
+  "use cache";
+  cacheLife("days");
+  cacheTag("categories");
+
   return prisma.category.findMany({
     where: { isActive: true },
     orderBy: { sortOrder: "asc" },

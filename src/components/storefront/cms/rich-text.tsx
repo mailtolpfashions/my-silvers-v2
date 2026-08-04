@@ -8,7 +8,7 @@ import { sanitizeRichText } from "@/server/cms/sanitize";
 export function RichText({ html, className }: { html: string; className?: string }) {
   return (
     <div
-      className={`prose prose-neutral max-w-none dark:prose-invert ${className ?? ""}`}
+      className={`prose prose-neutral max-w-none ${className ?? ""}`}
       dangerouslySetInnerHTML={{ __html: sanitizeRichText(html) }}
     />
   );

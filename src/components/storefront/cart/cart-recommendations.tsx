@@ -1,4 +1,4 @@
-import { ProductCard } from "@/components/storefront/product-card";
+import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
 import { getCartRecommendations } from "@/server/products/recommendations";
 
 const inr = new Intl.NumberFormat("en-IN", {
@@ -14,15 +14,9 @@ const inr = new Intl.NumberFormat("en-IN", {
 export async function CartRecommendations({
   excludeProductIds,
   subtotalPaise,
-  isAuthed,
-  wishlistIds,
-  cartQuantities,
 }: {
   excludeProductIds: string[];
   subtotalPaise: number;
-  isAuthed: boolean;
-  wishlistIds?: Set<string>;
-  cartQuantities?: Map<string, number>;
 }) {
   const { items, ceiling } = await getCartRecommendations({
     excludeProductIds,
@@ -38,15 +32,9 @@ export async function CartRecommendations({
         Pieces under {inr.format(ceiling)} that go well with your order
       </p>
 
-      <div className="mt-6 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+      <div className={`mt-6 ${PRODUCT_GRID_CLASS}`}>
         {items.map((product) => (
-          <ProductCard
-            key={product.id}
-            product={product}
-            isAuthed={isAuthed}
-            inWishlist={wishlistIds?.has(product.id) ?? false}
-            cartQuantity={cartQuantities?.get(product.id) ?? 0}
-          />
+          <ProductCard key={product.id} product={product} morphName={productMorphName(product.id)} />
         ))}
       </div>
     </section>

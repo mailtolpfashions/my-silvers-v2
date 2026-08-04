@@ -1,15 +1,18 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { getPublishedEntry } from "@/server/cms/entries";
 import { RichText } from "@/components/storefront/cms/rich-text";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Params = Promise<{ slug: string }>;
 
+/** No generateStaticParams — see the note in collections/[slug]/page.tsx. */
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPublishedEntry("blog", slug);
-  if (!post) return {};
+  if (!post) return { title: "Not found", robots: { index: false, follow: false } };
   const d = post.data as { title?: string; excerpt?: string };
   return {
     title: post.seo.metaTitle ?? d.title,
@@ -20,7 +23,30 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   };
 }
 
-export default async function BlogPostPage({ params }: { params: Params }) {
+export default function BlogPostPage({ params }: { params: Params }) {
+  return (
+    <Suspense fallback={<BlogPostSkeleton />}>
+      <BlogPostBody params={params} />
+    </Suspense>
+  );
+}
+
+function BlogPostSkeleton() {
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-10">
+      <Skeleton className="h-9 w-3/4" />
+      <Skeleton className="mt-3 h-4 w-48" />
+      <Skeleton className="mt-6 aspect-[16/9] w-full rounded-lg" />
+      <div className="mt-8 space-y-3">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-5/6" />
+      </div>
+    </div>
+  );
+}
+
+async function BlogPostBody({ params }: { params: Params }) {
   const { slug } = await params;
   const post = await getPublishedEntry("blog", slug);
   if (!post) notFound();
@@ -46,7 +72,7 @@ export default async function BlogPostPage({ params }: { params: Params }) {
       </p>
       {d.coverImage && (
         <div className="relative mt-6 aspect-[16/9] overflow-hidden rounded-lg">
-          <Image src={d.coverImage} alt={d.title ?? ""} fill className="object-cover" priority />
+          <Image src={d.coverImage} alt={d.title ?? ""} fill className="object-cover" preload />
         </div>
       )}
       {d.body && <RichText html={d.body} className="mt-8" />}

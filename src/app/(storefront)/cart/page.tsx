@@ -1,11 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { auth } from "@/server/auth/auth";
-import {
-  getCartWithProducts,
-  getWishlistProductIds,
-  getCartQuantityMap,
-} from "@/server/cart";
+import { getCartWithProducts } from "@/server/cart";
 import { CartRecommendations } from "@/components/storefront/cart/cart-recommendations";
 import { toPaise, MAX_ITEM_QUANTITY } from "@/server/orders/money";
 import { formatINR } from "@/lib/format";
@@ -26,11 +22,7 @@ export default async function CartPage() {
 }
 
 async function AuthedCart({ userId }: { userId: string }) {
-  const [cart, wishlistIds, cartQuantities] = await Promise.all([
-    getCartWithProducts(userId),
-    getWishlistProductIds(userId),
-    getCartQuantityMap(userId),
-  ]);
+  const cart = await getCartWithProducts(userId);
   const rows = (cart?.items ?? []).filter((i) => i.product.isActive);
 
   if (rows.length === 0) {
@@ -100,9 +92,6 @@ async function AuthedCart({ userId }: { userId: string }) {
     <CartRecommendations
       excludeProductIds={rows.map((r) => r.productId)}
       subtotalPaise={subtotalPaise}
-      isAuthed
-      wishlistIds={wishlistIds}
-      cartQuantities={cartQuantities}
     />
     </>
   );

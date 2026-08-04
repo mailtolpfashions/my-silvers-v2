@@ -284,7 +284,7 @@ export function CheckoutForm({
           )}
 
           {pendingPayment && paymentDismissed && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-sm dark:border-amber-700 dark:bg-amber-950">
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-sm">
               <p>Your order is saved but payment wasn&apos;t completed.</p>
               <Button
                 type="button"

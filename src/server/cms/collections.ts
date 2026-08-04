@@ -17,14 +17,31 @@ const str = (v: unknown): string | undefined =>
   typeof v === "string" && v.trim() !== "" ? v : undefined;
 
 /**
+ * Every published collection, unfiltered. Fetch once, then select repeatedly.
+ * Cached via listPublishedEntries, which carries the cms:collection tag.
+ */
+export function listCollectionEntries() {
+  return listPublishedEntries("collection", 50);
+}
+
+/**
  * Published `collection` entries as cards, ordered by the editor's sortOrder.
  * listPublishedEntries sorts by publishedAt, which editors don't control.
  */
 export async function getCollections(
   options: { featuredOnly?: boolean; take?: number } = {}
 ): Promise<CollectionSummary[]> {
-  const entries = await listPublishedEntries("collection", 50);
+  return selectCollections(await listCollectionEntries(), options);
+}
 
+/**
+ * The pure half of getCollections. Split out so a page rendering several
+ * collection sections fetches the entries once rather than once per section.
+ */
+export function selectCollections(
+  entries: Awaited<ReturnType<typeof listCollectionEntries>>,
+  options: { featuredOnly?: boolean; take?: number } = {}
+): CollectionSummary[] {
   return entries
     .map((entry) => {
       const d = entry.data as EntryData & Record<string, unknown>;
@@ -45,5 +62,11 @@ export async function getCollections(
     .filter((c) => (options.featuredOnly ? c.isFeatured : true))
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .slice(0, options.take ?? 50)
-    .map(({ sortOrder: _sortOrder, ...rest }) => rest);
+    // sortOrder is an ordering input, not part of the card's contract — drop it
+    // rather than leak it into CollectionSummary.
+    .map((c): CollectionSummary => {
+      const { sortOrder, ...summary } = c;
+      void sortOrder;
+      return summary;
+    });
 }

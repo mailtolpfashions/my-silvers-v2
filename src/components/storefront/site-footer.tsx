@@ -1,5 +1,17 @@
+import { cacheLife } from "next/cache";
 import Link from "next/link";
 import { NewsletterForm } from "@/components/storefront/newsletter-form";
+
+/**
+ * Reading the clock is non-deterministic, so it can't happen freely inside a
+ * prerendered shell — it has to live in a cached scope with a stated lifetime.
+ * A year is about as stable as content gets, so the entry can live for days.
+ */
+async function CopyrightYear() {
+  "use cache";
+  cacheLife("days");
+  return <>{new Date().getFullYear()}</>;
+}
 
 /**
  * Social links come from .env so they can be changed without touching code.
@@ -43,15 +55,15 @@ const FOOTER_LINKS: Record<string, { label: string; href: string }[]> = {
 
 export function SiteFooter() {
   return (
-    <footer className="mt-16 bg-ink text-white">
-      <div className="mx-auto max-w-[1600px] px-4 py-14 sm:px-6 lg:px-8">
+    <footer className="mt-16 bg-graphite-950 text-white">
+      <div className="container-page py-14">
         <div className="grid grid-cols-2 gap-10 md:grid-cols-5">
           {/* Brand column — the logo is dark-on-transparent and would vanish on
               this background, so the wordmark is set in Raleway instead. */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="mb-4 inline-block">
               <span className="font-brand text-xl font-light uppercase tracking-[0.2em]">
-                MY <span className="text-gold">Silvers</span>
+                MY <span className="text-brass">Silvers</span>
               </span>
             </Link>
             <p className="mb-6 max-w-[220px] text-sm leading-relaxed text-white/75">
@@ -69,7 +81,7 @@ export function SiteFooter() {
               <SocialLink href={SOCIAL.youtube} label="YouTube">
                 <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
               </SocialLink>
-              <SocialLink href={SOCIAL.whatsapp} label="WhatsApp" hoverClass="hover:text-[#25D366]">
+              <SocialLink href={SOCIAL.whatsapp} label="WhatsApp">
                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884a9.82 9.82 0 016.988 2.896 9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.885-9.885 9.885M20.52 3.449C18.24 1.245 15.24 0 12.045 0 5.463 0 .104 5.334.101 11.892c0 2.096.549 4.142 1.595 5.945L0 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.582 0 11.94-5.335 11.944-11.893a11.821 11.821 0 00-3.417-8.402" />
               </SocialLink>
             </div>
@@ -77,7 +89,7 @@ export function SiteFooter() {
 
           {Object.entries(FOOTER_LINKS).map(([heading, links]) => (
             <div key={heading}>
-              <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-gold-light">
+              <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-brass-light">
                 {heading}
               </h3>
               <ul className="space-y-2.5">
@@ -96,7 +108,7 @@ export function SiteFooter() {
           ))}
 
           <div className="col-span-2 md:col-span-1">
-            <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-gold-light">
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-brass-light">
               Newsletter
             </h3>
             <p className="mb-3 text-sm text-white/75">
@@ -107,7 +119,9 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 text-xs text-white/60 sm:flex-row">
-          <p>© {new Date().getFullYear()} MY Silvers. All rights reserved.</p>
+          <p>
+            © <CopyrightYear /> MY Silvers. All rights reserved.
+          </p>
           <p>BIS Hallmarked 925 Sterling Silver · Made in India</p>
         </div>
       </div>
@@ -119,7 +133,7 @@ function SocialLink({
   href,
   label,
   children,
-  hoverClass = "hover:text-gold",
+  hoverClass = "hover:text-brass-light",
 }: {
   href: string;
   label: string;

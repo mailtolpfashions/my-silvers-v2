@@ -6,12 +6,13 @@ import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { addToCartAction } from "@/actions/cart-actions";
+import { addToGuestCart } from "@/lib/guest-cart";
 import {
-  addToGuestCart,
-  subscribeGuestCart,
-  getGuestCartSnapshot,
-  getGuestCartServerSnapshot,
-} from "@/lib/guest-cart";
+  subscribeUserState,
+  getUserStateSnapshot,
+  getUserStateServerSnapshot,
+  setCartQuantityLocal,
+} from "@/lib/user-state-store";
 
 /** Wording for stock outcomes — no counts, matching src/lib/stock-label.ts. */
 const STOCK_MESSAGES = {
@@ -31,57 +32,60 @@ const STOCK_MESSAGES = {
 export function AddToCartButton({
   productId,
   stock,
+  /**
+   * Server-known values. Supplied only on the product page, where the CTA is
+   * the page and a flip after hydration would be jarring. Listing cards omit
+   * them and read the shared store, which is what lets those pages be cached.
+   */
   isAuthed,
-  /** Quantity already in the signed-in customer's cart. */
-  cartQuantity = 0,
+  cartQuantity,
   /** Compact rendering for listing cards: full width, small, no helper text. */
   compact = false,
 }: {
   productId: string;
   stock: number;
-  isAuthed: boolean;
+  isAuthed?: boolean;
   cartQuantity?: number;
   compact?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  // Guests: read localStorage directly so the state is right immediately and
-  // after a reload, with no server round trip.
-  const guestItems = useSyncExternalStore(
-    subscribeGuestCart,
-    getGuestCartSnapshot,
-    getGuestCartServerSnapshot
+  // One store for guests and signed-in shoppers alike — it is filled from
+  // localStorage for the former and /api/me/state for the latter.
+  const state = useSyncExternalStore(
+    subscribeUserState,
+    getUserStateSnapshot,
+    getUserStateServerSnapshot
   );
 
-  const quantityInCart = isAuthed
-    ? cartQuantity
-    : (guestItems.find((i) => i.productId === productId)?.quantity ?? 0);
+  const ready = state.status === "ready";
+  const authed = ready ? state.isAuthed : (isAuthed ?? false);
+  const quantityInCart = ready ? (state.cart.get(productId) ?? 0) : (cartQuantity ?? 0);
 
   const inCart = quantityInCart > 0;
   const atStockLimit = quantityInCart >= stock;
 
   function handleClick() {
-    if (isAuthed) {
+    if (authed) {
+      // Optimistic, so every card for this product updates at once. The guest
+      // path needs no equivalent — writing localStorage notifies the store.
+      setCartQuantityLocal(productId, quantityInCart + 1);
       startTransition(async () => {
         try {
           const result = await addToCartAction(productId);
 
           if (!result.ok) {
-            // Stock changed since this page rendered — refresh so the button
-            // and availability label reflect reality, then explain why.
-            router.refresh();
+            setCartQuantityLocal(productId, quantityInCart);
             toast.error(STOCK_MESSAGES[result.reason]);
             return;
           }
 
-          // Re-renders the server components so both this button's quantity
-          // and the header badge pick up the new value.
-          router.refresh();
           toast.success("Added to cart", {
             action: { label: "View cart", onClick: () => router.push("/cart") },
           });
         } catch {
+          setCartQuantityLocal(productId, quantityInCart);
           toast.error("Could not add to cart. Please try again.");
         }
       });

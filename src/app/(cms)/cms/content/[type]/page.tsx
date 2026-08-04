@@ -112,7 +112,7 @@ export default async function ContentListPage({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Slug</TableHead>
+              <TableHead>Title</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Updated</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -121,7 +121,15 @@ export default async function ContentListPage({
           <TableBody>
             {entries.map((entry) => (
               <TableRow key={entry.id}>
-                <TableCell className="text-sm font-medium">{entry.slug}</TableCell>
+                {/* Title first, slug beneath. The list used to show only the
+                    slug, so an editor scanning for "The Gifting Guide" had to
+                    read "gifting-guide-silver" and translate. */}
+                <TableCell className="text-sm">
+                  <span className="font-medium">{entryTitle(entry)}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {entry.slug}
+                  </span>
+                </TableCell>
                 <TableCell>
                   <Badge variant={entry.status === "published" ? "default" : "secondary"}>
                     {entry.status}
@@ -152,4 +160,24 @@ export default async function ContentListPage({
       </div>
     </div>
   );
+}
+
+/**
+ * A human label for an entry row.
+ *
+ * Content types don't agree on which field is the name — blog/page/collection
+ * use `title`, announcements use `text`, banners use `title`. Try the likely
+ * ones in order and fall back to the slug, so a type added later still renders
+ * something sensible rather than blank.
+ */
+function entryTitle(entry: { slug: string; data: unknown }): string {
+  const d = (entry.data ?? {}) as Record<string, unknown>;
+  for (const key of ["title", "headline", "text", "name"]) {
+    const v = d[key];
+    if (typeof v === "string" && v.trim() !== "") {
+      // Headlines can carry a deliberate line break; the list wants one line.
+      return v.split("\n")[0].trim();
+    }
+  }
+  return entry.slug;
 }

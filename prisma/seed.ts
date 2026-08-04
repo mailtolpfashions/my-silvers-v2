@@ -16,20 +16,48 @@ const systemContentTypes = [
     icon: "home",
     isSingleton: true,
     fields: [
-      { name: "announcementText", label: "Announcement bar text", type: "text" },
-      { name: "heroTitle", label: "Hero title", type: "text", required: true },
-      { name: "heroSubtitle", label: "Hero subtitle", type: "textarea" },
-      { name: "heroCta", label: "Hero CTA label", type: "text" },
-      { name: "heroLink", label: "Hero CTA link", type: "text" },
-      { name: "heroImage", label: "Hero image", type: "image" },
-      { name: "heroVideo", label: "Hero video", type: "text" },
-      { name: "heroBackground", label: "Hero background color", type: "color" },
+
+      // ── Hero ─────────────────────────────────────────────────────────────
+      // Slides live here rather than in a separate content type. There used to
+      // be both: a `heroSlide` type AND a set of hero* fields on this entry,
+      // with slides silently winning — so an editor had two plausible places to
+      // change the hero and no way to tell which one the site used.
+      //
+      // Order in this array is the order on screen; the old `sortOrder` field
+      // is gone because the array's own up/down controls replace it.
+      {
+        name: "slides",
+        label: "Hero slides — order here is the order they rotate in",
+        type: "array",
+        of: [
+          { name: "eyebrow", label: "Eyebrow", type: "text" },
+          {
+            name: "headline",
+            label: "Headline (use a line break for two lines)",
+            type: "textarea",
+            required: true,
+          },
+          { name: "subline", label: "Subline", type: "textarea" },
+          { name: "ctaLabel", label: "Button label", type: "text" },
+          { name: "ctaHref", label: "Button link", type: "text" },
+          { name: "secondaryLabel", label: "Secondary link label", type: "text" },
+          { name: "secondaryHref", label: "Secondary link href", type: "text" },
+          { name: "media", label: "Background image or video", type: "media" },
+          { name: "overlayOpacity", label: "Overlay opacity (0–100)", type: "number" },
+          { name: "isActive", label: "Show this slide", type: "boolean" },
+        ],
+      },
       {
         name: "trustItems",
         label: "Trust bar items",
         type: "array",
         of: [
-          { name: "icon", label: "Icon", type: "text" },
+          {
+            name: "icon",
+            label:
+              "Icon — shield-check, truck, refresh-ccw, sparkles, gem, gift, award, star, lock, leaf, package, wallet, heart, badge-check, rotate-ccw (or an emoji)",
+            type: "text",
+          },
           { name: "text", label: "Text", type: "text" },
         ],
       },
@@ -42,36 +70,108 @@ const systemContentTypes = [
             name: "type",
             label: "Section type",
             type: "select",
-            options: ["products", "collections", "banner", "instagram"],
+            options: [
+              "products",
+              "collections",
+              "banner",
+              "instagram",
+              "editorial",
+              "categoryTiles",
+              "usp",
+            ],
             required: true,
           },
           { name: "title", label: "Heading", type: "text" },
           { name: "eyebrow", label: "Eyebrow", type: "text" },
           {
             name: "source",
-            label: "Products: which products",
+            label: "Which products",
             type: "select",
             options: ["newest", "bestseller", "featured", "category"],
+            showWhen: { field: "type", equals: ["products"] },
           },
           {
             name: "categorySlug",
-            label: "Products: category slug (when source is 'category')",
+            label: "Category slug (when source is 'category')",
             type: "text",
+            showWhen: { field: "type", equals: ["products"] },
           },
           {
             name: "featuredOnly",
-            label: "Collections: featured only",
+            label: "Featured collections only",
             type: "boolean",
+            showWhen: { field: "type", equals: ["collections"] },
           },
           {
             name: "bannerPosition",
-            label: "Banner: which position to show",
+            label: "Which banner position to show",
             type: "select",
-            options: ["homepage-hero", "homepage-mid", "category", "sidebar"],
+            options: ["homepage-hero", "homepage-mid", "category"],
+            showWhen: { field: "type", equals: ["banner"] },
           },
-          { name: "limit", label: "How many items", type: "number" },
-          { name: "viewAllHref", label: "'View all' link (blank to hide)", type: "text" },
+          {
+            name: "limit",
+            label: "How many items",
+            type: "number",
+            showWhen: { field: "type", equals: ["products", "collections", "categoryTiles"] },
+          },
+          {
+            name: "viewAllHref",
+            label: "'View all' link (blank to hide)",
+            type: "text",
+            showWhen: { field: "type", equals: ["products", "collections"] },
+          },
           { name: "isActive", label: "Show this section", type: "boolean" },
+
+          // ── Editorial ──
+          {
+            name: "body",
+            label: "Body copy",
+            type: "textarea",
+            showWhen: { field: "type", equals: ["editorial"] },
+          },
+          {
+            name: "image",
+            label: "Image",
+            type: "image",
+            showWhen: { field: "type", equals: ["editorial"] },
+          },
+          {
+            name: "ctaLabel",
+            label: "Button label",
+            type: "text",
+            showWhen: { field: "type", equals: ["editorial"] },
+          },
+          {
+            name: "ctaHref",
+            label: "Button link",
+            type: "text",
+            showWhen: { field: "type", equals: ["editorial"] },
+          },
+          {
+            name: "imageSide",
+            label: "Image side (alternate these down the page)",
+            type: "select",
+            options: ["left", "right"],
+            showWhen: { field: "type", equals: ["editorial"] },
+          },
+
+          // ── USP / craft story ──
+          {
+            name: "items",
+            label: "The claims to show",
+            type: "array",
+            showWhen: { field: "type", equals: ["usp"] },
+            of: [
+              {
+                name: "icon",
+                label: "Icon — a Lucide name (shield-check, gem, award…) or an emoji",
+                type: "text",
+              },
+              { name: "title", label: "Title", type: "text" },
+              { name: "text", label: "Text", type: "text" },
+            ],
+          },
         ],
       },
       {
@@ -84,30 +184,6 @@ const systemContentTypes = [
           { name: "rating", label: "Rating", type: "number" },
         ],
       },
-    ],
-  },
-  {
-    name: "heroSlide",
-    label: "Hero slides",
-    icon: "gallery-horizontal",
-    isSingleton: false,
-    fields: [
-      { name: "eyebrow", label: "Eyebrow", type: "text" },
-      {
-        name: "headline",
-        label: "Headline (use a line break for two lines)",
-        type: "textarea",
-        required: true,
-      },
-      { name: "subline", label: "Subline", type: "textarea" },
-      { name: "ctaLabel", label: "Button label", type: "text" },
-      { name: "ctaHref", label: "Button link", type: "text" },
-      { name: "secondaryLabel", label: "Secondary link label", type: "text" },
-      { name: "secondaryHref", label: "Secondary link href", type: "text" },
-      { name: "media", label: "Background image or video", type: "image" },
-      { name: "overlayOpacity", label: "Overlay opacity (0–100)", type: "number" },
-      { name: "isActive", label: "Active", type: "boolean" },
-      { name: "sortOrder", label: "Sort order", type: "number" },
     ],
   },
   {
@@ -135,7 +211,6 @@ const systemContentTypes = [
       { name: "excerpt", label: "Excerpt", type: "textarea" },
       { name: "body", label: "Body", type: "richtext", required: true },
       { name: "coverImage", label: "Cover image", type: "image" },
-      { name: "tags", label: "Tags", type: "array", of: [{ name: "tag", label: "Tag", type: "text" }] },
       { name: "publishedAt", label: "Published at", type: "date" },
     ],
   },
@@ -148,14 +223,15 @@ const systemContentTypes = [
       { name: "title", label: "Title", type: "text", required: true },
       { name: "slug", label: "Slug", type: "slug", required: true },
       { name: "eyebrow", label: "Eyebrow", type: "text" },
-      {
-        name: "theme",
-        label: "Theme",
-        type: "select",
-        options: ["bridal", "daily-wear", "office-wear", "festive", "custom"],
-      },
       { name: "description", label: "Description", type: "textarea" },
       { name: "story", label: "Story", type: "richtext" },
+      {
+        name: "productTag",
+        // Membership rides on Product.tags — set the same tag on the products
+        // in /admin and they appear on the collection page automatically.
+        label: "Product tag — products with this tag appear in this collection",
+        type: "text",
+      },
       { name: "heroImage", label: "Hero image", type: "image" },
       { name: "thumbnailImage", label: "Thumbnail image", type: "image" },
       { name: "cta", label: "CTA label", type: "text" },
@@ -189,9 +265,17 @@ const systemContentTypes = [
       { name: "link", label: "Link", type: "text" },
       {
         name: "position",
-        label: "Position",
+        label: "Position — where this banner appears",
         type: "select",
-        options: ["homepage-hero", "homepage-mid", "category", "sidebar"],
+        options: ["homepage-hero", "homepage-mid", "category"],
+      },
+      {
+        name: "categorySlug",
+        // A select can't express per-category targeting, and a position option
+        // no editor could pick would be another dead control. This is the
+        // reachable version.
+        label: "Category position only: which category (blank = all of them)",
+        type: "text",
       },
       { name: "isActive", label: "Active", type: "boolean" },
       { name: "startsAt", label: "Starts at", type: "date" },

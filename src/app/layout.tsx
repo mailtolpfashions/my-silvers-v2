@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { Playfair_Display, DM_Sans, Raleway, Geist_Mono } from "next/font/google";
-import { ThemeProvider } from "@/components/theme-provider";
+import { Playfair_Display, DM_Sans, Raleway } from "next/font/google";
 import "./globals.css";
 
 // Headings — the brand's display serif.
@@ -17,18 +16,18 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
-// Brand wordmark font — matches the "MY SILVERS" logo lettering.
+// Brand wordmark font — matches the "MY SILVERS" logo lettering. Only the
+// footer wordmark uses it, at 300; the other three weights were being
+// downloaded for nothing.
 const raleway = Raleway({
   variable: "--font-raleway",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
+  weight: ["300"],
   display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// Geist Mono was dropped: a whole downloaded family for one `font-mono` order
+// ID in /admin. Tailwind's default system mono stack covers that case.
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.mysilvers.in"),
@@ -71,23 +70,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    // suppressHydrationWarning is no longer needed here — it existed for
+    // next-themes writing a class onto <html> before hydration.
     <html
       lang="en-IN"
-      className={`${playfair.variable} ${dmSans.variable} ${raleway.variable} ${geistMono.variable} h-full antialiased`}
-      suppressHydrationWarning
+      className={`${playfair.variable} ${dmSans.variable} ${raleway.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
-        {/* defaultTheme="light" keeps the storefront's current appearance until
-            a theme toggle is added — flip enableSystem on when it is. */}
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem={false}
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
-      </body>
+      {/* Single light theme by design. There is no theme provider: next-themes
+          was a client-side context wrapping every page, and the site has one
+          palette, so it was pure cost. */}
+      <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }

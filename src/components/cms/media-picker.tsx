@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Upload, Loader2 } from "lucide-react";
+import { Upload, Loader2, Play } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,11 +31,19 @@ export function MediaPicker({
   open,
   onOpenChange,
   onSelect,
+  accept = "image",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (asset: MediaAssetSummary) => void;
+  /**
+   * "image" (default) hides video, because most consumers render through
+   * next/image, which cannot display a video URL. "media" allows both, for the
+   * hero slide — the one renderer that handles either.
+   */
+  accept?: "image" | "media";
 }) {
+  const allowsVideo = accept === "media";
   // null = not yet loaded (shows the loading state)
   const [assets, setAssets] = useState<MediaAssetSummary[] | null>(null);
   const [q, setQ] = useState("");
@@ -134,7 +142,7 @@ export function MediaPicker({
           <input
             ref={inputRef}
             type="file"
-            accept="image/*"
+            accept={allowsVideo ? "image/*,video/*" : "image/*"}
             hidden
             onChange={(e) => handleUpload(e.target.files)}
           />
@@ -151,26 +159,50 @@ export function MediaPicker({
             </p>
           ) : (
             assets
-              .filter((a) => a.mimeType.startsWith("image/"))
-              .map((asset) => (
-                <button
-                  key={asset.id}
-                  type="button"
-                  onClick={() => {
-                    onSelect(asset);
-                    onOpenChange(false);
-                  }}
-                  className="group relative aspect-square overflow-hidden rounded-md border hover:ring-2 hover:ring-primary"
-                >
-                  <Image
-                    src={asset.url}
-                    alt={asset.alt ?? asset.originalName}
-                    fill
-                    className="object-cover"
-                    sizes="150px"
-                  />
-                </button>
-              ))
+              .filter(
+                (a) =>
+                  a.mimeType.startsWith("image/") ||
+                  (allowsVideo && a.mimeType.startsWith("video/"))
+              )
+              .map((asset) => {
+                const isVideo = asset.mimeType.startsWith("video/");
+                return (
+                  <button
+                    key={asset.id}
+                    type="button"
+                    onClick={() => {
+                      onSelect(asset);
+                      onOpenChange(false);
+                    }}
+                    className="group relative aspect-square overflow-hidden rounded-md border hover:ring-2 hover:ring-primary"
+                  >
+                    {isVideo ? (
+                      <>
+                        {/* metadata only — a library of autoloading videos
+                            would download every clip just to open the picker. */}
+                        <video
+                          src={asset.url}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          className="h-full w-full bg-graphite-950 object-cover"
+                        />
+                        <span className="absolute inset-0 flex items-center justify-center bg-graphite-950/40">
+                          <Play className="size-5 fill-white text-white" aria-hidden />
+                        </span>
+                      </>
+                    ) : (
+                      <Image
+                        src={asset.url}
+                        alt={asset.alt ?? asset.originalName}
+                        fill
+                        className="object-cover"
+                        sizes="150px"
+                      />
+                    )}
+                  </button>
+                );
+              })
           )}
         </div>
       </DialogContent>

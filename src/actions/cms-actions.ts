@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireRole } from "@/server/auth/require-role";
 import {
   saveEntry,
@@ -36,20 +36,24 @@ const saveSchema = z.object({
   seo: seoSchema,
 });
 
-/** Content-type slug → the storefront paths that render it. */
-function revalidateForType(typeName: string) {
-  revalidatePath("/");
-  switch (typeName) {
-    case "blog":
-      revalidatePath("/blog", "layout");
-      break;
-    case "page":
-      revalidatePath("/p", "layout");
-      break;
-    case "collection":
-      revalidatePath("/collections", "layout");
-      break;
-  }
+/**
+ * Drops the cached reads for one content type.
+ *
+ * These MUST be tags, not paths: the storefront's CMS reads are cached with
+ * cacheTag(`cms:<type>`) in src/server/cms/entries.ts, and revalidatePath does
+ * not touch cacheTag entries. Publishing and not seeing the change is the
+ * failure that erodes trust in a CMS fastest — if you add a cached CMS read,
+ * add its tag here in the same commit.
+ *
+ * updateTag (not revalidateTag) because this runs in a Server Action: the
+ * editor who just hit Publish must see the result immediately, not eventually.
+ */
+function revalidateForType(typeName: string, slug?: string | null) {
+  updateTag(`cms:${typeName}`);
+  if (slug) updateTag(`cms:${typeName}:${slug}`);
+
+  // The announcement bar renders on every storefront page from its own tag.
+  if (typeName === "announcement") updateTag("cms:announcement");
 }
 
 export async function saveEntryAction(input: unknown): Promise<CmsActionResult> {
@@ -86,9 +90,9 @@ export async function publishEntryAction(
 ): Promise<CmsActionResult> {
   const session = await requireRole("admin", "editor");
   try {
-    await publishEntry(entryId, session.user.id);
+    const { slug } = await publishEntry(entryId, session.user.id);
     revalidatePath(`/cms/content/${typeName}`);
-    revalidateForType(typeName);
+    revalidateForType(typeName, slug);
     return { ok: true };
   } catch (err) {
     if (err instanceof CmsError) return { ok: false, error: err.message };
@@ -103,9 +107,9 @@ export async function unpublishEntryAction(
   typeName: string
 ): Promise<CmsActionResult> {
   const session = await requireRole("admin");
-  await unpublishEntry(entryId, session.user.id);
+  const { slug } = await unpublishEntry(entryId, session.user.id);
   revalidatePath(`/cms/content/${typeName}`);
-  revalidateForType(typeName);
+  revalidateForType(typeName, slug);
   return { ok: true };
 }
 
@@ -115,9 +119,9 @@ export async function deleteEntryAction(
   typeName: string
 ): Promise<CmsActionResult> {
   await requireRole("admin");
-  await deleteEntry(entryId);
+  const { slug } = await deleteEntry(entryId);
   revalidatePath(`/cms/content/${typeName}`);
-  revalidateForType(typeName);
+  revalidateForType(typeName, slug);
   return { ok: true };
 }
 

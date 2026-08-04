@@ -1,22 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth/auth";
-import { getWishlistProducts, getCartQuantityMap } from "@/server/cart";
-import { ProductCard } from "@/components/storefront/product-card";
+import { getWishlistProducts } from "@/server/cart";
+import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
 import { Button } from "@/components/ui/button";
 
 export default async function WishlistPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login?redirect=/wishlist");
 
-  const [products, cartQuantities] = await Promise.all([
-    getWishlistProducts(session.user.id),
-    getCartQuantityMap(session.user.id),
-  ]);
+  const products = await getWishlistProducts(session.user.id);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
-      <h1 className="mb-8 text-2xl font-semibold">Your wishlist</h1>
+    <div className="container-page py-10">
+      <h1 className="mb-8 text-h1">Your wishlist</h1>
 
       {products.length === 0 ? (
         <div className="py-16 text-center">
@@ -26,14 +23,11 @@ export default async function WishlistPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
+        <div className={PRODUCT_GRID_CLASS}>
           {products.map((product) => (
             <ProductCard
               key={product.id}
-              isAuthed
-              // Everything on this page is, by definition, wishlisted.
-              inWishlist
-              cartQuantity={cartQuantities.get(product.id) ?? 0}
+              morphName={productMorphName(product.id)}
               product={{
                 id: product.id,
                 name: product.name,
