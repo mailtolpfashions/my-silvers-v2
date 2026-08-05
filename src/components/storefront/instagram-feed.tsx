@@ -33,7 +33,7 @@ export async function InstagramFeed({
   if (posts.length === 0) return null;
 
   return (
-    <section className="container-page py-16">
+    <section className="container-page py-10 sm:py-16">
       {eyebrow && <p className="label-eyebrow mb-2 text-center">{eyebrow}</p>}
       <div className="mb-6 flex items-center justify-center gap-2">
         <InstagramGlyph className="h-5 w-5" />

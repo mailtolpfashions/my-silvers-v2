@@ -39,7 +39,7 @@ export function HomepageSection({
   if (section.kind === "editorial") {
     const imageFirst = section.imageSide === "left";
     return (
-      <section className="container-page py-16 sm:py-20">
+      <section className="container-page py-10 sm:py-16 lg:py-20">
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
           {section.image && (
             <div
@@ -83,7 +83,7 @@ export function HomepageSection({
 
   if (section.kind === "categoryTiles") {
     return (
-      <section className="container-page py-16 sm:py-20">
+      <section className="container-page py-10 sm:py-16 lg:py-20">
         <SectionHeading title={section.title} eyebrow={section.eyebrow} subtitle={section.subtitle} />
         <ul className="flex flex-wrap justify-center gap-x-8 gap-y-10 sm:gap-x-12">
           {section.items.map((item) => (
@@ -117,7 +117,7 @@ export function HomepageSection({
   if (section.kind === "usp") {
     return (
       <section className="border-y bg-muted/40">
-        <div className="container-page py-16 sm:py-20">
+        <div className="container-page py-10 sm:py-16 lg:py-20">
           <SectionHeading
             title={section.title}
             eyebrow={section.eyebrow}
@@ -171,7 +171,7 @@ export function HomepageSection({
     );
 
     return (
-      <section className="container-page py-8">
+      <section className="container-page py-4 sm:py-8">
         {section.link ? (
           <Link href={section.link} className="block">
             {banner}
@@ -184,7 +184,7 @@ export function HomepageSection({
   }
 
   return (
-    <section className="container-page py-16 sm:py-20">
+    <section className="container-page py-10 sm:py-16 lg:py-20">
       <SectionHeading
         title={section.title}
         eyebrow={section.eyebrow}
@@ -244,7 +244,7 @@ function SectionHeading({
 }) {
   if (!title && !eyebrow && !subtitle) return null;
   return (
-    <div className="mb-10 text-center">
+    <div className="mb-6 text-center sm:mb-10">
       {eyebrow && <p className="label-eyebrow mb-3">{eyebrow}</p>}
       {title && <h2 className="text-h2">{title}</h2>}
       {subtitle && (

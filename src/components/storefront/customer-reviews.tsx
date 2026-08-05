@@ -19,7 +19,7 @@ export async function CustomerReviews() {
   if (reviews.length === 0) return null;
 
   return (
-    <section className="container-page py-16">
+    <section className="container-page py-10 sm:py-16">
       <div className="mb-10 text-center">
         <p className="label-eyebrow mb-2">In their words</p>
         <h2 className="text-h2">What our customers say</h2>

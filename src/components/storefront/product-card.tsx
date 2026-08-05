@@ -33,7 +33,7 @@ export const CARD_TITLE_CLASS = "line-clamp-2 min-h-[3rem] text-base leading-snu
  * homepage section with a ragged final row.
  */
 export const PRODUCT_GRID_CLASS =
-  "grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4";
+  "grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-10 lg:grid-cols-4";
 
 /**
  * The shared identity for the card-image → product-page morph. Both ends must

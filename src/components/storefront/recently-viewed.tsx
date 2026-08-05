@@ -74,7 +74,7 @@ export function RecentlyViewed({ excludeProductId }: { excludeProductId?: string
   if (wanted.length === 0 || !items || items.length === 0) return null;
 
   return (
-    <section className="container-page border-t py-14">
+    <section className="container-page border-t py-10 sm:py-14">
       <h2 className="mb-8 text-h2">Recently viewed</h2>
       <div className={PRODUCT_GRID_CLASS}>
         {items.map((product) => (

@@ -91,7 +91,7 @@ async function HomepageSections({ data }: { data?: Parameters<typeof resolveHome
 
 function HomepageSectionsSkeleton() {
   return (
-    <section className="container-page py-14">
+    <section className="container-page py-10 sm:py-16 lg:py-20">
       <ProductGridSkeleton count={8} />
     </section>
   );
