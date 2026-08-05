@@ -2,14 +2,20 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 /**
- * True for the real production deployment only.
+ * Whether next/image may load the demo catalogue's placeholder host.
  *
- * NODE_ENV is "production" on Vercel PREVIEW builds too, so it cannot tell a
- * live site from a test one. VERCEL_ENV can: "production" | "preview" |
- * "development", and it is undefined outside Vercel — so a local build reads as
- * not-production, which is what we want.
+ * 119 of the 120 seeded products point at placehold.co, so blocking it leaves a
+ * shop full of broken images. The real site should never render images from a
+ * host we do not control — but "the real site" is not the same as "a production
+ * build". A demo deployed from main is a production build and still needs them.
+ *
+ * So it is an explicit opt-in rather than anything inferred: set
+ * ALLOW_PLACEHOLDER_IMAGES=1 on a demo project, leave it unset on the live one.
+ * Local development allows it without the flag, because that is where the demo
+ * data is always used.
  */
-const isProductionDeploy = process.env.VERCEL_ENV === "production";
+const allowPlaceholderImages =
+  process.env.ALLOW_PLACEHOLDER_IMAGES === "1" || process.env.NODE_ENV !== "production";
 
 const nextConfig: NextConfig = {
   // Partial Prerendering: a static shell served from the edge, with per-shopper
@@ -52,16 +58,10 @@ const nextConfig: NextConfig = {
       // Instagram/Meta CDN — homepage feed images served via the Graph API
       { protocol: "https", hostname: "*.cdninstagram.com" },
       { protocol: "https", hostname: "*.fbcdn.net" },
-      // Placeholder host for the demo catalogue — 119 of the 120 seeded
-      // products point at it. Allowed everywhere EXCEPT the live site, so a
-      // preview deployment can be browsed with real-looking stock while the
-      // production build still refuses to render images from a host we do not
-      // control. Gated on VERCEL_ENV rather than NODE_ENV, because a Vercel
-      // preview build has NODE_ENV=production and would otherwise show a
-      // catalogue of broken images.
-      ...(isProductionDeploy
-        ? []
-        : [{ protocol: "https" as const, hostname: "placehold.co" }]),
+      // Demo catalogue placeholders — opt-in, see allowPlaceholderImages.
+      ...(allowPlaceholderImages
+        ? [{ protocol: "https" as const, hostname: "placehold.co" }]
+        : []),
     ],
   },
 
