@@ -45,6 +45,8 @@ type ResolvedItem = {
   pricePaise: number;
   quantity: number;
   weight: string | null;
+  /** Snapshotted onto the OrderItem — this is what fulfilment picks. */
+  size: string;
 };
 
 export type CreateOrderResult = {
@@ -54,41 +56,78 @@ export type CreateOrderResult = {
 };
 
 /**
- * Resolves raw {productId, quantity} pairs against live product rows.
- * Dedupes, clamps quantity to 1..MAX_ITEM_QUANTITY, rejects inactive
- * products, and snapshots name/image/price/weight at this instant. This is a
+ * Resolves raw {productId, size, quantity} triples against live product rows.
+ *
+ * Dedupes, clamps quantity to 1..MAX_ITEM_QUANTITY, rejects inactive products,
+ * and snapshots name/image/price/weight/size at this instant. This is a
  * pre-check only — the binding stock enforcement is the conditional UPDATE in
  * decrementStock.
+ *
+ * Lines are keyed by product AND size. Merging on product alone would collapse
+ * "ring size 7" and "ring size 9" into one line and silently discard one of the
+ * sizes, which is unrecoverable once the cart is cleared.
+ *
+ * Stock, however, is still per PRODUCT — sizes share one pool today — so the
+ * availability check sums every size of a product before comparing.
  */
 async function resolveItems(
-  rawItems: Array<{ productId: string; quantity: number }>
+  rawItems: Array<{ productId: string; quantity: number; size?: string }>
 ): Promise<ResolvedItem[]> {
-  const merged = new Map<string, number>();
+  const merged = new Map<string, { productId: string; size: string; quantity: number }>();
   for (const item of rawItems) {
     const qty = Math.max(1, Math.min(MAX_ITEM_QUANTITY, Math.trunc(item.quantity) || 1));
-    merged.set(item.productId, Math.min(MAX_ITEM_QUANTITY, (merged.get(item.productId) ?? 0) + qty));
+    const size = item.size ?? "";
+    const key = `${item.productId}::${size}`;
+    const prev = merged.get(key);
+    merged.set(key, {
+      productId: item.productId,
+      size,
+      quantity: Math.min(MAX_ITEM_QUANTITY, (prev?.quantity ?? 0) + qty),
+    });
   }
   if (merged.size === 0) throw new OrderError("EMPTY_CART", "No items to order.");
 
+  const lines = [...merged.values()];
+  const productIds = [...new Set(lines.map((l) => l.productId))];
+
   const products = await prisma.product.findMany({
-    where: { id: { in: [...merged.keys()] }, isActive: true },
+    where: { id: { in: productIds }, isActive: true },
   });
-  if (products.length !== merged.size) {
+  if (products.length !== productIds.length) {
     throw new OrderError("PRODUCT_UNAVAILABLE", "One or more items are no longer available.");
   }
+  const byId = new Map(products.map((p) => [p.id, p]));
 
-  return products.map((p) => {
-    const quantity = merged.get(p.id)!;
-    if (p.stock < quantity) {
-      throw new OrderError("INSUFFICIENT_STOCK", `Only ${p.stock} left of "${p.name}".`);
+  // Totals across sizes, because stock is a single pool per product.
+  const totalPerProduct = new Map<string, number>();
+  for (const line of lines) {
+    totalPerProduct.set(
+      line.productId,
+      (totalPerProduct.get(line.productId) ?? 0) + line.quantity,
+    );
+  }
+  for (const [productId, wanted] of totalPerProduct) {
+    const product = byId.get(productId)!;
+    if (product.stock < wanted) {
+      throw new OrderError("INSUFFICIENT_STOCK", `Only ${product.stock} left of "${product.name}".`);
+    }
+  }
+
+  return lines.map((line) => {
+    const p = byId.get(line.productId)!;
+    // A size that is no longer offered would send an unfulfillable line to the
+    // packer, so it is rejected rather than quietly dropped.
+    if (p.sizes.length > 0 && !p.sizes.includes(line.size)) {
+      throw new OrderError("PRODUCT_UNAVAILABLE", `"${p.name}" is no longer available in that size.`);
     }
     return {
       productId: p.id,
       name: p.name,
       image: p.images[0] ?? null,
       pricePaise: toPaise(p.price),
-      quantity,
+      quantity: line.quantity,
       weight: p.weight?.toString() ?? null,
+      size: p.sizes.length > 0 ? line.size : "",
     };
   });
 }
@@ -106,7 +145,7 @@ export async function createOrder(input: {
   userId?: string;
   guestEmail?: string;
   /** Guest checkout submits items directly; authed checkout reads the DB cart. */
-  items?: Array<{ productId: string; quantity: number }>;
+  items?: Array<{ productId: string; quantity: number; size?: string }>;
   shippingAddress: ShippingAddressInput;
   paymentMethod: PaymentMethod;
   notes?: string;
@@ -135,7 +174,8 @@ export async function createOrder(input: {
       where: { userId },
       include: { items: true },
     });
-    rawItems = cart?.items.map((i) => ({ productId: i.productId, quantity: i.quantity })) ?? [];
+    rawItems =
+      cart?.items.map((i) => ({ productId: i.productId, quantity: i.quantity, size: i.size })) ?? [];
   }
   const items = await resolveItems(rawItems);
 
@@ -194,6 +234,7 @@ export async function createOrder(input: {
               price: paiseToRupeeString(i.pricePaise),
               quantity: i.quantity,
               weight: i.weight,
+              size: i.size,
             })),
           },
         },

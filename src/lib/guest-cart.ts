@@ -1,10 +1,18 @@
 /**
- * Guest cart — client-only localStorage store of {productId, quantity}.
+ * Guest cart — client-only localStorage store of {productId, size, quantity}.
  * Authed users use the DB cart instead; at guest checkout these items are
  * submitted to the server, which re-validates everything against live
  * product rows (the client copy is never trusted).
  */
-export type GuestCartItem = { productId: string; quantity: number };
+export type GuestCartItem = { productId: string; size: string; quantity: number };
+
+/**
+ * Lines are identified by product AND size, so ring size 7 and size 9 are two
+ * lines. Unsized products use "" — never undefined, so the key is always a
+ * string and old carts written before sizes existed still match.
+ */
+const lineKey = (productId: string, size: string) => `${productId}::${size}`;
+export const guestLineKey = lineKey;
 
 const KEY = "mys-guest-cart";
 const MAX_QTY = 10;
@@ -21,7 +29,14 @@ export function readGuestCart(): GuestCartItem[] {
         (i): i is GuestCartItem =>
           typeof i?.productId === "string" && typeof i?.quantity === "number"
       )
-      .map((i) => ({ ...i, quantity: Math.max(1, Math.min(MAX_QTY, Math.trunc(i.quantity))) }));
+      // size is coerced rather than required: carts saved before sizes existed
+      // have no such field, and dropping those lines would silently empty a
+      // returning shopper's basket.
+      .map((i) => ({
+        productId: i.productId,
+        size: typeof i.size === "string" ? i.size : "",
+        quantity: Math.max(1, Math.min(MAX_QTY, Math.trunc(i.quantity))),
+      }));
   } catch {
     return [];
   }
@@ -32,30 +47,33 @@ function write(items: GuestCartItem[]) {
   window.dispatchEvent(new CustomEvent("guest-cart-changed"));
 }
 
-export function addToGuestCart(productId: string, quantity = 1) {
+export function addToGuestCart(productId: string, size = "", quantity = 1) {
   const items = readGuestCart();
-  const existing = items.find((i) => i.productId === productId);
+  const key = lineKey(productId, size);
+  const existing = items.find((i) => lineKey(i.productId, i.size) === key);
   if (existing) {
     existing.quantity = Math.min(MAX_QTY, existing.quantity + quantity);
   } else {
-    items.push({ productId, quantity: Math.min(MAX_QTY, Math.max(1, quantity)) });
+    items.push({ productId, size, quantity: Math.min(MAX_QTY, Math.max(1, quantity)) });
   }
   write(items);
 }
 
-export function setGuestCartQuantity(productId: string, quantity: number) {
+export function setGuestCartQuantity(productId: string, size: string, quantity: number) {
   let items = readGuestCart();
+  const key = lineKey(productId, size);
   if (quantity <= 0) {
-    items = items.filter((i) => i.productId !== productId);
+    items = items.filter((i) => lineKey(i.productId, i.size) !== key);
   } else {
-    const item = items.find((i) => i.productId === productId);
+    const item = items.find((i) => lineKey(i.productId, i.size) === key);
     if (item) item.quantity = Math.min(MAX_QTY, quantity);
   }
   write(items);
 }
 
-export function removeFromGuestCart(productId: string) {
-  write(readGuestCart().filter((i) => i.productId !== productId));
+export function removeFromGuestCart(productId: string, size = "") {
+  const key = lineKey(productId, size);
+  write(readGuestCart().filter((i) => lineKey(i.productId, i.size) !== key));
 }
 
 export function clearGuestCart() {

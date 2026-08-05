@@ -66,6 +66,9 @@ async function AuthedCart({ userId }: { userId: string }) {
               >
                 {item.product.name}
               </Link>
+              {item.size && (
+                <p className="mt-0.5 text-sm text-muted-foreground">Size: {item.size}</p>
+              )}
               <p className="mt-1 text-sm text-muted-foreground">
                 {formatINR(item.product.price.toString())}
               </p>
@@ -80,6 +83,7 @@ async function AuthedCart({ userId }: { userId: string }) {
             </div>
             <CartRowControls
               productId={item.productId}
+              size={item.size}
               quantity={item.quantity}
               maxQuantity={Math.min(MAX_ITEM_QUANTITY, item.product.stock)}
             />

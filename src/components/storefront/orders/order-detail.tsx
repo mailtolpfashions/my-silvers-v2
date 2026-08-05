@@ -89,6 +89,9 @@ export function OrderDetail({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{item.name}</p>
+                {item.size && (
+                  <p className="text-sm text-muted-foreground">Size: {item.size}</p>
+                )}
                 <p className="text-sm text-muted-foreground">
                   {formatINR(item.price.toString())} × {item.quantity}
                 </p>

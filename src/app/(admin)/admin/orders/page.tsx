@@ -97,7 +97,9 @@ export default async function AdminOrdersPage({
                     </p>
                     {/* The product names are what an admin actually scans for. */}
                     <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                      {order.items.map((i) => `${i.quantity} × ${i.name}`).join(", ")}
+                      {order.items
+                        .map((i) => `${i.quantity} × ${i.name}${i.size ? ` (${i.size})` : ""}`)
+                        .join(", ")}
                     </p>
                   </TableCell>
                   <TableCell>

@@ -12,20 +12,23 @@ async function requireUserId(): Promise<string> {
 
 export type AddToCartResult =
   | { ok: true }
-  | { ok: false; reason: "out_of_stock" | "stock_limit" | "unavailable" };
+  | { ok: false; reason: "out_of_stock" | "stock_limit" | "unavailable" | "size_required" };
 
 export async function addToCartAction(
   productId: string,
-  quantity = 1
+  quantity = 1,
+  /** Must match one of Product.sizes. Validated server-side, never trusted. */
+  size?: string
 ): Promise<AddToCartResult> {
   const userId = await requireUserId();
   try {
-    await cart.addToCart(userId, productId, quantity);
+    await cart.addToCart(userId, productId, quantity, size);
   } catch (error) {
     // Returned rather than thrown: these are ordinary outcomes the shopper
     // needs explaining, not failures.
     if (error instanceof cart.OutOfStockError) return { ok: false, reason: "out_of_stock" };
     if (error instanceof cart.StockLimitReachedError) return { ok: false, reason: "stock_limit" };
+    if (error instanceof cart.SizeRequiredError) return { ok: false, reason: "size_required" };
     if (error instanceof Error && error.message === "PRODUCT_UNAVAILABLE") {
       return { ok: false, reason: "unavailable" };
     }
@@ -35,16 +38,16 @@ export async function addToCartAction(
   return { ok: true };
 }
 
-export async function setCartQuantityAction(productId: string, quantity: number) {
+export async function setCartQuantityAction(productId: string, quantity: number, size = "") {
   const userId = await requireUserId();
-  await cart.setCartItemQuantity(userId, productId, quantity);
+  await cart.setCartItemQuantity(userId, productId, quantity, size);
   revalidatePath("/cart");
   return { ok: true as const };
 }
 
-export async function removeFromCartAction(productId: string) {
+export async function removeFromCartAction(productId: string, size = "") {
   const userId = await requireUserId();
-  await cart.removeFromCart(userId, productId);
+  await cart.removeFromCart(userId, productId, size);
   revalidatePath("/cart");
   return { ok: true as const };
 }

@@ -34,7 +34,14 @@ export async function getCartQuantityMap(userId: string): Promise<Map<string, nu
     where: { cart: { userId } },
     select: { productId: true, quantity: true },
   });
-  return new Map(items.map((i) => [i.productId, i.quantity]));
+  // Summed, not assigned: one product can now occupy several rows, one per
+  // size. Building the map by assignment would report only the last size's
+  // quantity, so a card holding two sizes would read as one.
+  const totals = new Map<string, number>();
+  for (const item of items) {
+    totals.set(item.productId, (totals.get(item.productId) ?? 0) + item.quantity);
+  }
+  return totals;
 }
 
 /**
@@ -49,13 +56,16 @@ export async function getWishlistProductIds(userId: string): Promise<Set<string>
   return new Set((wishlist?.products ?? []).map((p) => p.id));
 }
 
-/** Quantity of one product already in the cart — 0 when absent. */
+/**
+ * Quantity of one product already in the cart, across every size — 0 when
+ * absent. Aggregated because a shopper can hold two sizes of the same design.
+ */
 export async function getCartQuantityFor(userId: string, productId: string): Promise<number> {
-  const item = await prisma.cartItem.findFirst({
+  const result = await prisma.cartItem.aggregate({
     where: { cart: { userId }, productId },
-    select: { quantity: true },
+    _sum: { quantity: true },
   });
-  return item?.quantity ?? 0;
+  return result._sum.quantity ?? 0;
 }
 
 /** Thrown when the product sold out between the page rendering and the click. */
@@ -63,6 +73,14 @@ export class OutOfStockError extends Error {
   constructor() {
     super("OUT_OF_STOCK");
     this.name = "OutOfStockError";
+  }
+}
+
+/** Thrown when a sized product is added without a valid size. */
+export class SizeRequiredError extends Error {
+  constructor() {
+    super("SIZE_REQUIRED");
+    this.name = "SizeRequiredError";
   }
 }
 
@@ -74,11 +92,32 @@ export class StockLimitReachedError extends Error {
   }
 }
 
-export async function addToCart(userId: string, productId: string, quantity = 1) {
+/**
+ * Validates the chosen size against the product's own list.
+ *
+ * Never trust the string from the client: it decides what gets picked and
+ * shipped, so a value that is not on the product is rejected outright rather
+ * than stored. A product with no sizes always resolves to "".
+ */
+function resolveSize(productSizes: string[], requested: string | undefined): string {
+  if (productSizes.length === 0) return "";
+  const match = productSizes.find((s) => s === requested);
+  if (!match) throw new SizeRequiredError();
+  return match;
+}
+
+export async function addToCart(
+  userId: string,
+  productId: string,
+  quantity = 1,
+  size?: string,
+) {
   const product = await prisma.product.findFirst({
     where: { id: productId, isActive: true },
   });
   if (!product) throw new Error("PRODUCT_UNAVAILABLE");
+
+  const chosenSize = resolveSize(product.sizes, size);
 
   // Stock is re-read here, not trusted from the page the customer is looking
   // at — it may have been rendered minutes ago. This is a courtesy check for a
@@ -94,7 +133,7 @@ export async function addToCart(userId: string, productId: string, quantity = 1)
   });
 
   const existing = await prisma.cartItem.findUnique({
-    where: { cartId_productId: { cartId: cart.id, productId } },
+    where: { cartId_productId_size: { cartId: cart.id, productId, size: chosenSize } },
   });
   const currentQty = existing?.quantity ?? 0;
 
@@ -106,30 +145,41 @@ export async function addToCart(userId: string, productId: string, quantity = 1)
   const newQty = Math.min(ceiling, currentQty + qty);
 
   await prisma.cartItem.upsert({
-    where: { cartId_productId: { cartId: cart.id, productId } },
+    where: { cartId_productId_size: { cartId: cart.id, productId, size: chosenSize } },
     update: { quantity: newQty },
-    create: { cartId: cart.id, productId, quantity: newQty },
+    create: { cartId: cart.id, productId, size: chosenSize, quantity: newQty },
   });
 }
 
-export async function setCartItemQuantity(userId: string, productId: string, quantity: number) {
+export async function setCartItemQuantity(
+  userId: string,
+  productId: string,
+  quantity: number,
+  size = "",
+) {
   const cart = await prisma.cart.findUnique({ where: { userId } });
   if (!cart) return;
 
   const qty = Math.trunc(quantity);
+  // Scoped by size too, or changing the quantity of ring size 7 would silently
+  // change size 9 along with it.
   if (qty <= 0) {
-    await prisma.cartItem.deleteMany({ where: { cartId: cart.id, productId } });
+    await prisma.cartItem.deleteMany({ where: { cartId: cart.id, productId, size } });
     return;
   }
   await prisma.cartItem.updateMany({
-    where: { cartId: cart.id, productId },
+    where: { cartId: cart.id, productId, size },
     data: { quantity: Math.min(MAX_ITEM_QUANTITY, qty) },
   });
 }
 
-export async function removeFromCart(userId: string, productId: string) {
+/**
+ * Removes one line. The size argument is part of the identity — omitting it
+ * would clear every size of this product at once.
+ */
+export async function removeFromCart(userId: string, productId: string, size = "") {
   await prisma.cartItem.deleteMany({
-    where: { cart: { userId }, productId },
+    where: { cart: { userId }, productId, size },
   });
 }
 

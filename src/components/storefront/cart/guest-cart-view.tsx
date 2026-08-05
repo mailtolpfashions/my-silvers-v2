@@ -88,7 +88,10 @@ export function GuestCartView() {
     <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
       <div className="space-y-4">
         {rows.map(({ item, product }) => (
-          <div key={product.id} className="flex items-center gap-4 rounded-lg border p-4">
+          <div
+            key={`${product.id}::${item.size}`}
+            className="flex items-center gap-4 rounded-lg border p-4"
+          >
             <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-muted">
               {product.image && (
                 <Image src={product.image} alt={product.name} fill className="object-cover" />
@@ -98,6 +101,9 @@ export function GuestCartView() {
               <Link href={`/products/${product.slug}`} className="text-sm font-medium hover:underline">
                 {product.name}
               </Link>
+              {item.size && (
+                <p className="mt-0.5 text-sm text-muted-foreground">Size: {item.size}</p>
+              )}
               <p className="mt-1 text-sm text-muted-foreground">{formatINR(product.price)}</p>
               {product.stock < item.quantity && (
                 <p className="mt-1 text-xs text-destructive">Only {product.stock} left</p>
@@ -108,7 +114,7 @@ export function GuestCartView() {
                 variant="outline"
                 size="icon"
                 disabled={item.quantity <= 1}
-                onClick={() => setGuestCartQuantity(product.id, item.quantity - 1)}
+                onClick={() => setGuestCartQuantity(product.id, item.size, item.quantity - 1)}
                 aria-label="Decrease quantity"
               >
                 <Minus />
@@ -118,7 +124,7 @@ export function GuestCartView() {
                 variant="outline"
                 size="icon"
                 disabled={item.quantity >= Math.min(MAX_ITEM_QUANTITY, product.stock)}
-                onClick={() => setGuestCartQuantity(product.id, item.quantity + 1)}
+                onClick={() => setGuestCartQuantity(product.id, item.size, item.quantity + 1)}
                 aria-label="Increase quantity"
               >
                 <Plus />
@@ -126,7 +132,7 @@ export function GuestCartView() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => removeFromGuestCart(product.id)}
+                onClick={() => removeFromGuestCart(product.id, item.size)}
                 aria-label="Remove from cart"
               >
                 <Trash2 />

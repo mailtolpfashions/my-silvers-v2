@@ -247,8 +247,16 @@ model CartItem {
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId String
   quantity  Int
+  /// The size the shopper chose, exactly as listed in Product.sizes ("8",
+  /// "18 in", "M"). Empty string, never null, for products with no sizes —
+  /// Postgres treats NULLs as distinct in a unique index, so a nullable column
+  /// here would let the same unsized product be added as unlimited separate
+  /// lines.
+  size      String  @default("")
 
-  @@unique([cartId, productId])
+  /// Keyed by size as well as product, so ring size 7 and size 9 are two lines
+  /// rather than one overwriting the other.
+  @@unique([cartId, productId, size])
 }
 
 model Wishlist {
@@ -336,6 +344,10 @@ model OrderItem {
   price     Decimal  @db.Decimal(10, 2) // snapshot
   quantity  Int
   weight    Decimal? @db.Decimal(10, 3) // snapshot
+  /// Snapshot of the chosen size. Empty for unsized pieces. This is what
+  /// fulfilment picks from, so it must never be derived from the live product —
+  /// Product.sizes can change after the order is placed.
+  size      String   @default("")
 }
 
 // ─── CMS ────────────────────────────────────────────────────────────────────

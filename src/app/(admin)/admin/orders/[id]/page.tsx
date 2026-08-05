@@ -90,6 +90,14 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">{item.name}</p>
+                    {/* The size is what fulfilment picks, so it is given the
+                        same weight as the SKU rather than buried in the meta
+                        line — a packer scanning this must not have to hunt. */}
+                    {item.size && (
+                      <p className="mt-0.5 text-sm font-semibold text-brass-text">
+                        Size: {item.size}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       SKU: {item.product?.sku ?? "—"}
                       {item.weight ? ` · ${item.weight.toString()} g` : ""}

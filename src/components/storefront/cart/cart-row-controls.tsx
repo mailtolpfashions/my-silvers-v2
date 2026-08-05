@@ -7,10 +7,13 @@ import { setCartQuantityAction, removeFromCartAction } from "@/actions/cart-acti
 
 export function CartRowControls({
   productId,
+  size = "",
   quantity,
   maxQuantity,
 }: {
   productId: string;
+  /** Part of the line's identity — without it, changing one size changes both. */
+  size?: string;
   quantity: number;
   maxQuantity: number;
 }) {
@@ -24,7 +27,7 @@ export function CartRowControls({
         disabled={isPending || quantity <= 1}
         onClick={() =>
           startTransition(async () => {
-            await setCartQuantityAction(productId, quantity - 1);
+            await setCartQuantityAction(productId, quantity - 1, size);
           })
         }
         aria-label="Decrease quantity"
@@ -38,7 +41,7 @@ export function CartRowControls({
         disabled={isPending || quantity >= maxQuantity}
         onClick={() =>
           startTransition(async () => {
-            await setCartQuantityAction(productId, quantity + 1);
+            await setCartQuantityAction(productId, quantity + 1, size);
           })
         }
         aria-label="Increase quantity"
@@ -51,7 +54,7 @@ export function CartRowControls({
         disabled={isPending}
         onClick={() =>
           startTransition(async () => {
-            await removeFromCartAction(productId);
+            await removeFromCartAction(productId, size);
           })
         }
         aria-label="Remove from cart"
