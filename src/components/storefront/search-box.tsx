@@ -1,9 +1,17 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Search, X } from "lucide-react";
+import { Clock, Search, TrendingUp, X } from "lucide-react";
+import {
+  clearRecentSearches,
+  getRecentSearchesServerSnapshot,
+  getRecentSearchesSnapshot,
+  recordSearch,
+  subscribeRecentSearches,
+} from "@/lib/recent-searches";
+import type { SearchTerm } from "@/server/products/search-terms";
 
 type Suggestion = {
   products: Array<{ id: string; name: string; slug: string; image: string | null; price: string }>;
@@ -13,7 +21,7 @@ type Suggestion = {
 const EMPTY: Suggestion = { products: [], categories: [] };
 const DEBOUNCE_MS = 200;
 
-/** Used when the CMS supplies no `searchPlaceholders`, so a fresh DB still reads well. */
+/** Last resort only — an empty catalogue AND no CMS override. */
 const DEFAULT_PLACEHOLDER = "Search for rings, earrings, anklets…";
 const ROTATE_MS = 3000;
 
@@ -26,10 +34,13 @@ const inr = new Intl.NumberFormat("en-IN", {
 export function SearchBox({
   className = "",
   placeholders,
+  popular = [],
 }: {
   className?: string;
-  /** From the CMS (homepage → "Search box placeholders"). Cycled one at a time. */
+  /** Derived from the catalogue, or the CMS override. Cycled one at a time. */
   placeholders?: string[];
+  /** Chips shown under an idle field, before anything is typed. */
+  popular?: SearchTerm[];
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -42,6 +53,15 @@ export function SearchBox({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listId = useId();
+
+  // useSyncExternalStore rather than useEffect+setState: localStorage is
+  // external state, and reading it in an effect would render an empty list
+  // first and then swap it in, which lint rejects here for good reason.
+  const recent = useSyncExternalStore(
+    subscribeRecentSearches,
+    getRecentSearchesSnapshot,
+    getRecentSearchesServerSnapshot,
+  );
 
   const terms = placeholders?.filter((t) => t.trim().length > 0) ?? [];
 
@@ -110,7 +130,16 @@ export function SearchBox({
   ];
   const hasResults = items.length > 0;
 
-  function go(href: string) {
+  // The idle panel: shown while the field is open but nothing has been typed.
+  // Before this, an open-but-empty box rendered nothing at all, so focusing the
+  // search gave a shopper no route forward except knowing what to type.
+  const showIdlePanel = query.trim().length === 0 && (recent.length > 0 || popular.length > 0);
+
+  function go(href: string, remember?: string) {
+    // Only what the shopper actually expressed goes into history — a typed
+    // query or a chip they picked. Not product names they merely clicked past,
+    // which would fill the list with things they never searched for.
+    if (remember) recordSearch(remember);
     setOpen(false);
     setHighlight(-1);
     inputRef.current?.blur();
@@ -119,7 +148,7 @@ export function SearchBox({
 
   function submit() {
     const term = query.trim();
-    if (term.length > 0) go(`/products?q=${encodeURIComponent(term)}`);
+    if (term.length > 0) go(`/products?q=${encodeURIComponent(term)}`, term);
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
@@ -170,7 +199,10 @@ export function SearchBox({
           placeholder={placeholder}
           aria-label="Search products"
           role="combobox"
-          aria-expanded={open && hasResults}
+          // The idle panel is a popup too, so it counts as expanded — a
+          // combobox reporting collapsed while showing suggestions is a lie to
+          // a screen reader.
+          aria-expanded={open && (hasResults || showIdlePanel)}
           aria-controls={listId}
           aria-autocomplete="list"
           className="h-12 w-full rounded-full border border-input bg-background pl-11 pr-10 text-base outline-none transition-colors focus:border-ring [&::-webkit-search-cancel-button]:hidden"
@@ -190,6 +222,69 @@ export function SearchBox({
           </button>
         )}
       </div>
+
+      {/* Idle: nothing typed yet. Recent first — a shopper returning to the
+          field is far more often resuming than starting fresh. */}
+      {open && !hasResults && showIdlePanel && (
+        <div
+          id={listId}
+          className="absolute left-0 right-0 top-full z-50 mt-2 space-y-5 rounded-lg border bg-popover p-4 shadow-lg"
+        >
+          {recent.length > 0 && (
+            <div>
+              <div className="mb-2.5 flex items-center justify-between">
+                <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                  <Clock className="size-3.5" /> Recent
+                </p>
+                <button
+                  type="button"
+                  onClick={clearRecentSearches}
+                  className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  Clear
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {recent.map((term) => (
+                  <button
+                    key={term}
+                    type="button"
+                    onClick={() => go(`/products?q=${encodeURIComponent(term)}`, term)}
+                    className="rounded-full border px-3 py-1.5 text-sm transition-colors hover:border-brass hover:text-brass-text"
+                  >
+                    {term}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {popular.length > 0 && (
+            <div>
+              <p className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                <TrendingUp className="size-3.5" /> Popular
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {popular.map((term) => (
+                  <button
+                    key={term.href}
+                    type="button"
+                    // Deliberately not recorded as a recent search: a chip is a
+                    // navigation, and it lands on /category/rings while the
+                    // recent chip for the same word would run /products?q=rings.
+                    // Recording it would put an entry in "Recent" that goes
+                    // somewhere different from the click that created it.
+                    onClick={() => go(term.href)}
+                    className="rounded-full border bg-muted/40 px-3 py-1.5 text-sm transition-colors hover:border-brass hover:text-brass-text"
+                  >
+                    {term.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {open && hasResults && (
         <div
