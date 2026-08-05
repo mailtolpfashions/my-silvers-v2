@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
-const isDev = process.env.NODE_ENV !== "production";
+/**
+ * True for the real production deployment only.
+ *
+ * NODE_ENV is "production" on Vercel PREVIEW builds too, so it cannot tell a
+ * live site from a test one. VERCEL_ENV can: "production" | "preview" |
+ * "development", and it is undefined outside Vercel — so a local build reads as
+ * not-production, which is what we want.
+ */
+const isProductionDeploy = process.env.VERCEL_ENV === "production";
 
 const nextConfig: NextConfig = {
   // Partial Prerendering: a static shell served from the edge, with per-shopper
@@ -44,8 +52,16 @@ const nextConfig: NextConfig = {
       // Instagram/Meta CDN — homepage feed images served via the Graph API
       { protocol: "https", hostname: "*.cdninstagram.com" },
       { protocol: "https", hostname: "*.fbcdn.net" },
-      // Dev-only placeholders
-      ...(isDev ? [{ protocol: "https" as const, hostname: "placehold.co" }] : []),
+      // Placeholder host for the demo catalogue — 119 of the 120 seeded
+      // products point at it. Allowed everywhere EXCEPT the live site, so a
+      // preview deployment can be browsed with real-looking stock while the
+      // production build still refuses to render images from a host we do not
+      // control. Gated on VERCEL_ENV rather than NODE_ENV, because a Vercel
+      // preview build has NODE_ENV=production and would otherwise show a
+      // catalogue of broken images.
+      ...(isProductionDeploy
+        ? []
+        : [{ protocol: "https" as const, hostname: "placehold.co" }]),
     ],
   },
 
