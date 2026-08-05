@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
+import { Menu, MessageCircle } from "lucide-react";
 import { CmsIcon } from "@/components/storefront/cms/cms-icon";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +14,15 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+
+/**
+ * Digits only — wa.me rejects spaces, plus signs and dashes, and an editor
+ * writing "+91 98765 43210" in .env is the likely case. Read as a literal
+ * process.env.NEXT_PUBLIC_* expression because Next inlines these at build time
+ * and cannot resolve a dynamic lookup. Blank hides the link entirely rather
+ * than shipping a dead one.
+ */
+const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/[^\d]/g, "");
 
 export type MobileNavLink = {
   label: string;
@@ -42,10 +52,22 @@ export function MobileNav({ links }: { links: MobileNavLink[] }) {
           <Menu className="size-6" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[19rem] p-0">
+      <SheetContent side="left" className="flex w-[19rem] flex-col p-0">
         <SheetHeader className="border-b px-5 py-4">
-          <SheetTitle className="font-brand text-base font-light uppercase tracking-[0.2em]">
-            MY <span className="text-brass-text">Silvers</span>
+          {/* The real lockup rather than a typeset imitation of it. The drawer
+              opens over a light panel, so the dark-on-transparent logo works
+              here — unlike the footer, which is why that one is still set in
+              Raleway. sr-only text keeps the sheet's accessible name. */}
+          <SheetTitle asChild>
+            <Link href="/" onClick={() => setOpen(false)} className="inline-block">
+              <Image
+                src="/logo.png"
+                alt="MY Silvers"
+                width={519}
+                height={311}
+                className="h-11 w-auto"
+              />
+            </Link>
           </SheetTitle>
         </SheetHeader>
 
@@ -80,6 +102,29 @@ export function MobileNav({ links }: { links: MobileNavLink[] }) {
             })}
           </ul>
         </nav>
+
+        {WHATSAPP_NUMBER && (
+          // Pinned to the bottom of the drawer. A shopper who opens the menu
+          // without finding what they wanted is exactly who needs a way to ask,
+          // and on a phone WhatsApp is the one they will actually use.
+          <div className="mt-auto border-t p-4">
+            <a
+              href={`https://wa.me/${WHATSAPP_NUMBER}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 rounded-md px-3 py-2.5 text-base text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <MessageCircle className="size-4 shrink-0 text-brass-text" />
+              <span>
+                Get help
+                <span className="block text-xs text-muted-foreground">
+                  Chat with us on WhatsApp
+                </span>
+              </span>
+            </a>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );
