@@ -38,20 +38,20 @@ export async function HeaderAccount() {
           and the glyph silently stays 16px however large the button gets. The
           :not() is the escape hatch: give the svg its own size- class. */}
       {session?.user ? (
-        <Button asChild variant="ghost" size="icon" className="size-12" aria-label="Your account">
+        <Button asChild variant="ghost" size="icon" className="size-10 md:size-12" aria-label="Your account">
           <Link href="/account">
             <User className="size-6" />
           </Link>
         </Button>
       ) : (
-        <Button asChild variant="ghost" size="icon" className="size-12" aria-label="Sign in">
+        <Button asChild variant="ghost" size="icon" className="size-10 md:size-12" aria-label="Sign in">
           <Link href="/login">
             <User className="size-6" />
           </Link>
         </Button>
       )}
 
-      <Button asChild variant="ghost" size="icon" className="size-12" aria-label="Wishlist">
+      <Button asChild variant="ghost" size="icon" className="size-10 md:size-12" aria-label="Wishlist">
         <Link href="/wishlist">
           <Heart className="size-6" />
         </Link>

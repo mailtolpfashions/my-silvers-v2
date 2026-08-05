@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
 import { BuyNowButton } from "@/components/storefront/buy-now-button";
 import { SizeProvider, SizeSelector } from "@/components/storefront/size-selector";
+import { StickyActionBar, STICKY_BAR_SPACER } from "@/components/storefront/sticky-action-bar";
 import { WishlistButton } from "@/components/storefront/wishlist-button";
 import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
 import { getSimilarProducts, getAlsoLikeProducts } from "@/server/products/recommendations";
@@ -54,7 +55,7 @@ export default async function ProductDetailPage({
 
   return (
     <>
-      <div className="container-detail grid gap-10 py-10 sm:grid-cols-2">
+      <div className={`container-detail grid gap-10 py-10 sm:grid-cols-2 ${STICKY_BAR_SPACER}`}>
         <ProductGallery
           images={product.images}
           alt={product.name}
@@ -261,25 +262,44 @@ async function ProductCta({ productId, stock }: { productId: string; stock: numb
     ? await Promise.all([isInWishlist(userId, productId), getCartQuantityFor(userId, productId)])
     : [false, 0];
 
+  const shared = { productId, stock, isAuthed: !!userId, cartQuantity };
+
   return (
-    // Buy now first — it is the action most shoppers who have decided will
-    // take, and it reads left to right as intent descending: buy, save for the
-    // basket, save for later.
-    <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-      <BuyNowButton
-        productId={productId}
-        stock={stock}
-        isAuthed={!!userId}
-        cartQuantity={cartQuantity}
-      />
-      <AddToCartButton
-        productId={productId}
-        stock={stock}
-        isAuthed={!!userId}
-        cartQuantity={cartQuantity}
-      />
-      <WishlistButton productId={productId} initialInWishlist={inWishlist} />
-    </div>
+    <>
+      {/* Desktop: inline, in the flow of the product column. Buy now first — it
+          is the action most shoppers who have decided will take, and it reads
+          left to right as intent descending: buy, basket, save for later. */}
+      <div className="mt-8 hidden gap-3 sm:flex-wrap sm:items-center md:flex">
+        <BuyNowButton {...shared} />
+        <AddToCartButton {...shared} />
+        <WishlistButton productId={productId} initialInWishlist={inWishlist} />
+      </div>
+
+      {/* Mobile: the same controls, pinned to the bottom of the viewport.
+          Rendered from this component rather than a second one so auth() and
+          the cart/wishlist reads happen once — two instances of the buttons are
+          cheap, a second round of server queries is not.
+
+          The buttons share one client store, so both copies stay in step; only
+          one is ever visible. */}
+      <StickyActionBar>
+        {/* The bordered box gives the icon-only wishlist a visible edge. Its own
+            styling assumes it is floating over a product photo, where the
+            translucent fill is the affordance; on a solid bar it would read as
+            a bare glyph. */}
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-full border">
+          <WishlistButton productId={productId} initialInWishlist={inWishlist} iconOnly />
+        </span>
+        {/* `compact` on Add to cart: the full version carries helper text under
+            it, which would make the bar two lines tall. */}
+        <div className="flex-1">
+          <AddToCartButton {...shared} compact />
+        </div>
+        <div className="flex-1">
+          <BuyNowButton {...shared} />
+        </div>
+      </StickyActionBar>
+    </>
   );
 }
 
@@ -288,10 +308,10 @@ function ProductCtaSkeleton() {
   // Three controls now, and h-12 to match BuyNowButton — the tallest of them
   // sets the row height, so this has to track it or the page jumps.
   return (
-    <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-      <Skeleton className="h-12 w-full sm:w-36" />
-      <Skeleton className="h-12 w-full sm:w-40" />
-      <Skeleton className="h-12 w-full sm:w-32" />
+    <div className="mt-8 hidden gap-3 sm:flex-wrap sm:items-center md:flex">
+      <Skeleton className="h-12 w-36" />
+      <Skeleton className="h-12 w-40" />
+      <Skeleton className="h-12 w-32" />
     </div>
   );
 }

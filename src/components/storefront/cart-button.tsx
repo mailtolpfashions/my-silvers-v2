@@ -37,7 +37,7 @@ export function CartButton({
     : guestItems.reduce((total, item) => total + item.quantity, 0);
 
   return (
-    <Button asChild variant="ghost" size="icon" className="relative size-12" aria-label="Cart">
+    <Button asChild variant="ghost" size="icon" className="relative size-10 md:size-12" aria-label="Cart">
       <Link href="/cart">
         <ShoppingBag className="size-6" />
         {count > 0 && (

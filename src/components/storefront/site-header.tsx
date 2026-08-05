@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { SearchBox } from "@/components/storefront/search-box";
 import { HeaderSearch } from "@/components/storefront/header/search-loader";
+import { MobileSearch } from "@/components/storefront/header/mobile-search";
 import { CategoryNav, buildNavLinks } from "@/components/storefront/header/category-nav";
 import { MobileNav } from "@/components/storefront/header/mobile-nav";
 import { HeaderAccount } from "@/components/storefront/header/header-account";
@@ -25,26 +26,42 @@ export function SiteHeader() {
       style={{ viewTransitionName: "site-header" }}
       className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
     >
-      {/* ── Row 1: menu · logo · search · account actions ──────────────────── */}
-      <div className="container-page flex h-20 items-center gap-3 lg:gap-8">
+      {/* ── Row 1: menu · logo · search · account actions ────────────────────
+          One flex row at every width, logo on the left. On a phone this is the
+          whole header: search collapses into the icon cluster rather than
+          taking a second full-width row, which is ~57px of every screen. */}
+      <div className="container-page flex h-14 items-center gap-2 md:h-20 md:gap-3 lg:gap-8">
         {/* Behind its own boundary: the drawer needs the category list, and
             waiting on that would block the whole header shell from prerendering. */}
         <Suspense fallback={<MobileNavSkeleton />}>
           <MobileNavLoader />
         </Suspense>
 
-        {/* h-16 in an h-20 row. The lockup is stacked — mark above wordmark —
-            so height is mostly spent on the mark: at the previous h-11 the
-            "MY SILVERS" text rendered around 8px and read as a smudge. 64px
-            puts it near 13px, which is the smallest it stays legible at. */}
+        {/* Two assets, not one scaled asset.
+
+            The full lockup is stacked — mark above wordmark — and 107px wide at
+            h-16. With three icons on the right there is simply no room to centre
+            that on a 365px screen, and shrinking it until it fits puts the
+            "MY SILVERS" text back under 10px, which is the smudge we just fixed.
+            So mobile gets the square mark alone and the lockup returns at md,
+            where the row has the width for it. Same approach as the previous
+            storefront. */}
         <Link href="/" aria-label="MY Silvers — home" className="shrink-0">
+          <Image
+            src="/android-chrome-192x192.png"
+            alt="MY Silvers"
+            width={192}
+            height={192}
+            preload
+            className="h-9 w-9 object-contain md:hidden"
+          />
           <Image
             src="/logo.png"
             alt="MY Silvers"
             width={519}
             height={311}
             preload
-            className="h-16 w-auto"
+            className="hidden h-16 w-auto md:block"
           />
         </Link>
 
@@ -58,18 +75,19 @@ export function SiteHeader() {
           </Suspense>
         </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-2">
+          {/* Opens the same SearchBox in a sheet. Rendered outside the account
+              boundary so it never waits on the session. */}
+          <MobileSearch>
+            <Suspense fallback={<SearchBox />}>
+              <HeaderSearch />
+            </Suspense>
+          </MobileSearch>
+
           <Suspense fallback={<HeaderAccountSkeleton />}>
             <HeaderAccount />
           </Suspense>
         </div>
-      </div>
-
-      {/* Mobile search — full width on its own line. */}
-      <div className="border-t px-4 py-2.5 md:hidden">
-        <Suspense fallback={<SearchBox />}>
-          <HeaderSearch />
-        </Suspense>
       </div>
 
       {/* ── Row 2: category navigation (desktop only) ────────────────────────
@@ -91,7 +109,7 @@ async function MobileNavLoader() {
 
 /** Same footprint as the trigger button, so the header doesn't jump. */
 function MobileNavSkeleton() {
-  return <div className="size-12 shrink-0 lg:hidden" aria-hidden />;
+  return <div className="size-10 shrink-0 md:size-12 lg:hidden" aria-hidden />;
 }
 
 /** Reserves the category row's exact height so the page below doesn't shift. */

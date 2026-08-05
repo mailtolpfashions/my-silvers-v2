@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { CartSummary } from "@/components/storefront/cart/cart-summary";
 import { CartRowControls } from "@/components/storefront/cart/cart-row-controls";
 import { GuestCartView } from "@/components/storefront/cart/guest-cart-view";
+import { STICKY_BAR_SPACER } from "@/components/storefront/sticky-action-bar";
 
 export default async function CartPage() {
   const session = await auth();
@@ -16,7 +17,8 @@ export default async function CartPage() {
   return (
     // The recommendations row breaks out of this container — see the note in
     // cart-recommendations.tsx.
-    <div className="container-checkout py-10">
+    // The spacer stops the sticky checkout bar covering the last cart row.
+    <div className={`container-checkout py-10 ${STICKY_BAR_SPACER}`}>
       <h1 className="mb-8 text-2xl font-semibold">Your cart</h1>
       {session?.user?.id ? <AuthedCart userId={session.user.id} /> : <GuestCartView />}
     </div>

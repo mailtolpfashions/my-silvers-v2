@@ -70,7 +70,27 @@ export function ProductGallery({
           />
         </div>
       ) : (
-        <ProductImageZoom src={images[active]} alt={alt}>
+        <ProductImageZoom
+          src={images[active]}
+          alt={alt}
+          // Cycles the IMAGES only, not slideCount — the video slide carries no
+          // swipe handlers of its own (its controls own touch), so swiping into
+          // it would strand the shopper there with no way back but a thumbnail.
+          // The video stays reachable from its thumbnail.
+          //
+          // Wrapping rather than stopping at the ends: hitting a wall and having
+          // nothing happen reads as the gallery being broken.
+          onPrev={
+            images.length > 1
+              ? () => setActive((i) => (i - 1 + images.length) % images.length)
+              : undefined
+          }
+          onNext={
+            images.length > 1
+              ? () => setActive((i) => (i + 1) % images.length)
+              : undefined
+          }
+        >
           {/* Slide 0 is handed in from the server so it can carry the shared
               view-transition name and the preload hint; the rest render here. */}
           {active === 0 && morphSlot ? (
