@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useSwipe } from "@/lib/use-swipe";
 
 export type HeroSlide = {
   id: string;
@@ -26,11 +26,37 @@ export type HeroSlide = {
 
 const AUTOPLAY_MS = 5000;
 
+/**
+ * Backdrop for a slide with no artwork.
+ *
+ * The previous storefront put a per-slide gradient behind every hero, which is
+ * why its carousel still looked deliberate before the photography arrived. Flat
+ * graphite reads as a missing image; a gradient reads as a design.
+ */
+const EMPTY_BACKDROP =
+  "linear-gradient(135deg, var(--graphite-950) 0%, var(--graphite-800) 45%, var(--brass-text) 100%)";
+
 /** Cloudinary serves video from /video/upload/; also match bare file extensions. */
 function isVideo(url: string) {
   return /\.(mp4|webm|mov|ogg)(\?|$)/i.test(url) || url.includes("/video/upload/");
 }
 
+/**
+ * The homepage hero.
+ *
+ * Laid out as an inset rounded card rather than a full-bleed band, carrying over
+ * the previous storefront's design: padding around the whole thing, aspect
+ * ratios instead of a fixed height, copy bottom-left over a bottom-up scrim, and
+ * the dots below the card rather than floating on it.
+ *
+ * Aspect ratio, not height, is the important part. A fixed height has to guess
+ * what a phone can spare; 4/5 on mobile through 21/8 on desktop lets the shape
+ * change with the viewport, which is what stops it eating a whole small screen.
+ *
+ * Slides still crossfade rather than sliding on a track — the old build used
+ * Swiper for that, and a carousel library is a lot of JavaScript to buy one
+ * transition. Everything else about the design is the same.
+ */
 export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -62,6 +88,13 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
   // Applied to the copy block on every slide except the one painted on load.
   const entrance = hasAdvanced ? "animate-in fade-in slide-in-from-bottom-3" : "";
 
+  // Swipe replaces the arrows on touch. The arrows sit at the vertical centre,
+  // which on a phone is directly on top of the headline.
+  const swipe = useSwipe({
+    onPrev: slides.length > 1 ? goPrev : undefined,
+    onNext: slides.length > 1 ? goNext : undefined,
+  });
+
   useEffect(() => {
     if (slides.length <= 1 || isPaused) return;
     // Honour the OS "reduce motion" setting — auto-advancing carousels are a
@@ -75,212 +108,218 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
 
   if (slides.length === 0) return null;
   const slide = slides[Math.min(activeIndex, slides.length - 1)];
-  const overlay = (slide.overlayOpacity ?? 60) / 100;
+  const overlay = (slide.overlayOpacity ?? 55) / 100;
 
   return (
     <section
       aria-roledescription="carousel"
       aria-label="Featured collections"
-      // Height as classes, not an inline clamp, so mobile can differ. A 480px
-      // floor is most of a phone screen before any product is visible; 60vh
-      // capped at 420px leaves the first section peeking above the fold, which
-      // is what tells a shopper there is more below.
-      className="relative h-[min(60vh,420px)] w-full overflow-hidden bg-graphite-950 sm:h-[min(65vh,560px)] md:h-[clamp(480px,70vh,760px)]"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-      onFocusCapture={() => setIsPaused(true)}
-      onBlurCapture={() => setIsPaused(false)}
+      className="relative px-3 py-4 sm:px-6 sm:py-6 lg:px-10"
     >
-      {/* All slides stay mounted and crossfade on opacity — no layout thrash,
-          and the next image is already decoded when it becomes visible. */}
-      {slides.map((s, i) => (
-        <div
-          key={s.id}
-          aria-hidden={i !== activeIndex}
-          className={`absolute inset-0 transition-opacity duration-700 ease-out ${
-            i === activeIndex ? "opacity-100" : "opacity-0"
-          }`}
-        >
-          {s.media &&
-            (isVideo(s.media) ? (
-              <video
-                src={s.media}
-                autoPlay
-                muted
-                loop
-                playsInline
-                className="absolute inset-0 h-full w-full object-cover object-center"
-              />
-            ) : (
-              /**
-               * <picture> so a phone can be sent a differently CROPPED image,
-               * not merely a smaller one. `sizes` only ever changes resolution;
-               * a 2.4:1 landscape scaled down still puts the subject in a
-               * letterbox on a portrait screen, which is why Mia ships a second
-               * asset per slide rather than relying on srcset.
-               *
-               * The <source> wins below 768px and the browser fetches only that
-               * file — the spec guarantees one request, so this costs nothing
-               * when unused.
-               *
-               * The trade-off: a matched <source> bypasses Next's optimizer, so
-               * the mobile asset is served as uploaded. Acceptable, because a
-               * hand-cropped mobile hero is already authored at the right size —
-               * and it is exactly the case where automatic resizing is wrong.
-               */
-              <picture>
-                {s.mediaMobile && (
-                  <source media="(max-width: 767px)" srcSet={s.mediaMobile} />
-                )}
-                <Image
-                  src={s.media}
-                  alt=""
-                  fill
-                  className="object-cover object-center"
-                  preload={i === 0}
-                  sizes="100vw"
-                />
-              </picture>
-            ))}
-        </div>
-      ))}
-
-      {/* Readability scrim — strongest on the left, where the copy sits. */}
       <div
-        className="absolute inset-0"
-        style={{
-          background: `linear-gradient(to right, rgba(12,12,14,${overlay}) 38%, rgba(12,12,14,0.15) 100%)`,
-        }}
-      />
-
-      {/* Subtle dot texture, same trick as the reference site. */}
-      <div
-        className="absolute inset-0 opacity-[0.04]"
-        style={{
-          backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
-          backgroundSize: "40px 40px",
-        }}
-      />
-
-      <div className="container-page relative z-10 flex h-full items-center">
-        {/* Remounting on slide change replays the entrance animation. */}
-        <div key={activeIndex} className="max-w-[620px] py-10">
-          {slide.eyebrow && (
-            <p
-              className={`label-eyebrow label-eyebrow-light mb-5 ${entrance}`}
-              style={{ animationDuration: "450ms" }}
-            >
-              {slide.eyebrow}
-            </p>
-          )}
-
-          {/* .text-display, not a hand-rolled clamp. This used to inline
-              `clamp(2rem, 4.5vw, 3.25rem)`, which duplicated --text-h1's
-              endpoints with a different middle term — so the hero drifted out
-              of step with the rest of the page at intermediate widths. */}
-          <h1
-            className={`text-display font-heading text-white ${entrance}`}
-            style={{
-              animationDuration: "450ms",
-              animationDelay: "70ms",
-              animationFillMode: "backwards",
-            }}
+        {...swipe.handlers}
+        // A swipe that happens to end over the CTA must not follow it. Capture
+        // phase, so this runs before the Link sees the click.
+        onClickCapture={swipe.cancelClickAfterSwipe}
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+        onFocusCapture={() => setIsPaused(true)}
+        onBlurCapture={() => setIsPaused(false)}
+        // Shape by aspect ratio, so the card reflows instead of being told how
+        // tall to be: portrait on a phone, cinematic on a desktop.
+        className="relative aspect-[4/5] w-full touch-pan-y overflow-hidden rounded-2xl sm:aspect-[16/8] lg:aspect-[21/8]"
+        style={{ background: EMPTY_BACKDROP }}
+      >
+        {/* All slides stay mounted and crossfade on opacity — no layout thrash,
+            and the next image is already decoded when it becomes visible. */}
+        {slides.map((s, i) => (
+          <div
+            key={s.id}
+            aria-hidden={i !== activeIndex}
+            className={`absolute inset-0 transition-opacity duration-700 ease-out ${
+              i === activeIndex ? "opacity-100" : "opacity-0"
+            }`}
           >
-            {slide.headline.split("\n").map((line, i) => (
-              <span key={i} className="block">
-                {line}
-              </span>
-            ))}
-          </h1>
+            {s.media &&
+              (isVideo(s.media) ? (
+                <video
+                  src={s.media}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="absolute inset-0 h-full w-full object-cover object-center"
+                />
+              ) : (
+                /**
+                 * <picture> so a phone can be sent a differently CROPPED image,
+                 * not merely a smaller one. `sizes` only ever changes resolution;
+                 * a 21:8 landscape scaled down still puts the subject in a
+                 * letterbox on a 4:5 portrait card.
+                 *
+                 * The <source> wins below 768px and the browser fetches only
+                 * that file — the spec guarantees one request, so this costs
+                 * nothing when unused.
+                 *
+                 * The trade-off: a matched <source> bypasses Next's optimizer,
+                 * so the mobile asset is served as uploaded. Acceptable, because
+                 * a hand-cropped mobile hero is already authored at the right
+                 * size — and it is exactly the case where automatic resizing is
+                 * wrong.
+                 */
+                <picture>
+                  {s.mediaMobile && (
+                    <source media="(max-width: 767px)" srcSet={s.mediaMobile} />
+                  )}
+                  <Image
+                    src={s.media}
+                    alt=""
+                    fill
+                    className="object-cover object-center"
+                    preload={i === 0}
+                    sizes="100vw"
+                  />
+                </picture>
+              ))}
+          </div>
+        ))}
 
-          {slide.subline && (
-            <p
-              className={`text-lead mt-5 max-w-[480px] text-white/80 ${entrance}`}
+        {/* Bottom-up scrim, not left-to-right: the copy sits along the bottom
+            edge, so that is the only part that needs darkening. Leaving the top
+            clear keeps the photograph readable as a photograph. */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `linear-gradient(to top, rgba(12,12,14,${overlay}) 0%, rgba(12,12,14,0.10) 45%, transparent 100%)`,
+          }}
+        />
+
+        {/* items-end: copy anchored to the bottom-left of the card. */}
+        <div className="absolute inset-0 flex items-end">
+          {/* Remounting on slide change replays the entrance animation. */}
+          <div key={activeIndex} className="max-w-lg p-6 text-white sm:p-10">
+            {slide.eyebrow && (
+              <p
+                className={`label-eyebrow label-eyebrow-light mb-3 ${entrance}`}
+                style={{ animationDuration: "450ms" }}
+              >
+                {slide.eyebrow}
+              </p>
+            )}
+
+            <h1
+              className={`mb-2 font-heading text-2xl leading-tight sm:text-4xl lg:text-5xl ${entrance}`}
               style={{
                 animationDuration: "450ms",
-                animationDelay: "150ms",
+                animationDelay: "70ms",
                 animationFillMode: "backwards",
               }}
             >
-              {slide.subline}
-            </p>
-          )}
+              {slide.headline.split("\n").map((line, i) => (
+                <span key={i} className="block">
+                  {line}
+                </span>
+              ))}
+            </h1>
 
-          {(slide.ctaLabel || slide.secondaryLabel) && (
-            <div
-              className={`mt-8 flex flex-wrap items-center gap-5 ${entrance}`}
-              style={{
-                animationDuration: "450ms",
-                animationDelay: "220ms",
-                animationFillMode: "backwards",
-              }}
-            >
-              {slide.ctaLabel && slide.ctaHref && (
-                // Explicit height: `size="lg"` is only h-9 (36px) in this button
-                // system, which reads as a form control rather than a hero CTA.
-                <Button
-                  asChild
-                  size="lg"
-                  className="h-13 rounded-full px-9 text-base bg-brass text-graphite-950 hover:bg-brass-light"
-                >
-                  <Link href={slide.ctaHref}>{slide.ctaLabel}</Link>
-                </Button>
-              )}
-              {slide.secondaryLabel && slide.secondaryHref && (
-                <Link
-                  href={slide.secondaryHref}
-                  className="text-base font-medium text-white/80 underline underline-offset-4 transition-colors hover:text-white"
-                >
-                  {slide.secondaryLabel}
-                </Link>
-              )}
-            </div>
-          )}
+            {slide.subline && (
+              <p
+                className={`mb-4 text-sm text-white/80 sm:text-base ${entrance}`}
+                style={{
+                  animationDuration: "450ms",
+                  animationDelay: "150ms",
+                  animationFillMode: "backwards",
+                }}
+              >
+                {slide.subline}
+              </p>
+            )}
+
+            {(slide.ctaLabel || slide.secondaryLabel) && (
+              <div
+                className={`flex flex-wrap items-center gap-5 ${entrance}`}
+                style={{
+                  animationDuration: "450ms",
+                  animationDelay: "220ms",
+                  animationFillMode: "backwards",
+                }}
+              >
+                {slide.ctaLabel && slide.ctaHref && (
+                  // A white pill with letter-spaced caps, as the previous
+                  // storefront had it. Not the shared <Button>: this one is
+                  // deliberately smaller and wider-tracked than any button in
+                  // the system, and forcing it through the variants would mean
+                  // overriding nearly every one of them.
+                  <Link
+                    href={slide.ctaHref}
+                    className="inline-block rounded-full bg-white px-6 py-3 text-[11px] font-bold uppercase tracking-[0.2em] text-graphite-950 transition-colors hover:bg-white/90"
+                  >
+                    {slide.ctaLabel}
+                  </Link>
+                )}
+                {slide.secondaryLabel && slide.secondaryHref && (
+                  <Link
+                    href={slide.secondaryHref}
+                    className="text-sm font-medium text-white/80 underline underline-offset-4 transition-colors hover:text-white sm:text-base"
+                  >
+                    {slide.secondaryLabel}
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
         </div>
+
+        {slides.length > 1 && (
+          <>
+            {/* White on shadow rather than translucent glass: it has to read
+                against artwork we do not control, and a light photo makes a
+                white/20 button vanish. Desktop only — on a phone they land on
+                the headline, and swipe covers it. */}
+            <button
+              type="button"
+              onClick={goPrev}
+              aria-label="Previous slide"
+              className="absolute left-3 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white text-graphite-950 shadow-md transition-transform hover:scale-105 md:flex"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              aria-label="Next slide"
+              className="absolute right-3 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white text-graphite-950 shadow-md transition-transform hover:scale-105 md:flex"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </>
+        )}
       </div>
 
+      {/* Below the card, not floating on it — the previous storefront's
+          arrangement, and it keeps the dots off the artwork. */}
       {slides.length > 1 && (
-        <>
-          <button
-            type="button"
-            onClick={goPrev}
-            aria-label="Previous slide"
-            className="absolute left-4 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm transition-colors hover:bg-white/30"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={goNext}
-            aria-label="Next slide"
-            className="absolute right-4 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm transition-colors hover:bg-white/30"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-
-          {/* 28×40px touch targets — comfortably over the 24px WCAG 2.5.8 floor,
-              but narrower than the 40px squares they were, which spread 8px dots
-              so far apart they no longer read as one control. */}
-          <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2">
-            {slides.map((s, i) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => goTo(i)}
-                aria-label={`Go to slide ${i + 1}`}
-                aria-current={i === activeIndex}
-                className="flex h-10 w-7 items-center justify-center"
-              >
-                <span
-                  style={{ transform: i === activeIndex ? "scaleX(3)" : "scaleX(1)" }}
-                  className={`block h-2 w-2 origin-left rounded-full transition-transform duration-300 ${
-                    i === activeIndex ? "bg-brass" : "bg-white/40"
-                  }`}
-                />
-              </button>
-            ))}
-          </div>
-        </>
+        <div className="mt-4 flex justify-center">
+          {slides.map((s, i) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => goTo(i)}
+              aria-label={`Go to slide ${i + 1}`}
+              aria-current={i === activeIndex}
+              // 28×40px hit area around an 8px dot: over the 24px WCAG 2.5.8
+              // floor without spreading the dots so far apart they stop reading
+              // as one control.
+              className="flex h-10 w-7 items-center justify-center"
+            >
+              <span
+                className={`block h-2 rounded-full transition-all duration-300 ${
+                  i === activeIndex ? "w-6 bg-brass" : "w-2 bg-graphite-950/25"
+                }`}
+              />
+            </button>
+          ))}
+        </div>
       )}
     </section>
   );

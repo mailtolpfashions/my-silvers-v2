@@ -4,11 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import Image from "next/image";
 import { X, ZoomIn } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
-
-/** Horizontal travel, in px, that counts as a swipe rather than a tap. */
-const SWIPE_MIN = 45;
-/** Travel after which the gesture is committed to horizontal, not vertical. */
-const SWIPE_LOCK = 12;
+import { useSwipe } from "@/lib/use-swipe";
 
 /** How far the hover lens magnifies the main image. */
 const HOVER_SCALE = 2.2;
@@ -67,49 +63,8 @@ export function ProductImageZoom({
   const [open, setOpen] = useState(false);
   const frameRef = useRef<HTMLDivElement | null>(null);
 
-  /**
-   * Touch swipe between images.
-   *
-   * A ref, not state: none of this should re-render mid-gesture, and the click
-   * handler has to read the final value synchronously — a state update would
-   * not have landed by the time click fires after touchend.
-   */
-  const touch = useRef<{ x: number; y: number; horizontal: boolean } | null>(null);
-  const swiped = useRef(false);
-
-  function handleTouchStart(event: React.TouchEvent) {
-    const t = event.touches[0];
-    touch.current = { x: t.clientX, y: t.clientY, horizontal: false };
-    swiped.current = false;
-  }
-
-  function handleTouchMove(event: React.TouchEvent) {
-    const start = touch.current;
-    if (!start) return;
-    const t = event.touches[0];
-    const dx = t.clientX - start.x;
-    const dy = t.clientY - start.y;
-    // Only claim the gesture once it is clearly sideways. Without this, a
-    // slightly-diagonal scroll down the page would flick the image instead.
-    if (!start.horizontal && Math.abs(dx) > SWIPE_LOCK && Math.abs(dx) > Math.abs(dy)) {
-      start.horizontal = true;
-    }
-  }
-
-  function handleTouchEnd(event: React.TouchEvent) {
-    const start = touch.current;
-    touch.current = null;
-    if (!start?.horizontal) return;
-
-    const dx = event.changedTouches[0].clientX - start.x;
-    if (Math.abs(dx) < SWIPE_MIN) return;
-
-    // Marks the gesture so the click that follows touchend does not also open
-    // the lightbox — a swipe and a tap are different intentions.
-    swiped.current = true;
-    if (dx < 0) onNext?.();
-    else onPrev?.();
-  }
+  // Shared with the hero carousel — same gesture, same two traps.
+  const swipe = useSwipe({ onPrev, onNext });
 
   const handleMove = useCallback((event: React.MouseEvent<HTMLElement>) => {
     // matchMedia on every move is cheap and always current — a laptop with a
@@ -123,9 +78,7 @@ export function ProductImageZoom({
     <>
       <div
         ref={frameRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        {...swipe.handlers}
         // pan-y keeps vertical scrolling native while telling the browser not to
         // handle horizontal gestures itself, which would otherwise fight this.
         className="group relative aspect-[4/5] touch-pan-y overflow-hidden rounded-md bg-muted"
@@ -148,10 +101,8 @@ export function ProductImageZoom({
           onMouseMove={handleMove}
           onMouseLeave={() => setZooming(false)}
           onClick={() => {
-            if (swiped.current) {
-              swiped.current = false;
-              return;
-            }
+            // A swipe must not also open the lightbox.
+            if (swipe.consumeSwipe()) return;
             setOpen(true);
           }}
           className="absolute inset-0 cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
