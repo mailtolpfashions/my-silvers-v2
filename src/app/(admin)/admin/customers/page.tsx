@@ -9,15 +9,43 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomerSearch } from "@/components/admin/customer-search";
+import { SortableHeader } from "@/components/admin/sortable-header";
 
-type SearchParams = Promise<{ q?: string }>;
+type SearchParams = Promise<{ q?: string; sort?: string; dir?: string }>;
+
+/**
+ * Sortable columns, as an allowlist — the key comes from the query string and
+ * must never reach orderBy directly. See the note in server/products/admin.ts.
+ *
+ * Location is absent on purpose: it is read from a `take: 1` default address,
+ * so there is no single column to order by without restructuring the query.
+ */
+const CUSTOMER_SORTS = {
+  name: (dir: "asc" | "desc") => ({ name: dir }),
+  email: (dir: "asc" | "desc") => ({ email: dir }),
+  phone: (dir: "asc" | "desc") => ({ phone: dir }),
+  orders: (dir: "asc" | "desc") => ({ orders: { _count: dir } }),
+  joined: (dir: "asc" | "desc") => ({ createdAt: dir }),
+} as const;
+
+type CustomerSortKey = keyof typeof CUSTOMER_SORTS;
+
+function isCustomerSortKey(value: unknown): value is CustomerSortKey {
+  return typeof value === "string" && value in CUSTOMER_SORTS;
+}
 
 export default async function AdminCustomersPage({
   searchParams,
 }: {
   searchParams: SearchParams;
 }) {
-  const { q } = await searchParams;
+  const params = await searchParams;
+  const { q } = params;
+
+  // Newest first by default — the most recent signups are what an admin
+  // glances at.
+  const currentSort: CustomerSortKey = isCustomerSortKey(params.sort) ? params.sort : "joined";
+  const currentDir: "asc" | "desc" = params.dir === "asc" ? "asc" : "desc";
 
   const where = {
     role: "customer" as const,
@@ -39,7 +67,7 @@ export default async function AdminCustomersPage({
         addresses: { where: { isDefault: true }, take: 1 },
         _count: { select: { orders: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: CUSTOMER_SORTS[currentSort](currentDir),
       take: 100,
     }),
     prisma.user.count({ where: { role: "customer" } }),
@@ -66,12 +94,43 @@ export default async function AdminCustomersPage({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
+              {(
+                [
+                  ["name", "Name"],
+                  ["email", "Email"],
+                  ["phone", "Phone"],
+                ] as const
+              ).map(([column, label]) => (
+                <SortableHeader
+                  key={column}
+                  basePath="/admin/customers"
+                  column={column}
+                  label={label}
+                  currentSort={currentSort}
+                  currentDir={currentDir}
+                  params={params}
+                />
+              ))}
+              {/* Comes from a take:1 related address — no single column to
+                  order by, so it stays a plain header rather than a control
+                  that does nothing. */}
               <TableHead>Location</TableHead>
-              <TableHead>Orders</TableHead>
-              <TableHead>Joined</TableHead>
+              {(
+                [
+                  ["orders", "Orders"],
+                  ["joined", "Joined"],
+                ] as const
+              ).map(([column, label]) => (
+                <SortableHeader
+                  key={column}
+                  basePath="/admin/customers"
+                  column={column}
+                  label={label}
+                  currentSort={currentSort}
+                  currentDir={currentDir}
+                  params={params}
+                />
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>

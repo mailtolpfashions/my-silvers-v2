@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getAdminOrders } from "@/server/orders/admin";
-import type { OrderStatus } from "@/generated/prisma/client";
+import type { OrderStatus, PaymentStatus } from "@/generated/prisma/client";
 import { formatINR } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,8 +18,17 @@ import {
   ReturnReviewButtons,
 } from "@/components/admin/order-row-actions";
 import { PdfExportButton } from "@/components/admin/pdf-export-button";
+import { SortableHeader } from "@/components/admin/sortable-header";
+import { AdminOrderFilters } from "@/components/admin/order-filters";
 
-type SearchParams = Promise<{ status?: string; page?: string }>;
+type SearchParams = Promise<{
+  status?: string;
+  payment?: string;
+  q?: string;
+  page?: string;
+  sort?: string;
+  dir?: string;
+}>;
 
 export default async function AdminOrdersPage({
   searchParams,
@@ -29,9 +38,17 @@ export default async function AdminOrdersPage({
   const params = await searchParams;
   const { orders, total, page, pageSize } = await getAdminOrders({
     status: params.status as OrderStatus | undefined,
+    payment: params.payment as PaymentStatus | undefined,
+    q: params.q,
     page: params.page ? Number(params.page) || 1 : 1,
+    sort: params.sort,
+    dir: params.dir,
   });
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  // Mirrors the defaults in getAdminOrders so the arrow matches the real order.
+  const currentSort = params.sort ?? "placed";
+  const currentDir: "asc" | "desc" = params.dir === "asc" ? "asc" : "desc";
 
   return (
     <div className="space-y-6">
@@ -52,14 +69,9 @@ export default async function AdminOrdersPage({
         </div>
       </div>
 
-      {params.status && (
-        <p className="text-sm text-muted-foreground">
-          Filtered by status: <Badge variant="secondary">{params.status}</Badge>{" "}
-          <Link href="/admin/orders" className="underline">
-            clear
-          </Link>
-        </p>
-      )}
+      <AdminOrderFilters
+        current={{ status: params.status, payment: params.payment, q: params.q }}
+      />
 
       <p className="text-sm text-muted-foreground">{total} orders</p>
 
@@ -67,11 +79,27 @@ export default async function AdminOrdersPage({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Order</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead>Payment</TableHead>
-              <TableHead>Status</TableHead>
+              {(
+                [
+                  ["order", "Order"],
+                  ["customer", "Customer"],
+                  ["total", "Total"],
+                  ["payment", "Payment"],
+                  ["status", "Status"],
+                ] as const
+              ).map(([column, label]) => (
+                <SortableHeader
+                  key={column}
+                  basePath="/admin/orders"
+                  column={column}
+                  label={label}
+                  currentSort={currentSort}
+                  currentDir={currentDir}
+                  params={params}
+                />
+              ))}
+              {/* Neither is a sortable value: tracking is a free-text courier
+                  reference, and Actions holds buttons. */}
               <TableHead>Tracking</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>

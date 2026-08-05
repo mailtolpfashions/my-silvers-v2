@@ -17,6 +17,7 @@ import {
   AdminProductFilters,
   ProductRowActions,
 } from "@/components/admin/product-table-controls";
+import { SortableHeader } from "@/components/admin/sortable-header";
 import { CsvImportDialog } from "@/components/admin/csv-import-dialog";
 import { PdfExportButton } from "@/components/admin/pdf-export-button";
 
@@ -27,6 +28,8 @@ type SearchParams = Promise<{
   stock?: string;
   flag?: string;
   page?: string;
+  sort?: string;
+  dir?: string;
 }>;
 
 export default async function AdminProductsPage({
@@ -43,11 +46,18 @@ export default async function AdminProductsPage({
       stock: params.stock as "in" | "out" | undefined,
       flag: params.flag as "featured" | "bestseller" | undefined,
       page: params.page ? Number(params.page) || 1 : 1,
+      sort: params.sort,
+      dir: params.dir,
     }),
     prisma.category.findMany({ orderBy: { sortOrder: "asc" } }),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  // Mirrors the defaults in getAdminProducts, so the arrow shown matches the
+  // order actually applied.
+  const currentSort = params.sort ?? "created";
+  const currentDir: "asc" | "desc" = params.dir === "asc" ? "asc" : "desc";
 
   return (
     <div className="space-y-6">
@@ -79,12 +89,27 @@ export default async function AdminProductsPage({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Product</TableHead>
-              <TableHead>SKU</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Stock</TableHead>
-              <TableHead>Status</TableHead>
+              {(
+                [
+                  ["name", "Product"],
+                  ["sku", "SKU"],
+                  ["category", "Category"],
+                  ["price", "Price"],
+                  ["stock", "Stock"],
+                  ["status", "Status"],
+                ] as const
+              ).map(([column, label]) => (
+                <SortableHeader
+                  key={column}
+                  basePath="/admin/products"
+                  column={column}
+                  label={label}
+                  currentSort={currentSort}
+                  currentDir={currentDir}
+                  params={params}
+                />
+              ))}
+              {/* Not sortable — it holds buttons, not data. */}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>

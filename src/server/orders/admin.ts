@@ -1,6 +1,8 @@
 import { prisma } from "@/server/db";
 import type { OrderStatus } from "@/generated/prisma/client";
 import { restoreStock } from "@/server/products/stock";
+import type { SortDir } from "@/server/products/admin";
+import type { PaymentStatus } from "@/generated/prisma/client";
 import { toPaise } from "@/server/orders/money";
 import { createRefund } from "@/server/payments/razorpay";
 import { createShiprocketShipment } from "@/server/integrations/shiprocket";
@@ -155,7 +157,7 @@ export async function processReturn(
       tx,
       order.items
         .filter((i) => i.productId !== null)
-        .map((i) => ({ productId: i.productId!, quantity: i.quantity }))
+        .map((i) => ({ productId: i.productId!, quantity: i.quantity, size: i.size }))
     );
   });
 
@@ -197,15 +199,58 @@ export async function getAdminOrder(orderId: string) {
   });
 }
 
-export async function getAdminOrders(params: { status?: OrderStatus; page?: number }) {
+/** Sortable columns, as an allowlist — see the note in products/admin.ts. */
+const ORDER_SORTS = {
+  order: (dir: SortDir) => ({ orderNumber: dir }),
+  customer: (dir: SortDir) => ({ user: { name: dir } }),
+  total: (dir: SortDir) => ({ totalAmount: dir }),
+  payment: (dir: SortDir) => ({ paymentStatus: dir }),
+  status: (dir: SortDir) => ({ orderStatus: dir }),
+  placed: (dir: SortDir) => ({ createdAt: dir }),
+} as const;
+
+export type OrderSortKey = keyof typeof ORDER_SORTS;
+export const ORDER_SORT_KEYS = Object.keys(ORDER_SORTS) as OrderSortKey[];
+export function isOrderSortKey(value: unknown): value is OrderSortKey {
+  return typeof value === "string" && (ORDER_SORT_KEYS as string[]).includes(value);
+}
+
+export async function getAdminOrders(params: {
+  status?: OrderStatus;
+  payment?: PaymentStatus;
+  q?: string;
+  page?: number;
+  sort?: string;
+  dir?: string;
+}) {
   const page = Math.max(1, params.page ?? 1);
   const pageSize = 20;
-  const where = params.status ? { orderStatus: params.status } : {};
+
+  const where = {
+    ...(params.status ? { orderStatus: params.status } : {}),
+    ...(params.payment ? { paymentStatus: params.payment } : {}),
+    // Matches the order number or the customer's name/email — the three things
+    // an admin has to hand when someone gets in touch about an order.
+    ...(params.q
+      ? {
+          OR: [
+            { orderNumber: { contains: params.q, mode: "insensitive" as const } },
+            { user: { name: { contains: params.q, mode: "insensitive" as const } } },
+            { user: { email: { contains: params.q, mode: "insensitive" as const } } },
+          ],
+        }
+      : {}),
+  };
+
+  // Newest first by default: an order list is a work queue.
+  const sortKey: OrderSortKey = isOrderSortKey(params.sort) ? params.sort : "placed";
+  const dir: SortDir = params.dir === "asc" ? "asc" : "desc";
+
   const [orders, total] = await Promise.all([
     prisma.order.findMany({
       where,
       include: { items: true, user: { select: { name: true, email: true } } },
-      orderBy: { createdAt: "desc" },
+      orderBy: ORDER_SORTS[sortKey](dir),
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
