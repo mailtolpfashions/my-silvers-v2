@@ -2,6 +2,8 @@ import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatINR } from "@/lib/format";
+import { OrderItemReview } from "@/components/storefront/orders/order-item-review";
+import type { ReviewableItem } from "@/server/reviews/reviewable-items";
 import type { Order, OrderItem } from "@/generated/prisma/client";
 
 const ORDER_STATUS_LABELS: Record<Order["orderStatus"], string> = {
@@ -48,7 +50,17 @@ type Address = {
   pincode?: string;
 };
 
-export function OrderDetail({ order }: { order: Order & { items: OrderItem[] } }) {
+export function OrderDetail({
+  order,
+  reviewable,
+}: {
+  order: Order & { items: OrderItem[] };
+  /**
+   * productId -> review affordance, for delivered orders only. Absent on the
+   * guest order view, which has no signed-in shopper to attribute a review to.
+   */
+  reviewable?: Map<string, ReviewableItem>;
+}) {
   const address = (order.shippingAddress ?? {}) as Address;
 
   return (
@@ -81,9 +93,20 @@ export function OrderDetail({ order }: { order: Order & { items: OrderItem[] } }
                   {formatINR(item.price.toString())} × {item.quantity}
                 </p>
               </div>
-              <p className="text-sm font-medium">
-                {formatINR(Number(item.price) * item.quantity)}
-              </p>
+              <div className="flex shrink-0 flex-col items-end gap-2">
+                <p className="text-sm font-medium">
+                  {formatINR(Number(item.price) * item.quantity)}
+                </p>
+                {/* Only present on delivered orders — see getReviewableItems. */}
+                {item.productId && reviewable?.get(item.productId) && (
+                  <OrderItemReview
+                    productId={item.productId}
+                    productSlug={reviewable.get(item.productId)!.slug}
+                    productName={item.name}
+                    existing={reviewable.get(item.productId)!.existing}
+                  />
+                )}
+              </div>
             </div>
           ))}
           <div className="space-y-1 border-t pt-4 text-sm">

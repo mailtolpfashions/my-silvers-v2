@@ -16,13 +16,23 @@ import { PRICE_BUCKETS, isBucketActive } from "@/lib/price-buckets";
 
 const ALL_CATEGORIES = "__all__";
 
+/**
+ * Sort and price filters for any product listing.
+ *
+ * The product search box that used to live here is gone: the header carries a
+ * typeahead search on every page, and two search inputs a few hundred pixels
+ * apart is a question the shopper shouldn't have to answer.
+ *
+ * `categories` is optional so the same component serves a category page, where
+ * the category is already decided by the URL and a picker would only offer a
+ * way to leave.
+ */
 export function ProductFilters({
   categories,
   current,
 }: {
-  categories: { slug: string; name: string }[];
+  categories?: { slug: string; name: string }[];
   current: {
-    q?: string;
     category?: string;
     sort?: string;
     minPrice?: string;
@@ -32,7 +42,6 @@ export function ProductFilters({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [q, setQ] = useState(current.q ?? "");
   const [minInput, setMinInput] = useState(current.minPrice ?? "");
   const [maxInput, setMaxInput] = useState(current.maxPrice ?? "");
 
@@ -68,58 +77,31 @@ export function ProductFilters({
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            updateParams({ q });
-          }}
-          className="flex-1"
-        >
-          <Input
-            placeholder="Search products…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </form>
+    // One wrapping row rather than two stacked ones. Everything here is a
+    // filter, so splitting selects from price buckets read as two unrelated
+    // controls; flex-wrap keeps it honest on narrow screens.
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      {categories && (
+          <Select
+            value={current.category ?? ALL_CATEGORIES}
+            onValueChange={(value) => updateParams({ category: value })}
+          >
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_CATEGORIES}>All categories</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.slug} value={c.slug}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
-        <Select
-          value={current.category ?? ALL_CATEGORIES}
-          onValueChange={(value) => updateParams({ category: value })}
-        >
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="All categories" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_CATEGORIES}>All categories</SelectItem>
-            {categories.map((c) => (
-              <SelectItem key={c.slug} value={c.slug}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={current.sort ?? "newest"}
-          onValueChange={(value) => updateParams({ sort: value })}
-        >
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Sort" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="newest">Newest</SelectItem>
-            <SelectItem value="featured">Featured</SelectItem>
-            <SelectItem value="price-asc">Price: Low to High</SelectItem>
-            <SelectItem value="price-desc">Price: High to Low</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* ── Price ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-muted-foreground">Price</span>
+        {/* ── Price ───────────────────────────────────────────────────────── */}
+        <span className="ml-1 text-sm text-muted-foreground">Price</span>
 
         {PRICE_BUCKETS.map((bucket) => {
           const active = isBucketActive(bucket, current.minPrice, current.maxPrice);
@@ -179,7 +161,28 @@ export function ProductFilters({
             Clear
           </Button>
         )}
-      </div>
+
+        {/* Sort comes after every filter, and right-aligns from sm up. Sorting
+            is a different act from filtering — it reorders what you already
+            narrowed down — so it reads better separated from the controls that
+            decide what's in the list at all. */}
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <span className="text-sm text-muted-foreground">Sort</span>
+          <Select
+            value={current.sort ?? "newest"}
+            onValueChange={(value) => updateParams({ sort: value })}
+          >
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Sort" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest</SelectItem>
+              <SelectItem value="featured">Featured</SelectItem>
+              <SelectItem value="price-asc">Price: Low to High</SelectItem>
+              <SelectItem value="price-desc">Price: High to Low</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
     </div>
   );
 }

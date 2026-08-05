@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/server/auth/auth";
 import { getUserOrder } from "@/server/orders/queries";
 import { OrderDetail } from "@/components/storefront/orders/order-detail";
+import { getReviewableItems } from "@/server/reviews/reviewable-items";
 import { CancelOrderButton } from "@/components/storefront/orders/cancel-order-button";
 import { RequestReturnButton } from "@/components/storefront/orders/request-return-button";
 
@@ -18,9 +19,11 @@ export default async function AccountOrderDetailPage({
   const { id } = await params;
   if (!session?.user?.id) redirect(`/login?redirect=/account/orders/${id}`);
 
-  const [order, { placed }] = await Promise.all([
+  const [order, { placed }, reviewable] = await Promise.all([
     getUserOrder(id, session.user.id),
     searchParams,
+    // Empty unless this order is delivered — reviewing is gated on receipt.
+    getReviewableItems(id, session.user.id),
   ]);
   if (!order) notFound();
 
@@ -29,13 +32,13 @@ export default async function AccountOrderDetailPage({
     !order.shipmentCreatedAt;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
+    <div className="container-checkout py-10">
       {placed && (
         <p className="mb-6 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800">
           Thank you! Your order has been placed successfully.
         </p>
       )}
-      <OrderDetail order={order} />
+      <OrderDetail order={order} reviewable={reviewable} />
       {(cancellable || order.orderStatus === "delivered") && (
         <div className="mt-6 flex gap-3">
           {cancellable && (

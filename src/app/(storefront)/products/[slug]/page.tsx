@@ -13,7 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
 import { WishlistButton } from "@/components/storefront/wishlist-button";
-import { productMorphName } from "@/components/storefront/product-card";
+import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
+import { getSimilarProducts, getAlsoLikeProducts } from "@/server/products/recommendations";
+import { RecordProductView, RecentlyViewed } from "@/components/storefront/recently-viewed";
 import { ProductGallery } from "@/components/storefront/product-gallery";
 import { ReviewSection } from "@/components/storefront/reviews/review-section";
 
@@ -199,9 +201,33 @@ export default async function ProductDetailPage({
         </div>
       </div>
 
+      {/* Records this view in localStorage. Renders nothing, and deliberately
+          client-side: writing views server-side would make every product page
+          unique per shopper and undo the caching. */}
+      <RecordProductView productId={product.id} />
+
+      {/* Each behind its own boundary so a recommendation query can never hold
+          up the product itself. */}
+      <Suspense fallback={null}>
+        <SimilarProducts
+          productId={product.id}
+          categoryId={product.categoryId}
+          priceRupees={Number(product.price)}
+          categoryName={product.category.name}
+        />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <AlsoLike productId={product.id} categoryId={product.categoryId} />
+      </Suspense>
+
       <Suspense fallback={null}>
         <Reviews productId={product.id} productSlug={product.slug} />
       </Suspense>
+
+      {/* Last: it's the shopper's own trail, least likely to be what they want
+          next, and it reads from localStorage so it only appears after hydration. */}
+      <RecentlyViewed excludeProductId={product.id} />
     </>
   );
 }
@@ -244,5 +270,81 @@ async function Reviews({ productId, productSlug }: { productId: string; productS
       productSlug={productSlug}
       isAuthed={!!session?.user?.id}
     />
+  );
+}
+
+/** Same category, nearest in price — "more like this one". */
+async function SimilarProducts({
+  productId,
+  categoryId,
+  priceRupees,
+  categoryName,
+}: {
+  productId: string;
+  categoryId: string;
+  priceRupees: number;
+  categoryName: string;
+}) {
+  const items = await getSimilarProducts({ productId, categoryId, priceRupees });
+  if (items.length === 0) return null;
+
+  return (
+    <ProductRow
+      title="See similar"
+      eyebrow={`More ${categoryName.toLowerCase()}`}
+      viewAllHref={`/category/${categoryName.toLowerCase()}`}
+      items={items}
+    />
+  );
+}
+
+/** Outside the category — the cross-sell rather than more of the same. */
+async function AlsoLike({ productId, categoryId }: { productId: string; categoryId: string }) {
+  const items = await getAlsoLikeProducts({ productId, categoryId });
+  if (items.length === 0) return null;
+
+  return <ProductRow title="You may also like" eyebrow="From the collection" items={items} />;
+}
+
+/**
+ * Shared shell for the recommendation rows.
+ *
+ * No morphName on these cards: the same product can legitimately appear in two
+ * rows on this page, and a duplicate view-transition-name makes the browser
+ * abandon the morph for the whole document.
+ */
+function ProductRow({
+  title,
+  eyebrow,
+  viewAllHref,
+  items,
+}: {
+  title: string;
+  eyebrow?: string;
+  viewAllHref?: string;
+  items: Awaited<ReturnType<typeof getAlsoLikeProducts>>;
+}) {
+  return (
+    <section className="container-page border-t py-14">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          {eyebrow && <p className="label-eyebrow mb-2">{eyebrow}</p>}
+          <h2 className="text-h2">{title}</h2>
+        </div>
+        {viewAllHref && (
+          <Link
+            href={viewAllHref}
+            className="text-sm font-medium text-brass-text underline underline-offset-4"
+          >
+            View all
+          </Link>
+        )}
+      </div>
+      <div className={PRODUCT_GRID_CLASS}>
+        {items.map((product) => (
+          <ProductCard key={product.id} product={product} />
+        ))}
+      </div>
+    </section>
   );
 }

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import { getProductReviews } from "@/server/products/reviews";
 import { Badge } from "@/components/ui/badge";
-import { ReviewForm } from "@/components/storefront/reviews/review-form";
 
 function Stars({ rating }: { rating: number }) {
   return (
@@ -73,14 +72,27 @@ export async function ReviewSection({
         </div>
 
         <div>
+          {/* Reviewing moved to the order history, where proof of purchase
+              lives — the same place Amazon and Flipkart put it. A form here
+              would invite people who never bought the piece to fill it in and
+              then be refused on submit. */}
           {isAuthed ? (
-            <ReviewForm productId={productId} productSlug={productSlug} />
+            <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">Bought this piece?</p>
+              <p className="mt-1.5">
+                Reviews come from delivered orders. Find it under{" "}
+                <Link href="/account/orders" className="underline underline-offset-4">
+                  your orders
+                </Link>{" "}
+                to write one.
+              </p>
+            </div>
           ) : (
             <p className="rounded-lg border p-4 text-sm text-muted-foreground">
               <Link href={`/login?redirect=/products/${productSlug}`} className="underline">
                 Sign in
               </Link>{" "}
-              to leave a review.
+              to review a piece you&apos;ve bought.
             </p>
           )}
         </div>

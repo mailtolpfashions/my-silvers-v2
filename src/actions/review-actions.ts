@@ -1,9 +1,9 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { auth } from "@/server/auth/auth";
-import { upsertReview } from "@/server/products/reviews";
+import { upsertReview, ReviewNotPermittedError } from "@/server/products/reviews";
 import { checkRateLimit, RATE_LIMIT_MESSAGE } from "@/server/rate-limit/limiter";
 
 const reviewSchema = z.object({
@@ -37,11 +37,18 @@ export async function submitReviewAction(input: unknown) {
       comment: parsed.data.comment || undefined,
     });
     revalidatePath(`/products/${parsed.data.productSlug}`);
+    // The homepage now shows real 4-and-5-star reviews, so a new one has to
+    // drop that cache too — otherwise it waits out the cacheLife.
+    updateTag("reviews");
     return { ok: true as const };
   } catch (err) {
-    return {
-      ok: false as const,
-      error: err instanceof Error ? err.message : "Could not save your review.",
-    };
+    // Only our own, deliberately-worded errors reach the shopper. Anything else
+    // (Prisma constraint text, connection failures) gets a generic message
+    // rather than leaking internals into the UI.
+    if (err instanceof ReviewNotPermittedError) {
+      return { ok: false as const, error: err.message };
+    }
+    console.error("submitReviewAction failed", err);
+    return { ok: false as const, error: "Could not save your review." };
   }
 }
