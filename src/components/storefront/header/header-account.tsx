@@ -21,34 +21,39 @@ export async function HeaderAccount() {
   return (
     <>
       {role === "admin" && (
-        <Button asChild variant="ghost" size="sm" className="hidden text-sm lg:inline-flex">
+        <Button asChild variant="ghost" size="sm" className="hidden h-12 px-4 text-base lg:inline-flex">
           <Link href="/admin">Admin</Link>
         </Button>
       )}
       {(role === "admin" || role === "editor") && (
-        <Button asChild variant="ghost" size="sm" className="hidden text-sm lg:inline-flex">
+        <Button asChild variant="ghost" size="sm" className="hidden h-12 px-4 text-base lg:inline-flex">
           <Link href="/cms">CMS</Link>
         </Button>
       )}
 
-      {/* Order: account · wishlist · cart. */}
+      {/* Order: account · wishlist · cart.
+          Icon size goes on the icon, NOT as `[&_svg]:size-6` on the Button.
+          Button's base rule is `svg:not([class*='size-'])` — specificity (0,2,1)
+          against a plain `[&_svg]` at (0,1,1) — so a descendant override loses
+          and the glyph silently stays 16px however large the button gets. The
+          :not() is the escape hatch: give the svg its own size- class. */}
       {session?.user ? (
-        <Button asChild variant="ghost" size="icon" className="size-10 [&_svg]:size-5" aria-label="Your account">
+        <Button asChild variant="ghost" size="icon" className="size-12" aria-label="Your account">
           <Link href="/account">
-            <User />
+            <User className="size-6" />
           </Link>
         </Button>
       ) : (
-        <Button asChild variant="ghost" size="icon" className="size-10 [&_svg]:size-5" aria-label="Sign in">
+        <Button asChild variant="ghost" size="icon" className="size-12" aria-label="Sign in">
           <Link href="/login">
-            <User />
+            <User className="size-6" />
           </Link>
         </Button>
       )}
 
-      <Button asChild variant="ghost" size="icon" className="size-10 [&_svg]:size-5" aria-label="Wishlist">
+      <Button asChild variant="ghost" size="icon" className="size-12" aria-label="Wishlist">
         <Link href="/wishlist">
-          <Heart />
+          <Heart className="size-6" />
         </Link>
       </Button>
 

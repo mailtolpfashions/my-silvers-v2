@@ -33,6 +33,10 @@ export function SiteHeader() {
           <MobileNavLoader />
         </Suspense>
 
+        {/* h-16 in an h-20 row. The lockup is stacked — mark above wordmark —
+            so height is mostly spent on the mark: at the previous h-11 the
+            "MY SILVERS" text rendered around 8px and read as a smudge. 64px
+            puts it near 13px, which is the smallest it stays legible at. */}
         <Link href="/" aria-label="MY Silvers — home" className="shrink-0">
           <Image
             src="/logo.png"
@@ -40,7 +44,7 @@ export function SiteHeader() {
             width={519}
             height={311}
             preload
-            className="h-11 w-auto"
+            className="h-16 w-auto"
           />
         </Link>
 
@@ -87,7 +91,7 @@ async function MobileNavLoader() {
 
 /** Same footprint as the trigger button, so the header doesn't jump. */
 function MobileNavSkeleton() {
-  return <div className="size-10 shrink-0 lg:hidden" aria-hidden />;
+  return <div className="size-12 shrink-0 lg:hidden" aria-hidden />;
 }
 
 /** Reserves the category row's exact height so the page below doesn't shift. */

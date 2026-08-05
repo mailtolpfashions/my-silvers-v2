@@ -5,6 +5,14 @@ export type LiveBanner = {
   title?: string;
   image: string;
   link?: string;
+  /**
+   * True only when the banner names this exact category. A catch-all banner
+   * (blank categorySlug) is shown on every category page, so its title cannot
+   * be about any one of them — the category header uses this to decide whether
+   * the title is safe to print as an eyebrow above the heading. Without it,
+   * "Rings for every day" appears over the Earrings page.
+   */
+  targeted?: boolean;
 };
 
 const str = (v: unknown): string | undefined =>
@@ -88,5 +96,10 @@ export async function getCategoryBanner(slug: string): Promise<LiveBanner | null
   if (!match) return null;
 
   const d = match.data as Record<string, unknown>;
-  return { title: str(d.title), image: str(d.image)!, link: str(d.link) };
+  return {
+    title: str(d.title),
+    image: str(d.image)!,
+    link: str(d.link),
+    targeted: match === targeted,
+  };
 }

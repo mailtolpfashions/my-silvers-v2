@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { Play } from "lucide-react";
+import { ProductImageZoom } from "@/components/storefront/product-image-zoom";
 
 /**
  * Product image gallery.
@@ -51,12 +52,14 @@ export function ProductGallery({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative aspect-[4/5] overflow-hidden rounded-md bg-muted">
-        {showingVideo ? (
-          // preload="none" and click-to-play: the video only downloads when a
-          // shopper asks for it, so the page weight is unchanged for everyone
-          // else and the LCP image is untouched. poster reuses the first image
-          // so the frame is never blank.
+      {showingVideo ? (
+        // Not wrapped in ProductImageZoom: magnifying a <video> would fight its
+        // own controls, and a lightbox of a paused frame helps nobody.
+        <div className="relative aspect-[4/5] overflow-hidden rounded-md bg-muted">
+          {/* preload="none" and click-to-play: the video only downloads when a
+              shopper asks for it, so the page weight is unchanged for everyone
+              else and the LCP image is untouched. poster reuses the first image
+              so the frame is never blank. */}
           <video
             src={videoUrl!}
             controls
@@ -65,21 +68,25 @@ export function ProductGallery({
             poster={images[0]}
             className="absolute inset-0 h-full w-full bg-graphite-950 object-cover"
           />
-        ) : /* Slide 0 is handed in from the server so it can carry the shared
-              view-transition name and the preload hint; the rest render here. */
-        active === 0 && morphSlot ? (
-          morphSlot
-        ) : (
-          <Image
-            key={images[active]}
-            src={images[active]}
-            alt={alt}
-            fill
-            sizes="(max-width: 640px) 100vw, 45vw"
-            className="object-cover"
-          />
-        )}
-      </div>
+        </div>
+      ) : (
+        <ProductImageZoom src={images[active]} alt={alt}>
+          {/* Slide 0 is handed in from the server so it can carry the shared
+              view-transition name and the preload hint; the rest render here. */}
+          {active === 0 && morphSlot ? (
+            morphSlot
+          ) : (
+            <Image
+              key={images[active]}
+              src={images[active]}
+              alt={alt}
+              fill
+              sizes="(max-width: 640px) 100vw, 45vw"
+              className="object-cover"
+            />
+          )}
+        </ProductImageZoom>
+      )}
 
       {slideCount > 1 && (
         <ul className="grid grid-cols-5 gap-2" role="tablist" aria-label="Product media">

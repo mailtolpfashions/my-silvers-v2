@@ -85,25 +85,25 @@ export function HomepageSection({
     return (
       <section className="container-page py-16 sm:py-20">
         <SectionHeading title={section.title} eyebrow={section.eyebrow} subtitle={section.subtitle} />
-        <ul className="flex flex-wrap justify-center gap-x-8 gap-y-8 sm:gap-x-12">
+        <ul className="flex flex-wrap justify-center gap-x-8 gap-y-10 sm:gap-x-12">
           {section.items.map((item) => (
             <li key={item.id}>
               <Link
                 href={`/category/${item.slug}`}
-                className="group flex w-24 flex-col items-center gap-3 sm:w-28"
+                className="group flex w-28 flex-col items-center gap-4 sm:w-40"
               >
-                <div className="relative size-24 overflow-hidden rounded-full bg-muted ring-1 ring-border transition-all duration-300 group-hover:ring-2 group-hover:ring-brass sm:size-28">
+                <div className="relative size-28 overflow-hidden rounded-full bg-muted ring-1 ring-border transition-all duration-300 group-hover:ring-2 group-hover:ring-brass sm:size-40">
                   {item.image && (
                     <Image
                       src={item.image}
                       alt=""
                       fill
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
-                      sizes="112px"
+                      sizes="(max-width: 640px) 112px, 160px"
                     />
                   )}
                 </div>
-                <span className="text-center text-xs font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+                <span className="text-center text-base font-medium text-muted-foreground transition-colors group-hover:text-foreground">
                   {item.name}
                 </span>
               </Link>

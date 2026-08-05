@@ -160,7 +160,7 @@ export function ProductCard({
                 </Badge>
               )}
               {product.isBestseller && (
-                <Badge className="bg-graphite-950/85 text-platinum-100 backdrop-blur-sm hover:bg-graphite-950/85">
+                <Badge className="bg-graphite-950/85 text-ivory-100 backdrop-blur-sm hover:bg-graphite-950/85">
                   Bestseller
                 </Badge>
               )}
@@ -191,24 +191,24 @@ export function ProductCard({
           {/* text-foreground, NOT text-graphite-950: the ramp tokens are fixed
               values that don't flip with the theme, so a raw graphite price sat
               near-invisible on the dark background. */}
-          <span className="text-lg font-medium tracking-tight text-foreground">
+          <span className="text-xl font-semibold tracking-tight text-foreground">
             {formatINR(price)}
           </span>
           {compareAt && compareAt > price && (
-            <span className="text-xs text-muted-foreground line-through">
+            <span className="text-sm text-muted-foreground line-through">
               {formatINR(compareAt)}
             </span>
           )}
         </div>
         {/* Scarcity, never a count — see src/lib/stock-label.ts. */}
         {isScarce(product.stock) && (
-          <p className="text-xs font-medium text-brass-text">{stockLabel(product.stock)}</p>
+          <p className="text-sm font-medium text-brass-text">{stockLabel(product.stock)}</p>
         )}
 
         {/* mt-auto pins the CTA to the bottom of the card, so a scarcity line on
             one product doesn't shove its button out of line with the row. */}
         {showActions && (
-          <div className="mt-auto pt-2.5">
+          <div className="mt-auto pt-4">
             <AddToCartButton productId={product.id} stock={product.stock} compact />
           </div>
         )}

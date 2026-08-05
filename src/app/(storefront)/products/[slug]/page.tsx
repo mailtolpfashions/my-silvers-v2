@@ -12,6 +12,8 @@ import { formatINR } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
+import { BuyNowButton } from "@/components/storefront/buy-now-button";
+import { SizeProvider, SizeSelector } from "@/components/storefront/size-selector";
 import { WishlistButton } from "@/components/storefront/wishlist-button";
 import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
 import { getSimilarProducts, getAlsoLikeProducts } from "@/server/products/recommendations";
@@ -117,50 +119,7 @@ export default async function ProductDetailPage({
             )}
           </div>
 
-          <p className="mt-6 text-sm text-muted-foreground">{product.description}</p>
-
-          <dl className="mt-6 space-y-1 text-sm">
-            <div className="flex justify-between border-b py-2">
-              <dt className="text-muted-foreground">Purity</dt>
-              <dd>{product.purity}</dd>
-            </div>
-            {product.weight && (
-              <div className="flex justify-between border-b py-2">
-                <dt className="text-muted-foreground">Weight</dt>
-                <dd>{product.weight.toString()}g</dd>
-              </div>
-            )}
-            {product.material && (
-              <div className="flex justify-between border-b py-2">
-                <dt className="text-muted-foreground">Material</dt>
-                <dd>{product.material}</dd>
-              </div>
-            )}
-            {product.dimensions && (
-              <div className="flex justify-between border-b py-2">
-                <dt className="text-muted-foreground">Dimensions</dt>
-                <dd>{product.dimensions}</dd>
-              </div>
-            )}
-            {product.sizes.length > 0 && (
-              <div className="flex justify-between border-b py-2">
-                <dt className="text-muted-foreground">Available sizes</dt>
-                <dd>{product.sizes.join(", ")}</dd>
-              </div>
-            )}
-            {/* Stored and admin-editable but never shown until now — shoppers
-                quote it in enquiries and it helps them tell variants apart. */}
-            <div className="flex justify-between border-b py-2">
-              <dt className="text-muted-foreground">SKU</dt>
-              <dd className="text-muted-foreground">{product.sku}</dd>
-            </div>
-            <div className="flex justify-between border-b py-2">
-              <dt className="text-muted-foreground">Availability</dt>
-              <dd className={isScarce(product.stock) ? "font-medium text-brass-text" : ""}>
-                {stockLabel(product.stock)}
-              </dd>
-            </div>
-          </dl>
+          <p className="mt-6 text-base text-muted-foreground">{product.description}</p>
 
           {/* The one place that keeps server-rendered per-shopper state: here
               the CTA is the page, so a flip from "Add to cart" to "In cart"
@@ -169,17 +128,75 @@ export default async function ProductDetailPage({
           {/* The skeleton leaves quickly, the real CTA arrives more gently —
               see the .reveal-out/.reveal-in rules in globals.css. `default:
               "none"` keeps this from firing during the image morph. */}
-          <Suspense
-            fallback={
-              <ViewTransition exit="reveal-out">
-                <ProductCtaSkeleton />
+          {/* Above the specification list on purpose: the buying decision is
+              made on price and photography, and burying the actions under six
+              rows of purity and SKU put them below the fold on a laptop.
+
+              The provider wraps BOTH the selector and the CTA because they are
+              siblings — the buttons have to read a choice made in the selector,
+              and this page is a server component, so it cannot hold that state
+              itself. */}
+          <SizeProvider sizes={product.sizes}>
+            <SizeSelector sizeGuideHref="/p/size-guide" />
+
+            <Suspense
+              fallback={
+                <ViewTransition exit="reveal-out">
+                  <ProductCtaSkeleton />
+                </ViewTransition>
+              }
+            >
+              <ViewTransition enter="reveal-in" default="none">
+                <ProductCta productId={product.id} stock={product.stock} />
               </ViewTransition>
-            }
-          >
-            <ViewTransition enter="reveal-in" default="none">
-              <ProductCta productId={product.id} stock={product.stock} />
-            </ViewTransition>
-          </Suspense>
+            </Suspense>
+          </SizeProvider>
+
+          {/* The rows carry their own border-b, so the last one drew a rule
+              directly above the trust list's border-t — two hairlines with a
+              gap between them, which read as a stray empty row. Dropping the
+              final border leaves exactly one rule closing the list.
+              Written as :last-child rather than on a specific row because most
+              of these rows are conditional, so which one is last varies. */}
+          <dl className="mt-8 text-sm [&>div:last-child]:border-b-0">
+            <div className="flex justify-between border-b py-2.5">
+              <dt className="text-muted-foreground">Purity</dt>
+              <dd>{product.purity}</dd>
+            </div>
+            {product.weight && (
+              <div className="flex justify-between border-b py-2.5">
+                <dt className="text-muted-foreground">Weight</dt>
+                <dd>{product.weight.toString()}g</dd>
+              </div>
+            )}
+            {product.material && (
+              <div className="flex justify-between border-b py-2.5">
+                <dt className="text-muted-foreground">Material</dt>
+                <dd>{product.material}</dd>
+              </div>
+            )}
+            {product.dimensions && (
+              <div className="flex justify-between border-b py-2.5">
+                <dt className="text-muted-foreground">Dimensions</dt>
+                <dd>{product.dimensions}</dd>
+              </div>
+            )}
+            {/* "Available sizes" used to be listed here as plain text. It is
+                gone: the selector above is now the single place sizes appear,
+                and repeating them read as a second, non-interactive control. */}
+            {/* Stored and admin-editable but never shown until now — shoppers
+                quote it in enquiries and it helps them tell variants apart. */}
+            <div className="flex justify-between border-b py-2.5">
+              <dt className="text-muted-foreground">SKU</dt>
+              <dd className="text-muted-foreground">{product.sku}</dd>
+            </div>
+            <div className="flex justify-between border-b py-2.5">
+              <dt className="text-muted-foreground">Availability</dt>
+              <dd className={isScarce(product.stock) ? "font-medium text-brass-text" : ""}>
+                {stockLabel(product.stock)}
+              </dd>
+            </div>
+          </dl>
 
           {/* Reassurance at the point of decision. Silver jewellery online is a
               trust purchase — hallmarking and returns are the two objections
@@ -240,7 +257,16 @@ async function ProductCta({ productId, stock }: { productId: string; stock: numb
     : [false, 0];
 
   return (
-    <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+    // Buy now first — it is the action most shoppers who have decided will
+    // take, and it reads left to right as intent descending: buy, save for the
+    // basket, save for later.
+    <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <BuyNowButton
+        productId={productId}
+        stock={stock}
+        isAuthed={!!userId}
+        cartQuantity={cartQuantity}
+      />
       <AddToCartButton
         productId={productId}
         stock={stock}
@@ -254,10 +280,13 @@ async function ProductCta({ productId, stock }: { productId: string; stock: numb
 
 /** Matches the real CTA row's height so the page doesn't shift as it resolves. */
 function ProductCtaSkeleton() {
+  // Three controls now, and h-12 to match BuyNowButton — the tallest of them
+  // sets the row height, so this has to track it or the page jumps.
   return (
-    <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-      <Skeleton className="h-9 w-full sm:w-40" />
-      <Skeleton className="h-9 w-full sm:w-32" />
+    <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <Skeleton className="h-12 w-full sm:w-36" />
+      <Skeleton className="h-12 w-full sm:w-40" />
+      <Skeleton className="h-12 w-full sm:w-32" />
     </div>
   );
 }

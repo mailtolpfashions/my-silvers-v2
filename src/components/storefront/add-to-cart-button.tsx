@@ -13,12 +13,17 @@ import {
   getUserStateServerSnapshot,
   setCartQuantityLocal,
 } from "@/lib/user-state-store";
+import { useSize } from "@/components/storefront/size-selector";
 
 /** Wording for stock outcomes — no counts, matching src/lib/stock-label.ts. */
 const STOCK_MESSAGES = {
   out_of_stock: "Sorry — this piece just sold out.",
   stock_limit: "That's all we have available of this piece.",
   unavailable: "This piece is no longer available.",
+  // Should be unreachable — the selector blocks the click first. Kept because
+  // the server is the authority on which sizes exist, and it can reject a size
+  // the page was still offering.
+  size_required: "Please choose a size first.",
 } as const;
 
 /**
@@ -50,6 +55,8 @@ export function AddToCartButton({
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  // Returns "" on pages with no selector, so this is a no-op there.
+  const { requireSize } = useSize();
 
   // One store for guests and signed-in shoppers alike — it is filled from
   // localStorage for the former and /api/me/state for the latter.
@@ -67,13 +74,19 @@ export function AddToCartButton({
   const atStockLimit = quantityInCart >= stock;
 
   function handleClick() {
+    // Null means the product needs a size and none is chosen; the selector has
+    // already shown its own error, so stop here rather than adding a line the
+    // packer cannot fulfil.
+    const size = requireSize();
+    if (size === null) return;
+
     if (authed) {
       // Optimistic, so every card for this product updates at once. The guest
       // path needs no equivalent — writing localStorage notifies the store.
       setCartQuantityLocal(productId, quantityInCart + 1);
       startTransition(async () => {
         try {
-          const result = await addToCartAction(productId);
+          const result = await addToCartAction(productId, 1, size);
 
           if (!result.ok) {
             setCartQuantityLocal(productId, quantityInCart);
@@ -90,7 +103,7 @@ export function AddToCartButton({
         }
       });
     } else {
-      addToGuestCart(productId);
+      addToGuestCart(productId, size);
       toast.success("Added to cart", {
         action: { label: "View cart", onClick: () => router.push("/cart") },
       });
@@ -101,8 +114,15 @@ export function AddToCartButton({
     return (
       <Button
         size="sm"
-        variant={inCart ? "outline" : "default"}
-        className="mt-3 w-full"
+        // `secondary`, not `outline`, for the in-cart state: outline's only
+        // affordance is a border-border hairline, which is 1.24:1 against the
+        // page — far too faint to read as a 44px control. secondary is a
+        // self-contained fill + label pair at 16.71:1.
+        variant={inCart ? "secondary" : "default"}
+        // Explicit h-11: size="sm" is h-8 here, which read as a chip rather
+        // than the card’s primary action. Spacing is owned by the wrapper in
+        // product-card.tsx, so no margin of its own.
+        className="h-11 w-full rounded-full text-base"
         disabled={stock === 0 || isPending || atStockLimit}
         onClick={handleClick}
       >
@@ -112,7 +132,7 @@ export function AddToCartButton({
           "Adding…"
         ) : inCart ? (
           <>
-            <Check className="size-3.5" />
+            <Check className="size-4" />
             In cart{quantityInCart > 1 && ` (${quantityInCart})`}
           </>
         ) : (
@@ -127,7 +147,7 @@ export function AddToCartButton({
       <Button
         size="lg"
         variant={inCart ? "outline" : "default"}
-        className="w-full sm:w-auto"
+        className="h-12 w-full rounded-full px-8 text-base sm:w-auto"
         // Blocked once the cart already holds every unit in stock — the server
         // would clamp it anyway, so offering the click would be a lie.
         disabled={stock === 0 || isPending || atStockLimit}
@@ -148,9 +168,6 @@ export function AddToCartButton({
         )}
       </Button>
 
-      {inCart && !atStockLimit && (
-        <p className="text-xs text-muted-foreground">Click again to add another</p>
-      )}
       {/* Never states the number — see src/lib/stock-label.ts. */}
       {inCart && atStockLimit && (
         <p className="text-xs text-muted-foreground">

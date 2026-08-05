@@ -56,7 +56,7 @@ const FOOTER_LINKS: Record<string, { label: string; href: string }[]> = {
 export function SiteFooter() {
   return (
     <footer className="mt-16 bg-graphite-950 text-white">
-      <div className="container-page py-14">
+      <div className="container-page py-16">
         <div className="grid grid-cols-2 gap-10 md:grid-cols-5">
           {/* Brand column — the logo is dark-on-transparent and would vanish on
               this background, so the wordmark is set in Raleway instead. */}
@@ -66,7 +66,7 @@ export function SiteFooter() {
                 MY <span className="text-brass">Silvers</span>
               </span>
             </Link>
-            <p className="mb-6 max-w-[220px] text-sm leading-relaxed text-white/75">
+            <p className="mb-6 max-w-[240px] text-base leading-relaxed text-white/75">
               BIS hallmarked 925 sterling silver — rings, earrings and everyday
               pieces, crafted to be worn daily.
             </p>
@@ -89,15 +89,15 @@ export function SiteFooter() {
 
           {Object.entries(FOOTER_LINKS).map(([heading, links]) => (
             <div key={heading}>
-              <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-brass-light">
+              <h3 className="mb-5 text-[11px] font-bold uppercase tracking-[0.18em] text-brass-light">
                 {heading}
               </h3>
-              <ul className="space-y-2.5">
+              <ul className="space-y-3">
                 {links.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-white/75 transition-colors hover:text-white"
+                      className="text-base text-white/75 transition-colors hover:text-white"
                     >
                       {link.label}
                     </Link>
@@ -108,17 +108,17 @@ export function SiteFooter() {
           ))}
 
           <div className="col-span-2 md:col-span-1">
-            <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-brass-light">
+            <h3 className="mb-5 text-[11px] font-bold uppercase tracking-[0.18em] text-brass-light">
               Newsletter
             </h3>
-            <p className="mb-3 text-sm text-white/75">
+            <p className="mb-3 text-base text-white/75">
               New arrivals, offers and care tips — no spam.
             </p>
             <NewsletterForm />
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 text-xs text-white/60 sm:flex-row">
+        <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 text-sm text-white/70 sm:flex-row">
           <p>
             © <CopyrightYear /> MY Silvers. All rights reserved.
           </p>
