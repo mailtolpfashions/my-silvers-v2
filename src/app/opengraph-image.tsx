@@ -24,7 +24,10 @@ export default async function Image() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "#f7f8f9", // --platinum-100
+          // Must track --ivory-100 in globals.css by hand: this renders in
+          // Satori, which never sees the stylesheet, so a CSS variable is not
+          // available here.
+          background: "#fffdf8", // --ivory-100
           color: "#12161a", // --graphite-950
         }}
       >

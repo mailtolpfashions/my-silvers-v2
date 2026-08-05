@@ -27,7 +27,7 @@
   --font-brand: var(--font-raleway);
 
   /* ── Ramp vs semantic ─────────────────────────────────────────────────────
-     The ramp below (platinum/silver/graphite/brass) is the raw palette. The
+     The ramp below (ivory/silver/graphite/brass) is the raw palette. The
      semantic tokens further down — background, foreground, muted, card, accent
      — are what components should normally use; they express intent rather than
      a specific colour, which is what keeps a restyle to one file.
@@ -38,10 +38,10 @@
      ─────────────────────────────────────────────────────────────────────── */
 
   /* ── Neutral ramp — cool, keyed to silver ── */
-  --color-platinum-50: var(--platinum-50);
-  --color-platinum-100: var(--platinum-100);
-  --color-platinum-200: var(--platinum-200);
-  --color-platinum-300: var(--platinum-300);
+  --color-ivory-50: var(--ivory-50);
+  --color-ivory-100: var(--ivory-100);
+  --color-ivory-200: var(--ivory-200);
+  --color-ivory-300: var(--ivory-300);
   --color-silver-500: var(--silver-500);
   --color-graphite-600: var(--graphite-600);
   --color-graphite-800: var(--graphite-800);
@@ -125,30 +125,41 @@
 
 :root {
   /* ── Neutral ramp ─────────────────────────────────────────────────────────
-     Cool rather than the previous warm ivory. MY Silvers sells 925 sterling;
-     a gold-keyed neutral read as a borrowed Tanishq/Kalyan palette. Gold stays,
-     but demoted to the single warm accent below.
-     Ratios in comments are against --background (#f7f8f9). Every value here is
-     contrast-checked — keep it that way when editing. ────────────────────── */
-  --platinum-50: #fafbfc;
-  --platinum-100: #f7f8f9; /* page background */
-  --platinum-200: #eff2f3; /* muted fills, secondary surfaces */
-  --platinum-300: #e4e8ea; /* decorative hairlines and card edges */
-  --silver-500: #868f94; /* control borders — 3.10:1, meets the 3:1 rule */
-  --graphite-600: #5c666d; /* muted foreground — 5.52:1 */
-  --graphite-800: #2b3238; /* body ink — 12.22:1 */
-  --graphite-950: #12161a; /* headings, footer — 17.09:1 */
+     Warm ivory, carried over from the previous MY Silvers storefront so the two
+     read as the same brand. This reverses an earlier call in this project that
+     went cool on the theory a gold-keyed neutral looks borrowed from Tanishq /
+     Kalyan — a deliberate product decision, not a cleanup, so don't "fix" it
+     back without asking.
+
+     The surfaces are the old project's values verbatim. The TEXT colours are
+     NOT: the old palette put #C9A96E on ivory at 2.20:1 for prices and links,
+     and its muted grey managed only 4.15:1. Those stay on this project's
+     contrast-checked ramp — see --brass vs --brass-text below.
+
+     Ratios in comments are worst-case, i.e. against --ivory-200 (#f7f5f3), not
+     the page background, since muted fills are the darkest thing text sits on.
+     Every value here is contrast-checked — keep it that way when editing. ─── */
+  --ivory-50: #fffefc; /* elevated surfaces above the page */
+  --ivory-100: #fffdf8; /* page background — old --color-ivory */
+  --ivory-200: #f7f5f3; /* muted fills, secondary surfaces — old --color-surface */
+  --ivory-300: #e8e4e0; /* decorative hairlines and card edges — old --color-border */
+  --silver-500: #8c8781; /* control borders — 3.50:1, clears the 3:1 rule */
+  --graphite-600: #5c666d; /* muted foreground — 5.40:1 */
+  --graphite-800: #2b3238; /* body ink — 11.95:1 */
+  --graphite-950: #12161a; /* headings, footer — 16.71:1 */
 
   /* ── Warm accent ──────────────────────────────────────────────────────────
      One accent, two roles. --brass is for fills, borders and decoration only:
-     at 2.10:1 it is not legible as text. --brass-text is the text-safe variant,
-     4.55:1 at its worst (on --platinum-200). Never swap them. ─────────────── */
+     at 2.20:1 on the ivory page it is not legible as text — this is exactly the
+     mistake the previous storefront made, rendering prices in it. --brass-text
+     is the text-safe variant, 4.71:1 at its worst (on --ivory-200). Never swap
+     them. ─────────────── */
   --brass: #c9a96e;
   --brass-light: #d4b87e;
   --brass-subtle: #f4ecdc;
   --brass-text: #856a31;
 
-  --background: var(--platinum-100);
+  --background: var(--ivory-100);
   --foreground: var(--graphite-800);
   --card: #ffffff;
   --card-foreground: var(--graphite-800);
@@ -156,20 +167,20 @@
   --popover-foreground: var(--graphite-800);
 
   --primary: var(--graphite-950);
-  --primary-foreground: var(--platinum-100);
-  --secondary: var(--platinum-200);
+  --primary-foreground: var(--ivory-100);
+  --secondary: var(--ivory-200);
   --secondary-foreground: var(--graphite-950);
-  --muted: var(--platinum-200);
+  --muted: var(--ivory-200);
   --muted-foreground: var(--graphite-600);
   --accent: var(--brass-subtle);
   --accent-foreground: var(--graphite-950);
 
   /* Both carry a white label, so they are rated against #fff, not the page. */
   --destructive: #b3261e; /* 6.54:1 against a white label */
-  --success: #0f7b3d; /* 5.04:1 on the page background */
+  --success: #0f7b3d; /* 4.92:1 worst case, on --ivory-200 */
 
   /* Decorative edges are exempt from the 3:1 rule … */
-  --border: var(--platinum-300);
+  --border: var(--ivory-300);
   /* … real control boundaries are not. --silver-500 is 3.10:1. */
   --input: var(--silver-500);
   --ring: var(--brass-text);
@@ -184,13 +195,13 @@
      surface; jewellery photography wants a quieter, more editorial frame. */
   --radius: 0.75rem;
 
-  --sidebar: var(--platinum-200);
+  --sidebar: var(--ivory-200);
   --sidebar-foreground: var(--graphite-800);
   --sidebar-primary: var(--graphite-950);
-  --sidebar-primary-foreground: var(--platinum-100);
+  --sidebar-primary-foreground: var(--ivory-100);
   --sidebar-accent: var(--brass-subtle);
   --sidebar-accent-foreground: var(--graphite-950);
-  --sidebar-border: var(--platinum-300);
+  --sidebar-border: var(--ivory-300);
   --sidebar-ring: var(--brass-text);
 }
 

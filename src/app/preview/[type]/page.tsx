@@ -192,11 +192,11 @@ function TypePreview({ type, data }: { type: string; data: EntryData }) {
       const tone = str(data.tone) ?? "neutral";
       const toneClass =
         {
-          neutral: "bg-graphite-950 text-platinum-100",
+          neutral: "bg-graphite-950 text-ivory-100",
           sale: "bg-brass text-graphite-950",
-          info: "bg-platinum-200 text-graphite-800",
+          info: "bg-ivory-200 text-graphite-800",
           alert: "bg-destructive text-white",
-        }[tone] ?? "bg-graphite-950 text-platinum-100";
+        }[tone] ?? "bg-graphite-950 text-ivory-100";
       return (
         <div className={`px-4 py-2 text-center text-sm ${toneClass}`}>
           <span className="font-medium">{text}</span>
