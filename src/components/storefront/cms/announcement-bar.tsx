@@ -1,5 +1,5 @@
-import { cacheLife, cacheTag } from "next/cache";
-import { listPublishedEntries } from "@/server/cms/entries";
+import { getLiveAnnouncements } from "@/server/cms/announcements";
+import { AnnouncementTicker } from "@/components/storefront/cms/announcement-ticker";
 
 /**
  * Tones are drawn from the palette rather than raw Tailwind colours, so the bar
@@ -14,50 +14,13 @@ const TONE_CLASSES: Record<string, string> = {
   alert: "bg-destructive text-white",
 };
 
-/**
- * The first active, in-window published announcement (if any).
- *
- * The schedule check reads the clock, so the whole evaluation — not just the
- * query — lives inside the cached scope. The consequence is worth stating
- * plainly: the window is only as precise as the `announcement` cacheLife
- * profile in next.config.ts, so an announcement can outlive its end time by up
- * to that revalidate period. Shorten the profile if that ever matters.
- */
-async function getActiveAnnouncement() {
-  "use cache";
-  cacheLife("announcement");
-  cacheTag("cms:announcement");
-
-  const announcements = await listPublishedEntries("announcement", 10);
-  const now = new Date();
-
-  return (
-    announcements.find((entry) => {
-      const d = entry.data as {
-        isActive?: boolean;
-        startsAt?: string;
-        endsAt?: string;
-      };
-      if (d.isActive === false) return false;
-      if (d.startsAt && new Date(d.startsAt) > now) return false;
-      if (d.endsAt && new Date(d.endsAt) < now) return false;
-      return true;
-    }) ?? null
-  );
-}
-
 export async function AnnouncementBar() {
-  const active = await getActiveAnnouncement();
+  const announcements = await getLiveAnnouncements();
+  if (announcements.length === 0) return null;
 
-  if (!active) return null;
+  // The first live announcement sets the bar's colour for all of them — see the
+  // note in AnnouncementTicker on why the tone does not rotate with the text.
+  const tone = TONE_CLASSES[announcements[0].tone] ?? TONE_CLASSES.neutral;
 
-  const data = active.data as { text?: string; subtext?: string; tone?: string };
-  if (!data.text) return null;
-
-  return (
-    <div className={`px-4 py-2 text-center text-sm ${TONE_CLASSES[data.tone ?? "neutral"] ?? TONE_CLASSES.neutral}`}>
-      <span className="font-medium">{data.text}</span>
-      {data.subtext && <span className="ml-2 opacity-80">{data.subtext}</span>}
-    </div>
-  );
+  return <AnnouncementTicker items={announcements} className={tone} />;
 }
