@@ -126,7 +126,7 @@ export async function searchProducts(params: {
 export const getProductBySlug = cache(async function getProductBySlug(slug: string) {
   return prisma.product.findFirst({
     where: { slug, isActive: true },
-    include: { category: true },
+    include: { category: true, variants: true },
   });
 });
 

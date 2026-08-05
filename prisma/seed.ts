@@ -356,6 +356,15 @@ async function seedCatalog() {
       categoryId: category.id,
       weight: 3.2,
       sizes: ["6", "7", "8", "9"],
+      // Sums to the 25 below — Product.stock is the maintained total.
+      variants: {
+        create: [
+          { size: "6", stock: 7 },
+          { size: "7", stock: 6 },
+          { size: "8", stock: 6 },
+          { size: "9", stock: 6 },
+        ],
+      },
       material: "925 Sterling Silver",
       stock: 25,
       sku: "MYS-RING-001",

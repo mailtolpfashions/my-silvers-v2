@@ -114,6 +114,7 @@ export async function addToCart(
 ) {
   const product = await prisma.product.findFirst({
     where: { id: productId, isActive: true },
+    include: { variants: true },
   });
   if (!product) throw new Error("PRODUCT_UNAVAILABLE");
 
@@ -123,7 +124,14 @@ export async function addToCart(
   // at — it may have been rendered minutes ago. This is a courtesy check for a
   // clear, early error; the binding guarantee is still the conditional UPDATE
   // in decrementStock() at order time. Nothing is reserved by adding to a cart.
-  if (product.stock <= 0) throw new OutOfStockError();
+  //
+  // For a sized piece the number that matters is the variant's, not the
+  // product total: 20 rings in stock says nothing about whether a size 6 is
+  // among them.
+  const available = chosenSize
+    ? (product.variants.find((v) => v.size === chosenSize)?.stock ?? 0)
+    : product.stock;
+  if (available <= 0) throw new OutOfStockError();
 
   const qty = Math.max(1, Math.min(MAX_ITEM_QUANTITY, Math.trunc(quantity) || 1));
   const cart = await prisma.cart.upsert({
@@ -139,7 +147,7 @@ export async function addToCart(
 
   // Cap at whatever is actually in stock, so the cart can never ask for more
   // than exists — which would otherwise only surface at checkout.
-  const ceiling = Math.min(MAX_ITEM_QUANTITY, product.stock);
+  const ceiling = Math.min(MAX_ITEM_QUANTITY, available);
   if (currentQty >= ceiling) throw new StockLimitReachedError();
 
   const newQty = Math.min(ceiling, currentQty + qty);

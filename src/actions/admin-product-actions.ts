@@ -24,7 +24,16 @@ const productSchema = z.object({
   weight: z.number().min(0).nullable().optional(),
   purity: z.string().trim().max(100).optional().or(z.literal("")),
   dimensions: z.string().trim().max(200).optional().or(z.literal("")),
-  sizes: z.array(z.string().trim().min(1)).max(30),
+  // Replaces the old `sizes: string[]`: a size now carries its own stock, so
+  // the shop cannot offer a size it has none of.
+  sizeStock: z
+    .array(
+      z.object({
+        size: z.string().trim().min(1).max(40),
+        stock: z.number().int().min(0),
+      }),
+    )
+    .max(30),
   material: z.string().trim().max(200).optional().or(z.literal("")),
   stock: z.number().int().min(0),
   sku: z.string().trim().min(1).max(100),

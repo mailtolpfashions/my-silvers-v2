@@ -160,6 +160,25 @@ model VerificationToken {
 
 // ─── Catalog ──────────────────────────────────────────────────────────────
 
+/// Per-size stock. One row per (product, size).
+///
+/// A real table rather than a JSON map on Product because the ordering
+/// invariant is the conditional UPDATE in src/server/products/stock.ts —
+/// `where: { stock: { gte: quantity } }` — which only works against a column.
+/// A JSON blob would have to be read, modified and written back, and two
+/// concurrent orders for the last unit would both succeed.
+model ProductVariant {
+  id        String  @id @default(cuid())
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  /// Matches one entry of Product.sizes exactly.
+  size      String
+  stock     Int     @default(0)
+
+  @@unique([productId, size])
+  @@index([productId])
+}
+
 model Category {
   id          String    @id @default(cuid())
   name        String
@@ -194,8 +213,15 @@ model Product {
   weight            Decimal?    @db.Decimal(10, 3)
   purity            String      @default("925 Sterling Silver")
   dimensions        String?
+  /// The sizes offered, in display order. The authoritative per-size stock
+  /// lives on ProductVariant — this array is the ordering and the label set.
   sizes             String[]
   material          String?
+  /// Total across every size, maintained in the same transaction that writes
+  /// ProductVariant.stock. Denormalised on purpose: every listing, the search
+  /// query, homepage sections and the scarcity labels filter on it, and making
+  /// them all aggregate variants would be a far larger and riskier change.
+  /// Never write this directly for a sized product — use src/server/products/stock.ts.
   stock             Int         @default(0)
   sku               String      @unique
   isFeatured        Boolean     @default(false)
@@ -208,6 +234,7 @@ model Product {
   orderItems   OrderItem[]
   reviews      Review[]
   cartItems    CartItem[]
+  variants     ProductVariant[]
   wishlistedIn Wishlist[]  @relation("WishlistProducts")
 
   // Full-text search column — a GENERATED ALWAYS ... STORED tsvector plus a GIN

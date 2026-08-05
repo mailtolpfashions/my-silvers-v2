@@ -9,7 +9,7 @@ export default async function EditProductPage({
 }) {
   const { id } = await params;
   const [product, categories] = await Promise.all([
-    prisma.product.findUnique({ where: { id } }),
+    prisma.product.findUnique({ where: { id }, include: { variants: true } }),
     prisma.category.findMany({
       orderBy: { sortOrder: "asc" },
       select: { id: true, name: true },
@@ -29,7 +29,12 @@ export default async function EditProductPage({
     weight: product.weight?.toString() ?? "",
     purity: product.purity,
     dimensions: product.dimensions ?? "",
-    sizes: product.sizes.join(", "),
+    // Ordered by Product.sizes, not by however the variant rows come back, so
+    // the admin sees them in the same order a shopper does.
+    sizeStock: product.sizes.map((size) => ({
+      size,
+      stock: String(product.variants.find((v) => v.size === size)?.stock ?? 0),
+    })),
     material: product.material ?? "",
     stock: String(product.stock),
     sku: product.sku,

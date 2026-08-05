@@ -95,7 +95,7 @@ export async function fulfillOrder(input: {
         tx,
         order.items
           .filter((i) => i.productId !== null)
-          .map((i) => ({ productId: i.productId!, quantity: i.quantity }))
+          .map((i) => ({ productId: i.productId!, quantity: i.quantity, size: i.size }))
       );
       return tx.order.update({
         where: { id: order.id },

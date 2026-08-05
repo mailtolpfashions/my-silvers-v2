@@ -136,7 +136,12 @@ export default async function ProductDetailPage({
               siblings — the buttons have to read a choice made in the selector,
               and this page is a server component, so it cannot hold that state
               itself. */}
-          <SizeProvider sizes={product.sizes}>
+          <SizeProvider
+            sizes={product.sizes}
+            stockBySize={Object.fromEntries(
+              product.variants.map((v) => [v.size, v.stock]),
+            )}
+          >
             <SizeSelector sizeGuideHref="/p/size-guide" />
 
             <Suspense

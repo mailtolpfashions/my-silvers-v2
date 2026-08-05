@@ -67,8 +67,9 @@ export type CreateOrderResult = {
  * "ring size 7" and "ring size 9" into one line and silently discard one of the
  * sizes, which is unrecoverable once the cart is cleared.
  *
- * Stock, however, is still per PRODUCT — sizes share one pool today — so the
- * availability check sums every size of a product before comparing.
+ * Availability is checked against the ProductVariant row for a sized line, and
+ * against Product.stock for an unsized one. Checking only the product total
+ * would sell the last size 6 while the remaining units were all size 9.
  */
 async function resolveItems(
   rawItems: Array<{ productId: string; quantity: number; size?: string }>
@@ -92,21 +93,24 @@ async function resolveItems(
 
   const products = await prisma.product.findMany({
     where: { id: { in: productIds }, isActive: true },
+    include: { variants: true },
   });
   if (products.length !== productIds.length) {
     throw new OrderError("PRODUCT_UNAVAILABLE", "One or more items are no longer available.");
   }
   const byId = new Map(products.map((p) => [p.id, p]));
 
-  // Totals across sizes, because stock is a single pool per product.
-  const totalPerProduct = new Map<string, number>();
+  // Unsized lines still share the product pool, so they are summed before
+  // comparing; sized lines each check their own variant below.
+  const unsizedPerProduct = new Map<string, number>();
   for (const line of lines) {
-    totalPerProduct.set(
+    if (line.size) continue;
+    unsizedPerProduct.set(
       line.productId,
-      (totalPerProduct.get(line.productId) ?? 0) + line.quantity,
+      (unsizedPerProduct.get(line.productId) ?? 0) + line.quantity,
     );
   }
-  for (const [productId, wanted] of totalPerProduct) {
+  for (const [productId, wanted] of unsizedPerProduct) {
     const product = byId.get(productId)!;
     if (product.stock < wanted) {
       throw new OrderError("INSUFFICIENT_STOCK", `Only ${product.stock} left of "${product.name}".`);
@@ -120,6 +124,20 @@ async function resolveItems(
     if (p.sizes.length > 0 && !p.sizes.includes(line.size)) {
       throw new OrderError("PRODUCT_UNAVAILABLE", `"${p.name}" is no longer available in that size.`);
     }
+
+    if (line.size) {
+      const variant = p.variants.find((v) => v.size === line.size);
+      // A pre-check only — decrementStock's conditional UPDATE is what actually
+      // binds. This exists so the shopper gets a clear message naming the size
+      // rather than a generic failure at the end of checkout.
+      if (!variant || variant.stock < line.quantity) {
+        throw new OrderError(
+          "INSUFFICIENT_STOCK",
+          `Only ${variant?.stock ?? 0} left of "${p.name}" in size ${line.size}.`,
+        );
+      }
+    }
+
     return {
       productId: p.id,
       name: p.name,

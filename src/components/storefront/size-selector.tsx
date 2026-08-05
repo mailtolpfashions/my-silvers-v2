@@ -4,6 +4,8 @@ import { createContext, useContext, useId, useState } from "react";
 
 type SizeState = {
   sizes: string[];
+  /** size -> units available. Missing entries are treated as in stock. */
+  stockBySize: Record<string, number>;
   selected: string;
   setSelected: (size: string) => void;
   /** Set when the shopper tried to add without choosing. */
@@ -29,9 +31,11 @@ const SizeContext = createContext<SizeState | null>(null);
  */
 export function SizeProvider({
   sizes,
+  stockBySize = {},
   children,
 }: {
   sizes: string[];
+  stockBySize?: Record<string, number>;
   children: React.ReactNode;
 }) {
   const [selected, setSelected] = useState("");
@@ -48,7 +52,7 @@ export function SizeProvider({
 
   return (
     <SizeContext.Provider
-      value={{ sizes, selected, setSelected, missing, setMissing, requireSize }}
+      value={{ sizes, stockBySize, selected, setSelected, missing, setMissing, requireSize }}
     >
       {children}
     </SizeContext.Provider>
@@ -64,6 +68,7 @@ export function useSize(): SizeState {
   return (
     context ?? {
       sizes: [],
+      stockBySize: {},
       selected: "",
       setSelected: () => {},
       missing: false,
@@ -75,7 +80,7 @@ export function useSize(): SizeState {
 
 /** The size chips. Renders nothing for a product with no sizes. */
 export function SizeSelector({ sizeGuideHref }: { sizeGuideHref?: string }) {
-  const { sizes, selected, setSelected, missing, setMissing } = useSize();
+  const { sizes, stockBySize, selected, setSelected, missing, setMissing } = useSize();
   const labelId = useId();
   const errorId = useId();
 
@@ -108,20 +113,30 @@ export function SizeSelector({ sizeGuideHref }: { sizeGuideHref?: string }) {
       >
         {sizes.map((size) => {
           const active = size === selected;
+          // Absent from the map means "no per-size record", which is treated as
+          // available — an unsized legacy row must not disable every chip.
+          const soldOut = (stockBySize[size] ?? 1) <= 0;
           return (
             <button
               key={size}
               type="button"
               role="radio"
               aria-checked={active}
+              disabled={soldOut}
+              // Rendered but struck through rather than hidden: a shopper
+              // looking for their size needs to see it was offered and is gone,
+              // not silently find it missing.
+              aria-label={soldOut ? `Size ${size} — out of stock` : undefined}
               onClick={() => {
                 setSelected(size);
                 setMissing(false);
               }}
               className={`min-w-12 rounded-full border px-4 py-2.5 text-base transition-colors ${
-                active
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-input hover:border-foreground"
+                soldOut
+                  ? "cursor-not-allowed border-input/60 text-muted-foreground/60 line-through"
+                  : active
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-input hover:border-foreground"
               }`}
             >
               {size}

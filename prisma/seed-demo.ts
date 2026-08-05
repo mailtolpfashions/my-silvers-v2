@@ -209,6 +209,17 @@ async function main() {
           weight,
           dimensions: category.slug === "rings" ? `${between(2, 8)} mm band` : null,
           sizes: [...category.sizes],
+          // Per-size stock, split evenly with the remainder to the earliest
+          // sizes — the same rule as the 20260805190000 migration, so a fresh
+          // database and a backfilled one agree.
+          variants: {
+            create: category.sizes.map((size, si) => ({
+              size,
+              stock:
+                Math.floor(stock / category.sizes.length) +
+                (si < stock % category.sizes.length ? 1 : 0),
+            })),
+          },
           material: stone !== "No Stone" ? `925 Sterling Silver with ${stone}` : "925 Sterling Silver",
           stock,
           sku,

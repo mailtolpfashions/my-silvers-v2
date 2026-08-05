@@ -33,7 +33,8 @@ export type ProductFormValues = {
   weight: string;
   purity: string;
   dimensions: string;
-  sizes: string; // comma-separated in the form
+  /** One row per size. Empty means the piece has no sizes. */
+  sizeStock: Array<{ size: string; stock: string }>;
   material: string;
   stock: string;
   sku: string;
@@ -55,7 +56,7 @@ export const EMPTY_PRODUCT_FORM: ProductFormValues = {
   weight: "",
   purity: "925 Sterling Silver",
   dimensions: "",
-  sizes: "",
+  sizeStock: [],
   material: "",
   stock: "0",
   sku: "",
@@ -107,7 +108,9 @@ export function ProductForm({
         weight: form.weight ? Number(form.weight) : null,
         purity: form.purity,
         dimensions: form.dimensions,
-        sizes: splitList(form.sizes),
+        sizeStock: form.sizeStock
+          .filter((r) => r.size.trim().length > 0)
+          .map((r) => ({ size: r.size.trim(), stock: Number(r.stock) || 0 })),
         material: form.material,
         stock: Number(form.stock),
         sku: form.sku,
@@ -184,7 +187,19 @@ export function ProductForm({
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         {textField("price", "Price (₹)", { type: "number", min: 0, step: "0.01", required: true })}
         {textField("compareAtPrice", "Compare-at price (₹)", { type: "number", min: 0, step: "0.01" })}
-        {textField("stock", "Stock", { type: "number", min: 0, step: 1, required: true })}
+        {form.sizeStock.length > 0 ? (
+          <div className="space-y-1.5">
+            <Label>Stock</Label>
+            {/* Derived, not editable: the total is the sum of the size rows, and
+                two places to edit one number is how they drift apart. */}
+            <div className="flex h-9 items-center rounded-lg border border-input px-2.5 text-sm text-muted-foreground">
+              {form.sizeStock.reduce((sum, r) => sum + (Number(r.stock) || 0), 0)} across{" "}
+              {form.sizeStock.length} size{form.sizeStock.length === 1 ? "" : "s"}
+            </div>
+          </div>
+        ) : (
+          textField("stock", "Stock", { type: "number", min: 0, step: 1, required: true })
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -212,8 +227,88 @@ export function ProductForm({
         {textField("dimensions", "Dimensions")}
       </div>
 
+      <div className="space-y-3 rounded-lg border p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Sizes and stock</Label>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Each size holds its own stock. Leave empty for a piece with no sizes —
+              earrings and pendants.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setForm((f) => ({ ...f, sizeStock: [...f.sizeStock, { size: "", stock: "0" }] }))
+            }
+          >
+            Add size
+          </Button>
+        </div>
+
+        {form.sizeStock.length === 0 ? (
+          <p className="py-2 text-sm text-muted-foreground">No sizes — sold as one item.</p>
+        ) : (
+          <div className="space-y-2">
+            {form.sizeStock.map((row, i) => (
+              // Index as key: rows have no id, and the size is editable, so
+              // keying on it would remount the input on every keystroke and
+              // lose focus.
+              <div key={i} className="flex items-end gap-2">
+                <div className="w-40 space-y-1.5">
+                  {i === 0 && <Label className="text-xs">Size</Label>}
+                  <Input
+                    value={row.size}
+                    placeholder="7 / 18 in / M"
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        sizeStock: f.sizeStock.map((r, j) =>
+                          j === i ? { ...r, size: e.target.value } : r,
+                        ),
+                      }))
+                    }
+                  />
+                </div>
+                <div className="w-24 space-y-1.5">
+                  {i === 0 && <Label className="text-xs">Stock</Label>}
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={row.stock}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        sizeStock: f.sizeStock.map((r, j) =>
+                          j === i ? { ...r, stock: e.target.value } : r,
+                        ),
+                      }))
+                    }
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      sizeStock: f.sizeStock.filter((_, j) => j !== i),
+                    }))
+                  }
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
-        {textField("sizes", "Sizes (comma-separated)")}
         {textField("material", "Material")}
       </div>
 
