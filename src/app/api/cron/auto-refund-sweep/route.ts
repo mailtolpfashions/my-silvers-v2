@@ -3,8 +3,8 @@ import { toPaise } from "@/server/orders/money";
 import { createRefund } from "@/server/payments/razorpay";
 
 /**
- * Vercel Cron (every 6h — see vercel.json): the safety net for payments that
- * fell through the cracks. Replaces the old site's in-process node-cron,
+ * Vercel Cron (daily at 03:00 UTC — see vercel.json): the safety net for
+ * payments that fell through the cracks. Replaces the old site's in-process node-cron,
  * which had no serverless equivalent. Two cases swept, ONLINE orders only
  * (COD orders live with paymentStatus 'pending' by design and must never be
  * touched here — a latent bug in the old site's sweep):
@@ -16,6 +16,12 @@ import { createRefund } from "@/server/payments/razorpay";
  *
  * The refundStatus idle/failed → processing claim is atomic, so overlapping
  * cron invocations can't double-refund; 'failed' rows are retried next cycle.
+ *
+ * Cadence is DAILY because Vercel's Hobby plan rejects any cron that would run
+ * more than once a day — the previous every-6-hours schedule failed the deploy
+ * outright. The cost is latency, not correctness: a captured-but-unfulfilled
+ * payment can now wait up to 24h for its refund instead of 6h. Put it back to
+ * every 6 hours on Pro.
  */
 export async function GET(req: Request) {
   if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
