@@ -47,6 +47,17 @@ const systemContentTypes = [
           { name: "isActive", label: "Show this slide", type: "boolean" },
         ],
       },
+      // ── Header search ────────────────────────────────────────────────────
+      // Site-wide, not homepage-only: the search box lives in the header on
+      // every route. It sits on this singleton because that is the only
+      // global entry the CMS has — a separate "site settings" type would be
+      // a cleaner home if more global chrome copy ever appears.
+      {
+        name: "searchPlaceholders",
+        label: "Search box placeholders — cycled one at a time in the header",
+        type: "array",
+        of: [{ name: "text", label: "Placeholder", type: "text" }],
+      },
       {
         name: "trustItems",
         label: "Trust bar items",
@@ -83,6 +94,11 @@ const systemContentTypes = [
           },
           { name: "title", label: "Heading", type: "text" },
           { name: "eyebrow", label: "Eyebrow", type: "text" },
+          {
+            name: "subtitle",
+            label: "Subtitle — one line under the heading",
+            type: "textarea",
+          },
           {
             name: "source",
             label: "Which products",
@@ -172,16 +188,6 @@ const systemContentTypes = [
               { name: "text", label: "Text", type: "text" },
             ],
           },
-        ],
-      },
-      {
-        name: "testimonials",
-        label: "Testimonials",
-        type: "array",
-        of: [
-          { name: "name", label: "Name", type: "text" },
-          { name: "quote", label: "Quote", type: "textarea" },
-          { name: "rating", label: "Rating", type: "number" },
         ],
       },
     ],
@@ -328,6 +334,9 @@ async function seedCatalog() {
       name: "Rings",
       slug: "rings",
       description: "Sterling silver rings for everyday wear and special occasions.",
+      // Header nav icon, editable in /admin/categories. Resolved through
+      // CmsIcon, which falls back to rendering the value as text.
+      icon: "circle",
       sortOrder: 1,
     },
   });
@@ -381,16 +390,37 @@ async function seedDefaultHomepage() {
   }
 
   const data = {
-    heroTitle: "Jewellery, crafted for everyday wear.",
-    heroSubtitle:
-      "Timeless 925 sterling silver pieces, designed to be worn every day — not just on special occasions.",
-    heroCta: "Shop the collection",
-    heroLink: "/products",
+    // `slides`, not the legacy heroTitle/heroSubtitle/heroImage trio. Those
+    // fields no longer exist on the content type, so seeding them left a fresh
+    // database with an empty hero — the exact state a brand-new production
+    // project starts in. No media: the carousel renders the copy over the
+    // graphite backdrop until an editor uploads artwork.
+    slides: [
+      {
+        eyebrow: "925 Sterling Silver",
+        headline: "Jewellery, crafted for\neveryday wear.",
+        subline:
+          "Timeless 925 sterling silver pieces, designed to be worn every day — not just on special occasions.",
+        ctaLabel: "Shop the collection",
+        ctaHref: "/products",
+        secondaryLabel: "Explore collections",
+        secondaryHref: "/collections",
+        overlayOpacity: 60,
+        isActive: true,
+      },
+    ],
+    searchPlaceholders: [
+      { text: "Search for silver rings" },
+      { text: "Search for oxidised earrings" },
+      { text: "Search for anklets" },
+      { text: "Search for gifting" },
+    ],
     sections: [
       {
         type: "products",
         title: "New arrivals",
         eyebrow: "Just landed",
+        subtitle: "The latest pieces to join the collection, added this month.",
         source: "newest",
         limit: 8,
         viewAllHref: "/products?sort=newest",
@@ -400,6 +430,7 @@ async function seedDefaultHomepage() {
         type: "products",
         title: "Bestsellers",
         eyebrow: "Most loved",
+        subtitle: "The designs our customers keep coming back for.",
         source: "bestseller",
         limit: 8,
         viewAllHref: "/products",

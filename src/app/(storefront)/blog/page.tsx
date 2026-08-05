@@ -8,7 +8,7 @@ export default async function BlogListPage() {
   const posts = await listPublishedEntries("blog");
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10">
+    <div className="container-checkout py-10">
       <h1 className="mb-8 text-2xl font-semibold">From the journal</h1>
 
       {posts.length === 0 ? (

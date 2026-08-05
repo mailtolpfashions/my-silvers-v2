@@ -8,7 +8,7 @@ export default async function AccountPage() {
   if (!session?.user) redirect("/login?redirect=/account");
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10">
+    <div className="container-checkout py-10">
       <h1 className="text-2xl font-semibold">My account</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Signed in as {session.user.email} ({session.user.role})

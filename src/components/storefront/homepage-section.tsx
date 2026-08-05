@@ -62,6 +62,9 @@ export function HomepageSection({
           <div className={imageFirst ? "lg:order-2" : "lg:order-1"}>
             {section.eyebrow && <p className="label-eyebrow mb-3">{section.eyebrow}</p>}
             <h2 className="text-h2 rule-brass">{section.title}</h2>
+            {section.subtitle && (
+              <p className="text-lead mt-4 max-w-prose text-muted-foreground">{section.subtitle}</p>
+            )}
             {section.body && (
               <p className="mt-6 max-w-prose leading-relaxed text-muted-foreground">
                 {section.body}
@@ -80,8 +83,8 @@ export function HomepageSection({
 
   if (section.kind === "categoryTiles") {
     return (
-      <section className="container-page py-14">
-        <SectionHeading title={section.title} eyebrow={section.eyebrow} />
+      <section className="container-page py-16 sm:py-20">
+        <SectionHeading title={section.title} eyebrow={section.eyebrow} subtitle={section.subtitle} />
         <ul className="flex flex-wrap justify-center gap-x-8 gap-y-8 sm:gap-x-12">
           {section.items.map((item) => (
             <li key={item.id}>
@@ -114,8 +117,12 @@ export function HomepageSection({
   if (section.kind === "usp") {
     return (
       <section className="border-y bg-muted/40">
-        <div className="container-page py-14">
-          <SectionHeading title={section.title} eyebrow={section.eyebrow} />
+        <div className="container-page py-16 sm:py-20">
+          <SectionHeading
+            title={section.title}
+            eyebrow={section.eyebrow}
+            subtitle={section.subtitle}
+          />
           <ul className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {section.items.map((item, i) => (
               <li key={i} className="flex flex-col items-center text-center">
@@ -177,25 +184,12 @@ export function HomepageSection({
   }
 
   return (
-    <section className="container-page py-14">
-      {(section.title || section.eyebrow || section.viewAllHref) && (
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            {section.eyebrow && <p className="label-eyebrow mb-2">{section.eyebrow}</p>}
-            {section.title && (
-              <h2 className="text-h2">{section.title}</h2>
-            )}
-          </div>
-          {section.viewAllHref && (
-            <Link
-              href={section.viewAllHref}
-              className="text-sm font-medium text-brass-text underline underline-offset-4"
-            >
-              View all
-            </Link>
-          )}
-        </div>
-      )}
+    <section className="container-page py-16 sm:py-20">
+      <SectionHeading
+        title={section.title}
+        eyebrow={section.eyebrow}
+        subtitle={section.subtitle}
+      />
 
       {section.kind === "products" ? (
         <div className={PRODUCT_GRID_CLASS}>
@@ -218,17 +212,44 @@ export function HomepageSection({
           ))}
         </div>
       )}
+
+      {/* Below the grid, not beside the heading — a centred heading has no right
+          edge to hang it off, and this is the point where a shopper who scanned
+          the row actually wants more. */}
+      {section.viewAllHref && (
+        <div className="mt-10 flex justify-center">
+          <Button asChild variant="outline" size="lg" className="h-12 rounded-full px-8 text-base">
+            <Link href={section.viewAllHref}>View all</Link>
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
 
-/** Shared heading block for the sections that have one. */
-function SectionHeading({ title, eyebrow }: { title?: string; eyebrow?: string }) {
-  if (!title && !eyebrow) return null;
+/**
+ * Shared heading block. Centred, because that rhythm — eyebrow, heading,
+ * one explanatory line — is what makes a long homepage read as chapters rather
+ * than a stack of grids. Every section with a heading now uses it, including
+ * products and collections, which used to left-align their own inline version.
+ */
+function SectionHeading({
+  title,
+  eyebrow,
+  subtitle,
+}: {
+  title?: string;
+  eyebrow?: string;
+  subtitle?: string;
+}) {
+  if (!title && !eyebrow && !subtitle) return null;
   return (
     <div className="mb-10 text-center">
-      {eyebrow && <p className="label-eyebrow mb-2">{eyebrow}</p>}
+      {eyebrow && <p className="label-eyebrow mb-3">{eyebrow}</p>}
       {title && <h2 className="text-h2">{title}</h2>}
+      {subtitle && (
+        <p className="text-lead mx-auto mt-3 max-w-prose text-muted-foreground">{subtitle}</p>
+      )}
     </div>
   );
 }

@@ -27,6 +27,7 @@ export type CategoryRow = {
   slug: string;
   description: string;
   image: string | null;
+  icon: string | null;
   sortOrder: number;
   isActive: boolean;
   productCount: number;
@@ -45,6 +46,7 @@ function CategoryFormDialog({
     name: category?.name ?? "",
     description: category?.description ?? "",
     image: category?.image ?? null,
+    icon: category?.icon ?? "",
     sortOrder: String(category?.sortOrder ?? 0),
     isActive: category?.isActive ?? true,
   });
@@ -57,6 +59,7 @@ function CategoryFormDialog({
         name: form.name,
         description: form.description,
         image: form.image ?? "",
+        icon: form.icon,
         sortOrder: Number(form.sortOrder) || 0,
         isActive: form.isActive,
       });
@@ -104,6 +107,22 @@ function CategoryFormDialog({
               max={1}
               folder="mysilvers/categories"
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="cat-icon">Nav icon</Label>
+            <Input
+              id="cat-icon"
+              value={form.icon}
+              placeholder="gem"
+              onChange={(e) => setForm((f) => ({ ...f, icon: e.target.value }))}
+            />
+            {/* Same resolver as the trust bar and USP sections — a known Lucide
+                name renders as an icon, anything else renders as text, so an
+                emoji works too. Blank = label only. */}
+            <p className="text-xs text-muted-foreground">
+              Shown beside the label in the header. A Lucide name (gem, sparkles,
+              award, heart, star, gift…) or an emoji. Leave blank for text only.
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
+import { CmsIcon } from "@/components/storefront/cms/cms-icon";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -13,7 +14,12 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
-export type MobileNavLink = { label: string; href: string };
+export type MobileNavLink = {
+  label: string;
+  href: string;
+  /** Lucide name or emoji, resolved by CmsIcon. Undefined = label only. */
+  icon?: string | null;
+};
 
 /**
  * Mobile navigation drawer.
@@ -60,12 +66,13 @@ export function MobileNav({ links }: { links: MobileNavLink[] }) {
                     href={link.href}
                     onClick={() => setOpen(false)}
                     aria-current={active ? "page" : undefined}
-                    className={`block rounded-md px-3 py-2.5 text-sm transition-colors ${
+                    className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-base transition-colors ${
                       active
                         ? "bg-accent font-medium text-foreground"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
+                    <CmsIcon name={link.icon ?? undefined} className="size-4 shrink-0 text-muted-foreground" />
                     {link.label}
                   </Link>
                 </li>

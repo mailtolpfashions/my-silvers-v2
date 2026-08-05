@@ -20,7 +20,7 @@ export default async function GuestOrderPage({
   if (!order) notFound();
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
+    <div className="container-checkout py-10">
       {placed && (
         <p className="mb-6 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800">
           Thank you! Your order has been placed successfully. Bookmark this page

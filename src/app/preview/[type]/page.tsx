@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from "react";
 import Image from "next/image";
 import { HomepageView } from "@/components/storefront/cms/homepage-view";
+import { CustomerReviewsPreviewNote } from "@/components/storefront/customer-reviews-note";
 import { HeroCarousel } from "@/components/storefront/hero-carousel";
 import { toHeroSlides } from "@/server/cms/hero-slides";
 import { HomepageSection } from "@/components/storefront/homepage-section";
@@ -136,6 +137,8 @@ function HomepagePreview({ data }: { data: EntryData }) {
       {resolved === null && (
         <p className="py-10 text-center text-xs text-muted-foreground">Resolving sections…</p>
       )}
+      {/* Matches the real page: after the sections, not under the hero. */}
+      <CustomerReviewsPreviewNote />
     </>
   );
 }

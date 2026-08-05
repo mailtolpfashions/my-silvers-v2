@@ -16,7 +16,7 @@ export default async function AddressesPage() {
   });
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10">
+    <div className="container-checkout py-10">
       <Link href="/account" className="text-sm text-muted-foreground underline">
         ← Back to account
       </Link>

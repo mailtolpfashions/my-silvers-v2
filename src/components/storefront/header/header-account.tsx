@@ -21,32 +21,32 @@ export async function HeaderAccount() {
   return (
     <>
       {role === "admin" && (
-        <Button asChild variant="ghost" size="sm" className="hidden lg:inline-flex">
+        <Button asChild variant="ghost" size="sm" className="hidden text-sm lg:inline-flex">
           <Link href="/admin">Admin</Link>
         </Button>
       )}
       {(role === "admin" || role === "editor") && (
-        <Button asChild variant="ghost" size="sm" className="hidden lg:inline-flex">
+        <Button asChild variant="ghost" size="sm" className="hidden text-sm lg:inline-flex">
           <Link href="/cms">CMS</Link>
         </Button>
       )}
 
       {/* Order: account · wishlist · cart. */}
       {session?.user ? (
-        <Button asChild variant="ghost" size="icon" aria-label="Your account">
+        <Button asChild variant="ghost" size="icon" className="size-10 [&_svg]:size-5" aria-label="Your account">
           <Link href="/account">
             <User />
           </Link>
         </Button>
       ) : (
-        <Button asChild variant="ghost" size="icon" aria-label="Sign in">
+        <Button asChild variant="ghost" size="icon" className="size-10 [&_svg]:size-5" aria-label="Sign in">
           <Link href="/login">
             <User />
           </Link>
         </Button>
       )}
 
-      <Button asChild variant="ghost" size="icon" aria-label="Wishlist">
+      <Button asChild variant="ghost" size="icon" className="size-10 [&_svg]:size-5" aria-label="Wishlist">
         <Link href="/wishlist">
           <Heart />
         </Link>

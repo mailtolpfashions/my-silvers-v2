@@ -19,7 +19,7 @@ import type { ProductListItem } from "@/server/products/search";
  * cuts the piece off. This is the single biggest change to how the grid reads.
  */
 export const CARD_IMAGE_CLASS = "relative aspect-[4/5] overflow-hidden rounded-md bg-muted";
-export const CARD_TITLE_CLASS = "line-clamp-2 min-h-[2.6rem] text-sm leading-snug";
+export const CARD_TITLE_CLASS = "line-clamp-2 min-h-[3rem] text-base leading-snug";
 
 /**
  * The one product grid. Every listing imports this — the catalogue, category
@@ -179,7 +179,7 @@ export function ProductCard({
           category eyebrow is small and grey rather than a brass shout, and the
           price sits at body weight instead of competing with the heading. */}
       <div className="mt-3.5 flex flex-1 flex-col space-y-1">
-        <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
           {product.categoryName}
         </p>
         <h3 className={`${CARD_TITLE_CLASS} text-foreground`}>
@@ -191,7 +191,7 @@ export function ProductCard({
           {/* text-foreground, NOT text-graphite-950: the ramp tokens are fixed
               values that don't flip with the theme, so a raw graphite price sat
               near-invisible on the dark background. */}
-          <span className="text-[0.9375rem] font-medium tracking-tight text-foreground">
+          <span className="text-lg font-medium tracking-tight text-foreground">
             {formatINR(price)}
           </span>
           {compareAt && compareAt > price && (

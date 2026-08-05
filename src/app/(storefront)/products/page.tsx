@@ -49,7 +49,6 @@ async function FilterBar({ searchParams }: { searchParams: SearchParams }) {
     <ProductFilters
       categories={categories.map((c) => ({ slug: c.slug, name: c.name }))}
       current={{
-        q: params.q,
         category: params.category,
         sort: params.sort,
         minPrice: params.minPrice,

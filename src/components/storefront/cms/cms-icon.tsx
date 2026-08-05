@@ -1,6 +1,11 @@
 import {
   Award,
   BadgeCheck,
+  BookOpen,
+  Circle,
+  CircleDot,
+  Crown,
+  Flower,
   Gem,
   Gift,
   Heart,
@@ -33,6 +38,13 @@ import {
 const ICONS: Record<string, LucideIcon> = {
   award: Award,
   "badge-check": BadgeCheck,
+  // Added for the header's category nav — jewellery-shaped options an admin can
+  // pick per category, plus book-open for the Journal link.
+  "book-open": BookOpen,
+  circle: Circle,
+  "circle-dot": CircleDot,
+  crown: Crown,
+  flower: Flower,
   gem: Gem,
   gift: Gift,
   heart: Heart,

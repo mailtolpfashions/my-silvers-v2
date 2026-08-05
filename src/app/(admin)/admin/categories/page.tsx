@@ -17,6 +17,7 @@ export default async function AdminCategoriesPage() {
           slug: c.slug,
           description: c.description ?? "",
           image: c.image,
+          icon: c.icon,
           sortOrder: c.sortOrder,
           isActive: c.isActive,
           productCount: c._count.products,

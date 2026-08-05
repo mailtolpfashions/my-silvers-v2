@@ -77,7 +77,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
       aria-roledescription="carousel"
       aria-label="Featured collections"
       className="relative w-full overflow-hidden bg-graphite-950"
-      style={{ height: "clamp(420px, 64vh, 660px)" }}
+      style={{ height: "clamp(480px, 70vh, 760px)" }}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onFocusCapture={() => setIsPaused(true)}
@@ -135,21 +135,23 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
 
       <div className="container-page relative z-10 flex h-full items-center">
         {/* Remounting on slide change replays the entrance animation. */}
-        <div key={activeIndex} className="max-w-[540px] py-10">
+        <div key={activeIndex} className="max-w-[620px] py-10">
           {slide.eyebrow && (
             <p
-              className={`mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-brass-light ${entrance}`}
+              className={`label-eyebrow label-eyebrow-light mb-5 ${entrance}`}
               style={{ animationDuration: "450ms" }}
             >
               {slide.eyebrow}
             </p>
           )}
 
+          {/* .text-display, not a hand-rolled clamp. This used to inline
+              `clamp(2rem, 4.5vw, 3.25rem)`, which duplicated --text-h1's
+              endpoints with a different middle term — so the hero drifted out
+              of step with the rest of the page at intermediate widths. */}
           <h1
-            className={`font-heading text-white ${entrance}`}
+            className={`text-display font-heading text-white ${entrance}`}
             style={{
-              fontSize: "clamp(2rem, 4.5vw, 3.25rem)",
-              lineHeight: 1.1,
               animationDuration: "450ms",
               animationDelay: "70ms",
               animationFillMode: "backwards",
@@ -164,7 +166,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
 
           {slide.subline && (
             <p
-              className={`mt-4 max-w-[420px] text-sm leading-relaxed text-white/80 md:text-base ${entrance}`}
+              className={`text-lead mt-5 max-w-[480px] text-white/80 ${entrance}`}
               style={{
                 animationDuration: "450ms",
                 animationDelay: "150ms",
@@ -185,14 +187,20 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
               }}
             >
               {slide.ctaLabel && slide.ctaHref && (
-                <Button asChild size="lg" className="bg-brass text-graphite-950 hover:bg-brass-light">
+                // Explicit height: `size="lg"` is only h-9 (36px) in this button
+                // system, which reads as a form control rather than a hero CTA.
+                <Button
+                  asChild
+                  size="lg"
+                  className="h-13 rounded-full px-9 text-base bg-brass text-graphite-950 hover:bg-brass-light"
+                >
                   <Link href={slide.ctaHref}>{slide.ctaLabel}</Link>
                 </Button>
               )}
               {slide.secondaryLabel && slide.secondaryHref && (
                 <Link
                   href={slide.secondaryHref}
-                  className="text-sm font-medium text-white/80 underline underline-offset-4 transition-colors hover:text-white"
+                  className="text-base font-medium text-white/80 underline underline-offset-4 transition-colors hover:text-white"
                 >
                   {slide.secondaryLabel}
                 </Link>
@@ -221,8 +229,10 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
             <ChevronRight className="h-5 w-5" />
           </button>
 
-          {/* 40px touch targets; the inner span is the visible dot. */}
-          <div className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2">
+          {/* 28×40px touch targets — comfortably over the 24px WCAG 2.5.8 floor,
+              but narrower than the 40px squares they were, which spread 8px dots
+              so far apart they no longer read as one control. */}
+          <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2">
             {slides.map((s, i) => (
               <button
                 key={s.id}
@@ -230,10 +240,10 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                 onClick={() => goTo(i)}
                 aria-label={`Go to slide ${i + 1}`}
                 aria-current={i === activeIndex}
-                className="flex h-10 w-10 items-center justify-center"
+                className="flex h-10 w-7 items-center justify-center"
               >
                 <span
-                  style={{ transform: i === activeIndex ? "scaleX(4)" : "scaleX(1)" }}
+                  style={{ transform: i === activeIndex ? "scaleX(3)" : "scaleX(1)" }}
                   className={`block h-2 w-2 origin-left rounded-full transition-transform duration-300 ${
                     i === activeIndex ? "bg-brass" : "bg-white/40"
                   }`}

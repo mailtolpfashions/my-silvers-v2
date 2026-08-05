@@ -13,7 +13,7 @@ export default async function AccountOrdersPage() {
   const orders = await getUserOrders(session.user.id);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
+    <div className="container-checkout py-10">
       <h1 className="mb-8 text-2xl font-semibold">Your orders</h1>
 
       {orders.length === 0 ? (

@@ -14,7 +14,9 @@ export default async function CartPage() {
   const session = await auth();
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
+    // The recommendations row breaks out of this container — see the note in
+    // cart-recommendations.tsx.
+    <div className="container-checkout py-10">
       <h1 className="mb-8 text-2xl font-semibold">Your cart</h1>
       {session?.user?.id ? <AuthedCart userId={session.user.id} /> : <GuestCartView />}
     </div>

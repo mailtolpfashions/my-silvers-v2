@@ -13,22 +13,57 @@ type Suggestion = {
 const EMPTY: Suggestion = { products: [], categories: [] };
 const DEBOUNCE_MS = 200;
 
+/** Used when the CMS supplies no `searchPlaceholders`, so a fresh DB still reads well. */
+const DEFAULT_PLACEHOLDER = "Search for rings, earrings, anklets…";
+const ROTATE_MS = 3000;
+
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
   maximumFractionDigits: 0,
 });
 
-export function SearchBox({ className = "" }: { className?: string }) {
+export function SearchBox({
+  className = "",
+  placeholders,
+}: {
+  className?: string;
+  /** From the CMS (homepage → "Search box placeholders"). Cycled one at a time. */
+  placeholders?: string[];
+}) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Suggestion>(EMPTY);
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [focused, setFocused] = useState(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listId = useId();
+
+  const terms = placeholders?.filter((t) => t.trim().length > 0) ?? [];
+
+  // Rotates the placeholder, but only while the field is genuinely idle: text
+  // moving under a typing cursor is hostile, and a shopper reading the options
+  // shouldn't have them swapped mid-read. Also honours reduced motion — this is
+  // animation, and the OS setting is a request to stop it.
+  const rotating = terms.length > 1 && !focused && query.length === 0;
+  useEffect(() => {
+    if (!rotating) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const timer = setInterval(
+      () => setPlaceholderIndex((i) => (i + 1) % terms.length),
+      ROTATE_MS,
+    );
+    return () => clearInterval(timer);
+  }, [rotating, terms.length]);
+
+  // Modulo guards against an editor shortening the list while the index is past
+  // the new end — otherwise the placeholder would vanish until the next tick.
+  const placeholder = terms.length > 0 ? terms[placeholderIndex % terms.length] : DEFAULT_PLACEHOLDER;
 
   // Debounced fetch. The AbortController prevents a slow earlier request from
   // overwriting the results of a later one.
@@ -116,7 +151,7 @@ export function SearchBox({ className = "" }: { className?: string }) {
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-muted-foreground" />
         <input
           ref={inputRef}
           type="search"
@@ -126,15 +161,19 @@ export function SearchBox({ className = "" }: { className?: string }) {
             setOpen(true);
             setHighlight(-1);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setOpen(true);
+            setFocused(true);
+          }}
+          onBlur={() => setFocused(false)}
           onKeyDown={onKeyDown}
-          placeholder="Search for rings, earrings, anklets…"
+          placeholder={placeholder}
           aria-label="Search products"
           role="combobox"
           aria-expanded={open && hasResults}
           aria-controls={listId}
           aria-autocomplete="list"
-          className="h-11 w-full rounded-full border border-input bg-background pl-10 pr-10 text-sm outline-none transition-colors focus:border-ring [&::-webkit-search-cancel-button]:hidden"
+          className="h-12 w-full rounded-full border border-input bg-background pl-11 pr-10 text-base outline-none transition-colors focus:border-ring [&::-webkit-search-cancel-button]:hidden"
         />
         {query && (
           <button

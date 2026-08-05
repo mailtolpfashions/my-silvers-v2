@@ -14,13 +14,16 @@ export async function buildNavLinks(): Promise<MobileNavLink[]> {
   const categories = await getActiveCategories();
 
   return [
-    { label: "All Jewellery", href: "/products" },
+    { label: "All Jewellery", href: "/products", icon: "sparkles" },
     ...categories.map((category) => ({
       label: category.name,
       href: `/category/${category.slug}`,
+      // Set per category in /admin/categories. Null renders label-only, so the
+      // nav degrades cleanly until someone fills them in.
+      icon: category.icon,
     })),
-    { label: "Collections", href: "/collections" },
-    { label: "Journal", href: "/blog" },
+    { label: "Collections", href: "/collections", icon: "gem" },
+    { label: "Journal", href: "/blog", icon: "book-open" },
   ];
 }
 

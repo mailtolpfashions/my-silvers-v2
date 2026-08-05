@@ -26,6 +26,8 @@ export type HomepageSection =
       key: string;
       title: string;
       eyebrow?: string;
+      /** Optional line under the heading, rendered with --text-lead. */
+      subtitle?: string;
       viewAllHref?: string;
       items: ProductListItem[];
     }
@@ -34,6 +36,8 @@ export type HomepageSection =
       key: string;
       title: string;
       eyebrow?: string;
+      /** Optional line under the heading, rendered with --text-lead. */
+      subtitle?: string;
       viewAllHref?: string;
       items: CollectionSummary[];
     }
@@ -52,6 +56,8 @@ export type HomepageSection =
       key: string;
       title: string;
       eyebrow?: string;
+      /** Optional line under the heading, rendered with --text-lead. */
+      subtitle?: string;
       body?: string;
       image?: string;
       ctaLabel?: string;
@@ -65,6 +71,8 @@ export type HomepageSection =
       key: string;
       title: string;
       eyebrow?: string;
+      /** Optional line under the heading, rendered with --text-lead. */
+      subtitle?: string;
       items: Array<{ id: string; name: string; slug: string; image: string | null }>;
     }
   /** The 925/BIS/hallmark craft story, as editable claims rather than fixed copy. */
@@ -73,6 +81,8 @@ export type HomepageSection =
       key: string;
       title: string;
       eyebrow?: string;
+      /** Optional line under the heading, rendered with --text-lead. */
+      subtitle?: string;
       items: Array<{ icon?: string; title?: string; text?: string }>;
     };
 
@@ -88,6 +98,7 @@ type SectionSpec = {
   type?: unknown;
   title?: unknown;
   eyebrow?: unknown;
+  subtitle?: unknown;
   source?: unknown;
   categorySlug?: unknown;
   featuredOnly?: unknown;
@@ -149,6 +160,7 @@ async function resolveOne(
   const kind = (str(spec.type) ?? "products") as SectionKind;
   const key = `${kind}-${index}`;
   const eyebrow = str(spec.eyebrow);
+  const subtitle = str(spec.subtitle);
   const viewAllHref = str(spec.viewAllHref);
 
   if (kind === "instagram") {
@@ -164,6 +176,7 @@ async function resolveOne(
       key,
       title,
       eyebrow,
+      subtitle,
       body: str(spec.body),
       image: str(spec.image),
       ctaLabel: str(spec.ctaLabel),
@@ -181,7 +194,7 @@ async function resolveOne(
     // Every tile needs artwork, so a catalogue with no category images renders
     // nothing rather than a row of empty circles.
     if (items.length === 0) return null;
-    return { kind, key, title: str(spec.title) ?? "", eyebrow, items };
+    return { kind, key, title: str(spec.title) ?? "", eyebrow, subtitle, items };
   }
 
   if (kind === "usp") {
@@ -191,7 +204,7 @@ async function resolveOne(
           .filter((it) => it.title || it.text)
       : [];
     if (items.length === 0) return null;
-    return { kind, key, title: str(spec.title) ?? "", eyebrow, items };
+    return { kind, key, title: str(spec.title) ?? "", eyebrow, subtitle, items };
   }
 
   if (kind === "banner") {
@@ -223,7 +236,7 @@ async function resolveOne(
       take: clampLimit(spec.limit, 3),
     });
     if (items.length === 0) return null;
-    return { kind, key, title: str(spec.title) ?? "", eyebrow, viewAllHref, items };
+    return { kind, key, title: str(spec.title) ?? "", eyebrow, subtitle, viewAllHref, items };
   }
 
   const source = (str(spec.source) ?? "newest") as ProductSource;
@@ -239,6 +252,7 @@ async function resolveOne(
     key,
     title: str(spec.title) ?? "",
     eyebrow,
+    subtitle,
     viewAllHref,
     items,
   };

@@ -11,6 +11,9 @@ const categorySchema = z.object({
   name: z.string().trim().min(2).max(100),
   description: z.string().trim().max(1000).optional().or(z.literal("")),
   image: z.string().url().optional().or(z.literal("")),
+  // Free text: a Lucide name or an emoji. Trimmed and capped rather than
+  // enum-validated, so adding an icon to CmsIcon does not require a schema edit.
+  icon: z.string().trim().max(40).optional().or(z.literal("")),
   sortOrder: z.number().int().min(0).max(9999),
   isActive: z.boolean(),
 });
@@ -48,6 +51,7 @@ export async function saveCategoryAction(
       slug,
       description: data.description || null,
       image: data.image || null,
+      icon: data.icon || null,
       sortOrder: data.sortOrder,
       isActive: data.isActive,
     };

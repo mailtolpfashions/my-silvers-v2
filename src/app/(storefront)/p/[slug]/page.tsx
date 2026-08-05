@@ -32,7 +32,7 @@ export default function CmsPage({ params }: { params: Params }) {
 
 function CmsPageSkeleton() {
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10">
+    <div className="container-prose py-10">
       <Skeleton className="h-9 w-2/3" />
       <Skeleton className="mt-3 h-4 w-full max-w-md" />
       <div className="mt-8 space-y-3">
@@ -57,7 +57,7 @@ async function CmsPageBody({ params }: { params: Params }) {
   };
 
   return (
-    <article className="mx-auto max-w-2xl px-4 py-10">
+    <article className="container-prose py-10">
       <h1 className="text-3xl font-semibold tracking-tight">{d.title}</h1>
       {d.excerpt && <p className="mt-2 text-muted-foreground">{d.excerpt}</p>}
       {d.coverImage && (

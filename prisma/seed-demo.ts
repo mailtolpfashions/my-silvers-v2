@@ -44,7 +44,7 @@ const between = (min: number, max: number) => min + Math.floor(rand() * (max - m
 
 const CATEGORIES = [
   {
-    name: "Rings", slug: "rings", sortOrder: 1,
+    name: "Rings", slug: "rings", sortOrder: 1, icon: "circle",
     description: "Sterling silver rings for everyday wear and special occasions.",
     styles: ["Classic Band", "Solitaire", "Twisted Vine", "Signet", "Stacking", "Eternity", "Oxidised Dome", "Filigree", "Hammered Band", "Open Cuff"],
     sizes: ["6", "7", "8", "9", "10"],
@@ -52,7 +52,7 @@ const CATEGORIES = [
     price: [899, 4499],
   },
   {
-    name: "Earrings", slug: "earrings", sortOrder: 2,
+    name: "Earrings", slug: "earrings", sortOrder: 2, icon: "flower",
     description: "Studs, hoops and drops in 925 sterling silver.",
     styles: ["Pearl Drop", "Classic Hoop", "Threader", "Huggie", "Chandelier", "Ear Cuff", "Minimal Stud", "Jhumka", "Star Stud", "Crescent Hoop"],
     sizes: [],
@@ -60,7 +60,7 @@ const CATEGORIES = [
     price: [749, 5999],
   },
   {
-    name: "Necklaces", slug: "necklaces", sortOrder: 3,
+    name: "Necklaces", slug: "necklaces", sortOrder: 3, icon: "gem",
     description: "Chains, pendants and layered necklaces in sterling silver.",
     styles: ["Rope Chain", "Box Chain", "Herringbone", "Layered Coin", "Snake Chain", "Curb Chain", "Beaded Station", "Lariat", "Choker", "Figaro Chain"],
     sizes: ["16 in", "18 in", "20 in", "22 in"],
@@ -68,7 +68,7 @@ const CATEGORIES = [
     price: [1299, 8999],
   },
   {
-    name: "Bracelets", slug: "bracelets", sortOrder: 4,
+    name: "Bracelets", slug: "bracelets", sortOrder: 4, icon: "circle-dot",
     description: "Cuffs, chains and charm bracelets in 925 silver.",
     styles: ["Charm", "Tennis", "Cuban Link", "Bangle Cuff", "Beaded", "Rope Twist", "Flat Curb", "Oxidised Cuff", "Anchor Link", "Slim Bangle"],
     sizes: ["S", "M", "L"],
@@ -76,7 +76,7 @@ const CATEGORIES = [
     price: [1099, 7499],
   },
   {
-    name: "Anklets", slug: "anklets", sortOrder: 5,
+    name: "Anklets", slug: "anklets", sortOrder: 5, icon: "sparkles",
     description: "Traditional and contemporary silver anklets.",
     styles: ["Ghungroo", "Beaded Chain", "Double Layer", "Charm Drop", "Flat Link", "Payal Classic", "Minimal Chain", "Bell Anklet", "Twisted Rope", "Star Charm"],
     sizes: ["9 in", "10 in", "11 in"],
@@ -84,7 +84,7 @@ const CATEGORIES = [
     price: [999, 4999],
   },
   {
-    name: "Pendants", slug: "pendants", sortOrder: 6,
+    name: "Pendants", slug: "pendants", sortOrder: 6, icon: "heart",
     description: "Standalone sterling silver pendants and lockets.",
     styles: ["Om", "Evil Eye", "Initial", "Moonstone", "Tree of Life", "Heart Locket", "Compass", "Lotus", "Zodiac Disc", "Feather"],
     sizes: [],
@@ -133,6 +133,9 @@ async function main() {
         slug: category.slug,
         description: category.description,
         image: placeholder(category.name, category.sortOrder),
+        // Shown beside the label in the header nav; editable per category
+        // in /admin/categories. Without it the nav renders label-only.
+        icon: category.icon,
         sortOrder: category.sortOrder,
       },
     });

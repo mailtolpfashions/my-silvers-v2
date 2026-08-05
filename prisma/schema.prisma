@@ -166,6 +166,10 @@ model Category {
   slug        String    @unique
   description String?
   image       String?
+  /// Lucide icon name shown beside the label in the header nav — resolved by
+  /// src/components/storefront/cms/cms-icon.tsx, which falls back to rendering
+  /// the value as text so an emoji works too. Null = label only.
+  icon        String?
   isActive    Boolean   @default(true)
   sortOrder   Int       @default(0)
   products    Product[]

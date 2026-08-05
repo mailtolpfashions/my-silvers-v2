@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -6,6 +7,7 @@ import { getCategoryBanner, type LiveBanner } from "@/server/cms/banners";
 import { prisma } from "@/server/db";
 import { searchProducts } from "@/server/products/search";
 import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
+import { ProductFilters } from "@/components/storefront/product-filters";
 
 export async function generateMetadata({
   params,
@@ -19,18 +21,32 @@ export async function generateMetadata({
   return { title: category.name, description: category.description ?? undefined };
 }
 
+type CategorySearchParams = Promise<{
+  sort?: string;
+  minPrice?: string;
+  maxPrice?: string;
+}>;
+
 export default async function CategoryPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: CategorySearchParams;
 }) {
   const { slug } = await params;
+  const sp = await searchParams;
 
   // The listing no longer depends on the category row, so all three can be in
   // flight at once — this used to be a two-step waterfall.
   const [category, { items, total }, banner] = await Promise.all([
     prisma.category.findFirst({ where: { slug, isActive: true } }),
-    searchProducts({ categorySlug: slug }),
+    searchProducts({
+      categorySlug: slug,
+      sort: sp.sort as "newest" | "price-asc" | "price-desc" | "featured" | undefined,
+      minPrice: sp.minPrice ? Number(sp.minPrice) : undefined,
+      maxPrice: sp.maxPrice ? Number(sp.maxPrice) : undefined,
+    }),
     getCategoryBanner(slug),
   ]);
   if (!category) notFound();
@@ -41,16 +57,29 @@ export default async function CategoryPage({
       {category.description && (
         <p className="mt-1 text-sm text-muted-foreground">{category.description}</p>
       )}
-      <p className="mt-1 text-sm text-muted-foreground">{total} products</p>
 
-      {/* Merchandising slot, driven by a `category` banner in the CMS. Set the
-          position to `category:<slug>` to target one category, or plain
-          `category` for a banner shared across all of them. */}
+      {/* Merchandising slot, driven by a `category` banner in the CMS. Set
+          categorySlug to target one category, or leave it blank for a banner
+          shared across all of them. */}
       {banner && <CategoryBanner banner={banner} />}
+
+      {/* Sort and price, same control as the catalogue. No category picker
+          here — the URL already decided that, and offering one would only be a
+          way out of the page you're on. */}
+      {/* Suspense because ProductFilters calls useSearchParams, which is
+          runtime data — without a boundary this route can't prerender a shell. */}
+      <div className="mt-8">
+        <Suspense fallback={<div className="h-24" aria-hidden />}>
+          <ProductFilters
+            current={{ sort: sp.sort, minPrice: sp.minPrice, maxPrice: sp.maxPrice }}
+          />
+        </Suspense>
+      </div>
+      <p className="mt-3 text-sm text-muted-foreground">{total} products</p>
 
       {items.length === 0 ? (
         <p className="mt-16 text-center text-muted-foreground">
-          No products in this category yet.
+          No products match those filters.
         </p>
       ) : (
         <div className={`mt-8 ${PRODUCT_GRID_CLASS}`}>

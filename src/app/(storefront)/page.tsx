@@ -3,6 +3,7 @@ import { getPublishedEntry } from "@/server/cms/entries";
 import { toHeroSlides } from "@/server/cms/hero-slides";
 import { resolveHomepageSections } from "@/server/products/homepage-sections";
 import { HomepageView } from "@/components/storefront/cms/homepage-view";
+import { CustomerReviews } from "@/components/storefront/customer-reviews";
 import { HeroCarousel } from "@/components/storefront/hero-carousel";
 import { HomepageSection } from "@/components/storefront/homepage-section";
 import { InstagramFeed } from "@/components/storefront/instagram-feed";
@@ -10,9 +11,11 @@ import { ProductGridSkeleton } from "@/components/storefront/product-card-skelet
 
 /**
  * The homepage decides nothing about content. Hero, sections, their order,
- * headings, item counts and links all come from the CMS `homepage` entry and
- * `heroSlide` entries. Add a section by extending the content type's field
- * definitions in prisma/seed.ts — never by adding JSX here.
+ * headings, item counts and links all come from the CMS `homepage` entry — a
+ * single singleton, including the hero slides. (There was once a separate
+ * `heroSlide` content type; it was merged in so editors have one place to look.)
+ * Add a section by extending the content type's field definitions in
+ * prisma/seed.ts — never by adding JSX here.
  *
  * The hero is rendered directly, NOT behind a Suspense boundary: it is the LCP
  * element, and putting it in a fallback would delay the one thing the page is
@@ -34,6 +37,13 @@ export default async function HomePage() {
 
       <Suspense fallback={<HomepageSectionsSkeleton />}>
         <HomepageSections data={homepage?.data} />
+      </Suspense>
+
+      {/* Last thing before the footer — social proof lands after a shopper has
+          seen the products it's vouching for. Behind its own boundary so a
+          review query never delays the catalogue above it. */}
+      <Suspense fallback={null}>
+        <CustomerReviews />
       </Suspense>
     </div>
   );

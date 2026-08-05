@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Star } from "lucide-react";
 import { CmsIcon } from "@/components/storefront/cms/cms-icon";
 import { Button } from "@/components/ui/button";
 import { HeroCarousel, type HeroSlide } from "@/components/storefront/hero-carousel";
@@ -29,8 +28,6 @@ export function HomepageView({
   const heroImage = data.heroImage as string | undefined;
   const heroBackground = data.heroBackground as string | undefined;
   const trustItems = (data.trustItems as Array<{ icon?: string; text?: string }>) ?? [];
-  const testimonials =
-    (data.testimonials as Array<{ name?: string; quote?: string; rating?: number }>) ?? [];
 
   // Hero slides win when any are published; otherwise fall back to the single
   // hero on the homepage singleton, so an empty slide list is never a blank page.
@@ -38,7 +35,7 @@ export function HomepageView({
     return (
       <>
         <HeroCarousel slides={heroSlides} />
-        <HomepageSections trustItems={trustItems} testimonials={testimonials} />
+        <TrustBar trustItems={trustItems} />
       </>
     );
   }
@@ -85,19 +82,19 @@ export function HomepageView({
         </div>
       </section>
 
-      <HomepageSections trustItems={trustItems} testimonials={testimonials} />
+      <TrustBar trustItems={trustItems} />
     </>
   );
 }
 
-/** Trust bar + testimonials — shared by the carousel and single-hero layouts. */
-function HomepageSections({
-  trustItems,
-  testimonials,
-}: {
-  trustItems: Array<{ icon?: string; text?: string }>;
-  testimonials: Array<{ name?: string; quote?: string; rating?: number }>;
-}) {
+/**
+ * The trust bar, directly under the hero — shared by both hero layouts.
+ *
+ * Testimonials used to render here too, which put social proof immediately
+ * below the hero and above every product. They now render at the bottom of the
+ * page — now replaced entirely by real product reviews (CustomerReviews).
+ */
+function TrustBar({ trustItems }: { trustItems: Array<{ icon?: string; text?: string }> }) {
   return (
     <>
       {trustItems.length > 0 && (
@@ -112,31 +109,7 @@ function HomepageSections({
           </div>
         </section>
       )}
-
-      {testimonials.length > 0 && (
-        <section className="container-page py-16">
-          <h2 className="mb-8 text-center text-h2">What our customers say</h2>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {testimonials.map((t, i) => (
-              <figure key={i} className="rounded-md border bg-card p-6">
-                {typeof t.rating === "number" && t.rating > 0 && (
-                  <div className="mb-2 flex gap-0.5" aria-label={`${t.rating} out of 5 stars`}>
-                    {Array.from({ length: Math.min(5, Math.round(t.rating)) }).map((_, s) => (
-                      <Star key={s} className="h-4 w-4 fill-brass text-brass" />
-                    ))}
-                  </div>
-                )}
-                <blockquote className="text-sm text-muted-foreground">
-                  &ldquo;{t.quote}&rdquo;
-                </blockquote>
-                {t.name && (
-                  <figcaption className="mt-3 text-sm font-medium">{t.name}</figcaption>
-                )}
-              </figure>
-            ))}
-          </div>
-        </section>
-      )}
     </>
   );
 }
+

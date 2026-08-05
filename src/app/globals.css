@@ -55,16 +55,29 @@
 
   /* ── Fluid type scale — one source for heading sizes, so a section heading
      can't drift between components the way text-2xl and an inline clamp() did. ── */
-  --text-display: clamp(2.5rem, 1.6rem + 4.2vw, 4.5rem);
-  --text-h1: clamp(2rem, 1.4rem + 2.6vw, 3.25rem);
-  --text-h2: clamp(1.5rem, 1.2rem + 1.4vw, 2.25rem);
-  --text-h3: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem);
+  /* Raised across the board. Measured against tanishq.co.in at 1920px, where
+     a section heading is ~46px — ours capped at 36px, which is why the site
+     read small beside it. --text-h2 was the worst offender: every section
+     heading on the storefront uses it.
+
+     These tokens ALSO generate Tailwind font-size utilities of the same name
+     (text-h2 etc.) because they live in @theme. The hand-written classes below
+     add line-height and tracking on top. Change a token and its class together
+     or the two drift apart. */
+  --text-display: clamp(2.75rem, 1.7rem + 4.6vw, 5rem);
+  --text-h1: clamp(2.25rem, 1.5rem + 3vw, 3.75rem);
+  --text-h2: clamp(1.75rem, 1.3rem + 1.9vw, 3rem);
+  --text-h3: clamp(1.375rem, 1.15rem + 0.9vw, 1.875rem);
+  /* The subtitle under a section heading. Tanishq pairs every heading with one
+     ("Explore our newly launched collection") and we had no token for it. */
+  --text-lead: clamp(1rem, 0.95rem + 0.3vw, 1.25rem);
 
   /* Three widths, deliberately. Anything not on this list is a bug — the site
      previously mixed max-w-[1600px] and max-w-6xl at random, so the catalogue
      and a category page rendered visibly different card sizes. */
   --container-page: 1600px; /* listings, homepage sections, header, footer */
   --container-detail: 72rem; /* product detail + its reviews */
+  --container-checkout: 64rem; /* cart + checkout — narrow on purpose */
   --container-prose: 42rem; /* journal posts, CMS pages, policies */
 
   --color-sidebar-ring: var(--sidebar-ring);
@@ -187,6 +200,18 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* The background belongs on <html>, not just <body>.
+     Radix (Select, Dialog, Sheet) locks scrolling by hiding the scrollbar and
+     padding <body> to compensate. Without a background here, that compensation
+     strip exposes the browser's default white canvas — which reads as the
+     scrollbar flashing white every time a dropdown opens. */
+  html {
+    @apply bg-background;
+    /* Reserve the scrollbar's width permanently. The same Radix scroll-lock
+       otherwise removes the scrollbar and the whole page shifts sideways as a
+       dropdown opens. */
+    scrollbar-gutter: stable;
+  }
   body {
     @apply bg-background text-foreground font-sans;
   }
@@ -212,6 +237,15 @@
   text-transform: uppercase;
   color: var(--brass-text);
   line-height: 1;
+}
+
+/* For eyebrows over dark imagery — the hero. --brass-text is the ramp tuned for
+   AA on white and goes muddy on a dark scrim, where --brass-light reads clearly.
+   This exists as a modifier rather than a `text-brass-light` utility because
+   .label-eyebrow sits outside @layer and would beat the utility; the modifier
+   is a later rule of equal specificity, so it wins. */
+.label-eyebrow-light {
+  color: var(--brass-light);
 }
 
 /* One page container. Replaces the max-w-[1600px] / max-w-6xl split, which had
@@ -247,6 +281,22 @@
   }
 }
 
+/* Cart and checkout. Narrower than the rest of the site on purpose: these are
+   single-task pages, and a 1600px cart puts the item list and the order summary
+   at opposite ends of a wide screen. Named rather than left as a stray
+   max-w-5xl, which is what it was. */
+.container-checkout {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--container-checkout);
+  padding-inline: 1rem;
+}
+@media (min-width: 640px) {
+  .container-checkout {
+    padding-inline: 1.5rem;
+  }
+}
+
 /* Narrower measure for long-form copy — journal posts, CMS pages, policies. */
 .container-prose {
   margin-inline: auto;
@@ -275,6 +325,17 @@
 .text-h3 {
   font-size: var(--text-h3);
   line-height: 1.25;
+}
+/* Sits under a heading. Deliberately muted and not a heading font — it's the
+   sentence that explains the section, not a second title. */
+/* Size only, like every other .text-* class here. It briefly also set
+   `color: var(--muted-foreground)`, which was a trap: these classes sit outside
+   @layer, so the colour beat any `text-*` utility a consumer added — the hero
+   subline came out muted grey on a dark scrim instead of white. Pair it with
+   `text-muted-foreground` where you want the muted look. */
+.text-lead {
+  font-size: var(--text-lead);
+  line-height: 1.6;
 }
 
 /* A hairline in the accent, used to close a heading block. Purely decorative,

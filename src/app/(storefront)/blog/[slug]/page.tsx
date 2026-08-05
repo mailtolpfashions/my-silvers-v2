@@ -33,7 +33,7 @@ export default function BlogPostPage({ params }: { params: Params }) {
 
 function BlogPostSkeleton() {
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10">
+    <div className="container-prose py-10">
       <Skeleton className="h-9 w-3/4" />
       <Skeleton className="mt-3 h-4 w-48" />
       <Skeleton className="mt-6 aspect-[16/9] w-full rounded-lg" />
@@ -61,7 +61,7 @@ async function BlogPostBody({ params }: { params: Params }) {
   };
 
   return (
-    <article className="mx-auto max-w-2xl px-4 py-10">
+    <article className="container-prose py-10">
       <h1 className="text-3xl font-semibold tracking-tight">{d.title}</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         {d.author && <>By {d.author} · </>}
