@@ -16,6 +16,11 @@ export type HeroSlide = {
   secondaryLabel?: string;
   secondaryHref?: string;
   media?: string;
+  /**
+   * A portrait crop for phones. Optional: blank means the desktop asset is used
+   * at every width, so slides authored before this existed keep working.
+   */
+  mediaMobile?: string;
   overlayOpacity?: number;
 };
 
@@ -76,8 +81,11 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
     <section
       aria-roledescription="carousel"
       aria-label="Featured collections"
-      className="relative w-full overflow-hidden bg-graphite-950"
-      style={{ height: "clamp(480px, 70vh, 760px)" }}
+      // Height as classes, not an inline clamp, so mobile can differ. A 480px
+      // floor is most of a phone screen before any product is visible; 60vh
+      // capped at 420px leaves the first section peeking above the fold, which
+      // is what tells a shopper there is more below.
+      className="relative h-[min(60vh,420px)] w-full overflow-hidden bg-graphite-950 sm:h-[min(65vh,560px)] md:h-[clamp(480px,70vh,760px)]"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onFocusCapture={() => setIsPaused(true)}
@@ -104,14 +112,35 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                 className="absolute inset-0 h-full w-full object-cover object-center"
               />
             ) : (
-              <Image
-                src={s.media}
-                alt=""
-                fill
-                className="object-cover object-center"
-                preload={i === 0}
-                sizes="100vw"
-              />
+              /**
+               * <picture> so a phone can be sent a differently CROPPED image,
+               * not merely a smaller one. `sizes` only ever changes resolution;
+               * a 2.4:1 landscape scaled down still puts the subject in a
+               * letterbox on a portrait screen, which is why Mia ships a second
+               * asset per slide rather than relying on srcset.
+               *
+               * The <source> wins below 768px and the browser fetches only that
+               * file — the spec guarantees one request, so this costs nothing
+               * when unused.
+               *
+               * The trade-off: a matched <source> bypasses Next's optimizer, so
+               * the mobile asset is served as uploaded. Acceptable, because a
+               * hand-cropped mobile hero is already authored at the right size —
+               * and it is exactly the case where automatic resizing is wrong.
+               */
+              <picture>
+                {s.mediaMobile && (
+                  <source media="(max-width: 767px)" srcSet={s.mediaMobile} />
+                )}
+                <Image
+                  src={s.media}
+                  alt=""
+                  fill
+                  className="object-cover object-center"
+                  preload={i === 0}
+                  sizes="100vw"
+                />
+              </picture>
             ))}
         </div>
       ))}

@@ -43,6 +43,11 @@ const systemContentTypes = [
           { name: "secondaryLabel", label: "Secondary link label", type: "text" },
           { name: "secondaryHref", label: "Secondary link href", type: "text" },
           { name: "media", label: "Background image or video", type: "media" },
+          {
+            name: "mediaMobile",
+            label: "Mobile image (optional) — used below 768px, blank reuses the one above",
+            type: "image",
+          },
           { name: "overlayOpacity", label: "Overlay opacity (0–100)", type: "number" },
           { name: "isActive", label: "Show this slide", type: "boolean" },
         ],

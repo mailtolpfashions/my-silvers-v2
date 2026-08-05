@@ -34,6 +34,7 @@ export function toHeroSlides(data: EntryData | undefined): HeroSlide[] {
         secondaryLabel: str(slide.secondaryLabel),
         secondaryHref: str(slide.secondaryHref),
         media: str(slide.media),
+        mediaMobile: str(slide.mediaMobile),
         overlayOpacity: Number.isFinite(overlay)
           ? Math.min(100, Math.max(0, overlay))
           : undefined,
