@@ -102,7 +102,7 @@ export function BuyNowButton({
       // Brass fill with a graphite label — the same pairing as the hero CTA, so
       // the strongest action on the page reads as the brand accent rather than
       // competing with "Add to cart" as a second dark button.
-      className="h-12 w-full rounded-full bg-brass px-8 text-base text-graphite-950 hover:bg-brass-light sm:w-auto"
+      className="h-11 w-full rounded-full bg-brass px-8 text-sm text-graphite-950 hover:bg-brass-light sm:h-12 sm:w-auto sm:text-base"
       disabled={stock === 0 || isPending}
       onClick={handleClick}
     >

@@ -131,7 +131,7 @@ export function SizeSelector({ sizeGuideHref }: { sizeGuideHref?: string }) {
                 setSelected(size);
                 setMissing(false);
               }}
-              className={`min-w-12 rounded-full border px-4 py-2.5 text-base transition-colors ${
+              className={`min-w-11 rounded-full border px-3.5 py-2 text-sm transition-colors sm:min-w-12 sm:px-4 sm:py-2.5 sm:text-base ${
                 soldOut
                   ? "cursor-not-allowed border-input/60 text-muted-foreground/60 line-through"
                   : active

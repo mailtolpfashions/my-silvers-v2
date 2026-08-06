@@ -82,7 +82,7 @@ export function WishlistButton({
     <Button
       variant="outline"
       size="lg"
-      className="h-12 w-full rounded-full px-6 text-base sm:w-auto"
+      className="h-11 w-full rounded-full px-6 text-sm sm:h-12 sm:w-auto sm:text-base"
       disabled={isPending}
       onClick={handleClick}
     >

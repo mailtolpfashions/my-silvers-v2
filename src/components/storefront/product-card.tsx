@@ -19,7 +19,13 @@ import type { ProductListItem } from "@/server/products/search";
  * cuts the piece off. This is the single biggest change to how the grid reads.
  */
 export const CARD_IMAGE_CLASS = "relative aspect-[4/5] overflow-hidden rounded-md bg-muted";
-export const CARD_TITLE_CLASS = "line-clamp-2 min-h-[3rem] text-base leading-snug";
+/**
+ * Smaller below sm. Two cards to a 390px row leaves each about 180px wide, and
+ * 16px titles over 20px prices filled that with type rather than jewellery. The
+ * desktop sizes are unchanged — the card only reads oversized on a phone.
+ */
+export const CARD_TITLE_CLASS =
+  "line-clamp-2 min-h-[2.5rem] text-sm leading-snug sm:min-h-[3rem] sm:text-base";
 
 /**
  * The one product grid. Every listing imports this — the catalogue, category
@@ -178,8 +184,8 @@ export function ProductCard({
       {/* Quieter than before: the photography should carry the card, so the
           category eyebrow is small and grey rather than a brass shout, and the
           price sits at body weight instead of competing with the heading. */}
-      <div className="mt-3.5 flex flex-1 flex-col space-y-1">
-        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+      <div className="mt-3 flex flex-1 flex-col space-y-1 sm:mt-3.5">
+        <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground sm:text-[11px]">
           {product.categoryName}
         </p>
         <h3 className={`${CARD_TITLE_CLASS} text-foreground`}>
@@ -191,24 +197,26 @@ export function ProductCard({
           {/* text-foreground, NOT text-graphite-950: the ramp tokens are fixed
               values that don't flip with the theme, so a raw graphite price sat
               near-invisible on the dark background. */}
-          <span className="text-xl font-semibold tracking-tight text-foreground">
+          <span className="text-base font-semibold tracking-tight text-foreground sm:text-xl">
             {formatINR(price)}
           </span>
           {compareAt && compareAt > price && (
-            <span className="text-sm text-muted-foreground line-through">
+            <span className="text-xs text-muted-foreground line-through sm:text-sm">
               {formatINR(compareAt)}
             </span>
           )}
         </div>
         {/* Scarcity, never a count — see src/lib/stock-label.ts. */}
         {isScarce(product.stock) && (
-          <p className="text-sm font-medium text-brass-text">{stockLabel(product.stock)}</p>
+          <p className="text-xs font-medium text-brass-text sm:text-sm">
+            {stockLabel(product.stock)}
+          </p>
         )}
 
         {/* mt-auto pins the CTA to the bottom of the card, so a scarcity line on
             one product doesn't shove its button out of line with the row. */}
         {showActions && (
-          <div className="mt-auto pt-4">
+          <div className="mt-auto pt-3 sm:pt-4">
             <AddToCartButton productId={product.id} stock={product.stock} compact />
           </div>
         )}

@@ -112,15 +112,17 @@ export default async function ProductDetailPage({
           </div>
 
           <div className="mt-4 flex items-baseline gap-3">
-            <span className="text-2xl font-semibold">{formatINR(product.price.toString())}</span>
+            <span className="text-xl font-semibold sm:text-2xl">
+              {formatINR(product.price.toString())}
+            </span>
             {product.compareAtPrice && (
-              <span className="text-muted-foreground line-through">
+              <span className="text-sm text-muted-foreground line-through sm:text-base">
                 {formatINR(product.compareAtPrice.toString())}
               </span>
             )}
           </div>
 
-          <p className="mt-6 text-base text-muted-foreground">{product.description}</p>
+          <p className="mt-6 text-sm text-muted-foreground sm:text-base">{product.description}</p>
 
           {/* The one place that keeps server-rendered per-shopper state: here
               the CTA is the page, so a flip from "Add to cart" to "In cart"

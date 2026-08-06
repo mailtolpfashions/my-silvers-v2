@@ -119,10 +119,14 @@ export function AddToCartButton({
         // page — far too faint to read as a 44px control. secondary is a
         // self-contained fill + label pair at 16.71:1.
         variant={inCart ? "secondary" : "default"}
-        // Explicit h-11: size="sm" is h-8 here, which read as a chip rather
+        // Explicit height: size="sm" is h-8 here, which read as a chip rather
         // than the card’s primary action. Spacing is owned by the wrapper in
         // product-card.tsx, so no margin of its own.
-        className="h-11 w-full rounded-full text-base"
+        //
+        // h-10 below sm rather than h-11 — still a comfortable target on a
+        // ~180px card, where the taller button was the loudest thing in the
+        // grid. The desktop size is unchanged.
+        className="h-10 w-full rounded-full text-sm sm:h-11 sm:text-base"
         disabled={stock === 0 || isPending || atStockLimit}
         onClick={handleClick}
       >
@@ -147,7 +151,7 @@ export function AddToCartButton({
       <Button
         size="lg"
         variant={inCart ? "outline" : "default"}
-        className="h-12 w-full rounded-full px-8 text-base sm:w-auto"
+        className="h-11 w-full rounded-full px-8 text-sm sm:h-12 sm:w-auto sm:text-base"
         // Blocked once the cart already holds every unit in stock — the server
         // would clamp it anyway, so offering the click would be a lie.
         disabled={stock === 0 || isPending || atStockLimit}
