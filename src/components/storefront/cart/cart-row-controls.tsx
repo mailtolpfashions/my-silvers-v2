@@ -20,7 +20,10 @@ export function CartRowControls({
   const [isPending, startTransition] = useTransition();
 
   return (
-    <div className="flex items-center gap-2">
+    // Below sm this row sits under the product name and spans the card, so the
+    // bin goes to the far edge — away from the stepper it would otherwise be
+    // touching. From sm up the whole group is right-aligned and stays together.
+    <div className="flex shrink-0 items-center gap-2">
       <Button
         variant="outline"
         size="icon"
@@ -51,6 +54,7 @@ export function CartRowControls({
       <Button
         variant="ghost"
         size="icon"
+        className="ml-auto sm:ml-0"
         disabled={isPending}
         onClick={() =>
           startTransition(async () => {

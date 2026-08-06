@@ -88,55 +88,63 @@ export function GuestCartView() {
     <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
       <div className="space-y-4">
         {rows.map(({ item, product }) => (
+          // Layout mirrors the signed-in cart row exactly — see the note in
+          // app/(storefront)/cart/page.tsx for why the controls wrap below sm.
           <div
             key={`${product.id}::${item.size}`}
-            className="flex items-center gap-4 rounded-lg border p-4"
+            className="flex gap-4 rounded-lg border p-4"
           >
             <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-muted">
               {product.image && (
                 <Image src={product.image} alt={product.name} fill className="object-cover" />
               )}
             </div>
-            <div className="min-w-0 flex-1">
-              <Link href={`/products/${product.slug}`} className="text-sm font-medium hover:underline">
-                {product.name}
-              </Link>
-              {item.size && (
-                <p className="mt-0.5 text-sm text-muted-foreground">Size: {item.size}</p>
-              )}
-              <p className="mt-1 text-sm text-muted-foreground">{formatINR(product.price)}</p>
-              {product.stock < item.quantity && (
-                <p className="mt-1 text-xs text-destructive">Only {product.stock} left</p>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={item.quantity <= 1}
-                onClick={() => setGuestCartQuantity(product.id, item.size, item.quantity - 1)}
-                aria-label="Decrease quantity"
-              >
-                <Minus />
-              </Button>
-              <span className="w-8 text-center text-sm tabular-nums">{item.quantity}</span>
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={item.quantity >= Math.min(MAX_ITEM_QUANTITY, product.stock)}
-                onClick={() => setGuestCartQuantity(product.id, item.size, item.quantity + 1)}
-                aria-label="Increase quantity"
-              >
-                <Plus />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => removeFromGuestCart(product.id, item.size)}
-                aria-label="Remove from cart"
-              >
-                <Trash2 />
-              </Button>
+            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+              <div className="min-w-0 flex-1">
+                <Link
+                  href={`/products/${product.slug}`}
+                  className="line-clamp-2 text-sm font-medium hover:underline"
+                >
+                  {product.name}
+                </Link>
+                {item.size && (
+                  <p className="mt-0.5 text-sm text-muted-foreground">Size: {item.size}</p>
+                )}
+                <p className="mt-1 text-sm text-muted-foreground">{formatINR(product.price)}</p>
+                {product.stock < item.quantity && (
+                  <p className="mt-1 text-xs text-destructive">Only {product.stock} left</p>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={item.quantity <= 1}
+                  onClick={() => setGuestCartQuantity(product.id, item.size, item.quantity - 1)}
+                  aria-label="Decrease quantity"
+                >
+                  <Minus />
+                </Button>
+                <span className="w-8 text-center text-sm tabular-nums">{item.quantity}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={item.quantity >= Math.min(MAX_ITEM_QUANTITY, product.stock)}
+                  onClick={() => setGuestCartQuantity(product.id, item.size, item.quantity + 1)}
+                  aria-label="Increase quantity"
+                >
+                  <Plus />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="ml-auto sm:ml-0"
+                  onClick={() => removeFromGuestCart(product.id, item.size)}
+                  aria-label="Remove from cart"
+                >
+                  <Trash2 />
+                </Button>
+              </div>
             </div>
           </div>
         ))}

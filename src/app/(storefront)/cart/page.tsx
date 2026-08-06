@@ -50,7 +50,11 @@ async function AuthedCart({ userId }: { userId: string }) {
     <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
       <div className="space-y-4">
         {rows.map((item) => (
-          <div key={item.id} className="flex items-center gap-4 rounded-lg border p-4">
+          // On a phone the stepper and the bin take ~150px of a ~230px content
+          // column, which left the name wrapping one word per line. Below sm
+          // the controls drop to their own line under the name instead; from sm
+          // up there is room for the original single row.
+          <div key={item.id} className="flex gap-4 rounded-lg border p-4">
             <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-muted">
               {item.product.images[0] && (
                 <Image
@@ -61,34 +65,36 @@ async function AuthedCart({ userId }: { userId: string }) {
                 />
               )}
             </div>
-            <div className="min-w-0 flex-1">
-              <Link
-                href={`/products/${item.product.slug}`}
-                className="text-sm font-medium hover:underline"
-              >
-                {item.product.name}
-              </Link>
-              {item.size && (
-                <p className="mt-0.5 text-sm text-muted-foreground">Size: {item.size}</p>
-              )}
-              <p className="mt-1 text-sm text-muted-foreground">
-                {formatINR(item.product.price.toString())}
-              </p>
-              {/* No count — see src/lib/stock-label.ts. */}
-              {item.product.stock < item.quantity && (
-                <p className="mt-1 text-xs text-destructive">
-                  {item.product.stock === 0
-                    ? "Now out of stock"
-                    : "We have fewer of these than you've added"}
+            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+              <div className="min-w-0 flex-1">
+                <Link
+                  href={`/products/${item.product.slug}`}
+                  className="line-clamp-2 text-sm font-medium hover:underline"
+                >
+                  {item.product.name}
+                </Link>
+                {item.size && (
+                  <p className="mt-0.5 text-sm text-muted-foreground">Size: {item.size}</p>
+                )}
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {formatINR(item.product.price.toString())}
                 </p>
-              )}
+                {/* No count — see src/lib/stock-label.ts. */}
+                {item.product.stock < item.quantity && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {item.product.stock === 0
+                      ? "Now out of stock"
+                      : "We have fewer of these than you've added"}
+                  </p>
+                )}
+              </div>
+              <CartRowControls
+                productId={item.productId}
+                size={item.size}
+                quantity={item.quantity}
+                maxQuantity={Math.min(MAX_ITEM_QUANTITY, item.product.stock)}
+              />
             </div>
-            <CartRowControls
-              productId={item.productId}
-              size={item.size}
-              quantity={item.quantity}
-              maxQuantity={Math.min(MAX_ITEM_QUANTITY, item.product.stock)}
-            />
           </div>
         ))}
       </div>
