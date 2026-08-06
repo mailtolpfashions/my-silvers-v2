@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Playfair_Display, DM_Sans, Raleway } from "next/font/google";
 import "./globals.css";
 
@@ -62,6 +62,18 @@ export const metadata: Metadata = {
     site: "@mysilvers",
     creator: "@mysilvers",
   },
+};
+
+/**
+ * `viewport-fit: cover` is what makes `env(safe-area-inset-*)` report real
+ * numbers. Without it the insets are hard 0 in every browser, and Chrome on
+ * Android 15+ draws the page edge to edge anyway — so the bottom ~24px of any
+ * `fixed bottom-0` bar sits underneath the system gesture pill and is both
+ * clipped and untappable. Anything pinned to the bottom must pad itself by
+ * `env(safe-area-inset-bottom)`; see sticky-action-bar.tsx.
+ */
+export const viewport: Viewport = {
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

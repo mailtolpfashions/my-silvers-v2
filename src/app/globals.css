@@ -260,21 +260,26 @@
 }
 
 /* One page container. Replaces the max-w-[1600px] / max-w-6xl split, which had
-   the homepage hero sitting at a different width from the sections beneath it. */
+   the homepage hero sitting at a different width from the sections beneath it.
+
+   The gutters are max(…, safe-area) throughout: the root layout sets
+   viewport-fit: cover so the page can pad around Android's gesture pill, and
+   that also lets a landscape notch eat into the sides. env() is 0 on hardware
+   with neither, so this is the plain padding everywhere else. */
 .container-page {
   margin-inline: auto;
   width: 100%;
   max-width: var(--container-page);
-  padding-inline: 1rem;
+  padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
 }
 @media (min-width: 640px) {
   .container-page {
-    padding-inline: 1.5rem;
+    padding-inline: max(1.5rem, env(safe-area-inset-left)) max(1.5rem, env(safe-area-inset-right));
   }
 }
 @media (min-width: 1024px) {
   .container-page {
-    padding-inline: 2rem;
+    padding-inline: max(2rem, env(safe-area-inset-left)) max(2rem, env(safe-area-inset-right));
   }
 }
 
@@ -284,11 +289,11 @@
   margin-inline: auto;
   width: 100%;
   max-width: var(--container-detail);
-  padding-inline: 1rem;
+  padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
 }
 @media (min-width: 640px) {
   .container-detail {
-    padding-inline: 1.5rem;
+    padding-inline: max(1.5rem, env(safe-area-inset-left)) max(1.5rem, env(safe-area-inset-right));
   }
 }
 
@@ -300,11 +305,11 @@
   margin-inline: auto;
   width: 100%;
   max-width: var(--container-checkout);
-  padding-inline: 1rem;
+  padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
 }
 @media (min-width: 640px) {
   .container-checkout {
-    padding-inline: 1.5rem;
+    padding-inline: max(1.5rem, env(safe-area-inset-left)) max(1.5rem, env(safe-area-inset-right));
   }
 }
 
@@ -313,7 +318,7 @@
   margin-inline: auto;
   width: 100%;
   max-width: var(--container-prose);
-  padding-inline: 1rem;
+  padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
 }
 
 /* Heading sizes as utilities so components stop hardcoding text-2xl and inline

@@ -55,7 +55,10 @@ const FOOTER_LINKS: Record<string, { label: string; href: string }[]> = {
 
 export function SiteFooter() {
   return (
-    <footer className="mt-10 bg-graphite-950 text-white sm:mt-16">
+    // The inset padding matters now that the root layout opts into
+    // viewport-fit: cover — the page runs under Android's gesture pill, and the
+    // copyright line is the last thing on it.
+    <footer className="mt-10 bg-graphite-950 pb-[env(safe-area-inset-bottom)] text-white sm:mt-16">
       <div className="container-page py-10 sm:py-16">
         <div className="grid grid-cols-2 gap-10 md:grid-cols-5">
           {/* Brand column — the logo is dark-on-transparent and would vanish on
