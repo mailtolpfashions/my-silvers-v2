@@ -19,6 +19,30 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
       {/* Renders nothing — fills the per-shopper wishlist/cart store once per
           session so listing pages don't have to be built per user. */}
       <UserStateHydrator />
+
+      {/* ── Atmosphere ──────────────────────────────────────────────────────
+          Two fixed layers carried over from the previous storefront. Both are
+          pure CSS over the whole viewport, cost nothing to render and no
+          JavaScript at all, and are what stops a flat ivory page reading like a
+          template. Storefront only — the admin and CMS want a plain surface.
+
+          Above everything (including dialogs) on purpose: grain that stops at
+          the edge of a modal announces itself as an overlay. pointer-events-none
+          throughout, so nothing here can ever intercept a tap. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-[110] opacity-[0.03] mix-blend-multiply"
+        style={{
+          // Inline SVG turbulence as a data URI: one repeating tile, no network
+          // request, and the browser rasterises it once.
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-[105] bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.15)_100%)]"
+      />
       <AnnouncementBar />
       <SiteHeader />
       <main className="flex-1">

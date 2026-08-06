@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check } from "lucide-react";
+import { Check, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { addToCartAction } from "@/actions/cart-actions";
@@ -14,6 +14,7 @@ import {
   setCartQuantityLocal,
 } from "@/lib/user-state-store";
 import { useSize } from "@/components/storefront/size-selector";
+import { CARD_CTA_CLASS } from "@/lib/card-styles";
 
 /** Wording for stock outcomes — no counts, matching src/lib/stock-label.ts. */
 const STOCK_MESSAGES = {
@@ -119,28 +120,28 @@ export function AddToCartButton({
         // page — far too faint to read as a 44px control. secondary is a
         // self-contained fill + label pair at 16.71:1.
         variant={inCart ? "secondary" : "default"}
-        // Explicit height: size="sm" is h-8 here, which read as a chip rather
-        // than the card’s primary action. Spacing is owned by the wrapper in
-        // product-card.tsx, so no margin of its own.
-        //
-        // h-10 below sm rather than h-11 — still a comfortable target on a
-        // ~180px card, where the taller button was the loudest thing in the
-        // grid. The desktop size is unchanged.
-        className="h-10 w-full rounded-full text-sm sm:h-11 sm:text-base"
+        // The old store's card CTA: an 11px uppercase micro-label with 0.15em
+        // of tracking, not a large pill. `h-auto` because the height comes from
+        // the padding in CARD_CTA_CLASS — the Button size variants all set an
+        // explicit h-*, which would win and squash it.
+        className={`h-auto ${CARD_CTA_CLASS}`}
         disabled={stock === 0 || isPending || atStockLimit}
         onClick={handleClick}
       >
         {stock === 0 ? (
-          "Out of stock"
+          "Sold out"
         ) : isPending ? (
           "Adding…"
         ) : inCart ? (
           <>
-            <Check className="size-4" />
+            <Check className="size-3.5" />
             In cart{quantityInCart > 1 && ` (${quantityInCart})`}
           </>
         ) : (
-          "Add to cart"
+          <>
+            <ShoppingBag className="size-3.5" />
+            Add to cart
+          </>
         )}
       </Button>
     );

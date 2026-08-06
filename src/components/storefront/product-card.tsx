@@ -1,45 +1,31 @@
 import { ViewTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Badge } from "@/components/ui/badge";
 import { stockLabel, isScarce } from "@/lib/stock-label";
 import { formatINR } from "@/lib/format";
+import {
+  CARD_IMAGE_CLASS,
+  CARD_TITLE_CLASS,
+  CARD_SHELL_CLASS,
+  CARD_PILL_CLASS,
+} from "@/lib/card-styles";
 import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
 import { WishlistButton } from "@/components/storefront/wishlist-button";
 import type { ProductListItem } from "@/server/products/search";
 
 /**
- * Geometry shared with product-card-skeleton.tsx. Imported rather than copied
- * so the placeholder cannot drift from the real card and start causing layout
- * shift as streamed grids resolve.
+ * Geometry lives in @/lib/card-styles so the skeleton and the card's own
+ * buttons can share it without importing this server component. Re-exported
+ * here because every listing page already reaches for PRODUCT_GRID_CLASS
+ * through this module.
  */
-/**
- * 4:5 portrait rather than square. Jewellery is photographed tall — a pendant
- * on a chain, a stack of bangles — and a square crop either wastes the sides or
- * cuts the piece off. This is the single biggest change to how the grid reads.
- */
-export const CARD_IMAGE_CLASS = "relative aspect-[4/5] overflow-hidden rounded-md bg-muted";
-/**
- * Smaller below sm. Two cards to a 390px row leaves each about 180px wide, and
- * 16px titles over 20px prices filled that with type rather than jewellery. The
- * desktop sizes are unchanged — the card only reads oversized on a phone.
- */
-export const CARD_TITLE_CLASS =
-  "line-clamp-2 min-h-[2.5rem] text-sm leading-snug sm:min-h-[3rem] sm:text-base";
-
-/**
- * The one product grid. Every listing imports this — the catalogue, category
- * pages, wishlist, cart recommendations, homepage sections and the loading
- * skeletons — so a card is the same size wherever a shopper meets it.
- *
- * Four columns is the ceiling, for two reasons. Jewellery is small and detailed:
- * shrinking the card to fit a fifth column costs the shopper the ability to
- * actually see the piece. And the CMS section limits are 8 and 12 — both
- * divisible by four, neither by five — so a five-column grid leaves every
- * homepage section with a ragged final row.
- */
-export const PRODUCT_GRID_CLASS =
-  "grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-10 lg:grid-cols-4";
+export {
+  CARD_IMAGE_CLASS,
+  CARD_TITLE_CLASS,
+  CARD_SHELL_CLASS,
+  CARD_CTA_CLASS,
+  PRODUCT_GRID_CLASS,
+} from "@/lib/card-styles";
 
 /**
  * The shared identity for the card-image → product-page morph. Both ends must
@@ -110,7 +96,7 @@ export function ProductCard({
     // CTA sits on a shared baseline. Without it, the scarcity line ("Only a few
     // left") appears on some cards and not others, and their buttons visibly
     // fall out of line with the rest of the row.
-    <div className="group relative flex h-full flex-col">
+    <div className={`group relative flex h-full flex-col ${CARD_SHELL_CLASS}`}>
       <div className={CARD_IMAGE_CLASS}>
         {image ? (
           <>
@@ -155,68 +141,87 @@ export function ProductCard({
         {/* All badges stack down the left so the wishlist heart owns the right
             corner alone. A sold-out piece shows only that — a discount on
             something unbuyable is noise. */}
+        {/* Small letterspaced pills, the old store's shape. Not the shadcn
+            Badge: that primitive is sized for admin tables and comes out twice
+            this height over a photograph. */}
         <div className="absolute left-3 top-3 z-10 flex flex-col items-start gap-1.5">
           {product.stock <= 0 ? (
-            <Badge variant="secondary">Out of stock</Badge>
+            <span className={`${CARD_PILL_CLASS} border bg-background/90 text-graphite-950 backdrop-blur-sm`}>
+              Sold out
+            </span>
           ) : (
             <>
               {discount !== null && discount > 0 && (
-                <Badge className="bg-brass text-graphite-950 hover:bg-brass">
+                <span className={`${CARD_PILL_CLASS} bg-brass text-graphite-950 shadow-sm`}>
                   {discount}% off
-                </Badge>
+                </span>
               )}
               {product.isBestseller && (
-                <Badge className="bg-graphite-950/85 text-ivory-100 backdrop-blur-sm hover:bg-graphite-950/85">
+                <span className={`${CARD_PILL_CLASS} bg-graphite-950/85 text-ivory-100 shadow-sm backdrop-blur-sm`}>
                   Bestseller
-                </Badge>
+                </span>
               )}
             </>
           )}
         </div>
 
+        {/* Always visible on a phone, where there is no hover to reveal it;
+            revealed with the CTA from lg up. */}
         {showActions && (
-          <div className="absolute right-2 top-2 z-10">
+          <div className="absolute right-3 top-3 z-10 transition-opacity duration-200 lg:opacity-0 lg:group-hover:opacity-100">
             <WishlistButton productId={product.id} iconOnly />
+          </div>
+        )}
+
+        {/* Desktop: the CTA lives over the photograph and slides up on hover,
+            so the resting card is a picture and a name and nothing else. This
+            is the old store's card, and the reason its grid reads as a
+            catalogue rather than a shelf of buttons.
+            pointer-events only on hover, or an invisible button would swallow
+            clicks meant for the link beneath it. */}
+        {showActions && (
+          <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 hidden translate-y-2 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 lg:block">
+            <AddToCartButton productId={product.id} stock={product.stock} compact />
           </div>
         )}
       </div>
 
-      {/* Quieter than before: the photography should carry the card, so the
-          category eyebrow is small and grey rather than a brass shout, and the
-          price sits at body weight instead of competing with the heading. */}
-      <div className="mt-3 flex flex-1 flex-col space-y-1 sm:mt-3.5">
-        <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground sm:text-[11px]">
-          {product.categoryName}
-        </p>
-        <h3 className={`${CARD_TITLE_CLASS} text-foreground`}>
+      {/* The category eyebrow is gone: the old card carried a name and a price
+          and nothing else, and every line removed from under the photograph is
+          one the photograph gets back. Category is one tap away in the nav and
+          on the product page. */}
+      <div className="flex flex-1 flex-col space-y-2 px-4 pb-4 pt-3.5">
+        <h3 className={`${CARD_TITLE_CLASS} text-graphite-950`}>
           <Link href={href} className="decoration-brass/60 underline-offset-4 hover:underline">
             {product.name}
           </Link>
         </h3>
-        <div className="flex flex-wrap items-baseline gap-2 pt-0.5">
+
+        <div className="flex flex-wrap items-center gap-2">
           {/* text-foreground, NOT text-graphite-950: the ramp tokens are fixed
               values that don't flip with the theme, so a raw graphite price sat
               near-invisible on the dark background. */}
-          <span className="text-base font-semibold tracking-tight text-foreground sm:text-xl">
+          <span className="text-base font-bold tracking-tight text-foreground">
             {formatINR(price)}
           </span>
           {compareAt && compareAt > price && (
-            <span className="text-xs text-muted-foreground line-through sm:text-sm">
+            <span className="text-sm text-muted-foreground line-through">
               {formatINR(compareAt)}
             </span>
           )}
         </div>
+
         {/* Scarcity, never a count — see src/lib/stock-label.ts. */}
         {isScarce(product.stock) && (
-          <p className="text-xs font-medium text-brass-text sm:text-sm">
-            {stockLabel(product.stock)}
-          </p>
+          <p className="text-xs font-medium text-brass-text">{stockLabel(product.stock)}</p>
         )}
 
-        {/* mt-auto pins the CTA to the bottom of the card, so a scarcity line on
-            one product doesn't shove its button out of line with the row. */}
+        {/* Mobile CTA. mt-auto pins it to the bottom of the card, so a scarcity
+            line on one product doesn't shove its button out of line with the
+            row. The lg copy above is the same component reading the same store,
+            so the two never disagree — only one is ever visible. */}
         {showActions && (
-          <div className="mt-auto pt-3 sm:pt-4">
+          <div className="mt-auto pt-1 lg:hidden">
             <AddToCartButton productId={product.id} stock={product.stock} compact />
           </div>
         )}

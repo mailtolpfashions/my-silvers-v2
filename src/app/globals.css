@@ -65,27 +65,33 @@
      add line-height and tracking on top. Change a token and its class together
      or the two drift apart.
 
-     Then re-cut at the PHONE end only. The desktop sizes above were the point
-     of the exercise and are unchanged — each curve still reaches its cap at the
-     same viewport it did before (display 1148px, h1 1200px, h2 1432px, h3
-     1289px), so anything from ~1200px up renders identically. What changed is
-     the floor: a 36px h1 and a 44px hero on a 390px screen was the desktop
-     scale shrunk by a fifth, which read as a zoomed-in page rather than a big
-     one. The floors are now 26px and 34px, and the slopes were recomputed
-     through the old value at each curve's cap so the middle of the range
-     interpolates between the two rather than stepping. */
-  --text-display: clamp(2.125rem, 0.646rem + 6.07vw, 5rem);
-  --text-h1: clamp(1.625rem, 0.6rem + 4.2vw, 3.75rem);
-  --text-h2: clamp(1.375rem, 0.766rem + 2.5vw, 3rem);
-  --text-h3: clamp(1.125rem, 0.8rem + 1.33vw, 1.875rem);
+     Then re-cut AGAIN, to the previous MY Silvers storefront's scale, which is
+     the reference for how this site should feel. Chasing Tanishq's 46px
+     section headings was the wrong target: at this catalogue's density a 48px
+     heading reads loud rather than expensive, and loud is what a mass-market
+     jeweller sounds like. The old store set every section heading at 24px
+     rising to 30px and never went bigger, and that restraint is most of what
+     made it feel premium.
+
+     Each token below now matches the old store's measured values: the hero
+     carousel's own 24/36/48 ramp for --text-display, .section-heading's 24→30
+     for --text-h2, and its text-3xl/text-4xl page titles for --text-h1. The
+     type is smaller than anything here has been; that is the point. */
+  --text-display: clamp(1.5rem, 0.86rem + 2.6vw, 3rem);
+  --text-h1: clamp(1.75rem, 1.55rem + 0.8vw, 2.25rem);
+  --text-h2: clamp(1.5rem, 1.36rem + 0.55vw, 1.875rem);
+  --text-h3: clamp(1.125rem, 1.07rem + 0.2vw, 1.25rem);
   /* The subtitle under a section heading. Tanishq pairs every heading with one
      ("Explore our newly launched collection") and we had no token for it. */
-  --text-lead: clamp(0.9375rem, 0.837rem + 0.41vw, 1.25rem);
+  --text-lead: clamp(0.875rem, 0.83rem + 0.2vw, 1rem);
 
   /* Three widths, deliberately. Anything not on this list is a bug — the site
      previously mixed max-w-[1600px] and max-w-6xl at random, so the catalogue
      and a category page rendered visibly different card sizes. */
-  --container-page: 1600px; /* listings, homepage sections, header, footer */
+  /* 1280px, the old store's .section-container. 1600px let a four-column grid
+     spread until the cards floated apart and the page read as a warehouse; a
+     narrower measure with wider gutters is the more expensive-looking frame. */
+  --container-page: 80rem; /* listings, homepage sections, header, footer */
   --container-detail: 72rem; /* product detail + its reviews */
   --container-checkout: 64rem; /* cart + checkout — narrow on purpose */
   --container-prose: 42rem; /* journal posts, CMS pages, policies */
@@ -205,6 +211,12 @@
      surface; jewellery photography wants a quieter, more editorial frame. */
   --radius: 0.75rem;
 
+  /* The product card is the exception, and gets the old store's 20px back.
+     Kept as its own token rather than raised --radius, because that would take
+     every input, dialog and dropdown with it — which is the app-surface look
+     the line above is avoiding. */
+  --radius-card: 1.25rem;
+
   --sidebar: var(--ivory-200);
   --sidebar-foreground: var(--graphite-800);
   --sidebar-primary: var(--graphite-950);
@@ -280,16 +292,16 @@
   margin-inline: auto;
   width: 100%;
   max-width: var(--container-page);
-  padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
+  padding-inline: max(1.25rem, env(safe-area-inset-left)) max(1.25rem, env(safe-area-inset-right));
 }
 @media (min-width: 640px) {
   .container-page {
-    padding-inline: max(1.5rem, env(safe-area-inset-left)) max(1.5rem, env(safe-area-inset-right));
+    padding-inline: max(2rem, env(safe-area-inset-left)) max(2rem, env(safe-area-inset-right));
   }
 }
 @media (min-width: 1024px) {
   .container-page {
-    padding-inline: max(2rem, env(safe-area-inset-left)) max(2rem, env(safe-area-inset-right));
+    padding-inline: max(3rem, env(safe-area-inset-left)) max(3rem, env(safe-area-inset-right));
   }
 }
 
@@ -345,7 +357,7 @@
 }
 .text-h2 {
   font-size: var(--text-h2);
-  line-height: 1.15;
+  line-height: 1.2;
   letter-spacing: -0.01em;
 }
 .text-h3 {
