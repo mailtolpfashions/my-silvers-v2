@@ -8,6 +8,7 @@ import { prisma } from "@/server/db";
 import { searchProducts } from "@/server/products/search";
 import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
 import { ProductFilters } from "@/components/storefront/product-filters";
+import { StickyBarSpacer } from "@/components/storefront/sticky-action-bar";
 
 export async function generateMetadata({
   params,
@@ -78,7 +79,10 @@ export default async function CategoryPage({
             way out of the page you're on. */}
         {/* Suspense because ProductFilters calls useSearchParams, which is
             runtime data — without a boundary this route can't prerender a shell. */}
-        <Suspense fallback={<div className="h-24" aria-hidden />}>
+        {/* The fallback is desktop-only: below md the filters are a pinned
+            bottom bar, and reserving 96px at the top for them would be a hole
+            in the page. */}
+        <Suspense fallback={<div className="hidden h-24 md:block" aria-hidden />}>
           <ProductFilters
             current={{ sort: sp.sort, minPrice: sp.minPrice, maxPrice: sp.maxPrice }}
           />
@@ -96,6 +100,9 @@ export default async function CategoryPage({
             ))}
           </div>
         )}
+
+        {/* Room for the pinned filter bar, or it covers the last row. */}
+        <StickyBarSpacer />
       </div>
     </>
   );

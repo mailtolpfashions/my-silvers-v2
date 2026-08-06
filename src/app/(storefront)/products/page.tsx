@@ -4,6 +4,7 @@ import { ProductFilters } from "@/components/storefront/product-filters";
 import { ProductGrid } from "@/components/storefront/product-grid";
 import { ProductGridSkeleton } from "@/components/storefront/product-card-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StickyBarSpacer } from "@/components/storefront/sticky-action-bar";
 import { PRODUCT_PAGE_SIZE } from "@/lib/product-page-size";
 
 type SearchParams = Promise<{
@@ -25,8 +26,10 @@ export default function ProductsPage({ searchParams }: { searchParams: SearchPar
     <div className="container-page py-10">
       <h1 className="text-h1">Shop all jewellery</h1>
 
-      <div className="mt-6">
-        <Suspense fallback={<Skeleton className="h-10 w-full max-w-2xl" />}>
+      {/* No top margin below md: the filters render as a pinned bottom bar
+          there, so this wrapper is empty and would only add a gap. */}
+      <div className="md:mt-6">
+        <Suspense fallback={<Skeleton className="hidden h-10 w-full max-w-2xl md:block" />}>
           <FilterBar searchParams={searchParams} />
         </Suspense>
       </div>
@@ -34,6 +37,9 @@ export default function ProductsPage({ searchParams }: { searchParams: SearchPar
       <Suspense fallback={<ProductGridSkeleton count={PRODUCT_PAGE_SIZE > 12 ? 12 : 8} />}>
         <Results searchParams={searchParams} />
       </Suspense>
+
+      {/* Room for that pinned bar, or it covers the last row of the grid. */}
+      <StickyBarSpacer />
     </div>
   );
 }
