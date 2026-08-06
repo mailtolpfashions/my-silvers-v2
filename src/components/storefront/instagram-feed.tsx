@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { getInstagramFeed } from "@/server/integrations/instagram";
+import { RevealSection } from "@/components/storefront/reveal-section";
 
 // Inline glyph — lucide-react v1 dropped brand icons.
 function InstagramGlyph({ className }: { className?: string }) {
@@ -33,7 +34,7 @@ export async function InstagramFeed({
   if (posts.length === 0) return null;
 
   return (
-    <section className="container-page py-10 sm:py-16">
+    <RevealSection className="container-page py-10 sm:py-16">
       {eyebrow && <p className="label-eyebrow mb-2 text-center">{eyebrow}</p>}
       <div className="mb-6 flex items-center justify-center gap-2">
         <InstagramGlyph className="h-5 w-5" />
@@ -58,6 +59,6 @@ export async function InstagramFeed({
           </a>
         ))}
       </div>
-    </section>
+    </RevealSection>
   );
 }

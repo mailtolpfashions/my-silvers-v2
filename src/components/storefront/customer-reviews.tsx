@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Star, BadgeCheck } from "lucide-react";
 import { getTopReviews } from "@/server/reviews/top-reviews";
+import { RevealSection } from "@/components/storefront/reveal-section";
 
 /**
  * Homepage social proof, drawn from real reviews rather than CMS copy.
@@ -19,7 +20,7 @@ export async function CustomerReviews() {
   if (reviews.length === 0) return null;
 
   return (
-    <section className="container-page py-10 sm:py-16">
+    <RevealSection className="container-page py-10 sm:py-16">
       <div className="mb-10 text-center">
         <p className="label-eyebrow mb-2">In their words</p>
         <h2 className="text-h2">What our customers say</h2>
@@ -85,6 +86,6 @@ export async function CustomerReviews() {
           </li>
         ))}
       </ul>
-    </section>
+    </RevealSection>
   );
 }

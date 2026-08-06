@@ -376,6 +376,56 @@
   line-height: 1.6;
 }
 
+/* ─── Scroll reveal ───────────────────────────────────────────────────────────
+   Ported verbatim from the previous storefront, timings included. A section
+   starts 20px low and transparent and settles as it enters the viewport; the
+   class is added by an IntersectionObserver in reveal-section.tsx.
+
+   Deliberately CSS and not an animation library. GSAP's ScrollTrigger would
+   give finer control over the same 20px, and cost ~70KB of JavaScript plus a
+   refresh() on every Suspense boundary that streams in under Cache Components.
+   This is the same effect the old store shipped on most of its sections.
+   ─────────────────────────────────────────────────────────────────────────── */
+.reveal-section {
+  opacity: 0;
+  transform: translateY(var(--reveal-offset, 20px));
+  transition:
+    opacity 0.55s ease,
+    transform 0.55s ease;
+}
+.reveal-section.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Quicker on phones, where the section is a larger share of the viewport and
+   the full 0.55s reads as the page lagging behind the thumb. */
+@media (max-width: 1023px) {
+  .reveal-section {
+    transition:
+      opacity 0.25s ease,
+      transform 0.25s ease;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-section {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Without JavaScript the observer never runs and every section would stay at
+   opacity 0 — a blank page rather than a plain one. The old store shipped
+   without this guard; there is no reason to inherit that. */
+@media (scripting: none) {
+  .reveal-section {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* A hairline in the accent, used to close a heading block. Purely decorative,
    so --brass rather than --brass-text is correct here. */
 .rule-brass::after {

@@ -1,3 +1,4 @@
+import { RevealSection } from "@/components/storefront/reveal-section";
 /**
  * Stands in for the customer-reviews section in the CMS preview.
  *
@@ -8,13 +9,13 @@
  */
 export function CustomerReviewsPreviewNote() {
   return (
-    <section className="container-page border-t py-12 text-center">
+    <RevealSection className="container-page border-t py-12 text-center">
       <p className="label-eyebrow mb-2">In their words</p>
       <h2 className="text-h2">What our customers say</h2>
       <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
         Real 4- and 5-star product reviews render here on the live page. Nothing
         to edit — this section fills itself from what customers write.
       </p>
-    </section>
+    </RevealSection>
   );
 }

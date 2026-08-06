@@ -21,6 +21,7 @@ import { getSimilarProducts, getAlsoLikeProducts } from "@/server/products/recom
 import { RecordProductView, RecentlyViewed } from "@/components/storefront/recently-viewed";
 import { ProductGallery } from "@/components/storefront/product-gallery";
 import { ReviewSection } from "@/components/storefront/reviews/review-section";
+import { RevealSection } from "@/components/storefront/reveal-section";
 
 export async function generateMetadata({
   params,
@@ -381,7 +382,7 @@ function ProductRow({
   items: Awaited<ReturnType<typeof getAlsoLikeProducts>>;
 }) {
   return (
-    <section className="container-page border-t py-14">
+    <RevealSection className="container-page border-t py-14">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
         <div>
           {eyebrow && <p className="label-eyebrow mb-2">{eyebrow}</p>}
@@ -401,6 +402,6 @@ function ProductRow({
           <ProductCard key={product.id} product={product} />
         ))}
       </div>
-    </section>
+    </RevealSection>
   );
 }
