@@ -207,8 +207,13 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
               </p>
             )}
 
+            {/* text-white spelled out, even though the wrapper above already
+                sets it: the base layer gives every h1 a graphite colour
+                DIRECTLY, and a direct rule beats an inherited one whatever the
+                layer order — so the headline came out near-black on the scrim.
+                Same reason category/[slug] states it on its h1. */}
             <h1
-              className={`mb-2 font-heading text-2xl leading-tight sm:text-4xl lg:text-5xl ${entrance}`}
+              className={`mb-2 font-heading text-2xl leading-tight text-white sm:text-4xl lg:text-5xl ${entrance}`}
               style={{
                 animationDuration: "450ms",
                 animationDelay: "70ms",
