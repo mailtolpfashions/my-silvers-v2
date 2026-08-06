@@ -13,7 +13,13 @@ interface RazorpayCheckoutOptions {
   name: string;
   description?: string;
   handler: (response: RazorpayCheckoutResponse) => void;
-  modal?: { ondismiss?: () => void };
+  modal?: {
+    ondismiss?: () => void;
+    /** Razorpay's own "are you sure you want to close?" prompt. */
+    confirm_close?: boolean;
+    /** Whether Esc closes the payment window. */
+    escape?: boolean;
+  };
   prefill?: { name?: string; email?: string; contact?: string };
   theme?: { color?: string };
 }

@@ -2,6 +2,7 @@ import { auth } from "@/server/auth/auth";
 import { prisma } from "@/server/db";
 import { getCartWithProducts } from "@/server/cart";
 import { toPaise } from "@/server/orders/money";
+import { STICKY_BAR_SPACER } from "@/components/storefront/sticky-action-bar";
 import {
   CheckoutForm,
   type CheckoutLine,
@@ -47,7 +48,8 @@ export default async function CheckoutPage() {
   }
 
   return (
-    <div className="container-checkout py-10">
+    // The spacer stops the sticky Pay bar covering the order summary.
+    <div className={`container-checkout py-10 ${STICKY_BAR_SPACER}`}>
       <h1 className="mb-8 text-2xl font-semibold">Checkout</h1>
       <CheckoutForm
         isAuthed={isAuthed}

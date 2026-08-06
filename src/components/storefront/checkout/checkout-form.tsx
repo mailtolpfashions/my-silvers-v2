@@ -14,6 +14,7 @@ import {
   verifyPaymentAction,
   type PlaceOrderResult,
 } from "@/actions/order-actions";
+import { StickyActionBar } from "@/components/storefront/sticky-action-bar";
 import { readGuestCart, clearGuestCart } from "@/lib/guest-cart";
 import { formatINRPaise } from "@/lib/format";
 import { shippingChargePaise } from "@/server/orders/money";
@@ -188,7 +189,18 @@ export function CheckoutForm({
           setError(result.error);
         }
       },
-      modal: { ondismiss: () => setPaymentDismissed(true) },
+      modal: {
+        // Razorpay draws the "are you sure you want to close?" prompt itself,
+        // so there is no dialog of ours to keep in step with theirs. A customer
+        // who has reached the payment window has already committed; an
+        // accidental back-tap costing the sale is worse than one extra tap for
+        // the rare deliberate exit.
+        confirm_close: true,
+        // Without this, Esc still closes the window silently and walks straight
+        // past the prompt above.
+        escape: false,
+        ondismiss: () => setPaymentDismissed(true),
+      },
     });
     rzp.open();
   }
@@ -450,13 +462,49 @@ export function CheckoutForm({
             />
           </div>
 
-          <Button type="submit" size="lg" className="w-full" disabled={submitting}>
+          {/* Hidden on mobile — the sticky bar below is the button there, and
+              two submit buttons on one screen is a question, not a shortcut.
+              Same split as the cart; see cart-summary.tsx. */}
+          <Button
+            type="submit"
+            size="lg"
+            className="hidden w-full md:inline-flex"
+            disabled={submitting}
+          >
             {submitting
               ? "Placing order…"
               : form.paymentMethod === "cod"
                 ? `Place order — ${formatINRPaise(totalPaise)}`
                 : `Pay ${formatINRPaise(totalPaise)}`}
           </Button>
+
+          {/* Mobile: the amount and the action pinned to the bottom, matching
+              the cart and product pages. Rendered inside the <form> so it stays
+              a plain submit button — `fixed` takes it out of flow either way.
+              Checkout is the longest page on the site and the button was under
+              an address form, a payment choice and a notes field. */}
+          <StickyActionBar>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-lg font-semibold leading-tight">
+                {formatINRPaise(totalPaise)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {shippingPaise === 0 ? "Free shipping" : "Incl. shipping"}
+              </p>
+            </div>
+            <Button
+              type="submit"
+              size="lg"
+              className="h-12 shrink-0 rounded-full px-6 text-base"
+              disabled={submitting}
+            >
+              {submitting
+                ? "Placing…"
+                : form.paymentMethod === "cod"
+                  ? "Place order"
+                  : "Pay now"}
+            </Button>
+          </StickyActionBar>
         </form>
 
         <Card className="h-fit">
