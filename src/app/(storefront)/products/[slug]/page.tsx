@@ -21,7 +21,7 @@ import { getSimilarProducts, getAlsoLikeProducts } from "@/server/products/recom
 import { RecordProductView, RecentlyViewed } from "@/components/storefront/recently-viewed";
 import { ProductGallery } from "@/components/storefront/product-gallery";
 import { ReviewSection } from "@/components/storefront/reviews/review-section";
-import { StaggerGrid } from "@/components/storefront/motion/stagger-grid";
+import { RevealSection } from "@/components/storefront/reveal-section";
 
 export async function generateMetadata({
   params,
@@ -387,11 +387,8 @@ function ProductRow({
   viewAllHref?: string;
   items: Awaited<ReturnType<typeof getAlsoLikeProducts>>;
 }) {
-  // Plain <section>, not RevealSection: the StaggerGrid below animates the
-  // cards itself, and stacking the CSS reveal on top would hold the same
-  // content at opacity 0 twice over. See the note in homepage-section.tsx.
   return (
-    <section className="container-page border-t py-14">
+    <RevealSection className="container-page border-t py-14">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
         <div>
           {eyebrow && <p className="label-eyebrow mb-2">{eyebrow}</p>}
@@ -406,11 +403,11 @@ function ProductRow({
           </Link>
         )}
       </div>
-      <StaggerGrid className={PRODUCT_GRID_CLASS}>
+      <div className={PRODUCT_GRID_CLASS}>
         {items.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
-      </StaggerGrid>
-    </section>
+      </div>
+    </RevealSection>
   );
 }
