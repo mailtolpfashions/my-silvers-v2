@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import { Play } from "lucide-react";
 import { ProductImageZoom } from "@/components/storefront/product-image-zoom";
+import { gsap, useGSAP, ScrollTrigger, MOTION_QUERY } from "@/lib/gsap";
 
 /**
  * Product image gallery.
@@ -36,11 +37,76 @@ export function ProductGallery({
   morphSlot?: React.ReactNode;
 }) {
   const [active, setActive] = useState(0);
+  const scope = useRef<HTMLDivElement>(null);
+  /**
+   * Set the moment a shopper picks a thumbnail themselves, and never unset.
+   *
+   * The scroll-linked sequence below is a flourish; a deliberate choice is an
+   * instruction. Without this the two fight — you tap the third angle, scroll
+   * one line to read the specs, and the page silently puts you back on the
+   * first.
+   */
+  const userPicked = useRef(false);
 
   // The video occupies one slot past the last image.
   const videoIndex = videoUrl ? images.length : -1;
   const slideCount = images.length + (videoUrl ? 1 : 0);
   const showingVideo = active === videoIndex;
+
+  /**
+   * Advances through the angles as the page scrolls past the stuck gallery.
+   *
+   * The trigger is the parent grid rather than this element: the gallery is
+   * `position: sticky`, so its own bounding box stops moving relative to the
+   * viewport and would give ScrollTrigger a range of almost nothing to work
+   * with. The grid is the element that actually travels, and its height is the
+   * length of the specification column beside us — which is exactly the
+   * distance we want the sequence spread across.
+   *
+   * Honest about what this is: with two to five angles it is a slow cross-fade
+   * between real photographs, not the hundred-frame render sequence Apple uses.
+   * It reads as the piece turning as you read about it.
+   */
+  useGSAP(
+    () => {
+      if (images.length < 2) return;
+      const grid = scope.current?.parentElement;
+      if (!grid) return;
+
+      const mm = gsap.matchMedia();
+
+      mm.add(MOTION_QUERY.desktop, () => {
+        const trigger = ScrollTrigger.create({
+          trigger: grid,
+          start: "top top",
+          end: "bottom bottom",
+          onUpdate: (self) => {
+            if (userPicked.current) {
+              trigger.kill();
+              return;
+            }
+            // Clamped rather than wrapped: the last angle should hold at the
+            // bottom of the range, not snap back to the first.
+            const index = Math.min(
+              images.length - 1,
+              Math.floor(self.progress * images.length),
+            );
+            setActive((current) => (current === index ? current : index));
+          },
+        });
+
+        return () => trigger.kill();
+      });
+
+      return () => mm.revert();
+    },
+    { scope, dependencies: [images.length] },
+  );
+
+  function pick(index: number) {
+    userPicked.current = true;
+    setActive(index);
+  }
 
   if (slideCount === 0) {
     return (
@@ -51,7 +117,15 @@ export function ProductGallery({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    // Sticky from sm up, where the two columns sit side by side: the
+    // photography holds while the specifications, trust list and reviews scroll
+    // past it. This is the single most "considered" thing a product page can
+    // do, and it is CSS — a scroll library would only be reimplementing
+    // position: sticky with a worse understanding of the layout.
+    //
+    // top-24 clears the sticky site header. `self-start` because the parent
+    // grid must not stretch this column; see the note there.
+    <div ref={scope} className="flex flex-col gap-3 sm:sticky sm:top-24 sm:self-start">
       {showingVideo ? (
         // Not wrapped in ProductImageZoom: magnifying a <video> would fight its
         // own controls, and a lightbox of a paused frame helps nobody.
@@ -82,13 +156,11 @@ export function ProductGallery({
           // nothing happen reads as the gallery being broken.
           onPrev={
             images.length > 1
-              ? () => setActive((i) => (i - 1 + images.length) % images.length)
+              ? () => pick((active - 1 + images.length) % images.length)
               : undefined
           }
           onNext={
-            images.length > 1
-              ? () => setActive((i) => (i + 1) % images.length)
-              : undefined
+            images.length > 1 ? () => pick((active + 1) % images.length) : undefined
           }
         >
           {/* Slide 0 is handed in from the server so it can carry the shared
@@ -117,7 +189,7 @@ export function ProductGallery({
                 role="tab"
                 aria-selected={i === active}
                 aria-label={`View image ${i + 1} of ${images.length}`}
-                onClick={() => setActive(i)}
+                onClick={() => pick(i)}
                 className={`relative block aspect-square w-full overflow-hidden rounded-sm transition-opacity ${
                   i === active
                     ? "ring-2 ring-brass ring-offset-2 ring-offset-background"
@@ -143,7 +215,7 @@ export function ProductGallery({
                 role="tab"
                 aria-selected={showingVideo}
                 aria-label="Play product video"
-                onClick={() => setActive(videoIndex)}
+                onClick={() => pick(videoIndex)}
                 className={`relative block aspect-square w-full overflow-hidden rounded-sm transition-opacity ${
                   showingVideo
                     ? "ring-2 ring-brass ring-offset-2 ring-offset-background"

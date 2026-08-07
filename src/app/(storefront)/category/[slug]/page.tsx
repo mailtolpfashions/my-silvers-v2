@@ -9,6 +9,8 @@ import { searchProducts } from "@/server/products/search";
 import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
 import { ProductFilters } from "@/components/storefront/product-filters";
 import { StickyBarSpacer } from "@/components/storefront/sticky-action-bar";
+import { Parallax } from "@/components/storefront/motion/parallax";
+import { StaggerGrid } from "@/components/storefront/motion/stagger-grid";
 
 export async function generateMetadata({
   params,
@@ -94,11 +96,11 @@ export default async function CategoryPage({
             No products match those filters.
           </p>
         ) : (
-          <div className={`mt-8 ${PRODUCT_GRID_CLASS}`}>
+          <StaggerGrid className={`mt-8 ${PRODUCT_GRID_CLASS}`}>
             {items.map((product) => (
               <ProductCard key={product.id} product={product} morphName={productMorphName(product.id)} />
             ))}
-          </div>
+          </StaggerGrid>
         )}
 
         {/* Room for the pinned filter bar, or it covers the last row. */}
@@ -174,15 +176,21 @@ function CategoryHeader({
 }
 
 function BannerArt({ banner }: { banner: LiveBanner }) {
+  // The artwork drifts against the scroll while the heading laid over it stays
+  // put — the depth cue that stops a full-bleed banner reading as wallpaper.
+  // The <section> above is already `relative overflow-hidden`, which is the
+  // frame Parallax fills.
   return (
-    <Image
-      src={banner.image}
-      alt=""
-      fill
-      // Above the fold on every category page, so it carries the LCP.
-      preload
-      className="object-cover object-center"
-      sizes="100vw"
-    />
+    <Parallax amount={14}>
+      <Image
+        src={banner.image}
+        alt=""
+        fill
+        // Above the fold on every category page, so it carries the LCP.
+        preload
+        className="object-cover object-center"
+        sizes="100vw"
+      />
+    </Parallax>
   );
 }

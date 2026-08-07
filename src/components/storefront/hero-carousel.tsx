@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { Parallax } from "@/components/storefront/motion/parallax";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useSwipe } from "@/lib/use-swipe";
 
@@ -130,6 +131,14 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
         className="relative aspect-[4/5] w-full touch-pan-y overflow-hidden rounded-2xl sm:aspect-[16/8] lg:aspect-[21/8]"
         style={{ background: EMPTY_BACKDROP }}
       >
+        {/* One parallax layer wrapping every slide, rather than one per slide:
+            the slides are absolutely positioned siblings that crossfade in
+            place, so moving their shared parent moves whichever is visible and
+            costs a single ScrollTrigger instead of one per slide.
+
+            Deliberately inside the aspect box and outside the scrim and copy —
+            the photograph drifts, the words stay where they were written. */}
+        <Parallax amount={14}>
         {/* All slides stay mounted and crossfade on opacity — no layout thrash,
             and the next image is already decoded when it becomes visible. */}
         {slides.map((s, i) => (
@@ -183,6 +192,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
               ))}
           </div>
         ))}
+        </Parallax>
 
         {/* Bottom-up scrim, not left-to-right: the copy sits along the bottom
             edge, so that is the only part that needs darkening. Leaving the top

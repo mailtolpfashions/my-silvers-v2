@@ -21,7 +21,7 @@ import { getSimilarProducts, getAlsoLikeProducts } from "@/server/products/recom
 import { RecordProductView, RecentlyViewed } from "@/components/storefront/recently-viewed";
 import { ProductGallery } from "@/components/storefront/product-gallery";
 import { ReviewSection } from "@/components/storefront/reviews/review-section";
-import { RevealSection } from "@/components/storefront/reveal-section";
+import { StaggerGrid } from "@/components/storefront/motion/stagger-grid";
 
 export async function generateMetadata({
   params,
@@ -56,7 +56,13 @@ export default async function ProductDetailPage({
 
   return (
     <>
-      <div className={`container-detail grid gap-10 py-10 sm:grid-cols-2 ${STICKY_BAR_SPACER}`}>
+      {/* items-start is what makes the sticky gallery below work: the default
+          `stretch` gives both columns the height of the taller one, and a
+          sticky element inside a full-height column has nothing to slide
+          against. */}
+      <div
+        className={`container-detail grid items-start gap-10 py-10 sm:grid-cols-2 ${STICKY_BAR_SPACER}`}
+      >
         <ProductGallery
           images={product.images}
           alt={product.name}
@@ -381,8 +387,11 @@ function ProductRow({
   viewAllHref?: string;
   items: Awaited<ReturnType<typeof getAlsoLikeProducts>>;
 }) {
+  // Plain <section>, not RevealSection: the StaggerGrid below animates the
+  // cards itself, and stacking the CSS reveal on top would hold the same
+  // content at opacity 0 twice over. See the note in homepage-section.tsx.
   return (
-    <RevealSection className="container-page border-t py-14">
+    <section className="container-page border-t py-14">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
         <div>
           {eyebrow && <p className="label-eyebrow mb-2">{eyebrow}</p>}
@@ -397,11 +406,11 @@ function ProductRow({
           </Link>
         )}
       </div>
-      <div className={PRODUCT_GRID_CLASS}>
+      <StaggerGrid className={PRODUCT_GRID_CLASS}>
         {items.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
-      </div>
-    </RevealSection>
+      </StaggerGrid>
+    </section>
   );
 }
