@@ -20,12 +20,16 @@
 export const CARD_IMAGE_CLASS = "relative aspect-square overflow-hidden bg-muted";
 
 /**
- * The name is set in Playfair, not the body sans. This is the single loudest
- * signal in the whole design: a serif product name at 15px reads as a catalogue
- * entry, the same words in 16px sans read as a search result.
+ * 14px, weight 500, in the body sans — the reference's product-name size.
+ *
+ * The serif is gone from the card. It was the loudest signal in the previous
+ * pass and it is the wrong one for this target: the reference sets every
+ * product name in the same geometric sans as its body copy, and reserves any
+ * character at all for the photography. A serif name here reads as heritage
+ * where this design wants modern.
  */
 export const CARD_TITLE_CLASS =
-  "line-clamp-2 min-h-[2.75rem] font-heading text-[15px] leading-snug tracking-[-0.01em]";
+  "line-clamp-2 min-h-[2.625rem] text-sm font-medium leading-[1.5]";
 
 /**
  * The card's frame — and there is deliberately almost nothing to it.
@@ -42,14 +46,15 @@ export const CARD_TITLE_CLASS =
 export const CARD_SHELL_CLASS = "overflow-hidden bg-muted";
 
 /**
- * The uppercase micro-label used on card CTAs.
+ * The uppercase label used on card CTAs.
  *
- * 11px at 0.15em tracking. Small type that has been given room is the oldest
- * trick in luxury retail, and it is why the old store's "Add to Bag" read as
- * expensive where a 16px sentence-case pill reads as a supermarket.
+ * The reference's own action link is 14px uppercase at 0.03em — barely tracked,
+ * and square-cornered rather than a pill. The heavily letterspaced 11px version
+ * this replaces belonged to the previous target; at 0.15em it read as a luxury
+ * pastiche rather than the thing itself.
  */
 export const CARD_CTA_CLASS =
-  "w-full rounded-md py-3 text-[11px] font-semibold uppercase tracking-[0.15em]";
+  "w-full rounded-none py-3 text-[13px] font-normal uppercase tracking-[0.03em]";
 
 /** Badge pills over the photograph — 9px, letterspaced, uppercase. */
 export const CARD_PILL_CLASS =

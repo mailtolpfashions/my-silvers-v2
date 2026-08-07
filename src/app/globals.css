@@ -22,7 +22,14 @@
   --color-foreground: var(--foreground);
 
   --font-sans: var(--font-dm-sans);
-  --font-heading: var(--font-playfair);
+  /* Headings are the body sans, not Playfair.
+     The reference sets every heading on its site in CentraNo1, a geometric
+     sans — there is no serif anywhere in its UI except its own wordmark. DM
+     Sans is the closest thing already loaded here, and CentraNo1 is a licensed
+     commercial face (~€200–400 for web) if an exact match is ever wanted.
+     Reverting is this one line: point --font-heading back at --font-playfair,
+     which stays loaded and is still reachable through font-serif. */
+  --font-heading: var(--font-dm-sans);
   --font-serif: var(--font-playfair);
   --font-brand: var(--font-raleway);
 
@@ -65,33 +72,38 @@
      add line-height and tracking on top. Change a token and its class together
      or the two drift apart.
 
-     Then re-cut AGAIN, to the previous MY Silvers storefront's scale, which is
-     the reference for how this site should feel. Chasing Tanishq's 46px
-     section headings was the wrong target: at this catalogue's density a 48px
-     heading reads loud rather than expensive, and loud is what a mass-market
-     jeweller sounds like. The old store set every section heading at 24px
-     rising to 30px and never went bigger, and that restraint is most of what
-     made it feel premium.
+     Then re-cut AGAIN, this time from measurements taken off bucherer.com —
+     the site this design is now aimed at. Every value below is theirs, read
+     from the rendered page at 1440px and at 412px:
 
-     Each token below now matches the old store's measured values: the hero
-     carousel's own 24/36/48 ramp for --text-display, .section-heading's 24→30
-     for --text-h2, and its text-3xl/text-4xl page titles for --text-h1. The
-     type is smaller than anything here has been; that is the point. */
-  --text-display: clamp(1.5rem, 0.86rem + 2.6vw, 3rem);
-  --text-h1: clamp(1.75rem, 1.55rem + 0.8vw, 2.25rem);
-  --text-h2: clamp(1.5rem, 1.36rem + 0.55vw, 1.875rem);
-  --text-h3: clamp(1.125rem, 1.07rem + 0.2vw, 1.25rem);
-  /* The subtitle under a section heading. Tanishq pairs every heading with one
-     ("Explore our newly launched collection") and we had no token for it. */
-  --text-lead: clamp(0.875rem, 0.83rem + 0.2vw, 1rem);
+       hero headline    28 / 36   weight 500
+       section heading  20 / 28   weight 500
+       block caption    16 / 20   weight 500
+       body, nav        14 / 16
+       description      14 / 14   — flat, it does not grow
+       price            12 / 14   weight 500
+       eyebrow          12 / 14   uppercase, 0.1em tracking, weight 400
+
+     The headline finding is how SMALL it all is. Their largest type on the
+     homepage is a 36px hero; a price is 14px. Nothing is big except the
+     photographs, and that contrast — small type against enormous imagery — is
+     the effect. Type competing with the picture is what makes a page look
+     cheap, and it is the mistake every previous pass here made. */
+  --text-display: clamp(1.75rem, 1.5rem + 1vw, 2.25rem);
+  --text-h1: clamp(1.75rem, 1.5rem + 1vw, 2.25rem);
+  --text-h2: clamp(1.25rem, 1rem + 1vw, 1.75rem);
+  --text-h3: clamp(1rem, 0.87rem + 0.5vw, 1.25rem);
+  /* Flat on purpose — theirs is 14px at every width. */
+  --text-lead: 0.875rem;
 
   /* Three widths, deliberately. Anything not on this list is a bug — the site
      previously mixed max-w-[1600px] and max-w-6xl at random, so the catalogue
      and a category page rendered visibly different card sizes. */
-  /* 1280px, the old store's .section-container. 1600px let a four-column grid
-     spread until the cards floated apart and the page read as a warehouse; a
-     narrower measure with wider gutters is the more expensive-looking frame. */
-  --container-page: 80rem; /* listings, homepage sections, header, footer */
+  /* 1440px with 24px gutters, measured off the reference: at a 1440 viewport
+     their content box is 1392 wide, i.e. the page runs very nearly edge to
+     edge. Combined with the small type above, that is what gives their imagery
+     the room to be the loudest thing on the screen. */
+  --container-page: 90rem; /* listings, homepage sections, header, footer */
   --container-detail: 72rem; /* product detail + its reviews */
   --container-checkout: 64rem; /* cart + checkout — narrow on purpose */
   --container-prose: 42rem; /* journal posts, CMS pages, policies */
@@ -269,14 +281,23 @@
 
 /* ─── Brand utilities ─────────────────────────────────────────────────────── */
 
-/* Letterspaced uppercase eyebrow above section headings. */
+/* Letterspaced uppercase eyebrow above section headings.
+   Measured off the reference: 12px on a phone rising to 14px, 0.1em of
+   tracking, and weight 400 — NOT the 11px/700/0.18em this was. Bigger, lighter
+   and less tracked all at once, which sounds like three small changes and is
+   really one: theirs is a line of text, ours was a label shouting. */
 .label-eyebrow {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--brass-text);
-  line-height: 1;
+  line-height: 1.5;
+}
+@media (min-width: 1024px) {
+  .label-eyebrow {
+    font-size: 0.875rem;
+  }
 }
 
 /* For eyebrows over dark imagery — the hero. --brass-text is the ramp tuned for
@@ -295,20 +316,19 @@
    viewport-fit: cover so the page can pad around Android's gesture pill, and
    that also lets a landscape notch eat into the sides. env() is 0 on hardware
    with neither, so this is the plain padding everywhere else. */
+/* Gutters are 24px at every width above the phone, matching the reference's
+   1392-in-1440. The phone keeps 16px — theirs runs its imagery fully edge to
+   edge on mobile, and 16px is the smallest gutter that still keeps *text* off
+   the screen edge. */
 .container-page {
   margin-inline: auto;
   width: 100%;
   max-width: var(--container-page);
-  padding-inline: max(1.25rem, env(safe-area-inset-left)) max(1.25rem, env(safe-area-inset-right));
+  padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
 }
 @media (min-width: 640px) {
   .container-page {
-    padding-inline: max(2rem, env(safe-area-inset-left)) max(2rem, env(safe-area-inset-right));
-  }
-}
-@media (min-width: 1024px) {
-  .container-page {
-    padding-inline: max(3rem, env(safe-area-inset-left)) max(3rem, env(safe-area-inset-right));
+    padding-inline: max(1.5rem, env(safe-area-inset-left)) max(1.5rem, env(safe-area-inset-right));
   }
 }
 

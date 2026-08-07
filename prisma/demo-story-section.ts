@@ -40,6 +40,31 @@ const STORY = {
   isActive: true,
 };
 
+const PAIR_KEY = "Gifts that say it for you";
+
+/** The reference site's signature editorial beat, for the same reason. */
+const PAIR = {
+  type: "editorialPair",
+  title: PAIR_KEY,
+  eyebrow: "Inspired by love",
+  subtitle: "Two ways into the collection, chosen for the people you buy for.",
+  items: [
+    {
+      image: "https://placehold.co/720x900/e8e4e0/0C0C0E.png?text=For+Her",
+      title: "Moments Set in Silver",
+      text: "Discover gifts for her",
+      href: "/products",
+    },
+    {
+      image: "https://placehold.co/720x900/d8d4d0/0C0C0E.png?text=Everyday",
+      title: "For Everything She Is",
+      text: "Shop everyday pieces",
+      href: "/products",
+    },
+  ],
+  isActive: true,
+};
+
 type SectionRow = Record<string, unknown>;
 
 async function main() {
@@ -60,11 +85,13 @@ async function main() {
     if (!doc) continue;
 
     const sections = (Array.isArray(doc.sections) ? doc.sections : []).filter(
-      (s) => s?.title !== DEMO_KEY,
+      (s) => s?.title !== DEMO_KEY && s?.title !== PAIR_KEY,
     );
-    // Second position: after the first product grid, so the pin is reached by
-    // scrolling rather than being the first thing on the page.
-    if (mode === "add") sections.splice(1, 0, STORY);
+    // Second position: after the first product grid, so it is reached by
+    // scrolling rather than being the first thing on the page. The editorial
+    // pair follows it, which is the reference's own rhythm — a full-bleed
+    // statement, then two photographs, then commerce.
+    if (mode === "add") sections.splice(1, 0, STORY, PAIR);
 
     await prisma.contentEntry.update({
       where: { id: entry.id },

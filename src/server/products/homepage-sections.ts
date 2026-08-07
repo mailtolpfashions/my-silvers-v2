@@ -16,6 +16,7 @@ export type SectionKind =
   | "banner"
   | "instagram"
   | "editorial"
+  | "editorialPair"
   | "story"
   | "categoryTiles"
   | "usp";
@@ -65,6 +66,23 @@ export type HomepageSection =
       ctaHref?: string;
       /** Which side the image sits on, so consecutive blocks can alternate. */
       imageSide: "left" | "right";
+    }
+  /**
+   * Two large 4:5 photographs side by side, each with a caption and an arrow
+   * link beneath it. The reference site's signature block, and the thing it
+   * uses instead of a product grid to move people into categories.
+   *
+   * No prices and no buttons by design — this is the editorial beat between
+   * commerce sections.
+   */
+  | {
+      kind: "editorialPair";
+      key: string;
+      /** Optional heading above the pair; the block reads fine without one. */
+      title?: string;
+      eyebrow?: string;
+      subtitle?: string;
+      items: Array<{ image: string; caption: string; linkLabel?: string; href?: string }>;
     }
   /**
    * A full-height image held under the viewport while its copy advances over
@@ -204,6 +222,24 @@ async function resolveOne(
       ctaHref: str(spec.ctaHref),
       imageSide: str(spec.imageSide) === "right" ? "right" : "left",
     };
+  }
+
+  if (kind === "editorialPair") {
+    // Reuses the shared `items` repeater: image + title as the caption + text
+    // as the link label. Two is the shape, but three renders as a row of three
+    // and one as a single wide block, so an editor is not boxed in.
+    const items = Array.isArray(spec.items)
+      ? (spec.items as Array<Record<string, unknown>>)
+          .map((it) => ({
+            image: str(it.image) ?? "",
+            caption: str(it.title) ?? "",
+            linkLabel: str(it.text),
+            href: str(it.href),
+          }))
+          .filter((it) => it.image)
+      : [];
+    if (items.length === 0) return null;
+    return { kind, key, title: str(spec.title), eyebrow, subtitle, items };
   }
 
   if (kind === "story") {

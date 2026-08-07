@@ -6,6 +6,7 @@ import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/
 import { CollectionCard } from "@/components/storefront/collection-card";
 import { RevealSection } from "@/components/storefront/reveal-section";
 import { StorySection } from "@/components/storefront/story-section";
+import { EditorialPair } from "@/components/storefront/editorial-pair";
 import type { HomepageSection as Section } from "@/server/products/homepage-sections";
 
 /**
@@ -38,6 +39,17 @@ export function HomepageSection({
     return instagramSlot ?? null;
   }
 
+  if (section.kind === "editorialPair") {
+    return (
+      <EditorialPair
+        title={section.title}
+        eyebrow={section.eyebrow}
+        subtitle={section.subtitle}
+        items={section.items}
+      />
+    );
+  }
+
   if (section.kind === "story") {
     return (
       <StorySection
@@ -54,7 +66,7 @@ export function HomepageSection({
   if (section.kind === "editorial") {
     const imageFirst = section.imageSide === "left";
     return (
-      <RevealSection className="container-page py-16 sm:py-24 lg:py-32">
+      <RevealSection className="container-page py-20 sm:py-28 lg:py-40">
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
           {section.image && (
             <div
@@ -98,7 +110,7 @@ export function HomepageSection({
 
   if (section.kind === "categoryTiles") {
     return (
-      <RevealSection className="container-page py-16 sm:py-24 lg:py-32">
+      <RevealSection className="container-page py-20 sm:py-28 lg:py-40">
         <SectionHeading title={section.title} eyebrow={section.eyebrow} subtitle={section.subtitle} />
         <ul className="flex flex-wrap justify-center gap-x-8 gap-y-10 sm:gap-x-12">
           {section.items.map((item) => (
@@ -132,7 +144,7 @@ export function HomepageSection({
   if (section.kind === "usp") {
     return (
       <RevealSection className="border-y bg-muted/40">
-        <div className="container-page py-16 sm:py-24 lg:py-32">
+        <div className="container-page py-20 sm:py-28 lg:py-40">
           <SectionHeading
             title={section.title}
             eyebrow={section.eyebrow}
@@ -206,7 +218,7 @@ export function HomepageSection({
   // that emptiness is doing as much work as anything inside the sections. It
   // is the cheapest luxury signal there is and the easiest one to spend.
   return (
-    <RevealSection className="container-page py-16 sm:py-24 lg:py-32">
+    <RevealSection className="container-page py-20 sm:py-28 lg:py-40">
       <SectionHeading
         title={section.title}
         eyebrow={section.eyebrow}

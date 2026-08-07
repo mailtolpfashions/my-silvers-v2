@@ -114,7 +114,9 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
     <section
       aria-roledescription="carousel"
       aria-label="Featured collections"
-      className="relative px-3 py-4 sm:px-6 sm:py-6 lg:px-10"
+      // No padding: the hero is the first thing on the page and it runs to the
+      // edges of the viewport, directly under the header.
+      className="relative"
     >
       <div
         {...swipe.handlers}
@@ -127,7 +129,11 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
         onBlurCapture={() => setIsPaused(false)}
         // Shape by aspect ratio, so the card reflows instead of being told how
         // tall to be: portrait on a phone, cinematic on a desktop.
-        className="relative aspect-[4/5] w-full touch-pan-y overflow-hidden rounded-2xl sm:aspect-[16/8] lg:aspect-[21/8]"
+        // Ratios measured off the reference: 0.49 on a phone (a hero that very
+        // nearly fills the screen) and 2.79 on desktop. Square corners and no
+        // inset — theirs runs edge to edge, and the rounded inset card was the
+        // previous target's idea, not this one.
+        className="relative aspect-[1/2] w-full touch-pan-y overflow-hidden sm:aspect-[2/1] lg:aspect-[2.79/1]"
         style={{ background: EMPTY_BACKDROP }}
       >
         {/* All slides stay mounted and crossfade on opacity — no layout thrash,

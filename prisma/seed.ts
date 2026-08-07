@@ -92,6 +92,7 @@ const systemContentTypes = [
               "banner",
               "instagram",
               "editorial",
+              "editorialPair",
               "story",
               "categoryTiles",
               "usp",
@@ -186,9 +187,9 @@ const systemContentTypes = [
             // repeater and reads only each row's Text, so a pinned section
             // needs no second array field on this form — the label explains
             // which column is being read.
-            label: "The claims to show (a 'story' uses only the Text of each row, one per stage)",
+            label: "Rows — a 'story' uses each Text as one stage; an 'editorialPair' uses Image, Title as the caption, Text as the link label, and Link",
             type: "array",
-            showWhen: { field: "type", equals: ["usp", "story"] },
+            showWhen: { field: "type", equals: ["usp", "story", "editorialPair"] },
             of: [
               {
                 name: "icon",
@@ -197,6 +198,9 @@ const systemContentTypes = [
               },
               { name: "title", label: "Title", type: "text" },
               { name: "text", label: "Text", type: "text" },
+              // Used by editorialPair only; harmless empty on the other two.
+              { name: "image", label: "Image (editorial pair)", type: "image" },
+              { name: "href", label: "Link (editorial pair)", type: "text" },
             ],
           },
         ],

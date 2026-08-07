@@ -204,11 +204,15 @@ export function ProductCard({
           {/* text-foreground, NOT text-graphite-950: the ramp tokens are fixed
               values that don't flip with the theme, so a raw graphite price sat
               near-invisible on the dark background. */}
-          <span className="text-base font-bold tracking-tight text-foreground">
+          {/* 12px on a phone, 14px from lg — the reference's price size, and
+              genuinely smaller than it looks like it should be. A price set
+              quietly beside a large photograph reads as confidence; the same
+              number at 16px bold reads as a discount sticker. */}
+          <span className="text-xs font-medium tracking-normal text-foreground lg:text-sm">
             {formatINR(price)}
           </span>
           {compareAt && compareAt > price && (
-            <span className="text-sm text-muted-foreground line-through">
+            <span className="text-xs text-muted-foreground line-through lg:text-sm">
               {formatINR(compareAt)}
             </span>
           )}
