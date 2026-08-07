@@ -43,6 +43,22 @@ export function SmoothScrollProvider() {
     // scrubbed animation lags behind the page.
     lenis.on("scroll", ScrollTrigger.update);
 
+    /**
+     * Lenis caches how far the page can scroll, and clamps to it.
+     *
+     * Its own autoResize watches the wrapper and content elements, which for a
+     * window-scrolled page is <html> — and <html> does not change size when
+     * content is appended inside <body>. Under Cache Components almost every
+     * page here commits a short static shell and streams the rest in, so the
+     * cached limit is the height of a page that has not finished arriving.
+     * The symptom is scrolling that stops dead partway down and a footer you
+     * cannot reach: on the product page it stopped 878px short.
+     *
+     * So watch <body>, which does grow, and hand Lenis the new limit.
+     */
+    const observer = new ResizeObserver(() => lenis.resize());
+    observer.observe(document.body);
+
     // One rAF loop for both libraries rather than two competing ones. GSAP's
     // ticker reports seconds, Lenis wants milliseconds.
     const tick = (time: number) => lenis.raf(time * 1000);
@@ -54,6 +70,7 @@ export function SmoothScrollProvider() {
     gsap.ticker.lagSmoothing(0);
 
     return () => {
+      observer.disconnect();
       lenis.destroy();
       gsap.ticker.remove(tick);
       gsap.ticker.lagSmoothing(500, 33);
