@@ -96,8 +96,11 @@ export function ProductCard({
     // CTA sits on a shared baseline. Without it, the scarcity line ("Only a few
     // left") appears on some cards and not others, and their buttons visibly
     // fall out of line with the rest of the row.
-    <div className={`group relative flex h-full flex-col ${CARD_SHELL_CLASS}`}>
-      <div className={CARD_IMAGE_CLASS}>
+    <div className="group relative flex h-full flex-col">
+      {/* The tile is the grey field; the words go below it on the page. That
+          split is the point — a bordered box containing both reads as a card,
+          an image with a caption under it reads as a catalogue. */}
+      <div className={`${CARD_SHELL_CLASS} ${CARD_IMAGE_CLASS}`}>
         {image ? (
           <>
             <MaybeMorph name={morphName}>
@@ -190,7 +193,7 @@ export function ProductCard({
           and nothing else, and every line removed from under the photograph is
           one the photograph gets back. Category is one tap away in the nav and
           on the product page. */}
-      <div className="flex flex-1 flex-col space-y-2 px-4 pb-4 pt-3.5">
+      <div className="flex flex-1 flex-col space-y-2 px-1 pt-4 sm:px-2 sm:pt-5">
         <h3 className={`${CARD_TITLE_CLASS} text-graphite-950`}>
           <Link href={href} className="decoration-brass/60 underline-offset-4 hover:underline">
             {product.name}

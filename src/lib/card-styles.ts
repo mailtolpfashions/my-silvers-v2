@@ -27,8 +27,19 @@ export const CARD_IMAGE_CLASS = "relative aspect-square overflow-hidden bg-muted
 export const CARD_TITLE_CLASS =
   "line-clamp-2 min-h-[2.75rem] font-heading text-[15px] leading-snug tracking-[-0.01em]";
 
-/** The card's own frame — white surface, hairline edge, 20px corners. */
-export const CARD_SHELL_CLASS = "overflow-hidden rounded-[var(--radius-card)] border bg-card";
+/**
+ * The card's frame — and there is deliberately almost nothing to it.
+ *
+ * The border and the 20px corners are gone. On the reference site the product
+ * row is a run of borderless tiles touching edge to edge, each a flat grey
+ * field with the piece floating in the middle of it: no rule, no radius, no
+ * shadow. The effect is that the eye reads a row of photographs rather than a
+ * row of containers, and it is most of why that grid looks expensive.
+ *
+ * `bg-muted` rather than `bg-card` for the same reason — the tile is a backdrop
+ * for the object, not a card sitting on the page.
+ */
+export const CARD_SHELL_CLASS = "overflow-hidden bg-muted";
 
 /**
  * The uppercase micro-label used on card CTAs.
@@ -55,9 +66,15 @@ export const CARD_PILL_CLASS =
  * both divisible by four, neither by five — so a five-column grid leaves every
  * homepage section with a ragged final row.
  *
- * Gaps are the old store's 12px / 20px, not the 16–40px this had. A borderless
- * card needs whitespace to be read as a unit; a bordered one carries its own
- * edge, and the same generous gutter then reads as cards adrift on the page.
+ * No gaps between columns from sm up, and this is the deliberate part. The
+ * reference site runs its product tiles hard against each other so the row
+ * reads as one continuous band of photography rather than four objects with
+ * air between them. Each tile carries its own generous internal padding
+ * instead, which is what gives the piece room — the space goes INSIDE the
+ * tile rather than between tiles.
+ *
+ * A single-pixel column gap remains on phones, where two touching tiles at
+ * that width genuinely do read as one confusing block.
  */
 export const PRODUCT_GRID_CLASS =
-  "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5";
+  "grid grid-cols-2 gap-px sm:grid-cols-3 sm:gap-0 lg:grid-cols-4";

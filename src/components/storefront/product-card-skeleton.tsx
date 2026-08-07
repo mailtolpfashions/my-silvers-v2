@@ -17,11 +17,11 @@ export function ProductCardSkeleton() {
   return (
     // Mirrors the card's frame and flex column so the CTA placeholder sits on
     // the same baseline the real button will occupy.
-    <div className={`flex h-full flex-col ${CARD_SHELL_CLASS}`}>
-      <div className={CARD_IMAGE_CLASS}>
+    <div className="flex h-full flex-col">
+      <div className={`${CARD_SHELL_CLASS} ${CARD_IMAGE_CLASS}`}>
         <Skeleton className="size-full" />
       </div>
-      <div className="flex flex-1 flex-col space-y-2 px-4 pb-4 pt-3.5">
+      <div className="flex flex-1 flex-col space-y-2 px-1 pt-4 sm:px-2 sm:pt-5">
         <div className={CARD_TITLE_CLASS}>
           <Skeleton className="h-3.5 w-full" />
           <Skeleton className="mt-1.5 h-3.5 w-2/3" />
