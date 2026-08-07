@@ -5,6 +5,10 @@ import { CmsIcon } from "@/components/storefront/cms/cms-icon";
 import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
 import { CollectionCard } from "@/components/storefront/collection-card";
 import { RevealSection } from "@/components/storefront/reveal-section";
+import { StaggerGrid } from "@/components/storefront/motion/stagger-grid";
+import { PinnedStory } from "@/components/storefront/motion/pinned-story";
+import { SplitHeading } from "@/components/storefront/motion/split-heading";
+import { Magnetic } from "@/components/storefront/motion/magnetic";
 import type { HomepageSection as Section } from "@/server/products/homepage-sections";
 
 /**
@@ -35,6 +39,19 @@ export function HomepageSection({
 }) {
   if (section.kind === "instagram") {
     return instagramSlot ?? null;
+  }
+
+  if (section.kind === "story") {
+    return (
+      <PinnedStory
+        title={section.title}
+        eyebrow={section.eyebrow}
+        stages={section.stages}
+        image={section.image!}
+        ctaLabel={section.ctaLabel}
+        ctaHref={section.ctaHref}
+      />
+    );
   }
 
   if (section.kind === "editorial") {
@@ -184,8 +201,14 @@ export function HomepageSection({
     );
   }
 
+  // A plain <section>, NOT RevealSection: everything inside this one already
+  // animates itself — the heading through SplitHeading, the cards through
+  // StaggerGrid. Wrapping it in the CSS reveal as well meant two independent
+  // mechanisms each holding the same content at opacity 0, so the section faded
+  // in and then its cards faded in again, and a failure in either one left the
+  // products invisible with the other having no idea.
   return (
-    <RevealSection className="container-page py-10 sm:py-16 lg:py-20">
+    <section className="container-page py-10 sm:py-16 lg:py-20">
       <SectionHeading
         title={section.title}
         eyebrow={section.eyebrow}
@@ -193,7 +216,7 @@ export function HomepageSection({
       />
 
       {section.kind === "products" ? (
-        <div className={PRODUCT_GRID_CLASS}>
+        <StaggerGrid className={PRODUCT_GRID_CLASS}>
           {section.items.map((product) => (
             <ProductCard
               key={product.id}
@@ -205,13 +228,13 @@ export function HomepageSection({
               }
             />
           ))}
-        </div>
+        </StaggerGrid>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <StaggerGrid className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {section.items.map((collection) => (
             <CollectionCard key={collection.id} collection={collection} />
           ))}
-        </div>
+        </StaggerGrid>
       )}
 
       {/* Below the grid, not beside the heading — a centred heading has no right
@@ -219,12 +242,17 @@ export function HomepageSection({
           the row actually wants more. */}
       {section.viewAllHref && (
         <div className="mt-10 flex justify-center">
-          <Button asChild variant="outline" size="lg" className="h-12 rounded-full px-8 text-base">
-            <Link href={section.viewAllHref}>View all</Link>
-          </Button>
+          {/* The one magnetic control on the page. It is the only button that
+              sits alone in whitespace, which is the condition the effect needs
+              — inside a row of controls it just looks like drift. */}
+          <Magnetic>
+            <Button asChild variant="outline" size="lg" className="h-12 rounded-full px-8 text-base">
+              <Link href={section.viewAllHref}>View all</Link>
+            </Button>
+          </Magnetic>
         </div>
       )}
-    </RevealSection>
+    </section>
   );
 }
 
@@ -247,7 +275,10 @@ function SectionHeading({
   return (
     <div className="mb-6 text-center sm:mb-10">
       {eyebrow && <p className="label-eyebrow mb-3">{eyebrow}</p>}
-      {title && <h2 className="text-h2">{title}</h2>}
+      {/* Every section heading on the homepage rises line by line. This is the
+          one place SplitText is used, deliberately — applied to body copy it
+          becomes a tic, and each instance rebuilds its element's text nodes. */}
+      {title && <SplitHeading className="text-h2">{title}</SplitHeading>}
       {subtitle && (
         <p className="text-lead mx-auto mt-3 max-w-prose text-muted-foreground">{subtitle}</p>
       )}

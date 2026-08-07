@@ -16,6 +16,7 @@ export type SectionKind =
   | "banner"
   | "instagram"
   | "editorial"
+  | "story"
   | "categoryTiles"
   | "usp";
 export type ProductSource = "newest" | "bestseller" | "featured" | "category";
@@ -64,6 +65,26 @@ export type HomepageSection =
       ctaHref?: string;
       /** Which side the image sits on, so consecutive blocks can alternate. */
       imageSide: "left" | "right";
+    }
+  /**
+   * A full-height image held under the viewport while its copy advances over
+   * it. The one pinned moment on the homepage.
+   *
+   * Deliberately its own kind rather than a flag on `editorial`: it is a
+   * different shape (full-bleed, viewport-tall, copy in stages) and giving
+   * editorial a `pinned` boolean would mean one renderer branching on two
+   * layouts that share only a heading.
+   */
+  | {
+      kind: "story";
+      key: string;
+      title: string;
+      eyebrow?: string;
+      /** Each becomes one stage of copy as the section is scrolled through. */
+      stages: string[];
+      image?: string;
+      ctaLabel?: string;
+      ctaHref?: string;
     }
   /** Round category pills — the fastest route into the catalogue. */
   | {
@@ -182,6 +203,34 @@ async function resolveOne(
       ctaLabel: str(spec.ctaLabel),
       ctaHref: str(spec.ctaHref),
       imageSide: str(spec.imageSide) === "right" ? "right" : "left",
+    };
+  }
+
+  if (kind === "story") {
+    // The image is the section — pinned full-bleed with copy over it — so
+    // without one there is nothing to pin and this renders nothing rather than
+    // a viewport of empty background.
+    const title = str(spec.title);
+    const image = str(spec.image);
+    if (!title || !image) return null;
+
+    // Reuses the `items` array field that `usp` already defines, so the CMS
+    // form needs no new repeater — each row's `text` is one stage of copy.
+    const stages = Array.isArray(spec.items)
+      ? (spec.items as Array<Record<string, unknown>>)
+          .map((it) => str(it.text))
+          .filter((text): text is string => !!text)
+      : [];
+
+    return {
+      kind,
+      key,
+      title,
+      eyebrow,
+      stages,
+      image,
+      ctaLabel: str(spec.ctaLabel),
+      ctaHref: str(spec.ctaHref),
     };
   }
 

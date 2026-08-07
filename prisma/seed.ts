@@ -92,6 +92,7 @@ const systemContentTypes = [
               "banner",
               "instagram",
               "editorial",
+              "story",
               "categoryTiles",
               "usp",
             ],
@@ -155,19 +156,20 @@ const systemContentTypes = [
             name: "image",
             label: "Image",
             type: "image",
-            showWhen: { field: "type", equals: ["editorial"] },
+            // Required for a `story` — it is the thing being pinned.
+            showWhen: { field: "type", equals: ["editorial", "story"] },
           },
           {
             name: "ctaLabel",
             label: "Button label",
             type: "text",
-            showWhen: { field: "type", equals: ["editorial"] },
+            showWhen: { field: "type", equals: ["editorial", "story"] },
           },
           {
             name: "ctaHref",
             label: "Button link",
             type: "text",
-            showWhen: { field: "type", equals: ["editorial"] },
+            showWhen: { field: "type", equals: ["editorial", "story"] },
           },
           {
             name: "imageSide",
@@ -180,9 +182,13 @@ const systemContentTypes = [
           // ── USP / craft story ──
           {
             name: "items",
-            label: "The claims to show",
+            // Shared by two section types on purpose. A `story` reuses the same
+            // repeater and reads only each row's Text, so a pinned section
+            // needs no second array field on this form — the label explains
+            // which column is being read.
+            label: "The claims to show (a 'story' uses only the Text of each row, one per stage)",
             type: "array",
-            showWhen: { field: "type", equals: ["usp"] },
+            showWhen: { field: "type", equals: ["usp", "story"] },
             of: [
               {
                 name: "icon",
