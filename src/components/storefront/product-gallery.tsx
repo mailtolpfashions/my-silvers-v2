@@ -6,6 +6,16 @@ import { Play } from "lucide-react";
 import { ProductImageZoom } from "@/components/storefront/product-image-zoom";
 import { gsap, useGSAP, ScrollTrigger, MOTION_QUERY } from "@/lib/gsap";
 
+/** Matches the gallery's own `sm:top-24`. Keep the two in step. */
+const STICKY_TOP_PX = 96;
+
+/**
+ * Shortest stuck distance worth running the angle sequence over. Roughly 130px
+ * per angle on a three-image product — enough for each to be seen rather than
+ * flicked past.
+ */
+const MIN_TRAVEL_PX = 400;
+
 /**
  * Product image gallery.
  *
@@ -66,6 +76,18 @@ export function ProductGallery({
    * Honest about what this is: with two to five angles it is a slow cross-fade
    * between real photographs, not the hundred-frame render sequence Apple uses.
    * It reads as the piece turning as you read about it.
+   *
+   * The range is measured, not expressed as "top top" to "bottom bottom". That
+   * pairing looks reasonable and is a trap: on a product whose detail column is
+   * shorter than the viewport it resolves the END BEFORE THE START, ScrollTrigger
+   * collapses the inverted range to zero length, and the first scroll snaps
+   * progress straight to 1 — the gallery jumping to the last image. Which is
+   * precisely what it did.
+   *
+   * So the distance is the one that actually exists: how far the page scrolls
+   * while the gallery is stuck, which is the detail column's overhang past it.
+   * Below MIN_TRAVEL there is no sequence worth having and none is created —
+   * cycling three photographs across 80px is a flicker, not a reveal.
    */
   useGSAP(
     () => {
@@ -76,10 +98,24 @@ export function ProductGallery({
       const mm = gsap.matchMedia();
 
       mm.add(MOTION_QUERY.desktop, () => {
+        /** Scroll distance the gallery stays stuck for. */
+        const travel = () =>
+          grid.offsetHeight - (scope.current?.offsetHeight ?? 0) - STICKY_TOP_PX;
+
+        // Checked once, at creation. A column that grows later — reviews
+        // arriving — will not retroactively gain the sequence, which is the
+        // right way round to be wrong: no effect, never a jump.
+        if (travel() < MIN_TRAVEL_PX) return;
+
         const trigger = ScrollTrigger.create({
           trigger: grid,
-          start: "top top",
-          end: "bottom bottom",
+          // Where the gallery actually becomes stuck, matching sm:top-24.
+          start: `top top+=${STICKY_TOP_PX}`,
+          // A function plus invalidateOnRefresh, because the detail column's
+          // height is not final at creation: reviews and recommendations stream
+          // in under Cache Components and change it.
+          end: () => `+=${travel()}`,
+          invalidateOnRefresh: true,
           onUpdate: (self) => {
             if (userPicked.current) {
               trigger.kill();
