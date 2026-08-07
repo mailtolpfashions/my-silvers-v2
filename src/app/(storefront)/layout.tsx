@@ -1,8 +1,11 @@
-import { ViewTransition } from "react";
+import { Suspense, ViewTransition } from "react";
 import { SiteHeader } from "@/components/storefront/site-header";
 import { SiteFooter } from "@/components/storefront/site-footer";
 import { AnnouncementBar } from "@/components/storefront/cms/announcement-bar";
 import { UserStateHydrator } from "@/components/storefront/user-state-hydrator";
+import { SmoothScrollProvider } from "@/components/storefront/motion/smooth-scroll-provider";
+import { ScrollRefresh } from "@/components/storefront/motion/scroll-refresh";
+import { CursorLight } from "@/components/storefront/motion/cursor-light";
 
 /**
  * Only the <main> content slides during navigation. The announcement bar,
@@ -19,6 +22,21 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
       {/* Renders nothing — fills the per-shopper wishlist/cart store once per
           session so listing pages don't have to be built per user. */}
       <UserStateHydrator />
+
+      {/* Motion, all three rendering nothing. Smooth scrolling is desktop-only
+          and the refresher exists because Cache Components streams sections in
+          after the triggers were measured — see each file.
+
+          SmoothScrollProvider is behind a boundary because it reads
+          usePathname(), which is runtime data: without one, every storefront
+          route — including /blog/[slug], which is otherwise fully static —
+          becomes blocking. Same reason ProductFilters is wrapped on the
+          listing pages. No fallback, because it renders nothing. */}
+      <Suspense fallback={null}>
+        <SmoothScrollProvider />
+      </Suspense>
+      <ScrollRefresh />
+      <CursorLight />
 
       {/* ── Atmosphere ──────────────────────────────────────────────────────
           Two fixed layers carried over from the previous storefront. Both are
