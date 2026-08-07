@@ -132,8 +132,16 @@ export function PinnedStory({
             ))}
           </div>
 
+          {/* Light pill, not the default primary one: primary is graphite-950,
+              which on a dark photograph under a dark scrim is a black button on
+              a black background — the label reads but the control disappears.
+              The hero solves the same problem the same way. */}
           {ctaLabel && ctaHref && (
-            <Button asChild size="lg" className="mt-8 h-12 rounded-full px-8">
+            <Button
+              asChild
+              size="lg"
+              className="mt-8 h-12 rounded-full bg-white px-8 text-graphite-950 hover:bg-ivory-200"
+            >
               <Link href={ctaHref}>{ctaLabel}</Link>
             </Button>
           )}
