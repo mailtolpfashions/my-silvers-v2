@@ -147,10 +147,12 @@
      Kalyan — a deliberate product decision, not a cleanup, so don't "fix" it
      back without asking.
 
-     The surfaces are the old project's values verbatim. The TEXT colours are
-     NOT: the old palette put #C9A96E on ivory at 2.20:1 for prices and links,
-     and its muted grey managed only 4.15:1. Those stay on this project's
-     contrast-checked ramp — see --brass vs --brass-text below.
+     The surfaces are the old project's values verbatim, and so are its ink and
+     charcoal. TWO of its text colours are NOT, and they are the only two that
+     failed: #C9A96E on ivory is 2.20:1, and it was the old store's colour for
+     prices and links — 151 uses. Its muted grey managed 4.15:1, under the
+     4.5:1 body-text rule. Both keep this project's checked values instead; see
+     --brass vs --brass-text below. Everything else here IS the old palette.
 
      Ratios in comments are worst-case, i.e. against --ivory-200 (#f7f5f3), not
      the page background, since muted fills are the darkest thing text sits on.
@@ -161,8 +163,13 @@
   --ivory-300: #e8e4e0; /* decorative hairlines and card edges — old --color-border */
   --silver-500: #8c8781; /* control borders — 3.50:1, clears the 3:1 rule */
   --graphite-600: #5c666d; /* muted foreground — 5.40:1 */
-  --graphite-800: #2b3238; /* body ink — 11.95:1 */
-  --graphite-950: #12161a; /* headings, footer — 16.71:1 */
+  /* Body and headings are the old store's --color-charcoal and --color-ink
+     verbatim. Both are neutral where the previous values here were faintly
+     blue, and a cool grey over a warm ivory is the thing that made this site
+     read as a template rather than a catalogue. Both clear AAA comfortably, so
+     unlike the old gold and muted grey (see below) there was nothing to trade. */
+  --graphite-800: #2d2d2d; /* body ink — old --color-charcoal, 13.60:1 */
+  --graphite-950: #0c0c0e; /* headings, footer — old --color-ink, 19.56:1 */
 
   /* ── Warm accent ──────────────────────────────────────────────────────────
      One accent, two roles. --brass is for fills, borders and decoration only:
