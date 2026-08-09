@@ -189,22 +189,27 @@ export function ProductCard({
         )}
       </div>
 
-      {/* The category eyebrow is gone: the old card carried a name and a price
-          and nothing else, and every line removed from under the photograph is
-          one the photograph gets back. Category is one tap away in the nav and
-          on the product page. */}
-      <div className="flex flex-1 flex-col space-y-2 px-1 pt-4 sm:px-2 sm:pt-5">
-        <h3 className={`${CARD_TITLE_CLASS} text-graphite-950`}>
+      {/* Two lines of identity above the price, which is the reference's card:
+          a small bold line naming the range, then the piece itself. It reads as
+          a catalogue entry rather than a search result, and the category is the
+          nearest thing this catalogue has to their maker's name. */}
+      <div className="flex flex-1 flex-col px-1 pt-4 sm:px-2 sm:pt-5">
+        <p className="text-xs font-semibold text-graphite-950 lg:text-sm">
+          {product.categoryName}
+        </p>
+
+        <h3 className={`${CARD_TITLE_CLASS} mt-0.5 text-muted-foreground`}>
           <Link href={href} className="decoration-brass/60 underline-offset-4 hover:underline">
             {product.name}
           </Link>
         </h3>
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Price on the left, availability on the right — their row exactly. */}
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
           {/* text-foreground, NOT text-graphite-950: the ramp tokens are fixed
               values that don't flip with the theme, so a raw graphite price sat
-              near-invisible on the dark background. */}
-          {/* 12px on a phone, 14px from lg — the reference's price size, and
+              near-invisible on the dark background.
+              12px on a phone, 14px from lg — the reference's price size, and
               genuinely smaller than it looks like it should be. A price set
               quietly beside a large photograph reads as confidence; the same
               number at 16px bold reads as a discount sticker. */}
@@ -216,19 +221,33 @@ export function ProductCard({
               {formatINR(compareAt)}
             </span>
           )}
-        </div>
 
-        {/* Scarcity, never a count — see src/lib/stock-label.ts. */}
-        {isScarce(product.stock) && (
-          <p className="text-xs font-medium text-brass-text">{stockLabel(product.stock)}</p>
-        )}
+          {/* A dot and a word, pushed to the end of the row. Still says nothing
+              about how many — see src/lib/stock-label.ts. Scarcity keeps the
+              brass it always had; plain availability is quieter. */}
+          {product.stock > 0 && (
+            <span
+              className={`ml-auto inline-flex items-center gap-1.5 text-xs ${
+                isScarce(product.stock) ? "text-brass-text" : "text-muted-foreground"
+              }`}
+            >
+              <span
+                aria-hidden
+                className={`size-1.5 rounded-full ${
+                  isScarce(product.stock) ? "bg-brass" : "bg-success"
+                }`}
+              />
+              {isScarce(product.stock) ? stockLabel(product.stock) : "In stock"}
+            </span>
+          )}
+        </div>
 
         {/* Mobile CTA. mt-auto pins it to the bottom of the card, so a scarcity
             line on one product doesn't shove its button out of line with the
             row. The lg copy above is the same component reading the same store,
             so the two never disagree — only one is ever visible. */}
         {showActions && (
-          <div className="mt-auto pt-1 lg:hidden">
+          <div className="mt-auto pt-4 lg:hidden">
             <AddToCartButton productId={product.id} stock={product.stock} compact />
           </div>
         )}

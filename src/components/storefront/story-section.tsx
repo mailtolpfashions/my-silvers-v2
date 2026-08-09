@@ -75,14 +75,15 @@ export function StorySection({
             </div>
           )}
 
-          {/* Light pill: the default primary is graphite-950, which on a dark
-              photograph under a dark scrim is a black button on a black
-              background — the label reads but the control disappears. */}
+          {/* White block, not black: this one sits on a dark photograph under a
+              dark scrim, where the black CTA disappears into the background.
+              Same square shape and letterspaced label, inverted. */}
           {ctaLabel && ctaHref && (
             <Button
               asChild
-              size="lg"
-              className="mt-8 h-12 rounded-full bg-white px-8 text-graphite-950 hover:bg-ivory-200"
+              variant="cta"
+              size="cta"
+              className="mt-8 bg-white text-graphite-950 hover:bg-ivory-200"
             >
               <Link href={ctaHref}>{ctaLabel}</Link>
             </Button>

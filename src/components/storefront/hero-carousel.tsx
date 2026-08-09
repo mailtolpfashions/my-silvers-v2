@@ -256,14 +256,15 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                 }}
               >
                 {slide.ctaLabel && slide.ctaHref && (
-                  // A white pill with letter-spaced caps, as the previous
-                  // storefront had it. Not the shared <Button>: this one is
+                  // A square white block with letter-spaced caps — the same
+                  // shape as the `cta` button variant, inverted for a dark
+                  // photograph. Not the shared <Button>: this one is
                   // deliberately smaller and wider-tracked than any button in
                   // the system, and forcing it through the variants would mean
                   // overriding nearly every one of them.
                   <Link
                     href={slide.ctaHref}
-                    className="inline-block rounded-full bg-white px-6 py-3 text-[11px] font-bold uppercase tracking-[0.2em] text-graphite-950 transition-colors hover:bg-white/90"
+                    className="inline-block bg-white px-10 py-4 text-[13px] uppercase tracking-[0.08em] text-graphite-950 transition-colors hover:bg-ivory-200"
                   >
                     {slide.ctaLabel}
                   </Link>

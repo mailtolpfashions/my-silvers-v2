@@ -19,6 +19,20 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
+        /**
+         * The storefront's editorial call to action: a square black block with
+         * an uppercase, letterspaced label.
+         *
+         * Deliberately its own variant rather than a change to `default`, which
+         * is used by every form and dialog in /admin and /cms where a rounded
+         * button is right. This one is for the places a shopper is being
+         * invited somewhere — hero, story, category tile, "view all".
+         *
+         * Square corners are the point. A pill reads as an app control; a
+         * rectangle reads as print, and print is the association this design is
+         * reaching for. Pair with size="cta".
+         */
+        cta: "rounded-none bg-graphite-950 text-ivory-100 uppercase tracking-[0.08em] hover:bg-graphite-800",
       },
       size: {
         default:
@@ -26,6 +40,8 @@ const buttonVariants = cva(
         xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
+        /** Pairs with variant="cta": tall, wide, and small-lettered. */
+        cta: "h-12 px-10 text-[13px] font-normal sm:h-[52px] sm:px-14",
         icon: "size-8",
         "icon-xs":
           "size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",

@@ -109,34 +109,52 @@ export function HomepageSection({
   }
 
   if (section.kind === "categoryTiles") {
+    // Tall full-bleed panels running edge to edge with no gap between them and
+    // the category name laid over the photograph — not the row of small circles
+    // this used to be. The circles were a chip: they turned the photography into
+    // a thumbnail and pushed the name outside the picture. These are closer to
+    // three doorways, and the whole band is one continuous image.
+    //
+    // Deliberately outside container-page so it reaches the viewport edges, and
+    // deliberately without a heading — the panels name themselves.
     return (
-      <RevealSection className="container-page py-20 sm:py-28 lg:py-40">
-        <SectionHeading title={section.title} eyebrow={section.eyebrow} subtitle={section.subtitle} />
-        <ul className="flex flex-wrap justify-center gap-x-8 gap-y-10 sm:gap-x-12">
-          {section.items.map((item) => (
-            <li key={item.id}>
-              <Link
-                href={`/category/${item.slug}`}
-                className="group flex w-28 flex-col items-center gap-4 sm:w-40"
-              >
-                <div className="relative size-28 overflow-hidden rounded-full bg-muted ring-1 ring-border transition-all duration-300 group-hover:ring-2 group-hover:ring-brass sm:size-40">
-                  {item.image && (
-                    <Image
-                      src={item.image}
-                      alt=""
-                      fill
-                      className="object-cover transition-transform duration-500 group-hover:scale-105"
-                      sizes="(max-width: 640px) 112px, 160px"
-                    />
-                  )}
-                </div>
-                <span className="text-center text-base font-medium text-muted-foreground transition-colors group-hover:text-foreground">
-                  {item.name}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+      <RevealSection className="grid grid-cols-1 sm:grid-cols-3">
+        {section.items.slice(0, 3).map((item) => (
+          <Link
+            key={item.id}
+            href={`/category/${item.slug}`}
+            // 4:5 stacked on a phone so three panels do not become three
+            // screens of scrolling; tall and near-viewport-height side by side.
+            className="group relative flex aspect-[4/5] items-end justify-center overflow-hidden bg-muted sm:aspect-auto sm:h-[70vh] lg:h-[85vh]"
+          >
+            {item.image && (
+              <Image
+                src={item.image}
+                alt=""
+                fill
+                className="object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.03]"
+                sizes="(max-width: 640px) 100vw, 33vw"
+              />
+            )}
+
+            {/* Just enough darkening at the foot to carry white type over an
+                arbitrary photograph, and nothing at the top. */}
+            <div
+              aria-hidden
+              className="absolute inset-0 bg-gradient-to-t from-graphite-950/60 via-graphite-950/10 to-transparent"
+            />
+
+            <div className="relative flex flex-col items-center gap-6 p-8 pb-12 sm:pb-16">
+              <span className="text-h3 font-medium text-white">{item.name}</span>
+              {/* The block button appears on hover, the way theirs does — at
+                  rest the panel is a photograph and a name. On touch there is
+                  no hover, so it is always visible below sm. */}
+              <span className="inline-flex h-12 items-center bg-graphite-950 px-10 text-[13px] uppercase tracking-[0.08em] text-ivory-100 transition-opacity duration-300 sm:opacity-0 sm:group-hover:opacity-100">
+                Discover now
+              </span>
+            </div>
+          </Link>
+        ))}
       </RevealSection>
     );
   }
@@ -251,8 +269,8 @@ export function HomepageSection({
           edge to hang it off, and this is the point where a shopper who scanned
           the row actually wants more. */}
       {section.viewAllHref && (
-        <div className="mt-10 flex justify-center">
-          <Button asChild variant="outline" size="lg" className="h-12 rounded-full px-8 text-base">
+        <div className="mt-14 flex justify-center">
+          <Button asChild variant="cta" size="cta">
             <Link href={section.viewAllHref}>View all</Link>
           </Button>
         </div>
