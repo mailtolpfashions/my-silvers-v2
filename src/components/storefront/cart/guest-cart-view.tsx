@@ -14,6 +14,7 @@ import {
   removeFromGuestCart,
 } from "@/lib/guest-cart";
 import { formatINR } from "@/lib/format";
+import { EmptyCart } from "@/components/storefront/cart/empty-cart";
 import { MAX_ITEM_QUANTITY } from "@/server/orders/money";
 
 type Summary = {
@@ -68,16 +69,9 @@ export function GuestCartView() {
     .map((item) => ({ item, product: products.get(item.productId) }))
     .filter((r): r is { item: (typeof items)[0]; product: Summary } => !!r.product);
 
-  if (rows.length === 0) {
-    return (
-      <div className="py-16 text-center">
-        <p className="text-muted-foreground">Your cart is empty.</p>
-        <Button asChild className="mt-4">
-          <Link href="/products">Continue shopping</Link>
-        </Button>
-      </div>
-    );
-  }
+  // One empty state for both cart flows — they had two different ones, with
+  // different copy and different buttons.
+  if (rows.length === 0) return <EmptyCart />;
 
   const subtotalPaise = rows.reduce(
     (sum, { item, product }) => sum + Math.round(Number(product.price) * 100) * item.quantity,
@@ -85,34 +79,47 @@ export function GuestCartView() {
   );
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-      <div className="space-y-4">
+    <div className="grid gap-10 lg:grid-cols-[1fr_20rem] lg:gap-16">
+      <ul className="border-t">
         {rows.map(({ item, product }) => (
           // Layout mirrors the signed-in cart row exactly — see the note in
           // app/(storefront)/cart/page.tsx for why the controls wrap below sm.
-          <div
-            key={`${product.id}::${item.size}`}
-            className="flex gap-4 rounded-lg border p-4"
-          >
-            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-muted">
+          <li key={`${product.id}::${item.size}`} className="flex gap-5 border-b py-6">
+            <Link
+              href={`/products/${product.slug}`}
+              className="relative h-[7.5rem] w-24 shrink-0 overflow-hidden bg-muted"
+            >
               {product.image && (
-                <Image src={product.image} alt={product.name} fill className="object-cover" />
+                <Image
+                  src={product.image}
+                  alt={product.name}
+                  fill
+                  sizes="96px"
+                  className="object-cover"
+                />
               )}
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            </Link>
+            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-start sm:gap-6">
               <div className="min-w-0 flex-1">
                 <Link
                   href={`/products/${product.slug}`}
-                  className="line-clamp-2 text-sm font-medium hover:underline"
+                  className="line-clamp-2 text-sm font-medium decoration-brass/60 underline-offset-4 hover:underline"
                 >
                   {product.name}
                 </Link>
                 {item.size && (
-                  <p className="mt-0.5 text-sm text-muted-foreground">Size: {item.size}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Size {item.size}</p>
                 )}
-                <p className="mt-1 text-sm text-muted-foreground">{formatINR(product.price)}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{formatINR(product.price)}</p>
+                {/* No count, matching src/lib/stock-label.ts and the signed-in
+                    cart — this row said "Only 2 left" while every other surface
+                    on the site deliberately refuses to state a number. */}
                 {product.stock < item.quantity && (
-                  <p className="mt-1 text-xs text-destructive">Only {product.stock} left</p>
+                  <p className="mt-2 text-xs text-destructive">
+                    {product.stock === 0
+                      ? "Now out of stock"
+                      : "We have fewer of these than you've added"}
+                  </p>
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -146,10 +153,10 @@ export function GuestCartView() {
                 </Button>
               </div>
             </div>
-          </div>
+          </li>
         ))}
-      </div>
-      <div>
+      </ul>
+      <div className="lg:sticky lg:top-[7.5rem]">
         <CartSummary subtotalPaise={subtotalPaise} />
         <p className="mt-3 text-center text-xs text-muted-foreground">
           <Link href="/login?redirect=/cart" className="underline">

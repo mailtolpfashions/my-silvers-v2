@@ -1,12 +1,16 @@
 import { RegisterForm } from "@/components/auth/register-form";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { AuthShell } from "@/components/auth/auth-shell";
 
 export default function RegisterPage() {
   return (
-    <div className="mx-auto flex max-w-sm flex-col justify-center px-4 py-20">
-      <h1 className="mb-6 text-2xl font-semibold">Create an account</h1>
+    <AuthShell
+      eyebrow="Account"
+      title="Create an account"
+      description="Save pieces to your wishlist and track every order in one place."
+    >
       <GoogleSignInButton />
       <RegisterForm />
-    </div>
+    </AuthShell>
   );
 }

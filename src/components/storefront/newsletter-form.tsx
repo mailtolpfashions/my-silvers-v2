@@ -24,15 +24,15 @@ export function NewsletterForm() {
 
   if (result === "subscribed") {
     return (
-      <p className="text-base text-white/75">
-        Thanks for subscribing — see you in your inbox. ✨
+      <p className="text-sm text-white/75">
+        Thanks for subscribing — see you in your inbox.
       </p>
     );
   }
 
   return (
     <form action={formAction} className="space-y-2">
-      <div className="flex gap-2">
+      <div className="flex items-end gap-3">
         <input
           name="email"
           type="email"
@@ -41,14 +41,18 @@ export function NewsletterForm() {
           aria-label="Email address for newsletter"
           // border-white/40 is 3.82:1 against the footer. /25 looked right but
           // measured 2.24:1 — under the 3:1 a real control boundary needs.
-          className="h-11 w-full max-w-60 rounded-full border border-white/40 bg-white/5 px-4 text-base text-white outline-none transition-colors placeholder:text-white/50 focus:border-brass"
+          className="h-11 w-full min-w-0 flex-1 border-0 border-b border-white/40 bg-transparent px-0 text-sm text-white outline-none transition-colors placeholder:text-white/50 focus:border-brass"
         />
-        {/* Brass fill with a graphite label — the same pairing as the hero CTA,
-            and the one combination on this background that reads at rest. */}
+        {/* A white block with a graphite label. It was a BRASS fill, which
+            broke the palette rule that --brass is decorative and never a fill
+            behind text; white is the inverted commerce CTA used on the hero and
+            the story block, so this matches the rest of the site. */}
         <Button
           type="submit"
           disabled={isPending}
-          className="h-11 shrink-0 rounded-full bg-brass px-5 text-base text-graphite-950 hover:bg-brass-light"
+          variant="cta"
+          size="cta"
+          className="h-11 shrink-0 bg-white px-6 text-graphite-950 hover:bg-ivory-200 sm:h-11 sm:px-6"
         >
           {isPending ? "Subscribing…" : "Subscribe"}
         </Button>

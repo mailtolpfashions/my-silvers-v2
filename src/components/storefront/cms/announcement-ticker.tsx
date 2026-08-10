@@ -47,8 +47,11 @@ export function AnnouncementTicker({
   // past the new end, which would otherwise blank the bar until the next tick.
   const item = items[index % items.length];
 
+  // No padding or alignment of its own — the caller owns the band's geometry.
+  // The ticker now sits inside the header's utility row alongside the service
+  // links, so it can no longer assume it is a full-width centred strip.
   return (
-    <div className={`px-4 py-2 text-center text-sm ${className ?? ""}`}>
+    <div className={className}>
       {/* aria-live so a screen reader announces a message that appears without
           the user doing anything — but "polite", so it waits its turn rather
           than interrupting whatever is being read. */}
@@ -56,7 +59,7 @@ export function AnnouncementTicker({
         {/* Remounting on change replays the fade. */}
         <span
           key={item.id}
-          className="font-medium animate-in fade-in duration-500 motion-reduce:animate-none"
+          className="animate-in fade-in duration-500 motion-reduce:animate-none"
         >
           {item.text}
         </span>

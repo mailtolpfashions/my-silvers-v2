@@ -3,13 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { stockLabel, isScarce } from "@/lib/stock-label";
 import { formatINR } from "@/lib/format";
-import {
-  CARD_IMAGE_CLASS,
-  CARD_TITLE_CLASS,
-  CARD_SHELL_CLASS,
-  CARD_PILL_CLASS,
-} from "@/lib/card-styles";
-import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
+import { CARD_IMAGE_CLASS, CARD_TITLE_CLASS, CARD_SHELL_CLASS } from "@/lib/card-styles";
 import { WishlistButton } from "@/components/storefront/wishlist-button";
 import type { ProductListItem } from "@/server/products/search";
 
@@ -23,7 +17,6 @@ export {
   CARD_IMAGE_CLASS,
   CARD_TITLE_CLASS,
   CARD_SHELL_CLASS,
-  CARD_CTA_CLASS,
   PRODUCT_GRID_CLASS,
 } from "@/lib/card-styles";
 
@@ -50,13 +43,28 @@ function MaybeMorph({ name, children }: { name?: string; children: React.ReactNo
 }
 
 /**
- * Deliberately a pure function of the product.
+ * A product, as a photograph and its name.
  *
+ * ── What this card deliberately does NOT show ────────────────────────────────
+ * A discount pill, a bestseller pill, an "In stock" dot and an add-to-cart
+ * button have all been removed. Each was individually defensible; together they
+ * put six pieces of furniture on a tile whose whole thesis is a picture and a
+ * name, and they are what made a grid of jewellery read as a shelf of offers.
+ *
+ * A brass-filled percentage badge in particular is a discount sticker, and it
+ * was the one place the palette's decorative accent was being used as a fill
+ * behind text. The saving is still shown — as a struck-through compare-at price,
+ * which is the quiet way to say the same thing.
+ *
+ * Scarcity survives, because for one-of-a-kind pieces it is genuine
+ * information rather than pressure — but only when it says something. "In
+ * stock" on every tile says nothing.
+ *
+ * ── Do not add per-shopper props ─────────────────────────────────────────────
  * Wishlist and cart membership used to arrive here as props, which made every
  * grid on the site different for every visitor and kept listing pages out of
- * the cache entirely. The two buttons now read that state from the shared
- * client store instead — see src/lib/user-state-store.ts. Do not reintroduce
- * per-shopper props here.
+ * the cache entirely. The wishlist button reads that state from the shared
+ * client store instead — see src/lib/user-state-store.ts.
  */
 export function ProductCard({
   product,
@@ -83,23 +91,17 @@ export function ProductCard({
   const hoverImage = product.images[1];
   const price = Number(product.price);
   const compareAt = product.compareAtPrice ? Number(product.compareAtPrice) : null;
-  const discount =
-    compareAt && compareAt > price ? Math.round(((compareAt - price) / compareAt) * 100) : null;
   const href = `/products/${product.slug}`;
 
   return (
-    // Not a <Link> wrapper: the card holds buttons, and interactive elements
-    // cannot legally nest inside an anchor — it breaks keyboard navigation and
-    // screen readers. A stretched overlay link keeps the image clickable.
-    //
-    // flex column + h-full so every card in a row is the same height and the
-    // CTA sits on a shared baseline. Without it, the scarcity line ("Only a few
-    // left") appears on some cards and not others, and their buttons visibly
-    // fall out of line with the rest of the row.
+    // Not a <Link> wrapper: the card holds a wishlist button, and interactive
+    // elements cannot legally nest inside an anchor — it breaks keyboard
+    // navigation and screen readers. A stretched overlay link keeps the image
+    // clickable.
     <div className="group relative flex h-full flex-col">
-      {/* The tile is the grey field; the words go below it on the page. That
-          split is the point — a bordered box containing both reads as a card,
-          an image with a caption under it reads as a catalogue. */}
+      {/* The tile is the field; the words go below it on the page. That split
+          is the point — a bordered box containing both reads as a card, an
+          image with a caption under it reads as a catalogue. */}
       <div className={`${CARD_SHELL_CLASS} ${CARD_IMAGE_CLASS}`}>
         {image ? (
           <>
@@ -108,8 +110,11 @@ export function ProductCard({
                 src={image}
                 alt={product.name}
                 fill
-                className={`object-cover transition-all duration-500 ease-out ${
-                  hoverImage ? "group-hover:opacity-0" : "group-hover:scale-[1.04]"
+                // A crossfade to the second angle, and nothing else. No scale,
+                // no lift, no shadow — the picture should not react to the
+                // cursor, it should simply show you more.
+                className={`object-cover transition-opacity duration-500 ease-out ${
+                  hoverImage ? "group-hover:opacity-0" : ""
                 }`}
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 400px"
               />
@@ -141,115 +146,54 @@ export function ProductCard({
           transitionTypes={["nav-forward"]}
         />
 
-        {/* All badges stack down the left so the wishlist heart owns the right
-            corner alone. A sold-out piece shows only that — a discount on
-            something unbuyable is noise. */}
-        {/* Small letterspaced pills, the old store's shape. Not the shadcn
-            Badge: that primitive is sized for admin tables and comes out twice
-            this height over a photograph. */}
-        <div className="absolute left-3 top-3 z-10 flex flex-col items-start gap-1.5">
-          {product.stock <= 0 ? (
-            <span className={`${CARD_PILL_CLASS} border bg-background/90 text-graphite-950 backdrop-blur-sm`}>
-              Sold out
-            </span>
-          ) : (
-            <>
-              {discount !== null && discount > 0 && (
-                <span className={`${CARD_PILL_CLASS} bg-brass text-graphite-950 shadow-sm`}>
-                  {discount}% off
-                </span>
-              )}
-              {product.isBestseller && (
-                <span className={`${CARD_PILL_CLASS} bg-graphite-950/85 text-ivory-100 shadow-sm backdrop-blur-sm`}>
-                  Bestseller
-                </span>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Always visible on a phone, where there is no hover to reveal it;
-            revealed with the CTA from lg up. */}
-        {showActions && (
-          <div className="absolute right-3 top-3 z-10 transition-opacity duration-200 lg:opacity-0 lg:group-hover:opacity-100">
-            <WishlistButton productId={product.id} iconOnly />
-          </div>
+        {/* Sold out is the one state still worth marking on the tile — a
+            shopper who clicks through to an unbuyable piece has been wasted.
+            A hairline label rather than a filled pill. */}
+        {product.stock <= 0 && (
+          <span className="absolute left-3 top-3 z-10 bg-background/90 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-graphite-950 backdrop-blur-sm">
+            Sold out
+          </span>
         )}
 
-        {/* Desktop: the CTA lives over the photograph and slides up on hover,
-            so the resting card is a picture and a name and nothing else. This
-            is the old store's card, and the reason its grid reads as a
-            catalogue rather than a shelf of buttons.
-            pointer-events only on hover, or an invisible button would swallow
-            clicks meant for the link beneath it. */}
+        {/* Always visible on a phone, where there is no hover to reveal it;
+            revealed on hover from lg up. A low-commitment action that genuinely
+            belongs on a grid — unlike add-to-cart, which does not. */}
         {showActions && (
-          <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 hidden translate-y-2 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 lg:block">
-            <AddToCartButton productId={product.id} stock={product.stock} compact />
+          <div className="absolute right-2 top-2 z-10 transition-opacity duration-200 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-within:opacity-100">
+            <WishlistButton productId={product.id} iconOnly />
           </div>
         )}
       </div>
 
-      {/* Two lines of identity above the price, which is the reference's card:
-          a small bold line naming the range, then the piece itself. It reads as
-          a catalogue entry rather than a search result, and the category is the
-          nearest thing this catalogue has to their maker's name. */}
-      <div className="flex flex-1 flex-col px-1 pt-4 sm:px-2 sm:pt-5">
-        <p className="text-xs font-semibold text-graphite-950 lg:text-sm">
-          {product.categoryName}
-        </p>
+      <div className="flex flex-1 flex-col px-1 pt-4 sm:px-2">
+        {/* The range, then the piece. It reads as a catalogue entry rather than
+            a search result, and the category is the nearest thing this
+            catalogue has to a maker's name. */}
+        <p className="text-xs text-muted-foreground">{product.categoryName}</p>
 
-        <h3 className={`${CARD_TITLE_CLASS} mt-0.5 text-muted-foreground`}>
+        <h3 className={`${CARD_TITLE_CLASS} mt-1 text-foreground`}>
           <Link href={href} className="decoration-brass/60 underline-offset-4 hover:underline">
             {product.name}
           </Link>
         </h3>
 
-        {/* Price on the left, availability on the right — their row exactly. */}
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-          {/* text-foreground, NOT text-graphite-950: the ramp tokens are fixed
-              values that don't flip with the theme, so a raw graphite price sat
-              near-invisible on the dark background.
-              12px on a phone, 14px from lg — the reference's price size, and
-              genuinely smaller than it looks like it should be. A price set
-              quietly beside a large photograph reads as confidence; the same
-              number at 16px bold reads as a discount sticker. */}
-          <span className="text-xs font-medium tracking-normal text-foreground lg:text-sm">
-            {formatINR(price)}
-          </span>
+        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          {/* 14px, regular weight. A price set quietly beside a large
+              photograph reads as confidence; the same number at 16px bold
+              reads as a discount sticker. */}
+          <span className="text-sm text-foreground">{formatINR(price)}</span>
           {compareAt && compareAt > price && (
-            <span className="text-xs text-muted-foreground line-through lg:text-sm">
+            <span className="text-xs text-muted-foreground line-through">
               {formatINR(compareAt)}
-            </span>
-          )}
-
-          {/* A dot and a word, pushed to the end of the row. Still says nothing
-              about how many — see src/lib/stock-label.ts. Scarcity keeps the
-              brass it always had; plain availability is quieter. */}
-          {product.stock > 0 && (
-            <span
-              className={`ml-auto inline-flex items-center gap-1.5 text-xs ${
-                isScarce(product.stock) ? "text-brass-text" : "text-muted-foreground"
-              }`}
-            >
-              <span
-                aria-hidden
-                className={`size-1.5 rounded-full ${
-                  isScarce(product.stock) ? "bg-brass" : "bg-success"
-                }`}
-              />
-              {isScarce(product.stock) ? stockLabel(product.stock) : "In stock"}
             </span>
           )}
         </div>
 
-        {/* Mobile CTA. mt-auto pins it to the bottom of the card, so a scarcity
-            line on one product doesn't shove its button out of line with the
-            row. The lg copy above is the same component reading the same store,
-            so the two never disagree — only one is ever visible. */}
-        {showActions && (
-          <div className="mt-auto pt-4 lg:hidden">
-            <AddToCartButton productId={product.id} stock={product.stock} compact />
-          </div>
+        {/* Only when it says something. "In stock" on every tile is noise; a
+            piece with one left is information. Still never a count — see
+            src/lib/stock-label.ts. */}
+        {product.stock > 0 && isScarce(product.stock) && (
+          <p className="mt-1.5 text-xs text-brass-text">{stockLabel(product.stock)}</p>
         )}
       </div>
     </div>

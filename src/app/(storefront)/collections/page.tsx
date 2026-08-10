@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { getCollections } from "@/server/cms/collections";
 import { CollectionCard } from "@/components/storefront/collection-card";
+import { PageHeader } from "@/components/storefront/page-header";
+import { EditorialLink } from "@/components/storefront/editorial-link";
+import { BreadcrumbJsonLd } from "@/components/storefront/structured-data";
 
 export const metadata: Metadata = {
   title: "Collections",
@@ -12,23 +15,42 @@ export default async function CollectionsPage() {
   const collections = await getCollections();
 
   return (
-    <div className="container-page py-10">
-      <h1 className="text-h1">Collections</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {collections.length} {collections.length === 1 ? "collection" : "collections"}
-      </p>
+    <div>
+      <BreadcrumbJsonLd trail={[{ name: "Collections", path: "/collections" }]} />
 
-      {collections.length === 0 ? (
-        <p className="py-20 text-center text-muted-foreground">
-          No collections published yet.
-        </p>
-      ) : (
-        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {collections.map((collection, i) => (
-            <CollectionCard key={collection.id} collection={collection} preload={i < 3} />
-          ))}
-        </div>
-      )}
+      <PageHeader
+        eyebrow="Edits"
+        title="Collections"
+        description="Each one built around a single idea, in hallmarked 925 sterling silver."
+      />
+
+      <div className="container-page pt-10 rhythm-commerce-bottom">
+        {collections.length === 0 ? (
+          <div className="border-t py-24 text-center">
+            <p className="text-h3">No collections yet</p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              The full catalogue is open in the meantime.
+            </p>
+            <div className="mt-8 flex justify-center">
+              <EditorialLink href="/products">Browse all jewellery</EditorialLink>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="border-b pb-4 text-sm text-muted-foreground">
+              {collections.length} {collections.length === 1 ? "collection" : "collections"}
+            </p>
+            {/* The same editorial tile as the homepage and the journal — the
+                three surfaces that show a photograph with words under it now
+                share one component. */}
+            <div className="mt-10 grid gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
+              {collections.map((collection, i) => (
+                <CollectionCard key={collection.id} collection={collection} preload={i < 3} />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

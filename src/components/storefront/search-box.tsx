@@ -180,7 +180,7 @@ export function SearchBox({
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       <div className="relative">
-        <Search className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-muted-foreground" />
+        <Search className="pointer-events-none absolute left-0 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
         <input
           ref={inputRef}
           type="search"
@@ -205,7 +205,7 @@ export function SearchBox({
           aria-expanded={open && (hasResults || showIdlePanel)}
           aria-controls={listId}
           aria-autocomplete="list"
-          className="h-12 w-full rounded-full border border-input bg-background pl-11 pr-10 text-base outline-none transition-colors focus:border-ring [&::-webkit-search-cancel-button]:hidden"
+          className="h-14 w-full rounded-none border-0 border-b border-input bg-transparent pl-9 pr-10 text-lg outline-none transition-colors focus:border-foreground [&::-webkit-search-cancel-button]:hidden"
         />
         {query && (
           <button
@@ -228,12 +228,12 @@ export function SearchBox({
       {open && !hasResults && showIdlePanel && (
         <div
           id={listId}
-          className="absolute left-0 right-0 top-full z-50 mt-2 space-y-5 rounded-lg border bg-popover p-4 shadow-lg"
+          className="mt-6 space-y-6"
         >
           {recent.length > 0 && (
             <div>
-              <div className="mb-2.5 flex items-center justify-between">
-                <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="label-eyebrow flex items-center gap-1.5">
                   <Clock className="size-3.5" /> Recent
                 </p>
                 <button
@@ -250,7 +250,7 @@ export function SearchBox({
                     key={term}
                     type="button"
                     onClick={() => go(`/products?q=${encodeURIComponent(term)}`, term)}
-                    className="rounded-full border px-3 py-1.5 text-sm transition-colors hover:border-brass hover:text-brass-text"
+                    className="border px-3 py-1.5 text-sm transition-colors hover:border-brass hover:text-brass-text"
                   >
                     {term}
                   </button>
@@ -261,7 +261,7 @@ export function SearchBox({
 
           {popular.length > 0 && (
             <div>
-              <p className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="label-eyebrow mb-3 flex items-center gap-1.5">
                 <TrendingUp className="size-3.5" /> Popular
               </p>
               <div className="flex flex-wrap gap-2">
@@ -275,7 +275,7 @@ export function SearchBox({
                     // Recording it would put an entry in "Recent" that goes
                     // somewhere different from the click that created it.
                     onClick={() => go(term.href)}
-                    className="rounded-full border bg-muted/40 px-3 py-1.5 text-sm transition-colors hover:border-brass hover:text-brass-text"
+                    className="border px-3 py-1.5 text-sm transition-colors hover:border-brass hover:text-brass-text"
                   >
                     {term.label}
                   </button>
@@ -290,7 +290,7 @@ export function SearchBox({
         <div
           id={listId}
           role="listbox"
-          className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-lg border bg-popover shadow-lg"
+          className="mt-6 border-t"
         >
           {active.categories.length > 0 && (
             <div className="border-b py-1.5">
@@ -306,7 +306,7 @@ export function SearchBox({
                     aria-selected={highlight === index}
                     onMouseEnter={() => setHighlight(index)}
                     onClick={() => go(`/category/${category.slug}`)}
-                    className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm ${
+                    className={`flex w-full items-center gap-2 py-3 text-left text-sm ${
                       highlight === index ? "bg-accent text-accent-foreground" : ""
                     }`}
                   >
@@ -334,18 +334,18 @@ export function SearchBox({
                   aria-selected={highlight === index}
                   onMouseEnter={() => setHighlight(index)}
                   onClick={() => go(`/products/${product.slug}`)}
-                  className={`flex w-full items-center gap-3 px-4 py-2 text-left ${
+                  className={`flex w-full items-center gap-3 border-t py-3 text-left ${
                     highlight === index ? "bg-accent text-accent-foreground" : ""
                   }`}
                 >
-                  <span className="relative size-9 shrink-0 overflow-hidden rounded bg-muted">
+                  <span className="relative h-14 w-11 shrink-0 overflow-hidden bg-muted">
                     {product.image && (
                       <Image
                         src={product.image}
                         alt=""
                         fill
                         className="object-cover"
-                        sizes="36px"
+                        sizes="44px"
                       />
                     )}
                   </span>
@@ -361,7 +361,7 @@ export function SearchBox({
           <button
             type="button"
             onClick={submit}
-            className="w-full border-t px-4 py-2.5 text-left text-sm text-brass-text hover:bg-accent"
+            className="w-full border-t py-3.5 text-left text-sm text-brass-text transition-colors hover:text-foreground"
           >
             See all results for &ldquo;{query.trim()}&rdquo;
           </button>

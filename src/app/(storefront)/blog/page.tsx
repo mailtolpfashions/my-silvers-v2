@@ -1,50 +1,71 @@
-import Link from "next/link";
-import Image from "next/image";
 import { listPublishedEntries } from "@/server/cms/entries";
+import { EditorialTile } from "@/components/storefront/editorial-tile";
+import { PageHeader } from "@/components/storefront/page-header";
+import { EditorialLink } from "@/components/storefront/editorial-link";
+import { BreadcrumbJsonLd } from "@/components/storefront/structured-data";
 
-export const metadata = { title: "Blog — MY Silvers" };
+export const metadata = { title: "Journal" };
 
+/**
+ * The journal index.
+ *
+ * Two columns of large landscape tiles rather than four small cards: these are
+ * articles, and a grid of thumbnails reads as a blog widget bolted to a shop.
+ * The serif appears here and in the post itself — the journal is the one place
+ * on the site that is writing rather than interface.
+ */
 export default async function BlogListPage() {
   const posts = await listPublishedEntries("blog");
 
   return (
-    <div className="container-checkout py-10">
-      <h1 className="mb-8 text-2xl font-semibold">From the journal</h1>
+    <div>
+      <BreadcrumbJsonLd trail={[{ name: "Journal", path: "/blog" }]} />
 
-      {posts.length === 0 ? (
-        <p className="py-16 text-center text-muted-foreground">No posts yet — check back soon.</p>
-      ) : (
-        <div className="grid gap-8 sm:grid-cols-2">
-          {posts.map((post) => {
-            const d = post.data as {
-              title?: string;
-              excerpt?: string;
-              coverImage?: string;
-              author?: string;
-            };
-            return (
-              <Link key={post.id} href={`/blog/${post.slug}`} className="group block">
-                <div className="relative aspect-[16/10] overflow-hidden rounded-lg bg-muted">
-                  {d.coverImage && (
-                    <Image
-                      src={d.coverImage}
-                      alt={d.title ?? ""}
-                      fill
-                      className="object-cover transition-transform group-hover:scale-105"
-                      sizes="(max-width: 640px) 100vw, 50vw"
-                    />
-                  )}
-                </div>
-                <h2 className="mt-3 font-medium group-hover:underline">{d.title ?? post.slug}</h2>
-                {d.excerpt && (
-                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{d.excerpt}</p>
-                )}
-                {d.author && <p className="mt-2 text-xs text-muted-foreground">By {d.author}</p>}
-              </Link>
-            );
-          })}
-        </div>
-      )}
+      <PageHeader
+        eyebrow="Journal"
+        title="Notes on silver"
+        description="Care, craft and how to wear it — written by the people who make it."
+      />
+
+      <div className="container-page pt-10 rhythm-commerce-bottom">
+        {posts.length === 0 ? (
+          <div className="border-t py-24 text-center">
+            <p className="text-h3">Nothing published yet</p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              The first piece is on its way.
+            </p>
+            <div className="mt-8 flex justify-center">
+              <EditorialLink href="/products">Browse all jewellery</EditorialLink>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-x-10 gap-y-14 sm:grid-cols-2">
+            {posts.map((post, i) => {
+              const d = post.data as {
+                title?: string;
+                excerpt?: string;
+                coverImage?: string;
+                author?: string;
+              };
+              return (
+                <EditorialTile
+                  key={post.id}
+                  href={`/blog/${post.slug}`}
+                  image={d.coverImage}
+                  title={d.title ?? post.slug}
+                  eyebrow={d.author ? `By ${d.author}` : undefined}
+                  description={d.excerpt}
+                  linkLabel="Read more"
+                  ratio="landscape"
+                  headingLevel="h2"
+                  preload={i < 2}
+                  sizes="(max-width: 640px) 100vw, 50vw"
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

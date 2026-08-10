@@ -1,6 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { EditorialLink } from "@/components/storefront/editorial-link";
 
 /**
  * A full-bleed photograph with the brand's own words over it.
@@ -65,28 +64,32 @@ export function StorySection({
               the hero carousel. */}
           <h2 className="text-h2 font-heading text-white">{title}</h2>
 
+          {/* The one place on the storefront outside the journal where the
+              serif appears. Playfair is loaded for the brand and was rendering
+              nothing at all; this is the brand speaking in its own voice about
+              its own craft, which is exactly the role a display serif earns.
+              It stays out of the UI — product names, navigation, prices and
+              anything a shopper has to scan are the body sans, always. */}
           {stages.length > 0 && (
             <div className="mt-6 space-y-3">
               {stages.map((stage, i) => (
-                <p key={i} className="text-lead text-white/85">
+                <p key={i} className="font-serif text-lg leading-relaxed text-white/85 sm:text-xl">
                   {stage}
                 </p>
               ))}
             </div>
           )}
 
-          {/* White block, not black: this one sits on a dark photograph under a
-              dark scrim, where the black CTA disappears into the background.
-              Same square shape and letterspaced label, inverted. */}
+          {/* An editorial link, not a block button. This section is the brand
+              speaking about its own craft — a filled CTA turns a statement into
+              an advertisement. `light` for the white rule that reads over a
+              dark photograph. */}
           {ctaLabel && ctaHref && (
-            <Button
-              asChild
-              variant="cta"
-              size="cta"
-              className="mt-8 bg-white text-graphite-950 hover:bg-ivory-200"
-            >
-              <Link href={ctaHref}>{ctaLabel}</Link>
-            </Button>
+            <div className="mt-8">
+              <EditorialLink href={ctaHref} light>
+                {ctaLabel}
+              </EditorialLink>
+            </div>
           )}
         </div>
       </div>

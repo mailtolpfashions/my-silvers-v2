@@ -1,120 +1,116 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { SearchBox } from "@/components/storefront/search-box";
 import { HeaderSearch } from "@/components/storefront/header/search-loader";
-import { MobileSearch } from "@/components/storefront/header/mobile-search";
-import { CategoryNav, buildNavLinks } from "@/components/storefront/header/category-nav";
+import { SearchOverlay } from "@/components/storefront/header/search-overlay";
+import { MegaMenu } from "@/components/storefront/header/mega-menu";
 import { MobileNav } from "@/components/storefront/header/mobile-nav";
+import { Wordmark } from "@/components/storefront/header/wordmark";
 import { HeaderAccount } from "@/components/storefront/header/header-account";
 import { HeaderAccountSkeleton } from "@/components/storefront/header/header-account-skeleton";
+import { UtilityBar, UtilityBarSkeleton } from "@/components/storefront/header/utility-bar";
+import { HeaderChrome } from "@/components/storefront/header/header-chrome";
+import { buildNav, buildUtilityLinks } from "@/components/storefront/header/nav-model";
 
 /**
- * Synchronous on purpose. This component renders from (storefront)/layout.tsx,
- * so anything it awaits makes EVERY storefront route dynamic — which is what
- * used to happen, via auth(). The session now lives behind the Suspense
- * boundary below, and the catalogue read behind CategoryNav, so the header
- * shell itself can prerender.
+ * The storefront header. Two bands, and that is the whole design.
+ *
+ * Band 1 (32px) — the CMS announcement and the service links.
+ * Band 2 (56px mobile / 72px desktop) — menu, wordmark, five nav words, search,
+ *   account, wishlist, cart.
+ *
+ * There is deliberately no third band. The category row that used to sit below
+ * this cost 57px of every viewport and listed ten destinations at identical
+ * weight, each with an icon beside it — which is the app convention, not the
+ * retail one. Category depth now lives in the mega panels.
+ *
+ * ── Do not make this component async ─────────────────────────────────────────
+ * It renders from (storefront)/layout.tsx, so anything awaited here makes EVERY
+ * storefront route dynamic — which is what used to happen, via auth(). The
+ * session lives behind the account boundary, the announcement behind the
+ * utility boundary, and the catalogue reads behind the nav boundaries, so the
+ * header shell itself can prerender. Keep it that way.
+ *
+ * ── Where the colours are ────────────────────────────────────────────────────
+ * Nothing here paints a background. On a page that opens with a full-bleed hero
+ * the whole header floats over the artwork in white, and returns to its solid
+ * ivory self on hover, on focus, or as soon as the page scrolls. That is all
+ * done by re-pointing semantic tokens in the `.site-header` block in
+ * globals.css, so the children below stay ordinary `text-muted-foreground` /
+ * `border-b` markup with no idea which state they are in. Adding a hardcoded
+ * colour to anything in this subtree is what would break it.
+ *
+ * Still no backdrop blur, in either state. A translucent header over jewellery
+ * photography smears the thing the page is selling; the transparent state uses
+ * a top-down scrim for legibility instead, which costs nothing to composite.
  */
 export function SiteHeader() {
   return (
-    <header
-      // Named so view transitions can hold it still while the page slides
-      // underneath — see ::view-transition-group(site-header) in globals.css.
-      // A header that moves with the content destroys the user's spatial
-      // anchor and makes the direction cue unreadable.
-      style={{ viewTransitionName: "site-header" }}
-      className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-    >
-      {/* ── Row 1: menu · logo · search · account actions ────────────────────
-          One flex row at every width, logo on the left. On a phone this is the
-          whole header: search collapses into the icon cluster rather than
-          taking a second full-width row, which is ~57px of every screen. */}
-      <div className="container-page flex h-14 items-center gap-2 md:h-20 md:gap-3 lg:gap-8">
-        {/* Behind its own boundary: the drawer needs the category list, and
-            waiting on that would block the whole header shell from prerendering. */}
-        <Suspense fallback={<MobileNavSkeleton />}>
-          <MobileNavLoader />
-        </Suspense>
+    <HeaderChrome>
+      <Suspense fallback={<UtilityBarSkeleton />}>
+        <UtilityBar />
+      </Suspense>
 
-        {/* Two assets, not one scaled asset.
-
-            The full lockup is stacked — mark above wordmark — and 107px wide at
-            h-16. With three icons on the right there is simply no room to centre
-            that on a 365px screen, and shrinking it until it fits puts the
-            "MY SILVERS" text back under 10px, which is the smudge we just fixed.
-            So mobile gets the square mark alone and the lockup returns at md,
-            where the row has the width for it. Same approach as the previous
-            storefront. */}
-        <Link href="/" aria-label="MY Silvers — home" className="shrink-0">
-          <Image
-            src="/android-chrome-192x192.png"
-            alt="MY Silvers"
-            width={192}
-            height={192}
-            preload
-            className="h-9 w-9 object-contain md:hidden"
-          />
-          <Image
-            src="/logo.png"
-            alt="MY Silvers"
-            width={519}
-            height={311}
-            preload
-            className="hidden h-16 w-auto md:block"
-          />
-        </Link>
-
-        {/* Centred in the middle of the row with a fixed ceiling — stretching it
-            edge to edge on a wide screen makes the header look unbalanced. */}
-        <div className="hidden flex-1 justify-center md:flex">
-          {/* Fallback is the same box with its built-in default placeholder, so
-              search is typeable before the CMS terms arrive. */}
-          <Suspense fallback={<SearchBox className="w-full max-w-[640px]" />}>
-            <HeaderSearch className="w-full max-w-[640px]" />
+      <div className="border-b">
+        <div className="container-page flex h-14 items-center gap-3 md:h-[72px] lg:gap-8">
+          {/* Behind its own boundary: the drawer needs the nav model, and
+              waiting on that would block the whole header shell from
+              prerendering. */}
+          <Suspense fallback={<MobileNavSkeleton />}>
+            <MobileNavLoader />
           </Suspense>
-        </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-2">
-          {/* Opens the same SearchBox in a sheet. Rendered outside the account
-              boundary so it never waits on the session. */}
-          <MobileSearch>
-            <Suspense fallback={<SearchBox />}>
-              <HeaderSearch />
+          <Link href="/" aria-label="MY Silvers — home" className="shrink-0">
+            <Wordmark className="h-9 md:h-12" />
+          </Link>
+
+          {/* The nav sits left, next to the wordmark, rather than centred.
+              A centred nav has to be balanced against the icon cluster on the
+              right, which means either padding the left or accepting that the
+              whole row looks off — and it puts the first category further from
+              the logo than from the cart. */}
+          <Suspense fallback={<MegaMenuSkeleton />}>
+            <MegaMenuLoader />
+          </Suspense>
+
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
+            {/* Search at every width now, behind a glyph. The 640px pill that
+                used to sit in the middle of this row was the loudest element on
+                the page and read as a marketplace. */}
+            <SearchOverlay>
+              <Suspense fallback={<SearchBox />}>
+                <HeaderSearch />
+              </Suspense>
+            </SearchOverlay>
+
+            <Suspense fallback={<HeaderAccountSkeleton />}>
+              <HeaderAccount />
             </Suspense>
-          </MobileSearch>
-
-          <Suspense fallback={<HeaderAccountSkeleton />}>
-            <HeaderAccount />
-          </Suspense>
+          </div>
         </div>
       </div>
-
-      {/* ── Row 2: category navigation (desktop only) ────────────────────────
-          Behind a boundary because the active-link state reads usePathname(),
-          which is runtime data on routes whose params aren't known at build —
-          without this, /collections/[slug] and friends can't prerender a shell. */}
-      <Suspense fallback={<CategoryNavSkeleton />}>
-        <CategoryNav />
-      </Suspense>
-    </header>
+    </HeaderChrome>
   );
 }
 
-/** Resolves the shared nav links and hands them to the client drawer. */
+/** Resolves the shared nav model and hands it to the desktop panels. */
+async function MegaMenuLoader() {
+  const worlds = await buildNav();
+  return <MegaMenu worlds={worlds} />;
+}
+
+/** Same model, plus the service links the mobile band has no room for. */
 async function MobileNavLoader() {
-  const links = await buildNavLinks();
-  return <MobileNav links={links} />;
+  const [worlds, utilityLinks] = await Promise.all([buildNav(), buildUtilityLinks()]);
+  return <MobileNav worlds={worlds} utilityLinks={utilityLinks} />;
 }
 
 /** Same footprint as the trigger button, so the header doesn't jump. */
 function MobileNavSkeleton() {
-  return <div className="size-10 shrink-0 md:size-12 lg:hidden" aria-hidden />;
+  return <div className="size-10 shrink-0 lg:hidden" aria-hidden />;
 }
 
-/** Reserves the category row's exact height so the page below doesn't shift. */
-function CategoryNavSkeleton() {
-  // Height must match CategoryNavLinks exactly: py-3.5 (28px) + 24px line-box
-  // + 1px border. A mismatch shifts the whole page as the nav streams in.
-  return <div className="hidden h-[3.5625rem] border-t lg:block" aria-hidden />;
+/** Reserves the nav row's width so the icon cluster doesn't slide sideways. */
+function MegaMenuSkeleton() {
+  return <div className="hidden h-6 flex-1 lg:block" aria-hidden />;
 }

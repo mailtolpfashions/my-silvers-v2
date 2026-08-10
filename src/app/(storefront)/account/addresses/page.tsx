@@ -16,11 +16,11 @@ export default async function AddressesPage() {
   });
 
   return (
-    <div className="container-checkout py-10">
+    <div className="container-checkout rhythm-transactional">
       <Link href="/account" className="text-sm text-muted-foreground underline">
         ← Back to account
       </Link>
-      <h1 className="mb-6 mt-4 text-2xl font-semibold">Delivery addresses</h1>
+      <h1 className="mb-6 mt-4 text-h1">Delivery addresses</h1>
 
       <AddressBook
         addresses={addresses.map((a) => ({

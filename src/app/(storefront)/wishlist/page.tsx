@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth/auth";
 import { getWishlistProducts } from "@/server/cart";
 import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
-import { Button } from "@/components/ui/button";
+import { EditorialLink } from "@/components/storefront/editorial-link";
 
 export default async function WishlistPage() {
   const session = await auth();
@@ -12,17 +11,34 @@ export default async function WishlistPage() {
   const products = await getWishlistProducts(session.user.id);
 
   return (
-    <div className="container-page py-10">
-      <h1 className="mb-8 text-h1">Your wishlist</h1>
+    <div className="container-page rhythm-commerce">
+      <div className="mb-10 border-b pb-6">
+        <p className="label-eyebrow mb-3">Saved</p>
+        <h1 className="text-h1">Your wishlist</h1>
+        {products.length > 0 && (
+          <p className="mt-3 text-sm text-muted-foreground">
+            {products.length} {products.length === 1 ? "piece" : "pieces"} saved
+          </p>
+        )}
+      </div>
 
       {products.length === 0 ? (
-        <div className="py-16 text-center">
-          <p className="text-muted-foreground">Your wishlist is empty.</p>
-          <Button asChild className="mt-4">
-            <Link href="/products">Browse jewellery</Link>
-          </Button>
+        // A premium empty state: a sentence explaining what the page is for and
+        // one way forward. It was a grey line and a rounded button.
+        <div className="py-24 text-center">
+          <p className="text-h3">Nothing saved yet</p>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
+            Tap the heart on any piece to keep it here while you decide. Your
+            wishlist stays with your account, on every device.
+          </p>
+          <div className="mt-8 flex justify-center">
+            <EditorialLink href="/products">Browse all jewellery</EditorialLink>
+          </div>
         </div>
       ) : (
+        // The same card as every other grid on the site, so a saved piece looks
+        // exactly as it did where the shopper saved it. Add-to-cart is on the
+        // product page — see the note in add-to-cart-button.tsx.
         <div className={PRODUCT_GRID_CLASS}>
           {products.map((product) => (
             <ProductCard

@@ -49,8 +49,8 @@ export default async function CheckoutPage() {
 
   return (
     // The spacer stops the sticky Pay bar covering the order summary.
-    <div className={`container-checkout py-10 ${STICKY_BAR_SPACER}`}>
-      <h1 className="mb-8 text-2xl font-semibold">Checkout</h1>
+    <div className={`container-checkout rhythm-transactional ${STICKY_BAR_SPACER}`}>
+      <h1 className="mb-8 text-h1">Checkout</h1>
       <CheckoutForm
         isAuthed={isAuthed}
         userEmail={session?.user?.email ?? undefined}

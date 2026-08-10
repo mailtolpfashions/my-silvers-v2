@@ -1,13 +1,17 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { StickyActionBar } from "@/components/storefront/sticky-action-bar";
 import { formatINRPaise } from "@/lib/format";
-import {
-  FREE_SHIPPING_THRESHOLD_PAISE,
-  shippingChargePaise,
-} from "@/server/orders/money";
+import { FREE_SHIPPING_THRESHOLD_PAISE, shippingChargePaise } from "@/server/orders/money";
 
+/**
+ * The order summary.
+ *
+ * No <Card>. The shadcn Card is a rounded, bordered, shadowed surface built for
+ * an admin dashboard, and it was the last one on the storefront — a soft app
+ * panel sitting beside a hairline-ruled cart list. It is now a ruled block:
+ * same information, same arithmetic, no container.
+ */
 export function CartSummary({ subtotalPaise }: { subtotalPaise: number }) {
   const shippingPaise = shippingChargePaise(subtotalPaise);
   const totalPaise = subtotalPaise + shippingPaise;
@@ -15,51 +19,54 @@ export function CartSummary({ subtotalPaise }: { subtotalPaise: number }) {
 
   return (
     <>
-      {/* Below md the summary card sits at the very bottom of a long list, so a
+      {/* Below md the summary sits at the very bottom of a long list, so a
           shopper has to scroll past every line to reach checkout. The bar
-          carries the total and the button; the card keeps the breakdown.
+          carries the total and the button; the block keeps the breakdown.
           Rendered here rather than on the page because the authed and guest
-          carts both already use this component — one place, both flows. */}
+          carts both use this component — one place, both flows. */}
       <StickyActionBar>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-lg font-semibold leading-tight">
+          <p className="truncate text-base font-medium leading-tight">
             {formatINRPaise(totalPaise)}
           </p>
           <p className="text-xs text-muted-foreground">
             {shippingPaise === 0 ? "Free shipping" : "Incl. shipping"}
           </p>
         </div>
-        <Button asChild size="lg" className="h-12 shrink-0 rounded-full px-6 text-base">
+        <Button asChild variant="cta" size="cta" className="h-12 shrink-0 px-8 sm:h-12">
           <Link href="/checkout">Checkout</Link>
         </Button>
       </StickyActionBar>
 
-      <Card>
-        <CardContent className="space-y-3 pt-6">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Subtotal</span>
-            <span>{formatINRPaise(subtotalPaise)}</span>
+      <div className="border-t pt-6">
+        <h2 className="label-eyebrow mb-5">Order summary</h2>
+
+        <dl className="space-y-3 text-sm">
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Subtotal</dt>
+            <dd>{formatINRPaise(subtotalPaise)}</dd>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Shipping</span>
-            <span>{shippingPaise === 0 ? "Free" : formatINRPaise(shippingPaise)}</span>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Shipping</dt>
+            <dd>{shippingPaise === 0 ? "Free" : formatINRPaise(shippingPaise)}</dd>
           </div>
           {remainingForFree > 0 && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-brass-text">
               Add {formatINRPaise(remainingForFree)} more for free shipping.
             </p>
           )}
-          <div className="flex justify-between border-t pt-3 font-semibold">
-            <span>Total</span>
-            <span>{formatINRPaise(totalPaise)}</span>
+          <div className="flex justify-between border-t pt-3 font-medium">
+            <dt>Total</dt>
+            <dd>{formatINRPaise(totalPaise)}</dd>
           </div>
-          {/* Hidden on mobile — the sticky bar is the button there, and two
-              checkout buttons on one screen is a question, not a shortcut. */}
-          <Button asChild size="lg" className="hidden w-full md:inline-flex">
-            <Link href="/checkout">Proceed to checkout</Link>
-          </Button>
-        </CardContent>
-      </Card>
+        </dl>
+
+        {/* Hidden on mobile — the sticky bar is the button there, and two
+            checkout buttons on one screen is a question, not a shortcut. */}
+        <Button asChild variant="cta" size="cta" className="mt-6 hidden w-full md:inline-flex">
+          <Link href="/checkout">Proceed to checkout</Link>
+        </Button>
+      </div>
     </>
   );
 }

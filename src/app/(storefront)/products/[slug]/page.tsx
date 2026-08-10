@@ -3,13 +3,11 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ShieldCheck, RotateCcw, Truck, Gift } from "lucide-react";
 import { auth } from "@/server/auth/auth";
 import { getProductBySlug } from "@/server/products/search";
 import { isInWishlist, getCartQuantityFor } from "@/server/cart";
 import { stockLabel, isScarce } from "@/lib/stock-label";
 import { formatINR } from "@/lib/format";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
 import { BuyNowButton } from "@/components/storefront/buy-now-button";
@@ -20,8 +18,17 @@ import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/
 import { getSimilarProducts, getAlsoLikeProducts } from "@/server/products/recommendations";
 import { RecordProductView, RecentlyViewed } from "@/components/storefront/recently-viewed";
 import { ProductGallery } from "@/components/storefront/product-gallery";
+import {
+  ProductInfoSections,
+  ProductInfoSectionsSkeleton,
+} from "@/components/storefront/product-info-sections";
 import { ReviewSection } from "@/components/storefront/reviews/review-section";
 import { RevealSection } from "@/components/storefront/reveal-section";
+import { SectionHeading } from "@/components/storefront/section-heading";
+import { EditorialLink } from "@/components/storefront/editorial-link";
+import { ProductJsonLd } from "@/components/storefront/structured-data";
+import { ContentGap } from "@/components/storefront/content-gap";
+import { isPagePublished } from "@/components/storefront/header/nav-model";
 
 export async function generateMetadata({
   params,
@@ -54,14 +61,34 @@ export default async function ProductDetailPage({
 
   const image = product.images[0];
 
+  // Cached under the `cms:page` tag, so this costs nothing per request and
+  // starts resolving the moment an editor publishes the page.
+  const sizeGuideHref = (await isPagePublished("size-guide")) ? "/p/size-guide" : undefined;
+
   return (
     <>
-      {/* items-start is what makes the sticky gallery below work: the default
-          `stretch` gives both columns the height of the taller one, and a
-          sticky element inside a full-height column has nothing to slide
-          against. */}
+      {/* Behind a boundary: it runs a review aggregate, and nothing about the
+          product should wait on structured data. Streamed JSON-LD is read
+          correctly by search engines, which render the page. */}
+      <Suspense fallback={null}>
+        <ProductJsonLd product={product} />
+      </Suspense>
+
+      {/*
+        The gallery is now the TALL column and the detail rail is the short
+        one, which is the right way round and fixes a bug at the same time: the
+        gallery used to be `sm:sticky` while also being the taller column, so
+        there was never any overhang to stick against and it never engaged.
+
+        `items-start` is what makes the sticky rail work at all — the default
+        `stretch` gives both columns the height of the taller one, and a sticky
+        element inside a full-height column has nothing to slide against.
+
+        Wider than container-detail's 72rem: at 1440 the photographs deserve the
+        room, and a 55/45 split gives the gallery a genuinely large frame.
+      */}
       <div
-        className={`container-detail grid items-start gap-10 py-10 sm:grid-cols-2 ${STICKY_BAR_SPACER}`}
+        className={`container-page grid items-start gap-10 rhythm-commerce-top lg:grid-cols-[1.15fr_1fr] lg:gap-16 xl:gap-24 ${STICKY_BAR_SPACER}`}
       >
         <ProductGallery
           images={product.images}
@@ -80,7 +107,7 @@ export default async function ProductDetailPage({
                   alt={product.name}
                   fill
                   preload
-                  sizes="(max-width: 640px) 100vw, 45vw"
+                  sizes="(max-width: 1024px) 100vw, 55vw"
                   className="object-cover"
                 />
               </ViewTransition>
@@ -88,14 +115,19 @@ export default async function ProductDetailPage({
           }
         />
 
-        <div>
+        {/* The information rail. Sticks to the top of the viewport once the
+            gallery scrolls past it, so the price and the buy button are
+            reachable from any point in a six-image stack.
+
+            top-[7.5rem] clears both header bands (32 + 72) plus a little air. */}
+        <div className="lg:sticky lg:top-[7.5rem]">
           {/* Breadcrumb doubles as the category link — the page previously had
               no route back into the catalogue except the header nav. */}
           <nav aria-label="Breadcrumb">
             <ol className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
               <li>
                 <Link href="/products" className="transition-colors hover:text-foreground">
-                  All Jewellery
+                  All jewellery
                 </Link>
               </li>
               <li aria-hidden>/</li>
@@ -104,56 +136,80 @@ export default async function ProductDetailPage({
                   href={`/category/${product.category.slug}`}
                   // nav-back: a breadcrumb always moves up the hierarchy.
                   transitionTypes={["nav-back"]}
-                  className="uppercase tracking-wide transition-colors hover:text-foreground"
+                  className="transition-colors hover:text-foreground"
                 >
                   {product.category.name}
                 </Link>
               </li>
             </ol>
           </nav>
-          <h1 className="mt-2 text-h2">{product.name}</h1>
 
-          <div className="mt-3 flex items-center gap-2">
-            {product.isBestseller && <Badge variant="secondary">Bestseller</Badge>}
-            {product.isFeatured && <Badge variant="outline">Featured</Badge>}
-          </div>
+          {/* The name dominates. The Bestseller and Featured badges that used
+              to sit between it and the price are gone — a badge on the page you
+              are already on tells a shopper nothing they can act on, and they
+              were the last two decorative pills on the storefront. */}
+          <h1 className="text-h1 mt-4">{product.name}</h1>
 
-          <div className="mt-4 flex items-baseline gap-3">
-            <span className="text-xl font-semibold sm:text-2xl">
-              {formatINR(product.price.toString())}
-            </span>
+          {/* 14px, regular, muted — one step quieter than the product name.
+              This was 20/24px semibold, which made the number the loudest thing
+              in the column and read as a price tag rather than a price. */}
+          <p className="mt-3 flex items-baseline gap-2.5 text-sm">
+            <span className="text-foreground">{formatINR(product.price.toString())}</span>
             {product.compareAtPrice && (
-              <span className="text-sm text-muted-foreground line-through sm:text-base">
+              <span className="text-muted-foreground line-through">
                 {formatINR(product.compareAtPrice.toString())}
               </span>
             )}
-          </div>
+            <span className="text-xs text-muted-foreground">incl. of all taxes</span>
+          </p>
 
-          <p className="mt-6 text-sm text-muted-foreground sm:text-base">{product.description}</p>
+          {product.shortDescription && (
+            <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
+              {product.shortDescription}
+            </p>
+          )}
 
-          {/* The one place that keeps server-rendered per-shopper state: here
-              the CTA is the page, so a flip from "Add to cart" to "In cart"
-              after hydration would be jarring. Behind its own boundary so the
-              product body doesn't wait on the session. */}
-          {/* The skeleton leaves quickly, the real CTA arrives more gently —
-              see the .reveal-out/.reveal-in rules in globals.css. `default:
-              "none"` keeps this from firing during the image morph. */}
-          {/* Above the specification list on purpose: the buying decision is
-              made on price and photography, and burying the actions under six
-              rows of purity and SKU put them below the fold on a laptop.
+          {/* Availability, and only when it says something. A green "In stock"
+              dot on every product page is noise; one piece left is information.
+              Never a count — see src/lib/stock-label.ts. */}
+          {product.stock <= 0 ? (
+            <p className="mt-5 text-sm text-destructive">Out of stock</p>
+          ) : (
+            isScarce(product.stock) && (
+              <p className="mt-5 text-sm text-brass-text">{stockLabel(product.stock)}</p>
+            )
+          )}
 
-              The provider wraps BOTH the selector and the CTA because they are
+          {/* The provider wraps BOTH the selector and the CTA because they are
               siblings — the buttons have to read a choice made in the selector,
               and this page is a server component, so it cannot hold that state
               itself. */}
           <SizeProvider
             sizes={product.sizes}
-            stockBySize={Object.fromEntries(
-              product.variants.map((v) => [v.size, v.stock]),
-            )}
+            stockBySize={Object.fromEntries(product.variants.map((v) => [v.size, v.stock]))}
           >
-            <SizeSelector sizeGuideHref="/p/size-guide" />
+            {/* The link is offered only when the page actually exists.
+                `/p/size-guide` has never been written, and this pointed at it
+                unconditionally — so the single most useful link on a ring
+                product page was a 404. Ring sizing is also the biggest driver
+                of silver returns, so the gap is worth making loud in dev. */}
+            <SizeSelector sizeGuideHref={sizeGuideHref} />
+            {product.sizes.length > 0 && !sizeGuideHref && (
+              <ContentGap
+                label="Size guide page (/p/size-guide)"
+                detail="This product has sizes but there is no published size guide, so the 'Find your size' link is hidden. Ring sizing is the most common reason a silver order comes back — this page is worth writing."
+                where="CMS → Pages → new page with slug 'size-guide'"
+              />
+            )}
 
+            {/* The one place that keeps server-rendered per-shopper state: here
+                the CTA is the page, so a flip from "Add to cart" to "In cart"
+                after hydration would be jarring. Behind its own boundary so the
+                product body doesn't wait on the session.
+
+                The skeleton leaves quickly, the real CTA arrives more gently —
+                see the .reveal-out/.reveal-in rules in globals.css. `default:
+                "none"` keeps this from firing during the image morph. */}
             <Suspense
               fallback={
                 <ViewTransition exit="reveal-out">
@@ -167,69 +223,19 @@ export default async function ProductDetailPage({
             </Suspense>
           </SizeProvider>
 
-          {/* The rows carry their own border-b, so the last one drew a rule
-              directly above the trust list's border-t — two hairlines with a
-              gap between them, which read as a stray empty row. Dropping the
-              final border leaves exactly one rule closing the list.
-              Written as :last-child rather than on a specific row because most
-              of these rows are conditional, so which one is last varies. */}
-          <dl className="mt-8 text-sm [&>div:last-child]:border-b-0">
-            <div className="flex justify-between border-b py-2.5">
-              <dt className="text-muted-foreground">Purity</dt>
-              <dd>{product.purity}</dd>
-            </div>
-            {product.weight && (
-              <div className="flex justify-between border-b py-2.5">
-                <dt className="text-muted-foreground">Weight</dt>
-                <dd>{product.weight.toString()}g</dd>
-              </div>
-            )}
-            {product.material && (
-              <div className="flex justify-between border-b py-2.5">
-                <dt className="text-muted-foreground">Material</dt>
-                <dd>{product.material}</dd>
-              </div>
-            )}
-            {product.dimensions && (
-              <div className="flex justify-between border-b py-2.5">
-                <dt className="text-muted-foreground">Dimensions</dt>
-                <dd>{product.dimensions}</dd>
-              </div>
-            )}
-            {/* "Available sizes" used to be listed here as plain text. It is
-                gone: the selector above is now the single place sizes appear,
-                and repeating them read as a second, non-interactive control. */}
-            {/* Stored and admin-editable but never shown until now — shoppers
-                quote it in enquiries and it helps them tell variants apart. */}
-            <div className="flex justify-between border-b py-2.5">
-              <dt className="text-muted-foreground">SKU</dt>
-              <dd className="text-muted-foreground">{product.sku}</dd>
-            </div>
-            <div className="flex justify-between border-b py-2.5">
-              <dt className="text-muted-foreground">Availability</dt>
-              <dd className={isScarce(product.stock) ? "font-medium text-brass-text" : ""}>
-                {stockLabel(product.stock)}
-              </dd>
-            </div>
-          </dl>
+          {/* Expandable rows. The per-product measurements come from the
+              Product row; materials, care and shipping come from the
+              `product-info` CMS singleton, so they are written once rather than
+              retyped on all 122 pieces.
 
-          {/* Reassurance at the point of decision. Silver jewellery online is a
-              trust purchase — hallmarking and returns are the two objections
-              that stop a first-time buyer, and neither was answered anywhere on
-              this page. */}
-          <ul className="mt-8 space-y-3 border-t pt-6">
-            {[
-              { icon: ShieldCheck, text: "BIS hallmarked 925 sterling silver" },
-              { icon: RotateCcw, text: "7-day returns on unworn pieces" },
-              { icon: Truck, text: "Free shipping on orders above ₹999" },
-              { icon: Gift, text: "Gift box and anti-tarnish pouch included" },
-            ].map(({ icon: Icon, text }) => (
-              <li key={text} className="flex items-center gap-3 text-sm text-muted-foreground">
-                <Icon className="size-4 shrink-0 text-brass-text" aria-hidden />
-                {text}
-              </li>
-            ))}
-          </ul>
+              The four hardcoded trust claims that used to sit here are gone.
+              They were JSX literals asserting "7-day returns on unworn pieces"
+              while the CMS trust bar on the homepage said 15 days — the site
+              contradicted itself on a refund policy, in two places a shopper
+              could see in one session. */}
+          <Suspense fallback={<ProductInfoSectionsSkeleton />}>
+            <ProductInfoSections product={product} />
+          </Suspense>
         </div>
       </div>
 
@@ -246,6 +252,7 @@ export default async function ProductDetailPage({
           categoryId={product.categoryId}
           priceRupees={Number(product.price)}
           categoryName={product.category.name}
+          categorySlug={product.category.slug}
         />
       </Suspense>
 
@@ -275,10 +282,11 @@ async function ProductCta({ productId, stock }: { productId: string; stock: numb
 
   return (
     <>
-      {/* Desktop: inline, in the flow of the product column. Buy now first — it
-          is the action most shoppers who have decided will take, and it reads
-          left to right as intent descending: buy, basket, save for later. */}
-      <div className="mt-8 hidden gap-3 sm:flex-wrap sm:items-center md:flex">
+      {/* Desktop: stacked full-width blocks rather than a wrapping row. Buy now
+          first — it is the action most shoppers who have decided will take —
+          then the basket, then save. Only the first is filled; three solid
+          blocks in a row give no reading of which one is the point. */}
+      <div className="mt-8 hidden flex-col gap-3 md:flex">
         <BuyNowButton {...shared} />
         <AddToCartButton {...shared} />
         <WishlistButton productId={productId} initialInWishlist={inWishlist} />
@@ -296,7 +304,7 @@ async function ProductCta({ productId, stock }: { productId: string; stock: numb
             styling assumes it is floating over a product photo, where the
             translucent fill is the affordance; on a solid bar it would read as
             a bare glyph. */}
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-full border">
+        <span className="flex size-11 shrink-0 items-center justify-center border">
           <WishlistButton productId={productId} initialInWishlist={inWishlist} iconOnly />
         </span>
         {/* `compact` on Add to cart: the full version carries helper text under
@@ -312,15 +320,13 @@ async function ProductCta({ productId, stock }: { productId: string; stock: numb
   );
 }
 
-/** Matches the real CTA row's height so the page doesn't shift as it resolves. */
+/** Matches the real CTA stack's height so the rail doesn't shift as it resolves. */
 function ProductCtaSkeleton() {
-  // Three controls now, and h-12 to match BuyNowButton — the tallest of them
-  // sets the row height, so this has to track it or the page jumps.
   return (
-    <div className="mt-8 hidden gap-3 sm:flex-wrap sm:items-center md:flex">
-      <Skeleton className="h-12 w-36" />
-      <Skeleton className="h-12 w-40" />
-      <Skeleton className="h-12 w-32" />
+    <div className="mt-8 hidden flex-col gap-3 md:flex">
+      <Skeleton className="h-[52px] w-full" />
+      <Skeleton className="h-[52px] w-full" />
+      <Skeleton className="h-[52px] w-full" />
     </div>
   );
 }
@@ -328,11 +334,7 @@ function ProductCtaSkeleton() {
 async function Reviews({ productId, productSlug }: { productId: string; productSlug: string }) {
   const session = await auth();
   return (
-    <ReviewSection
-      productId={productId}
-      productSlug={productSlug}
-      isAuthed={!!session?.user?.id}
-    />
+    <ReviewSection productId={productId} productSlug={productSlug} isAuthed={!!session?.user?.id} />
   );
 }
 
@@ -342,11 +344,13 @@ async function SimilarProducts({
   categoryId,
   priceRupees,
   categoryName,
+  categorySlug,
 }: {
   productId: string;
   categoryId: string;
   priceRupees: number;
   categoryName: string;
+  categorySlug: string;
 }) {
   const items = await getSimilarProducts({ productId, categoryId, priceRupees });
   if (items.length === 0) return null;
@@ -355,7 +359,9 @@ async function SimilarProducts({
     <ProductRow
       title="See similar"
       eyebrow={`More ${categoryName.toLowerCase()}`}
-      viewAllHref={`/category/${categoryName.toLowerCase()}`}
+      // The slug, not the lower-cased NAME. "More rings" happened to work;
+      // a category called "Ear Cuffs" produced /category/ear cuffs.
+      viewAllHref={`/category/${categorySlug}`}
       items={items}
     />
   );
@@ -388,21 +394,13 @@ function ProductRow({
   items: Awaited<ReturnType<typeof getAlsoLikeProducts>>;
 }) {
   return (
-    <RevealSection className="container-page border-t py-14">
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          {eyebrow && <p className="label-eyebrow mb-2">{eyebrow}</p>}
-          <h2 className="text-h2">{title}</h2>
-        </div>
-        {viewAllHref && (
-          <Link
-            href={viewAllHref}
-            className="text-sm font-medium text-brass-text underline underline-offset-4"
-          >
-            View all
-          </Link>
-        )}
-      </div>
+    <RevealSection className="container-page rhythm-commerce border-t">
+      <SectionHeading
+        title={title}
+        eyebrow={eyebrow}
+        align="left"
+        action={viewAllHref ? <EditorialLink href={viewAllHref}>View all</EditorialLink> : undefined}
+      />
       <div className={PRODUCT_GRID_CLASS}>
         {items.map((product) => (
           <ProductCard key={product.id} product={product} />

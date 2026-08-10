@@ -15,24 +15,19 @@ import {
  */
 export function ProductCardSkeleton() {
   return (
-    // Mirrors the card's frame and flex column so the CTA placeholder sits on
-    // the same baseline the real button will occupy.
     <div className="flex h-full flex-col">
       <div className={`${CARD_SHELL_CLASS} ${CARD_IMAGE_CLASS}`}>
         <Skeleton className="size-full" />
       </div>
-      <div className="flex flex-1 flex-col space-y-2 px-1 pt-4 sm:px-2 sm:pt-5">
-        <div className={CARD_TITLE_CLASS}>
+      {/* Category line, two lines of name, price. No CTA placeholder — the card
+          no longer has one at any width. */}
+      <div className="flex flex-1 flex-col px-1 pt-4 sm:px-2">
+        <Skeleton className="h-3 w-16" />
+        <div className={`${CARD_TITLE_CLASS} mt-1`}>
           <Skeleton className="h-3.5 w-full" />
           <Skeleton className="mt-1.5 h-3.5 w-2/3" />
         </div>
-        <Skeleton className="h-4 w-20" />
-        {/* Only the mobile CTA has a placeholder: from lg up the real one is
-            hidden until hover, so reserving space for it here would leave a
-            gap the card never fills. */}
-        <div className="mt-auto pt-1 lg:hidden">
-          <Skeleton className="h-10 w-full" />
-        </div>
+        <Skeleton className="mt-1.5 h-3.5 w-20" />
       </div>
     </div>
   );

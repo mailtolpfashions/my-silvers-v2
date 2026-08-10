@@ -36,12 +36,12 @@ export function RegisterForm() {
           autoComplete="new-password"
         />
       </div>
-      <Button type="submit" className="w-full" disabled={isPending}>
+      <Button type="submit" variant="cta" size="cta" className="w-full" disabled={isPending}>
         {isPending ? "Creating account…" : "Create account"}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         Already have an account?{" "}
-        <Link href="/login" className="underline">
+        <Link href="/login" className="border-b border-foreground pb-0.5 text-foreground transition-colors hover:border-brass hover:text-brass-text">
           Sign in
         </Link>
       </p>

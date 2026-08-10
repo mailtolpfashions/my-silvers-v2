@@ -95,7 +95,7 @@ export function AddressForm({
             name="state"
             required
             defaultValue={initial?.state ?? ""}
-            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
           >
             <option value="" disabled>
               Select…

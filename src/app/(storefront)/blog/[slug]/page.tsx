@@ -5,6 +5,8 @@ import type { Metadata } from "next";
 import { getPublishedEntry } from "@/server/cms/entries";
 import { RichText } from "@/components/storefront/cms/rich-text";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ArticleJsonLd } from "@/components/storefront/structured-data";
+import { EditorialLink } from "@/components/storefront/editorial-link";
 
 type Params = Promise<{ slug: string }>;
 
@@ -33,10 +35,10 @@ export default function BlogPostPage({ params }: { params: Params }) {
 
 function BlogPostSkeleton() {
   return (
-    <div className="container-prose py-10">
+    <div className="container-prose rhythm-commerce">
       <Skeleton className="h-9 w-3/4" />
       <Skeleton className="mt-3 h-4 w-48" />
-      <Skeleton className="mt-6 aspect-[16/9] w-full rounded-lg" />
+      <Skeleton className="mt-8 aspect-[16/9] w-full" />
       <div className="mt-8 space-y-3">
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-full" />
@@ -61,21 +63,52 @@ async function BlogPostBody({ params }: { params: Params }) {
   };
 
   return (
-    <article className="container-prose py-10">
-      <h1 className="text-3xl font-semibold tracking-tight">{d.title}</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        {d.author && <>By {d.author} · </>}
-        {(d.publishedAt ? new Date(d.publishedAt) : post.publishedAt)?.toLocaleDateString(
-          "en-IN",
-          { dateStyle: "long" }
+    <>
+      <ArticleJsonLd
+        title={d.title ?? post.slug}
+        slug={post.slug}
+        excerpt={d.excerpt}
+        image={d.coverImage}
+        author={d.author}
+        publishedAt={(d.publishedAt ? new Date(d.publishedAt) : post.publishedAt)?.toISOString()}
+      />
+
+      <article className="container-prose rhythm-commerce">
+        <p className="label-eyebrow mb-4">Journal</p>
+        {/* The serif, on purpose. The journal is the one place on the site that
+            is writing rather than interface, and it is what Playfair is loaded
+            for — see the note in story-section.tsx. */}
+        <h1 className="font-serif text-[2rem] leading-tight sm:text-[2.5rem]">{d.title}</h1>
+        <p className="mt-4 border-b pb-6 text-sm text-muted-foreground">
+          {d.author && <>By {d.author} · </>}
+          {(d.publishedAt ? new Date(d.publishedAt) : post.publishedAt)?.toLocaleDateString(
+            "en-IN",
+            { dateStyle: "long" }
+          )}
+        </p>
+        {d.coverImage && (
+          <div className="relative mt-8 aspect-[16/9] overflow-hidden bg-muted">
+            <Image
+              src={d.coverImage}
+              alt={d.title ?? ""}
+              fill
+              sizes="(max-width: 768px) 100vw, 42rem"
+              className="object-cover"
+              preload
+            />
+          </div>
         )}
-      </p>
-      {d.coverImage && (
-        <div className="relative mt-6 aspect-[16/9] overflow-hidden rounded-lg">
-          <Image src={d.coverImage} alt={d.title ?? ""} fill className="object-cover" preload />
+        {d.body && (
+          <RichText
+            html={d.body}
+            className="mt-10 prose-headings:font-serif prose-headings:font-medium"
+          />
+        )}
+
+        <div className="mt-14 border-t pt-8">
+          <EditorialLink href="/blog">All journal entries</EditorialLink>
         </div>
-      )}
-      {d.body && <RichText html={d.body} className="mt-8" />}
-    </article>
+      </article>
+    </>
   );
 }

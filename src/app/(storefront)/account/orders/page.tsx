@@ -13,8 +13,8 @@ export default async function AccountOrdersPage() {
   const orders = await getUserOrders(session.user.id);
 
   return (
-    <div className="container-checkout py-10">
-      <h1 className="mb-8 text-2xl font-semibold">Your orders</h1>
+    <div className="container-checkout rhythm-transactional">
+      <h1 className="mb-8 text-h1">Your orders</h1>
 
       {orders.length === 0 ? (
         <div className="py-16 text-center">
@@ -29,7 +29,7 @@ export default async function AccountOrdersPage() {
             <Link
               key={order.id}
               href={`/account/orders/${order.id}`}
-              className="block rounded-lg border p-4 transition-colors hover:bg-muted/50"
+              className="block border-b py-5 transition-colors hover:text-brass-text"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>

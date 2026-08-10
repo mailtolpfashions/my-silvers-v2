@@ -14,7 +14,6 @@ import {
   setCartQuantityLocal,
 } from "@/lib/user-state-store";
 import { useSize } from "@/components/storefront/size-selector";
-import { CARD_CTA_CLASS } from "@/lib/card-styles";
 
 /** Wording for stock outcomes — no counts, matching src/lib/stock-label.ts. */
 const STOCK_MESSAGES = {
@@ -45,7 +44,16 @@ export function AddToCartButton({
    */
   isAuthed,
   cartQuantity,
-  /** Compact rendering for listing cards: full width, small, no helper text. */
+  /**
+   * Full width and no helper text — for the pinned mobile action bar on the
+   * product page, where the row is already two controls wide.
+   *
+   * This used to also serve a CTA rendered on every listing card. That is gone:
+   * the card navigates, the product page sells. Buying 925 silver is a
+   * considered purchase with a size attached, so add-to-cart from a grid both
+   * mostly cannot succeed for a sized piece and doubled the visual weight of
+   * every tile in the grid.
+   */
   compact = false,
 }: {
   productId: string;
@@ -114,17 +122,18 @@ export function AddToCartButton({
   if (compact) {
     return (
       <Button
-        size="sm"
-        // `secondary`, not `outline`, for the in-cart state: outline's only
-        // affordance is a border-border hairline, which is 1.24:1 against the
-        // page — far too faint to read as a 44px control. secondary is a
-        // self-contained fill + label pair at 16.71:1.
-        variant={inCart ? "secondary" : "default"}
-        // The old store's card CTA: an 11px uppercase micro-label with 0.15em
-        // of tracking, not a large pill. `h-auto` because the height comes from
-        // the padding in CARD_CTA_CLASS — the Button size variants all set an
-        // explicit h-*, which would win and squash it.
-        className={`h-auto ${CARD_CTA_CLASS}`}
+        variant="cta"
+        size="cta"
+        // Square commerce block, full width, and one step shorter than the
+        // standalone version so the pinned bar stays a single row on a phone.
+        // The in-cart state keeps the shape and swaps the fill — `secondary`
+        // rather than `outline`, whose only affordance is a border-border
+        // hairline at 1.24:1 against the page, far too faint to read as a 44px
+        // control. cn() is tailwind-merge, so these beat the variant's own
+        // background rather than fighting it.
+        className={`h-12 w-full min-w-0 shrink px-4 text-[12px] tracking-[0.06em] sm:h-12 sm:px-4 ${
+          inCart ? "bg-secondary text-secondary-foreground hover:bg-secondary/80" : ""
+        }`}
         disabled={stock === 0 || isPending || atStockLimit}
         onClick={handleClick}
       >
@@ -149,10 +158,13 @@ export function AddToCartButton({
 
   return (
     <div className="flex flex-col gap-1.5">
+      {/* Square, outlined, full width — one step below Buy now, which is the
+          only filled block in the stack. It was a fully-rounded black pill,
+          which is the app-control shape and sat directly under a square CTA. */}
       <Button
-        size="lg"
-        variant={inCart ? "outline" : "default"}
-        className="h-11 w-full rounded-full px-8 text-sm sm:h-12 sm:w-auto sm:text-base"
+        variant="cta"
+        size="cta"
+        className="w-full border-input bg-transparent text-foreground hover:bg-muted"
         // Blocked once the cart already holds every unit in stock — the server
         // would clamp it anyway, so offering the click would be a lie.
         disabled={stock === 0 || isPending || atStockLimit}

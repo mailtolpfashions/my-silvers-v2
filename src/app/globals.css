@@ -227,14 +227,19 @@
   --chart-5: var(--graphite-950);
 
   /* 12px base. The old 20px made every card and input read as a soft app
-     surface; jewellery photography wants a quieter, more editorial frame. */
+     surface; jewellery photography wants a quieter, more editorial frame.
+
+     This value now applies to FORM CONTROLS ONLY — inputs, selects, dialogs,
+     dropdowns and the admin/CMS surfaces. Everything on the storefront that
+     frames an image or an action is square; see the .rhythm-* and tile rules
+     below. A hard corner on a text input is hostile; a rounded corner on a
+     photograph is a Shopify theme. */
   --radius: 0.75rem;
 
-  /* The product card is the exception, and gets the old store's 20px back.
-     Kept as its own token rather than raised --radius, because that would take
-     every input, dialog and dropdown with it — which is the app-surface look
-     the line above is avoiding. */
-  --radius-card: 1.25rem;
+  /* --radius-card is deliberately GONE. The storefront product tile, the
+     collection tile and the editorial tile are all square-cornered now — the
+     tile is a backdrop for the object, not a card sitting on the page. Nothing
+     should reintroduce a radius token for imagery. */
 
   --sidebar: var(--ivory-200);
   --sidebar-foreground: var(--graphite-800);
@@ -370,6 +375,223 @@
   padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
 }
 
+/* ─── Header ──────────────────────────────────────────────────────────────────
+   The storefront header has two looks, and this block is the whole of the
+   second one. See site-header.tsx / header-chrome.tsx for the markup.
+
+   SOLID (the default, every page)
+     Opaque ivory, sitting in the flow, sticky at the top.
+
+   TRANSPARENT (a page that opens with a full-bleed hero, at the top, untouched)
+     Lifted out of the flow entirely so the hero starts at pixel 0, painted in
+     white over a soft top-down scrim, no fill and no hairline.
+
+   It returns to SOLID the moment any of three things happens: the pointer
+   enters it, focus moves inside it, or the page scrolls. Those are three
+   different people asking the same question — "what are my options?" — and the
+   answer is the same in each case: stop being part of the photograph.
+
+   ── Why this is CSS and not React ──────────────────────────────────────────
+   Two of those three triggers are `:hover` and `:focus-within`, which the
+   browser tracks for nothing. The third — which pages overlay at all — is
+   `:has([data-hero-full])`, and being a selector it resolves during the FIRST
+   paint. A component that read the DOM in an effect would paint the solid
+   header and then swap it, a flash on the one page it matters on. Only the
+   scroll position needs JavaScript, and that is all header-chrome.tsx does.
+
+   ── How the colours invert without touching a single child ─────────────────
+   The transparent rule re-points the SEMANTIC tokens for its own subtree.
+   `@theme inline` compiles `text-muted-foreground` to `color: var(--muted-
+   foreground)`, so redefining that variable on the header repaints every
+   descendant that uses it — the nav words, the icon glyphs, the utility links —
+   while the markup stays ordinary storefront markup. Nothing in the header
+   should hardcode a colour; that is what would break this.
+
+   These rules sit OUTSIDE @layer deliberately, so they beat the Tailwind
+   utilities they are overriding (`bg-graphite-950` on the utility band, and so
+   on) without a single `!important`.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* `color` as well as the fill, and this one line does most of the work: almost
+   nothing in the header sets its own colour, so the glyphs, the nav words and
+   the links all INHERIT this value — and an inherited property animates with
+   the ancestor it comes from. Transitioning the root is what makes the whole
+   header resolve as a single object rather than as a background fading in
+   behind type that has already snapped to its new colour. */
+.site-header {
+  background-color: var(--background);
+  transition:
+    background-color 300ms ease,
+    color 300ms ease;
+}
+
+/* Pages that open with a full-bleed hero give the header the top of the
+   viewport. `fixed` rather than `sticky` — sticky still occupies a strip of
+   layout, which would push a 100svh hero down by the header's height and put
+   its last 130px below the fold on every load. */
+.storefront-shell:has([data-hero-full]) .site-header {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+}
+
+/* The scrim, as a pseudo-element rather than a background-image on the header
+   itself: `background-image` does not interpolate between a gradient and
+   `none`, so fading one in means fading a layer's opacity.
+
+   z-index -1 puts it behind the header's own background — which is exactly the
+   behaviour wanted, and means the solid state needs no rule to hide it. When
+   the fill is opaque ivory the scrim is simply covered. */
+.site-header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(to bottom, rgba(12, 12, 14, 0.55) 0%, rgba(12, 12, 14, 0) 100%);
+  transition: opacity 300ms ease;
+}
+
+/* The containers that paint their OWN fill or border rather than inheriting
+   one — the utility band and the row wrapper that carries `border-b`. Those two
+   cannot be reached by the inherited-colour trick above, so they need a
+   transition of their own.
+
+   The element list is deliberately narrow, and `a`, `button` and `svg` are
+   deliberately absent. This declaration replaces `transition-property`
+   outright, and those three already carry transitions that are NOT about
+   colour: the utility links fade with `transition-opacity`, and every icon
+   button is a `Button` with `transition-all`, which is what animates its
+   focus ring and its 1px active press. Including them here would silently
+   narrow all of that to colour and make the header's controls feel dead.
+   None of them needs it anyway — their colour is inherited, so it is already
+   animating with the root above. */
+.site-header :where(div, nav, ul, li, p, span) {
+  transition-property: color, background-color, border-color;
+  transition-duration: 300ms;
+  transition-timing-function: ease;
+}
+
+/* ── The transparent state ───────────────────────────────────────────────── */
+.storefront-shell:has([data-hero-full])
+  .site-header:not([data-scrolled]):not(:hover):not(:focus-within) {
+  /* Re-pointed for one dark band. Raw values, not ramp tokens: the ramp is
+     tuned for ink on ivory, and there is no "white on an arbitrary
+     photograph" entry in it — nor should there be, since this is the only
+     place on the storefront that needs one. */
+  --background: transparent;
+  --foreground: #ffffff;
+  --muted-foreground: rgba(255, 255, 255, 0.78);
+  /* No hairline at all, so the header genuinely floats. The border fades back
+     in with the fill on hover. */
+  --border: transparent;
+  /* --brass-text is the AA-on-white variant and goes muddy on a scrim;
+     --brass-light is the one cut for dark imagery. Same swap the hero's own
+     eyebrow makes — see .label-eyebrow-light. */
+  --brass-text: var(--brass-light);
+
+  background-color: transparent;
+  color: #ffffff;
+}
+
+.storefront-shell:has([data-hero-full])
+  .site-header:not([data-scrolled]):not(:hover):not(:focus-within)::before {
+  opacity: 1;
+}
+
+/* The utility band paints its own fill from a tone class, so a token swap
+   cannot reach it — it needs to be told directly. `color` too: the `info` tone
+   is graphite on ivory, which would be unreadable once the fill is gone. */
+.storefront-shell:has([data-hero-full])
+  .site-header:not([data-scrolled]):not(:hover):not(:focus-within)
+  .header-band {
+  background-color: transparent;
+  color: #ffffff;
+}
+
+/* ─── Vertical rhythm ─────────────────────────────────────────────────────────
+   Three rhythms, applied by PAGE ROLE rather than uniformly. The homepage used
+   to breathe at 160px while the product page, the catalogue and the cart all
+   sat at a flat 40px — and that inconsistency reads worse than uniform
+   tightness, because the shopper's second page contradicts the first.
+
+   editorial     80 / 112 / 160   homepage sections, story, editorial pairs
+   commerce      48 /  64 /  80   listings, product detail, recommendation rows
+   transactional 32 /  40 /  56   cart, checkout, account, auth
+
+   A cart with 160px between blocks is not luxurious, it is a scroll. Pick the
+   rhythm from what the page is FOR.
+   ─────────────────────────────────────────────────────────────────────────── */
+.rhythm-editorial {
+  padding-block: 5rem;
+}
+.rhythm-commerce {
+  padding-block: 3rem;
+}
+.rhythm-transactional {
+  padding-block: 2rem;
+}
+@media (min-width: 640px) {
+  .rhythm-editorial {
+    padding-block: 7rem;
+  }
+  .rhythm-commerce {
+    padding-block: 4rem;
+  }
+  .rhythm-transactional {
+    padding-block: 2.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .rhythm-editorial {
+    padding-block: 10rem;
+  }
+  .rhythm-commerce {
+    padding-block: 5rem;
+  }
+  .rhythm-transactional {
+    padding-block: 3.5rem;
+  }
+}
+
+/* Single-edge variants.
+   A page header pads its own TOP and nothing else; the content block beneath it
+   pads its own BOTTOM and takes a flat 40px above. Applying the full rhythm to
+   both stacked one on the other, which put ~160px of empty page between a
+   listing's description and its filter row. */
+.rhythm-commerce-top {
+  padding-top: 3rem;
+}
+.rhythm-transactional-top {
+  padding-top: 2rem;
+}
+.rhythm-commerce-bottom {
+  padding-bottom: 3rem;
+}
+@media (min-width: 640px) {
+  .rhythm-commerce-top {
+    padding-top: 4rem;
+  }
+  .rhythm-transactional-top {
+    padding-top: 2.5rem;
+  }
+  .rhythm-commerce-bottom {
+    padding-bottom: 4rem;
+  }
+}
+@media (min-width: 1024px) {
+  .rhythm-commerce-top {
+    padding-top: 5rem;
+  }
+  .rhythm-transactional-top {
+    padding-top: 3.5rem;
+  }
+  .rhythm-commerce-bottom {
+    padding-bottom: 5rem;
+  }
+}
+
 /* Heading sizes as utilities so components stop hardcoding text-2xl and inline
    clamp(). Pair with font-heading; these set size and rhythm only. */
 .text-display {
@@ -450,6 +672,45 @@
   .reveal-section {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* ─── Tile drift ──────────────────────────────────────────────────────────────
+   A very slight vertical travel on the category tile images as the band passes
+   through the viewport. The reference drives this from a --parallax-y custom
+   property updated on scroll; this is the same effect with no JavaScript at all.
+
+   ⚠️  This is the ONE piece of parallax on the site, and it is deliberately
+   isolated here so it can be removed by deleting this block and the
+   `tile-drift` class from homepage-section.tsx. The standing motion rule bans
+   parallax, and the ban was written against SCROLL-JACKING parallax — a
+   library (GSAP/Lenis) running JS on every scroll frame, which this project
+   already adopted once and reverted. This costs nothing on the main thread:
+   `animation-timeline: view()` is driven by the compositor.
+
+   Three guards, all of which fail safe to a completely static image:
+     @supports          — unsupported browsers get no animation at all
+     prefers-reduced-motion — honoured, no travel
+     the ±5% is absorbed by the image being 110% tall, so no edge is ever shown
+   ─────────────────────────────────────────────────────────────────────────── */
+@keyframes tile-drift {
+  from {
+    transform: translateY(-5%);
+  }
+  to {
+    transform: translateY(5%);
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .tile-drift {
+      animation: tile-drift linear both;
+      animation-timeline: view();
+      /* Travel across the whole time the tile is on screen, rather than only
+         while it is entering — otherwise it snaps once and stops. */
+      animation-range: cover 0% cover 100%;
+    }
   }
 }
 

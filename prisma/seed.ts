@@ -63,20 +63,18 @@ const systemContentTypes = [
         type: "array",
         of: [{ name: "text", label: "Placeholder", type: "text" }],
       },
-      {
-        name: "trustItems",
-        label: "Trust bar items",
-        type: "array",
-        of: [
-          {
-            name: "icon",
-            label:
-              "Icon — shield-check, truck, refresh-ccw, sparkles, gem, gift, award, star, lock, leaf, package, wallet, heart, badge-check, rotate-ccw (or an emoji)",
-            type: "text",
-          },
-          { name: "text", label: "Text", type: "text" },
-        ],
-      },
+      // ── No `trustItems` ──────────────────────────────────────────────────
+      // The trust bar that used to render directly under the hero is gone, and
+      // with it the field that fed it. Those claims are not lost: they live in
+      // the `usp` section further down the page, which is an ordinary entry in
+      // `sections` below and is editable there.
+      //
+      // Two icon rows saying the same four things on one page was the problem
+      // — and the one immediately under the hero was the worse of the two, four
+      // small icons competing with the first photograph a shopper ever sees.
+      // Removing the field is what stops an editor refilling it and getting a
+      // section that no longer renders. Existing entries keep the stale key in
+      // their JSON harmlessly; nothing reads it.
       {
         name: "sections",
         label: "Homepage sections — order here is the order on the page",
@@ -288,7 +286,17 @@ const systemContentTypes = [
         name: "position",
         label: "Position — where this banner appears",
         type: "select",
-        options: ["homepage-hero", "homepage-mid", "category"],
+        // `catalogue` is the header artwork on /products; `catalogue-mid` is
+        // the editorial break dropped in after the third row of that grid.
+        // Both are optional — with nothing published the catalogue falls back
+        // to its plain header and an uninterrupted grid.
+        options: [
+          "homepage-hero",
+          "homepage-mid",
+          "category",
+          "catalogue",
+          "catalogue-mid",
+        ],
       },
       {
         name: "categorySlug",
@@ -301,6 +309,44 @@ const systemContentTypes = [
       { name: "isActive", label: "Active", type: "boolean" },
       { name: "startsAt", label: "Starts at", type: "date" },
       { name: "endsAt", label: "Ends at", type: "date" },
+    ],
+  },
+  {
+    /**
+     * Shop-wide product copy, shown as expandable sections on EVERY product
+     * page — see components/storefront/product-info-sections.tsx.
+     *
+     * A singleton rather than fields on Product, deliberately. These three
+     * blocks are identical for all 122 pieces: putting them on the model would
+     * mean an admin retyping a care guide for every new product, and a change
+     * to the returns policy becoming a bulk edit of the whole catalogue. Here
+     * it is one entry, edited once.
+     *
+     * Nothing is seeded into it. Materials, hallmarking, care and returns are
+     * business claims — the storefront renders each section only when its field
+     * has content, so an unauthored entry simply shows the per-product
+     * measurements and nothing more.
+     */
+    name: "product-info",
+    label: "Product information",
+    icon: "info",
+    isSingleton: true,
+    fields: [
+      {
+        name: "materials",
+        label: "Materials & hallmarking — shown on every product page",
+        type: "richtext",
+      },
+      {
+        name: "care",
+        label: "Care — how to keep the piece looking new",
+        type: "richtext",
+      },
+      {
+        name: "shippingReturns",
+        label: "Shipping & returns — delivery times and the returns window",
+        type: "richtext",
+      },
     ],
   },
 ];

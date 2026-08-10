@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Star } from "lucide-react";
 import { getProductReviews } from "@/server/products/reviews";
-import { Badge } from "@/components/ui/badge";
 
 function Stars({ rating }: { rating: number }) {
   return (
@@ -32,7 +31,7 @@ export async function ReviewSection({
   return (
     <section className="container-detail border-t py-12">
       <div className="flex flex-wrap items-center gap-4">
-        <h2 className="text-xl font-semibold">Reviews</h2>
+        <h2 className="text-h2">Reviews</h2>
         {count > 0 && (
           <span className="flex items-center gap-2 text-sm text-muted-foreground">
             <Stars rating={averageRating} />
@@ -54,9 +53,7 @@ export async function ReviewSection({
                   <Stars rating={review.rating} />
                   <span className="text-sm font-medium">{review.user.name ?? "Customer"}</span>
                   {review.isVerifiedPurchase && (
-                    <Badge variant="secondary" className="text-[10px]">
-                      Verified purchase
-                    </Badge>
+                    <span className="text-[10px] uppercase tracking-[0.1em] text-brass-text">Verified purchase</span>
                   )}
                   <span className="text-xs text-muted-foreground">
                     {review.createdAt.toLocaleDateString("en-IN", { dateStyle: "medium" })}
@@ -77,7 +74,7 @@ export async function ReviewSection({
               would invite people who never bought the piece to fill it in and
               then be refused on submit. */}
           {isAuthed ? (
-            <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+            <div className="border-t bg-muted/30 p-4 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">Bought this piece?</p>
               <p className="mt-1.5">
                 Reviews come from delivered orders. Find it under{" "}
@@ -88,7 +85,7 @@ export async function ReviewSection({
               </p>
             </div>
           ) : (
-            <p className="rounded-lg border p-4 text-sm text-muted-foreground">
+            <p className="border-t p-4 text-sm text-muted-foreground">
               <Link href={`/login?redirect=/products/${productSlug}`} className="underline">
                 Sign in
               </Link>{" "}

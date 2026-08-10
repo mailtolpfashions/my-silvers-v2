@@ -20,7 +20,7 @@ export async function CustomerReviews() {
   if (reviews.length === 0) return null;
 
   return (
-    <RevealSection className="container-page py-10 sm:py-16">
+    <RevealSection className="container-page rhythm-commerce">
       <div className="mb-10 text-center">
         <p className="label-eyebrow mb-2">In their words</p>
         <h2 className="text-h2">What our customers say</h2>
@@ -33,13 +33,13 @@ export async function CustomerReviews() {
         </p>
       </div>
 
-      <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="grid gap-x-10 gap-y-0 sm:grid-cols-2 lg:grid-cols-3">
         {reviews.map((review) => (
           <li key={review.id}>
             <Link
               href={`/products/${review.product.slug}`}
               transitionTypes={["nav-forward"]}
-              className="group flex h-full flex-col rounded-md border bg-card p-6 transition-colors hover:border-brass"
+              className="group flex h-full flex-col border-t pt-6 transition-colors hover:border-brass"
             >
               <span className="flex gap-0.5" aria-label={`${review.rating} out of 5 stars`}>
                 {Array.from({ length: 5 }, (_, i) => (

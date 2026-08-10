@@ -32,7 +32,7 @@ export default function CmsPage({ params }: { params: Params }) {
 
 function CmsPageSkeleton() {
   return (
-    <div className="container-prose py-10">
+    <div className="container-prose rhythm-commerce">
       <Skeleton className="h-9 w-2/3" />
       <Skeleton className="mt-3 h-4 w-full max-w-md" />
       <div className="mt-8 space-y-3">
@@ -57,15 +57,25 @@ async function CmsPageBody({ params }: { params: Params }) {
   };
 
   return (
-    <article className="container-prose py-10">
-      <h1 className="text-3xl font-semibold tracking-tight">{d.title}</h1>
-      {d.excerpt && <p className="mt-2 text-muted-foreground">{d.excerpt}</p>}
+    <article className="container-prose rhythm-commerce">
+      <h1 className="text-h1">{d.title}</h1>
+      {d.excerpt && (
+        <p className="text-lead mt-4 border-b pb-6 text-muted-foreground">{d.excerpt}</p>
+      )}
       {d.coverImage && (
-        <div className="relative mt-6 aspect-[16/9] overflow-hidden rounded-lg">
-          <Image src={d.coverImage} alt={d.title ?? ""} fill className="object-cover" />
+        <div className="relative mt-8 aspect-[16/9] overflow-hidden bg-muted">
+          <Image
+            src={d.coverImage}
+            alt={d.title ?? ""}
+            fill
+            sizes="(max-width: 768px) 100vw, 42rem"
+            className="object-cover"
+          />
         </div>
       )}
-      {d.content && <RichText html={d.content} className="mt-8" />}
+      {/* Policy and information pages are UI, not editorial writing — the
+          headings stay in the body sans. Only the journal takes the serif. */}
+      {d.content && <RichText html={d.content} className="mt-10" />}
     </article>
   );
 }

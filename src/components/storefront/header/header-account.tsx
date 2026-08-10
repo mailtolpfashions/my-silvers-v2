@@ -21,12 +21,12 @@ export async function HeaderAccount() {
   return (
     <>
       {role === "admin" && (
-        <Button asChild variant="ghost" size="sm" className="hidden h-12 px-4 text-base lg:inline-flex">
+        <Button asChild variant="ghost" size="sm" className="hidden h-9 rounded-none px-3 text-sm lg:inline-flex">
           <Link href="/admin">Admin</Link>
         </Button>
       )}
       {(role === "admin" || role === "editor") && (
-        <Button asChild variant="ghost" size="sm" className="hidden h-12 px-4 text-base lg:inline-flex">
+        <Button asChild variant="ghost" size="sm" className="hidden h-9 rounded-none px-3 text-sm lg:inline-flex">
           <Link href="/cms">CMS</Link>
         </Button>
       )}
@@ -37,23 +37,29 @@ export async function HeaderAccount() {
           against a plain `[&_svg]` at (0,1,1) — so a descendant override loses
           and the glyph silently stays 16px however large the button gets. The
           :not() is the escape hatch: give the svg its own size- class. */}
+      {/* Shown at every width: hamburger · wordmark · search · account ·
+          wishlist · cart. Six targets fit inside 375px once the icons are 40px
+          and the wordmark is constrained — the reason this was briefly
+          desktop-only was an unrelated bug where the mobile mark rendered at
+          its intrinsic 192px and pushed the whole cluster off screen. The
+          drawer keeps its own "Your account" row as the redundant route. */}
       {session?.user ? (
-        <Button asChild variant="ghost" size="icon" className="size-10 md:size-12" aria-label="Your account">
+        <Button asChild variant="ghost" size="icon" className="size-10 rounded-none md:size-11" aria-label="Your account">
           <Link href="/account">
-            <User className="size-6" />
+            <User className="size-5" />
           </Link>
         </Button>
       ) : (
-        <Button asChild variant="ghost" size="icon" className="size-10 md:size-12" aria-label="Sign in">
+        <Button asChild variant="ghost" size="icon" className="size-10 rounded-none md:size-11" aria-label="Sign in">
           <Link href="/login">
-            <User className="size-6" />
+            <User className="size-5" />
           </Link>
         </Button>
       )}
 
-      <Button asChild variant="ghost" size="icon" className="size-10 md:size-12" aria-label="Wishlist">
+      <Button asChild variant="ghost" size="icon" className="size-10 rounded-none md:size-11" aria-label="Wishlist">
         <Link href="/wishlist">
-          <Heart className="size-6" />
+          <Heart className="size-5" />
         </Link>
       </Button>
 

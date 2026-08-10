@@ -37,16 +37,16 @@ export function CartButton({
     : guestItems.reduce((total, item) => total + item.quantity, 0);
 
   return (
-    <Button asChild variant="ghost" size="icon" className="relative size-10 md:size-12" aria-label="Cart">
+    <Button asChild variant="ghost" size="icon" className="relative size-10 rounded-none md:size-11" aria-label="Cart">
       <Link href="/cart">
-        <ShoppingBag className="size-6" />
+        <ShoppingBag className="size-5" />
         {count > 0 && (
           <span
             // Wider than tall past 9 so "12" doesn't get clipped by a circle.
             // Inset rather than hung off the corner: the button is 48px around a
             // 24px glyph, so a negative offset would float the badge in dead
             // space well clear of the bag.
-            className="absolute right-1.5 top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-brass px-1 text-[11px] font-semibold leading-none text-graphite-950"
+            className="absolute right-0.5 top-1 flex h-[17px] min-w-[17px] items-center justify-center bg-graphite-950 px-1 text-[10px] font-medium leading-none text-ivory-100"
             aria-hidden
           >
             {count > 99 ? "99+" : count}

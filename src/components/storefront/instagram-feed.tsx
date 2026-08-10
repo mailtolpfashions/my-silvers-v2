@@ -34,26 +34,26 @@ export async function InstagramFeed({
   if (posts.length === 0) return null;
 
   return (
-    <RevealSection className="container-page py-10 sm:py-16">
+    <RevealSection className="container-page rhythm-commerce">
       {eyebrow && <p className="label-eyebrow mb-2 text-center">{eyebrow}</p>}
       <div className="mb-6 flex items-center justify-center gap-2">
         <InstagramGlyph className="h-5 w-5" />
-        {title && <h2 className="text-xl font-semibold">{title}</h2>}
+        {title && <h2 className="text-h2">{title}</h2>}
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-px sm:grid-cols-4 sm:gap-0">
         {posts.map((post) => (
           <a
             key={post.id}
             href={post.permalink}
             target="_blank"
             rel="noopener noreferrer"
-            className="group relative aspect-square overflow-hidden rounded-lg bg-muted"
+            className="group relative aspect-square overflow-hidden bg-muted"
           >
             <Image
               src={post.imageUrl}
               alt={post.caption?.slice(0, 100) ?? "Instagram post"}
               fill
-              className="object-cover transition-transform group-hover:scale-105"
+              className="object-cover"
               sizes="(max-width: 640px) 50vw, 25vw"
             />
           </a>

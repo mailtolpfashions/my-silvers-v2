@@ -58,12 +58,6 @@ const homepage: EntrySpec = {
     heroLink: "/products",
     heroImage: img("Hero — Sterling Silver", "F5ECD9", "1200x900"),
     heroBackground: "#FFFDF8",
-    trustItems: [
-      { icon: "shield-check", text: "BIS Hallmarked 925 Silver" },
-      { icon: "truck", text: "Free shipping above ₹999" },
-      { icon: "refresh-ccw", text: "15-day easy returns" },
-      { icon: "sparkles", text: "Anti-tarnish finish" },
-    ],
     sections: [
       {
         type: "collections",
@@ -120,6 +114,25 @@ const homepage: EntrySpec = {
         type: "instagram",
         title: "Follow us on Instagram",
         eyebrow: "@mysilvers",
+        isActive: true,
+      },
+      // The four trust claims, in their new home.
+      //
+      // These used to be `trustItems` — a strip of four icons wedged directly
+      // under the hero, competing with the first photograph on the page. The
+      // field is gone; the claims are not. As a `usp` section they are still
+      // fully editable, and they now land where a shopper reads them: after
+      // they have seen the jewellery the claims are about.
+      {
+        type: "usp",
+        title: "Why 925",
+        eyebrow: "The craft",
+        items: [
+          { icon: "shield-check", text: "BIS Hallmarked 925 Silver" },
+          { icon: "truck", text: "Free shipping above ₹999" },
+          { icon: "refresh-ccw", text: "15-day easy returns" },
+          { icon: "sparkles", text: "Anti-tarnish finish" },
+        ],
         isActive: true,
       },
     ],

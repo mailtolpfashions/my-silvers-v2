@@ -1,11 +1,16 @@
 import { Suspense } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { searchProducts, getActiveCategories } from "@/server/products/search";
+import { getLiveBanner } from "@/server/cms/banners";
+import { PageHeader } from "@/components/storefront/page-header";
 import { ProductFilters } from "@/components/storefront/product-filters";
 import { ProductGrid } from "@/components/storefront/product-grid";
 import { ProductGridSkeleton } from "@/components/storefront/product-card-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StickyBarSpacer } from "@/components/storefront/sticky-action-bar";
 import { PRODUCT_PAGE_SIZE } from "@/lib/product-page-size";
+import { ItemListJsonLd, BreadcrumbJsonLd } from "@/components/storefront/structured-data";
 
 type SearchParams = Promise<{
   q?: string;
@@ -16,54 +21,81 @@ type SearchParams = Promise<{
 }>;
 
 /**
- * The page shell awaits nothing, so the heading and layout can prerender while
- * the filter bar and the results stream in behind their own boundaries. Both
- * children receive the searchParams promise rather than an awaited value —
- * awaiting it here would pull the whole page back to request time.
+ * The catalogue, and the search results page — they are the same route.
+ *
+ * The page shell awaits nothing, so the layout can prerender while the header
+ * and the results stream in behind their own boundaries. Both children receive
+ * the searchParams promise rather than an awaited value; awaiting it here would
+ * pull the whole page back to request time.
  */
 export default function ProductsPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <div className="container-page py-10">
-      <h1 className="text-h1">Shop all jewellery</h1>
-
-      {/* No top margin below md: the filters render as a pinned bottom bar
-          there, so this wrapper is empty and would only add a gap. */}
-      <div className="md:mt-6">
-        <Suspense fallback={<Skeleton className="hidden h-10 w-full max-w-2xl md:block" />}>
-          <FilterBar searchParams={searchParams} />
-        </Suspense>
-      </div>
-
-      <Suspense fallback={<ProductGridSkeleton count={PRODUCT_PAGE_SIZE > 12 ? 12 : 8} />}>
-        <Results searchParams={searchParams} />
+    <div>
+      <Suspense fallback={<CatalogueHeaderSkeleton />}>
+        <CatalogueHeader searchParams={searchParams} />
       </Suspense>
 
-      {/* Room for that pinned bar, or it covers the last row of the grid. */}
-      <StickyBarSpacer />
+      <div className="container-page pt-10 rhythm-commerce-bottom">
+        <Suspense fallback={<ResultsSkeleton />}>
+          <Results searchParams={searchParams} />
+        </Suspense>
+
+        {/* Room for the pinned mobile filter bar, or it covers the last row. */}
+        <StickyBarSpacer />
+      </div>
     </div>
   );
 }
 
 /**
- * Its own boundary because ProductFilters calls useSearchParams() — without one
- * the entire route opts out of static rendering.
+ * The editorial header.
+ *
+ * This page used to open with `<h1>Shop all jewellery</h1>` at 40px of padding
+ * and nothing else, while every category page got a full-bleed banner — despite
+ * this being the most-linked shopping page on the site.
+ *
+ * It is also the search results page, so a query for "oxidised" was landing on
+ * a page headed "Shop all jewellery", which reads as a bug. When `q` is present
+ * the heading says so and the artwork is dropped: a campaign photograph over a
+ * set of search results is decoration in the way of the answer.
  */
-async function FilterBar({ searchParams }: { searchParams: SearchParams }) {
-  const [params, categories] = await Promise.all([searchParams, getActiveCategories()]);
+async function CatalogueHeader({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
+  const query = params.q?.trim();
+
+  if (query) {
+    return (
+      <PageHeader
+        eyebrow="Search"
+        title={`Results for “${query}”`}
+        description="Refine with the filters below, or try a different word."
+      />
+    );
+  }
+
+  // Position "catalogue" — an editor sets one banner and this page has a
+  // header. With none published it falls back to the plain arrangement rather
+  // than an empty frame.
+  const banner = await getLiveBanner("catalogue");
 
   return (
-    <ProductFilters
-      categories={categories.map((c) => ({ slug: c.slug, name: c.name }))}
-      current={{
-        category: params.category,
-        sort: params.sort,
-        minPrice: params.minPrice,
-        maxPrice: params.maxPrice,
-      }}
+    <PageHeader
+      title="All jewellery"
+      eyebrow={banner?.title}
+      description="Hallmarked 925 sterling silver, made to be worn every day."
+      image={banner?.image}
+      imageHref={banner?.link}
     />
   );
 }
 
+/**
+ * Filters, count and grid together, because they share one query.
+ *
+ * ProductFilters calls useSearchParams(), which is runtime data — it needs a
+ * Suspense boundary above it or the whole route opts out of static rendering.
+ * It gets one from the parent.
+ */
 async function Results({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
 
@@ -75,32 +107,59 @@ async function Results({ searchParams }: { searchParams: SearchParams }) {
     maxPrice: params.maxPrice,
   };
 
-  // The first page is rendered on the server; ProductGrid appends the rest as
-  // the shopper scrolls.
-  const { items, total } = await searchProducts({
-    q: params.q,
-    categorySlug: params.category,
-    sort: params.sort as "newest" | "price-asc" | "price-desc" | "featured" | undefined,
-    minPrice: params.minPrice ? Number(params.minPrice) : undefined,
-    maxPrice: params.maxPrice ? Number(params.maxPrice) : undefined,
-    page: 1,
-    pageSize: PRODUCT_PAGE_SIZE,
-  });
+  const [categories, { items, total }, midBanner] = await Promise.all([
+    getActiveCategories(),
+    // The first page is rendered on the server; ProductGrid appends the rest as
+    // the shopper scrolls.
+    searchProducts({
+      q: params.q,
+      categorySlug: params.category,
+      sort: params.sort as "newest" | "price-asc" | "price-desc" | "featured" | undefined,
+      minPrice: params.minPrice ? Number(params.minPrice) : undefined,
+      maxPrice: params.maxPrice ? Number(params.maxPrice) : undefined,
+      page: 1,
+      pageSize: PRODUCT_PAGE_SIZE,
+    }),
+    getLiveBanner("catalogue-mid"),
+  ]);
+
+  const filterBar = (
+    <ProductFilters
+      categories={categories.map((c) => ({ slug: c.slug, name: c.name }))}
+      current={filters}
+      total={total}
+    />
+  );
 
   if (items.length === 0) {
     return (
       <>
-        <p className="mt-1 text-sm text-muted-foreground">0 products</p>
-        <p className="mt-16 text-center text-muted-foreground">
-          No products found. Try a different search or filter.
-        </p>
+        {filterBar}
+        <div className="py-24 text-center">
+          <p className="text-h3">Nothing matched those filters</p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Try removing a filter, or browse the full collection.
+          </p>
+          <div className="mt-8">
+            <Link
+              href="/products"
+              className="inline-flex items-center border-b border-foreground pb-1 text-sm font-medium transition-colors hover:border-brass hover:text-brass-text"
+            >
+              View all jewellery
+            </Link>
+          </div>
+        </div>
       </>
     );
   }
 
   return (
     <>
-      <p className="mt-1 text-sm text-muted-foreground">{total} products</p>
+      {/* Describes only the server-rendered first page — items appended by the
+          infinite scroll are not in the document a crawler sees. */}
+      <ItemListJsonLd items={items} name={params.q ? `Results for ${params.q}` : "All jewellery"} />
+      <BreadcrumbJsonLd trail={[{ name: "All jewellery", path: "/products" }]} />
+      {filterBar}
       <ProductGrid
         // Remount on filter change so appended pages never outlive their query.
         // Every filter must be in the key, or changing one leaves appended
@@ -116,7 +175,75 @@ async function Results({ searchParams }: { searchParams: SearchParams }) {
         initialHasMore={total > PRODUCT_PAGE_SIZE}
         total={total}
         params={filters}
+        // Only when an editor has actually published artwork for it. A fixed
+        // index of 12 lands it after three rows on desktop and six on a phone.
+        interrupt={
+          midBanner
+            ? { after: 12, node: <CatalogueBreak banner={midBanner} /> }
+            : undefined
+        }
       />
+    </>
+  );
+}
+
+/** The editorial pause inside a long grid. Photograph, one line, one link. */
+function CatalogueBreak({
+  banner,
+}: {
+  banner: { title?: string; image: string; link?: string };
+}) {
+  const art = (
+    <div className="relative aspect-[21/9] w-full overflow-hidden bg-muted sm:aspect-[3/1]">
+      <Image
+        src={banner.image}
+        alt=""
+        fill
+        loading="lazy"
+        className="object-cover"
+        sizes="100vw"
+      />
+      {banner.title && (
+        <>
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-gradient-to-t from-graphite-950/65 via-graphite-950/15 to-transparent"
+          />
+          <div className="absolute inset-x-0 bottom-0 p-6 sm:p-10">
+            <p className="text-h3 font-heading text-white">{banner.title}</p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  return banner.link ? (
+    <Link href={banner.link} className="block">
+      {art}
+    </Link>
+  ) : (
+    art
+  );
+}
+
+function CatalogueHeaderSkeleton() {
+  // Matches PageHeader's plain mode, which is what renders without a banner.
+  return (
+    <div className="container-page rhythm-commerce-top">
+      <Skeleton className="h-9 w-64" />
+      <Skeleton className="mt-4 h-4 w-full max-w-md" />
+    </div>
+  );
+}
+
+function ResultsSkeleton() {
+  return (
+    <>
+      <div className="hidden items-center justify-between border-b py-4 md:flex">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-4 w-24" />
+      </div>
+      <ProductGridSkeleton count={PRODUCT_PAGE_SIZE > 12 ? 12 : 8} />
     </>
   );
 }

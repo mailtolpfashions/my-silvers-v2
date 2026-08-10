@@ -1,6 +1,4 @@
 import Image from "next/image";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatINR } from "@/lib/format";
 import { OrderItemReview } from "@/components/storefront/orders/order-item-review";
 import type { ReviewableItem } from "@/server/reviews/reviewable-items";
@@ -26,16 +24,47 @@ const PAYMENT_STATUS_LABELS: Record<Order["paymentStatus"], string> = {
   refunded: "Refunded",
 };
 
+/**
+ * Order state, as quiet square labels.
+ *
+ * These are NOT the promotional pills removed from the product card. That badge
+ * said "20% off" to sell something; these say "Shipped" and "Payment failed" —
+ * functional state a customer needs, and the only place on the storefront where
+ * a status chip is still the right answer. They take the square geometry and
+ * hairline treatment of everything else rather than the rounded shadcn Badge,
+ * which is sized and coloured for admin tables.
+ */
+function StatusLabel({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode;
+  /** `alert` for a state the customer has to act on or worry about. */
+  tone?: "neutral" | "alert";
+}) {
+  return (
+    <span
+      className={`inline-flex items-center border px-2.5 py-1 text-[11px] uppercase tracking-[0.1em] ${
+        tone === "alert"
+          ? "border-destructive/40 bg-destructive/10 text-destructive"
+          : "border-border text-muted-foreground"
+      }`}
+    >
+      {children}
+    </span>
+  );
+}
+
 export function OrderStatusBadges({ order }: { order: Order }) {
   return (
     <div className="flex flex-wrap gap-2">
-      <Badge variant={order.orderStatus === "cancelled" ? "destructive" : "secondary"}>
+      <StatusLabel tone={order.orderStatus === "cancelled" ? "alert" : "neutral"}>
         {ORDER_STATUS_LABELS[order.orderStatus]}
-      </Badge>
-      <Badge variant={order.paymentStatus === "failed" ? "destructive" : "outline"}>
+      </StatusLabel>
+      <StatusLabel tone={order.paymentStatus === "failed" ? "alert" : "neutral"}>
         {PAYMENT_STATUS_LABELS[order.paymentStatus]}
-      </Badge>
-      <Badge variant="outline">{order.paymentMethod === "cod" ? "COD" : "Online"}</Badge>
+      </StatusLabel>
+      <StatusLabel>{order.paymentMethod === "cod" ? "COD" : "Online"}</StatusLabel>
     </div>
   );
 }
@@ -67,7 +96,7 @@ export function OrderDetail({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">{order.orderNumber}</h1>
+          <h1 className="text-h2">{order.orderNumber}</h1>
           <p className="text-sm text-muted-foreground">
             Placed {order.createdAt.toLocaleDateString("en-IN", { dateStyle: "medium" })}
           </p>
@@ -75,14 +104,12 @@ export function OrderDetail({
         <OrderStatusBadges order={order} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Items</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section className="border-t pt-6">
+        <h2 className="label-eyebrow mb-5">Items</h2>
+        <div className="space-y-4">
           {order.items.map((item) => (
             <div key={item.id} className="flex items-center gap-4">
-              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
+              <div className="relative h-20 w-16 shrink-0 overflow-hidden bg-muted">
                 {item.image && (
                   <Image src={item.image} alt={item.name} fill className="object-cover" />
                 )}
@@ -125,19 +152,17 @@ export function OrderDetail({
                   : formatINR(order.shippingCharge.toString())}
               </span>
             </div>
-            <div className="flex justify-between font-semibold">
+            <div className="flex justify-between font-medium">
               <span>Total</span>
               <span>{formatINR(order.totalAmount.toString())}</span>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Shipping address</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
+      <section className="border-t pt-6">
+        <h2 className="label-eyebrow mb-5">Shipping address</h2>
+        <div className="text-sm text-muted-foreground">
           <p className="text-foreground">{address.fullName}</p>
           <p>{address.addressLine1}</p>
           {address.addressLine2 && <p>{address.addressLine2}</p>}
@@ -145,15 +170,13 @@ export function OrderDetail({
             {address.city}, {address.state} — {address.pincode}
           </p>
           <p className="mt-1">{address.phone}</p>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {order.trackingNumber && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Tracking</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
+        <section className="border-t pt-6">
+          <h2 className="label-eyebrow mb-5">Tracking</h2>
+          <div className="text-sm">
             <p>
               {order.courierName ? `${order.courierName} — ` : ""}
               {order.trackingUrl ? (
@@ -169,8 +192,8 @@ export function OrderDetail({
                 order.trackingNumber
               )}
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
     </div>
   );

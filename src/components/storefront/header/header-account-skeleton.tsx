@@ -14,7 +14,7 @@ export function HeaderAccountSkeleton() {
   return (
     <>
       {Array.from({ length: 3 }, (_, i) => (
-        <div key={i} className="size-10 rounded-lg md:size-12" aria-hidden />
+        <div key={i} className="size-10 md:size-11" aria-hidden />
       ))}
       <span className="sr-only">Loading account</span>
     </>

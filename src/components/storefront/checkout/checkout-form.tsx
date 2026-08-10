@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   placeOrderAction,
   verifyPaymentAction,
@@ -290,13 +289,13 @@ export function CheckoutForm({
       <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <p className="border-l-2 border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
             </p>
           )}
 
           {pendingPayment && paymentDismissed && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-sm">
+            <div className="border-l-2 border-brass bg-brass-subtle px-3 py-3 text-sm">
               <p>Your order is saved but payment wasn&apos;t completed.</p>
               <Button
                 type="button"
@@ -314,14 +313,14 @@ export function CheckoutForm({
             field("email", "Email", { type: "email", required: true, autoComplete: "email" })}
 
           <fieldset className="space-y-4">
-            <legend className="text-sm font-semibold">Shipping address</legend>
+            <legend className="label-eyebrow mb-1">Shipping address</legend>
 
             {savedAddresses.length > 0 && (
               <div className="space-y-2">
                 {savedAddresses.map((address) => (
                   <label
                     key={address.id}
-                    className={`flex cursor-pointer gap-3 rounded-lg border p-3 text-sm transition-colors ${
+                    className={`flex cursor-pointer gap-3 border p-3 text-sm transition-colors ${
                       selectedAddressId === address.id ? "border-foreground bg-muted/50" : ""
                     }`}
                   >
@@ -353,7 +352,7 @@ export function CheckoutForm({
                   </label>
                 ))}
 
-                <label className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm">
+                <label className="flex cursor-pointer items-center gap-3 border p-3 text-sm">
                   <input
                     type="radio"
                     name="savedAddress"
@@ -397,7 +396,7 @@ export function CheckoutForm({
                       autoComplete="address-level1"
                       value={form.state}
                       onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))}
-                      className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+                      className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
                     >
                       <option value="" disabled>
                         Select…
@@ -433,7 +432,7 @@ export function CheckoutForm({
           </fieldset>
 
           <fieldset className="space-y-2">
-            <legend className="text-sm font-semibold">Payment method</legend>
+            <legend className="label-eyebrow mb-1">Payment method</legend>
             {(
               [
                 ["razorpay", "Pay online (UPI / Card / Netbanking)"],
@@ -467,7 +466,8 @@ export function CheckoutForm({
               Same split as the cart; see cart-summary.tsx. */}
           <Button
             type="submit"
-            size="lg"
+            variant="cta"
+            size="cta"
             className="hidden w-full md:inline-flex"
             disabled={submitting}
           >
@@ -485,7 +485,7 @@ export function CheckoutForm({
               an address form, a payment choice and a notes field. */}
           <StickyActionBar>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-lg font-semibold leading-tight">
+              <p className="truncate text-base font-medium leading-tight">
                 {formatINRPaise(totalPaise)}
               </p>
               <p className="text-xs text-muted-foreground">
@@ -494,8 +494,9 @@ export function CheckoutForm({
             </div>
             <Button
               type="submit"
-              size="lg"
-              className="h-12 shrink-0 rounded-full px-6 text-base"
+              variant="cta"
+              size="cta"
+              className="h-12 shrink-0 px-8 sm:h-12"
               disabled={submitting}
             >
               {submitting
@@ -507,11 +508,9 @@ export function CheckoutForm({
           </StickyActionBar>
         </form>
 
-        <Card className="h-fit">
-          <CardHeader>
-            <CardTitle className="text-base">Order summary</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <div className="h-fit border-t pt-6 lg:sticky lg:top-[7.5rem]">
+          <h2 className="label-eyebrow mb-5">Order summary</h2>
+          <div className="space-y-3">
             {lines.map((line, i) => (
               <div key={i} className="flex justify-between text-sm">
                 <span className="text-muted-foreground">
@@ -524,12 +523,12 @@ export function CheckoutForm({
               <span className="text-muted-foreground">Shipping</span>
               <span>{shippingPaise === 0 ? "Free" : formatINRPaise(shippingPaise)}</span>
             </div>
-            <div className="flex justify-between font-semibold">
+            <div className="flex justify-between border-t pt-3 text-sm font-medium">
               <span>Total</span>
               <span>{formatINRPaise(totalPaise)}</span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </>
   );

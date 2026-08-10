@@ -6,7 +6,6 @@ import { AddressForm, type AddressValues } from "@/components/storefront/account
 import { deleteAddressAction, setDefaultAddressAction } from "@/actions/account-actions";
 import { MAX_ADDRESSES } from "@/lib/validation/account";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 export function AddressBook({ addresses }: { addresses: AddressValues[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -40,13 +39,13 @@ export function AddressBook({ addresses }: { addresses: AddressValues[] }) {
       </div>
 
       {atLimit && !isAdding && (
-        <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+        <p className="bg-muted px-3 py-2 text-sm text-muted-foreground">
           You&apos;ve saved the maximum of {MAX_ADDRESSES} addresses. Delete one to add another.
         </p>
       )}
 
       {isAdding && (
-        <div className="rounded-lg border p-4">
+        <div className="border-b py-5">
           <h3 className="mb-4 text-sm font-medium">New address</h3>
           <AddressForm onDone={closeAll} />
         </div>
@@ -59,7 +58,7 @@ export function AddressBook({ addresses }: { addresses: AddressValues[] }) {
       ) : (
         <ul className="space-y-4">
           {addresses.map((address) => (
-            <li key={address.id} className="rounded-lg border p-4">
+            <li key={address.id} className="border-b py-5">
               {editingId === address.id ? (
                 <>
                   <h3 className="mb-4 text-sm font-medium">Edit address</h3>
@@ -106,7 +105,9 @@ function AddressCard({
             {address.label && (
               <span className="text-xs text-muted-foreground">({address.label})</span>
             )}
-            {address.isDefault && <Badge variant="secondary">Default</Badge>}
+            {address.isDefault && (
+              <span className="text-xs uppercase tracking-[0.1em] text-brass-text">Default</span>
+            )}
           </p>
           <p className="text-muted-foreground">
             {address.addressLine1}

@@ -33,6 +33,27 @@ const buttonVariants = cva(
          * reaching for. Pair with size="cta".
          */
         cta: "rounded-none bg-graphite-950 text-ivory-100 uppercase tracking-[0.08em] hover:bg-graphite-800",
+        /**
+         * The storefront's OTHER call to action, and the one it should reach
+         * for most: a text link with a hairline underline.
+         *
+         * The reference this design follows barely uses buttons at all — its
+         * calls to action are directional verbs set as underlined text
+         * ("Discover", "Shop now", "Read more"), and a square block appears
+         * only where something is actually being bought. Having a third,
+         * rounded, shadcn-default button language on the storefront was the
+         * clearest tell that the design system grew rather than was decided.
+         *
+         * So: `cta` for commerce (add to cart, buy now, checkout, place order),
+         * `editorial` for everything that invites exploration. The rounded
+         * `default`/`secondary`/`outline` variants stay for /admin and /cms,
+         * where a rounded control is right.
+         *
+         * Pair with size="editorial". Prefer <EditorialLink> for plain links —
+         * it carries the arrow and its hover translate.
+         */
+        editorial:
+          "rounded-none border-b border-foreground bg-transparent px-0 font-normal text-foreground hover:border-brass hover:text-brass-text",
       },
       size: {
         default:
@@ -42,6 +63,8 @@ const buttonVariants = cva(
         lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
         /** Pairs with variant="cta": tall, wide, and small-lettered. */
         cta: "h-12 px-10 text-[13px] font-normal sm:h-[52px] sm:px-14",
+        /** Pairs with variant="editorial": sits on the text baseline, not in a box. */
+        editorial: "h-auto gap-2 pb-1 text-sm",
         icon: "size-8",
         "icon-xs":
           "size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",

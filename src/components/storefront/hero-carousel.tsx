@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { useSwipe } from "@/lib/use-swipe";
 
 export type HeroSlide = {
@@ -17,21 +17,17 @@ export type HeroSlide = {
   secondaryHref?: string;
   media?: string;
   /**
-   * A portrait crop for phones. Optional: blank means the desktop asset is used
-   * at every width, so slides authored before this existed keep working.
+   * A portrait crop, used below 1024px. Optional: blank means the desktop asset
+   * is used at every width, so slides authored before this existed keep working.
    */
   mediaMobile?: string;
   overlayOpacity?: number;
 };
 
-const AUTOPLAY_MS = 5000;
-
 /**
  * Backdrop for a slide with no artwork.
  *
- * The previous storefront put a per-slide gradient behind every hero, which is
- * why its carousel still looked deliberate before the photography arrived. Flat
- * graphite reads as a missing image; a gradient reads as a design.
+ * Flat graphite reads as a missing image; a gradient reads as a design.
  */
 const EMPTY_BACKDROP =
   "linear-gradient(135deg, var(--graphite-950) 0%, var(--graphite-800) 45%, var(--brass-text) 100%)";
@@ -42,297 +38,454 @@ function isVideo(url: string) {
 }
 
 /**
+ * How long a slide holds before the next one takes its place.
+ *
+ * Six seconds, matching the reference. Long enough to read a headline and a
+ * subline without hurrying, which is the actual constraint — a hero that
+ * changes faster than it can be read is just flicker.
+ */
+const AUTOPLAY_MS = 6000;
+
+/**
  * The homepage hero.
  *
- * Laid out as an inset rounded card rather than a full-bleed band, carrying over
- * the previous storefront's design: padding around the whole thing, aspect
- * ratios instead of a fixed height, copy bottom-left over a bottom-up scrim, and
- * the dots below the card rather than floating on it.
+ * ── What changed, and why ────────────────────────────────────────────────────
+ * Rebuilt against the reference's own hero behaviour rather than its markup.
+ * Four things that composition does, which this now does too:
  *
- * Aspect ratio, not height, is the important part. A fixed height has to guess
- * what a phone can spare; 4/5 on mobile through 21/8 on desktop lets the shape
- * change with the viewport, which is what stops it eating a whole small screen.
+ * 1. SLIDES, rather than crossfades. A track of full-width panels translated on
+ *    the x-axis. Movement tells you there is more; an opacity dissolve reads as
+ *    the page repainting itself.
+ * 2. THE WHOLE PANEL IS THE LINK. Not just the CTA — a shopper who taps a
+ *    photograph expects to go where it points. Implemented as a stretched
+ *    ::before on the real CTA link rather than by wrapping everything in an
+ *    <a>, so the secondary link stays a separately focusable element instead of
+ *    being swallowed by an outer anchor (which is also invalid HTML).
+ * 3. ART-DIRECTED CROPS AT 1024, not 768. A portrait asset serves phones AND
+ *    tablets; the cinematic landscape one starts at desktop. The container's
+ *    own aspect ratio switches at exactly the same breakpoint — serving a 9:16
+ *    portrait into a 2.79:1 letterbox is the failure this pairing avoids.
+ * 4. IT ROTATES, AND IT WRAPS. See below.
  *
- * Slides still crossfade rather than sliding on a track — the old build used
- * Swiper for that, and a carousel library is a lot of JavaScript to buy one
- * transition. Everything else about the design is the same.
+ * ── Autoplay, and the four things that make it legitimate ────────────────────
+ * This hero used to sit still on purpose, on the grounds that auto-advancing
+ * content is the biggest accessibility liability a hero can carry. That grounds
+ * was right about the RISK and wrong to conclude "never" — WCAG 2.2.2 does not
+ * ban movement, it requires a way to stop it. So the rotation is back, with the
+ * mechanism the old version lacked:
+ *
+ * 1. A VISIBLE PAUSE CONTROL, at every width. This is the part that actually
+ *    satisfies 2.2.2, and the part most carousels get wrong. Pausing on hover
+ *    is NOT a mechanism: it is undiscoverable, it does not exist for a keyboard
+ *    user, and it cannot be reached at all on a touchscreen.
+ * 2. prefers-reduced-motion IS HONOURED, and honoured properly — the timer
+ *    never starts, rather than the transition merely being shortened. The
+ *    media query is watched live, so changing the OS setting takes effect
+ *    without a reload.
+ * 3. IT PAUSES WHEN ANYONE IS LOOKING CLOSELY — pointer over the hero, focus
+ *    anywhere inside it, or the tab in the background. Not a substitute for
+ *    (1), but it stops the hero moving out from under a shopper who is reading
+ *    it or tabbing through its links.
+ * 4. THE TIMER RESTARTS ON EVERY MANUAL MOVE, so a slide the shopper just chose
+ *    gets its full six seconds instead of the remainder of the previous one.
+ *
+ * WRAPPING is a consequence of the above, not an independent decision. The
+ * arrows used to clamp — `previous` disabled on the first slide — on the
+ * grounds that the hero is a short sequence with a beginning and an end. A
+ * sequence that rotates on a timer is a loop by definition, and a disabled
+ * "next" arrow on a carousel that is visibly still advancing is a contradiction
+ * the shopper has to resolve. So the whole thing loops now, arrows included.
+ *
+ * No carousel library. The track is a CSS transform, the gesture is the
+ * project's own useSwipe, and the timer below is a setTimeout; embla or similar
+ * would be ~20KB for one translate.
  */
 export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
 
   /**
-   * The first slide must not animate in — it's above the fold on load, and
-   * sliding the headline up on arrival reads as jank rather than polish.
-   *
-   * This is state, not a ref. It was a ref read during render, which React
-   * forbids: a ref mutation doesn't schedule a re-render, so the value the
-   * renderer sees is whatever happened to be there. Anything that decides what
-   * gets rendered has to be state.
+   * The shopper's explicit choice, via the pause button. Separate from the
+   * three incidental reasons to hold below — pressing pause has to survive the
+   * pointer leaving the hero, or the button does nothing that lasts.
    */
-  const [hasAdvanced, setHasAdvanced] = useState(false);
+  const [playing, setPlaying] = useState(true);
 
-  const goTo = useCallback((i: number) => {
-    setActiveIndex(i);
-    setHasAdvanced(true);
-  }, []);
-  const goNext = useCallback(() => {
-    setActiveIndex((i) => (i + 1) % slides.length);
-    setHasAdvanced(true);
-  }, [slides.length]);
-  const goPrev = useCallback(() => {
-    setActiveIndex((i) => (i - 1 + slides.length) % slides.length);
-    setHasAdvanced(true);
-  }, [slides.length]);
+  /** Pointer over the hero, or focus somewhere inside it. */
+  const [engaged, setEngaged] = useState(false);
 
-  // Applied to the copy block on every slide except the one painted on load.
-  const entrance = hasAdvanced ? "animate-in fade-in slide-in-from-bottom-3" : "";
+  /** Tab in the background. No reason to advance a hero nobody is looking at. */
+  const [documentHidden, setDocumentHidden] = useState(false);
 
-  // Swipe replaces the arrows on touch. The arrows sit at the vertical centre,
-  // which on a phone is directly on top of the headline.
+  /**
+   * Starts false so the server render and the first client render agree, and
+   * so nothing moves before hydration either way. The effect below settles it.
+   */
+  const [motionAllowed, setMotionAllowed] = useState(false);
+
+  const count = slides.length;
+
+  // Wrapped, not clamped — see the note above.
+  const goTo = useCallback(
+    (i: number) => setActiveIndex(((i % count) + count) % count),
+    [count]
+  );
+  const goPrev = useCallback(() => setActiveIndex((i) => (i - 1 + count) % count), [count]);
+  const goNext = useCallback(() => setActiveIndex((i) => (i + 1) % count), [count]);
+
   const swipe = useSwipe({
-    onPrev: slides.length > 1 ? goPrev : undefined,
-    onNext: slides.length > 1 ? goNext : undefined,
+    onPrev: count > 1 ? goPrev : undefined,
+    onNext: count > 1 ? goNext : undefined,
   });
 
+  // Watched rather than read once: someone toggling "reduce motion" in the OS
+  // expects the page to obey immediately, not at the next navigation.
   useEffect(() => {
-    if (slides.length <= 1 || isPaused) return;
-    // Honour the OS "reduce motion" setting — auto-advancing carousels are a
-    // known trigger, and WCAG 2.2.2 requires a way to stop moving content.
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced) return;
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setMotionAllowed(!query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
 
-    const timer = setInterval(goNext, AUTOPLAY_MS);
-    return () => clearInterval(timer);
-  }, [goNext, slides.length, isPaused]);
+  useEffect(() => {
+    const sync = () => setDocumentHidden(document.hidden);
+    sync();
+    document.addEventListener("visibilitychange", sync);
+    return () => document.removeEventListener("visibilitychange", sync);
+  }, []);
 
-  if (slides.length === 0) return null;
-  const slide = slides[Math.min(activeIndex, slides.length - 1)];
-  const overlay = (slide.overlayOpacity ?? 55) / 100;
+  const autoplaying =
+    count > 1 && motionAllowed && playing && !engaged && !documentHidden;
+
+  /**
+   * setTimeout, not setInterval, and `activeIndex` is deliberately a dependency:
+   * every slide change tears this down and starts a fresh six seconds. That is
+   * what gives a manually chosen slide its full hold — with an interval, a
+   * shopper who clicks `next` at second 5.8 sees the hero move again almost
+   * immediately, which reads as the carousel fighting them.
+   */
+  useEffect(() => {
+    if (!autoplaying) return;
+    const timer = setTimeout(() => setActiveIndex((i) => (i + 1) % count), AUTOPLAY_MS);
+    return () => clearTimeout(timer);
+  }, [autoplaying, activeIndex, count]);
+
+  if (count === 0) return null;
 
   return (
     <section
       aria-roledescription="carousel"
-      aria-label="Featured collections"
-      // No padding: the hero is the first thing on the page and it runs to the
-      // edges of the viewport, directly under the header.
+      aria-label="Featured"
+      // The marker the header keys off. It says one thing — "this page opens
+      // with artwork that owns the top of the viewport" — and the storefront
+      // shell's `:has()` rule in globals.css turns that into a header floating
+      // over the hero instead of sitting above it. Anything else that ever
+      // wants the same treatment (a full-bleed collection hero, say) opts in by
+      // carrying this attribute; nothing has to know about the header.
+      data-hero-full
       className="relative"
+      // Hold while someone is engaged with the hero. React's onFocus/onBlur
+      // bubble, so these two behave as focus-within and cover a keyboard user
+      // tabbing into a slide's links.
+      onMouseEnter={() => setEngaged(true)}
+      onMouseLeave={() => setEngaged(false)}
+      onFocus={() => setEngaged(true)}
+      onBlur={() => setEngaged(false)}
     >
       <div
         {...swipe.handlers}
-        // A swipe that happens to end over the CTA must not follow it. Capture
+        // A swipe that happens to end over a link must not follow it. Capture
         // phase, so this runs before the Link sees the click.
         onClickCapture={swipe.cancelClickAfterSwipe}
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-        onFocusCapture={() => setIsPaused(true)}
-        onBlurCapture={() => setIsPaused(false)}
-        // Shape by aspect ratio, so the card reflows instead of being told how
-        // tall to be: portrait on a phone, cinematic on a desktop.
-        // Ratios measured off the reference: 0.49 on a phone (a hero that very
-        // nearly fills the screen) and 2.79 on desktop. Square corners and no
-        // inset — theirs runs edge to edge, and the rounded inset card was the
-        // previous target's idea, not this one.
-        className="relative aspect-[1/2] w-full touch-pan-y overflow-hidden sm:aspect-[2/1] lg:aspect-[2.79/1]"
+        // The full window, at every width.
+        //
+        // This replaces the 9/16 → 4/5 → 2.79:1 aspect ladder. Height now comes
+        // from the viewport rather than from the frame's own proportions, which
+        // is why the art-directed <picture> below matters MORE than it did, not
+        // less: a 2.79:1 landscape asset dropped into a 390×740 portrait window
+        // gets centre-cropped to a sliver of itself. The 1024px <source>
+        // breakpoint is what keeps a portrait crop on portrait windows.
+        //
+        // `svh`, not `vh` or `dvh`. `vh` is the LARGE viewport on mobile, so the
+        // bottom of the hero — where all the copy and the CTA live — starts life
+        // hidden behind the browser's own URL bar. `dvh` fixes that but makes
+        // the hero resize as the bar retracts, which reflows the copy mid-scroll.
+        // `svh` is the smallest viewport: everything is visible on load and
+        // nothing moves afterwards.
+        className="relative h-svh w-full touch-pan-y overflow-hidden"
         style={{ background: EMPTY_BACKDROP }}
       >
-        {/* All slides stay mounted and crossfade on opacity — no layout thrash,
-            and the next image is already decoded when it becomes visible. */}
-        {slides.map((s, i) => (
-          <div
-            key={s.id}
-            aria-hidden={i !== activeIndex}
-            className={`absolute inset-0 transition-opacity duration-700 ease-out ${
-              i === activeIndex ? "opacity-100" : "opacity-0"
-            }`}
-          >
-            {s.media &&
-              (isVideo(s.media) ? (
-                <video
-                  src={s.media}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  className="absolute inset-0 h-full w-full object-cover object-center"
-                />
-              ) : (
-                /**
-                 * <picture> so a phone can be sent a differently CROPPED image,
-                 * not merely a smaller one. `sizes` only ever changes resolution;
-                 * a 21:8 landscape scaled down still puts the subject in a
-                 * letterbox on a 4:5 portrait card.
-                 *
-                 * The <source> wins below 768px and the browser fetches only
-                 * that file — the spec guarantees one request, so this costs
-                 * nothing when unused.
-                 *
-                 * The trade-off: a matched <source> bypasses Next's optimizer,
-                 * so the mobile asset is served as uploaded. Acceptable, because
-                 * a hand-cropped mobile hero is already authored at the right
-                 * size — and it is exactly the case where automatic resizing is
-                 * wrong.
-                 */
-                <picture>
-                  {s.mediaMobile && (
-                    <source media="(max-width: 767px)" srcSet={s.mediaMobile} />
-                  )}
-                  <Image
-                    src={s.media}
-                    alt=""
-                    fill
-                    className="object-cover object-center"
-                    preload={i === 0}
-                    sizes="100vw"
-                  />
-                </picture>
-              ))}
-          </div>
-        ))}
-
-        {/* Bottom-up scrim, not left-to-right: the copy sits along the bottom
-            edge, so that is the only part that needs darkening. Leaving the top
-            clear keeps the photograph readable as a photograph. */}
+        {/* The track. One row of full-width panels, translated by whole
+            viewports. transform (not `left`) so it composites on the GPU. */}
         <div
-          className="absolute inset-0"
-          style={{
-            background: `linear-gradient(to top, rgba(12,12,14,${overlay}) 0%, rgba(12,12,14,0.10) 45%, transparent 100%)`,
-          }}
-        />
+          // The ARIA carousel pattern: "off" while the timer is running, so a
+          // screen reader is not interrupted every six seconds by a change the
+          // user did not ask for — and "polite" once it is paused or under
+          // manual control, when a slide change IS the result of their action
+          // and should be announced.
+          aria-live={autoplaying ? "off" : "polite"}
+          className="flex h-full w-full transition-transform duration-700 ease-out motion-reduce:transition-none"
+          style={{ transform: `translate3d(-${activeIndex * 100}%, 0, 0)` }}
+        >
+          {slides.map((slide, i) => {
+            const overlay = (slide.overlayOpacity ?? 55) / 100;
+            const isActive = i === activeIndex;
 
-        {/* items-end: copy anchored to the bottom-left of the card. */}
-        <div className="absolute inset-0 flex items-end">
-          {/* Remounting on slide change replays the entrance animation. */}
-          <div key={activeIndex} className="max-w-lg p-6 text-white sm:p-10">
-            {slide.eyebrow && (
-              <p
-                className={`label-eyebrow label-eyebrow-light mb-3 ${entrance}`}
-                style={{ animationDuration: "450ms" }}
-              >
-                {slide.eyebrow}
-              </p>
-            )}
-
-            {/* text-white spelled out, even though the wrapper above already
-                sets it: the base layer gives every h1 a graphite colour
-                DIRECTLY, and a direct rule beats an inherited one whatever the
-                layer order — so the headline came out near-black on the scrim.
-                Same reason category/[slug] states it on its h1. */}
-            <h1
-              className={`mb-2 font-heading text-2xl leading-tight text-white sm:text-4xl lg:text-5xl ${entrance}`}
-              style={{
-                animationDuration: "450ms",
-                animationDelay: "70ms",
-                animationFillMode: "backwards",
-              }}
-            >
-              {slide.headline.split("\n").map((line, i) => (
-                <span key={i} className="block">
-                  {line}
-                </span>
-              ))}
-            </h1>
-
-            {slide.subline && (
-              <p
-                className={`mb-4 text-sm text-white/80 sm:text-base ${entrance}`}
-                style={{
-                  animationDuration: "450ms",
-                  animationDelay: "150ms",
-                  animationFillMode: "backwards",
-                }}
-              >
-                {slide.subline}
-              </p>
-            )}
-
-            {(slide.ctaLabel || slide.secondaryLabel) && (
+            return (
               <div
-                className={`flex flex-wrap items-center gap-5 ${entrance}`}
-                style={{
-                  animationDuration: "450ms",
-                  animationDelay: "220ms",
-                  animationFillMode: "backwards",
-                }}
+                key={slide.id}
+                // Off-screen panels are hidden from assistive tech and taken out
+                // of the tab order — otherwise Tab walks into links a sighted
+                // user cannot see, and the browser scrolls the track sideways to
+                // chase the focus ring.
+                aria-hidden={!isActive}
+                inert={!isActive}
+                className="relative h-full w-full shrink-0"
               >
-                {slide.ctaLabel && slide.ctaHref && (
-                  // A square white block with letter-spaced caps — the same
-                  // shape as the `cta` button variant, inverted for a dark
-                  // photograph. Not the shared <Button>: this one is
-                  // deliberately smaller and wider-tracked than any button in
-                  // the system, and forcing it through the variants would mean
-                  // overriding nearly every one of them.
-                  <Link
-                    href={slide.ctaHref}
-                    className="inline-block bg-white px-10 py-4 text-[13px] uppercase tracking-[0.08em] text-graphite-950 transition-colors hover:bg-ivory-200"
+                {slide.media &&
+                  (isVideo(slide.media) ? (
+                    <video
+                      src={slide.media}
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      className="absolute inset-0 h-full w-full object-cover object-center"
+                    />
+                  ) : (
+                    /**
+                     * <picture> so a phone is sent a differently CROPPED image,
+                     * not merely a smaller one. `sizes` only ever changes
+                     * resolution; a 2.79:1 landscape scaled down still puts the
+                     * subject in a letterbox on a portrait frame.
+                     *
+                     * `display: contents` so <picture> creates no layout box —
+                     * otherwise it becomes the positioned ancestor of an
+                     * <Image fill> and it is `static`.
+                     *
+                     * The trade-off: a matched <source> bypasses Next's
+                     * optimizer, so the portrait asset is served as uploaded.
+                     * Acceptable, because a hand-cropped hero is already
+                     * authored at the right size — and it is exactly the case
+                     * where automatic resizing is wrong.
+                     */
+                    <picture className="contents">
+                      {slide.mediaMobile && (
+                        <source media="(max-width: 1023px)" srcSet={slide.mediaMobile} />
+                      )}
+                      <Image
+                        src={slide.media}
+                        alt=""
+                        fill
+                        className="object-cover object-center"
+                        // Only the first panel is above the fold. The rest are
+                        // off-screen until asked for.
+                        preload={i === 0}
+                        loading={i === 0 ? undefined : "lazy"}
+                        sizes="100vw"
+                      />
+                    </picture>
+                  ))}
+
+                {/* Bottom-up scrim: the copy sits along the bottom edge, so
+                    that is the only part that needs darkening. Leaving the top
+                    clear keeps the photograph readable as a photograph. */}
+                <div
+                  aria-hidden
+                  className="absolute inset-0"
+                  style={{
+                    background: `linear-gradient(to top, rgba(12,12,14,${overlay}) 0%, rgba(12,12,14,0.10) 45%, transparent 100%)`,
+                  }}
+                />
+
+                {/* Copy, bottom-left. Padded on the right so a long headline
+                    never runs under the arrow cluster — and, below lg, padded
+                    at the bottom to clear the dots, which now sit ON the
+                    artwork rather than under the frame. Only when there ARE
+                    dots: a single-slide hero would otherwise carry 80px of
+                    empty scrim under its CTA for no reason. */}
+                <div className="absolute inset-0 flex items-end">
+                  <div
+                    className={`max-w-lg p-6 text-white sm:p-10 lg:pb-14 lg:pr-32 ${
+                      count > 1 ? "pb-20 sm:pb-20" : "pb-10 sm:pb-10"
+                    }`}
                   >
-                    {slide.ctaLabel}
-                  </Link>
-                )}
-                {slide.secondaryLabel && slide.secondaryHref && (
-                  <Link
-                    href={slide.secondaryHref}
-                    className="text-sm font-medium text-white/80 underline underline-offset-4 transition-colors hover:text-white sm:text-base"
-                  >
-                    {slide.secondaryLabel}
-                  </Link>
-                )}
+                    {/* White, not the brass modifier used elsewhere. The
+                        eyebrow sits above the headline where the bottom-up
+                        scrim is already thinning out, so it has to read against
+                        an arbitrary uploaded photograph — and --brass-light on
+                        a pale or warm image is invisible. The scrim guarantees
+                        white; it guarantees nothing about the accent. */}
+                    {slide.eyebrow && (
+                      <p className="label-eyebrow mb-3 !text-white/85">{slide.eyebrow}</p>
+                    )}
+
+                    {/* text-white spelled out: the base layer colours every
+                        heading directly, and a direct rule beats an inherited
+                        one whatever the layer order — so the headline came out
+                        near-black on the scrim. */}
+                    <h1 className="text-display font-heading text-white">
+                      {slide.headline.split("\n").map((line, li) => (
+                        <span key={li} className="block">
+                          {line}
+                        </span>
+                      ))}
+                    </h1>
+
+                    {slide.subline && (
+                      <p className="mt-3 max-w-md text-sm text-white/80">{slide.subline}</p>
+                    )}
+
+                    {(slide.ctaLabel || slide.secondaryLabel) && (
+                      <div className="mt-6 flex flex-wrap items-center gap-6">
+                        {/* The primary CTA carries a stretched ::before, which
+                            is what makes the WHOLE panel clickable while
+                            keeping this a real, focusable link. z-0 so the
+                            secondary link below can sit above it. */}
+                        {slide.ctaLabel && slide.ctaHref && (
+                          <Link
+                            href={slide.ctaHref}
+                            className="group/hero relative inline-flex items-center gap-2 border-b border-white/70 pb-1 text-sm font-medium text-white transition-colors before:absolute before:inset-0 before:z-0 before:content-[''] hover:border-white lg:before:-inset-x-10 lg:before:-inset-y-14"
+                          >
+                            {slide.ctaLabel}
+                            <ArrowRight
+                              aria-hidden
+                              className="size-4 transition-transform duration-300 group-hover/hero:translate-x-1"
+                            />
+                          </Link>
+                        )}
+                        {slide.secondaryLabel && slide.secondaryHref && (
+                          <Link
+                            href={slide.secondaryHref}
+                            className="relative z-10 text-sm text-white/75 transition-colors hover:text-white"
+                          >
+                            {slide.secondaryLabel}
+                          </Link>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
+            );
+          })}
         </div>
 
-        {slides.length > 1 && (
-          <>
-            {/* White on shadow rather than translucent glass: it has to read
-                against artwork we do not control, and a light photo makes a
-                white/20 button vanish. Desktop only — on a phone they land on
-                the headline, and swipe covers it. */}
-            <button
-              type="button"
-              onClick={goPrev}
-              aria-label="Previous slide"
-              className="absolute left-3 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white text-graphite-950 shadow-md transition-transform hover:scale-105 md:flex"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={goNext}
-              aria-label="Next slide"
-              className="absolute right-3 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white text-graphite-950 shadow-md transition-transform hover:scale-105 md:flex"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </>
+        {/* Arrows, as a corner cluster. Desktop only: on a phone they would sit
+            on top of the copy, and swipe covers it there. They wrap now, so
+            neither is ever disabled — see the note on the component.
+
+            The pause toggle leads the cluster. It is rendered only once the
+            reduced-motion query has been read, because a pause button on a hero
+            that is never going to move is a control that lies. The cluster is
+            anchored by its RIGHT edge, so the toggle appearing after hydration
+            grows it leftwards and the arrows do not shift. */}
+        {count > 1 && (
+          <div className="absolute bottom-8 right-8 z-10 hidden items-center lg:flex">
+            {motionAllowed && (
+              <HeroControl
+                label={playing ? "Pause slideshow" : "Play slideshow"}
+                onClick={() => setPlaying((p) => !p)}
+              >
+                {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
+              </HeroControl>
+            )}
+            <HeroControl label="Previous slide" onClick={goPrev}>
+              <ChevronLeft className="size-4" />
+            </HeroControl>
+            <HeroControl label="Next slide" onClick={goNext}>
+              <ChevronRight className="size-4" />
+            </HeroControl>
+          </div>
+        )}
+
+        {/* Dots, phone and tablet only — where swipe is the interaction and the
+            shopper needs a sense of position.
+
+            These used to sit BELOW the frame, deliberately kept off the artwork.
+            A full-window hero leaves nowhere below the frame to sit: anything
+            after it is, by definition, off the screen. So they move onto the
+            scrim, at the bottom edge where it is darkest and the copy above has
+            been padded to make room. The inactive dash goes white-on-scrim
+            rather than graphite, which was only ever legible against the ivory
+            page it no longer sits on. */}
+        {count > 1 && (
+          <div className="absolute inset-x-0 bottom-6 z-10 flex items-center justify-center lg:hidden">
+            {slides.map((slide, i) => (
+              <button
+                key={slide.id}
+                type="button"
+                onClick={() => goTo(i)}
+                aria-label={`Go to slide ${i + 1}`}
+                aria-current={i === activeIndex}
+                // 28×40px hit area around a 6px dash: over the 24px WCAG 2.5.8
+                // floor without spreading them so far apart they stop reading as
+                // one control.
+                className="flex h-10 w-7 items-center justify-center"
+              >
+                <span
+                  className={`block h-1.5 transition-all duration-300 ${
+                    i === activeIndex ? "w-6 bg-brass" : "w-1.5 bg-white/45"
+                  }`}
+                />
+              </button>
+            ))}
+
+            {/* The pause control on phone and tablet — the width where WCAG
+                2.2.2 is most often failed, because hover-to-pause does not
+                exist on a touchscreen and dots alone give no way to stop the
+                movement.
+
+                Absolutely positioned rather than another flex child so the dots
+                stay centred on the frame. A plain white glyph, not the solid
+                fill the desktop arrows use: it sits at the bottom edge where
+                the slide's own scrim is at its strongest, so it has contrast
+                without putting a second white block on the artwork. */}
+            {motionAllowed && (
+              <button
+                type="button"
+                onClick={() => setPlaying((p) => !p)}
+                aria-label={playing ? "Pause slideshow" : "Play slideshow"}
+                className="absolute right-2 flex size-10 items-center justify-center text-white/80 transition-colors hover:text-white"
+              >
+                {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
+              </button>
+            )}
+          </div>
         )}
       </div>
-
-      {/* Below the card, not floating on it — the previous storefront's
-          arrangement, and it keeps the dots off the artwork. */}
-      {slides.length > 1 && (
-        <div className="mt-4 flex justify-center">
-          {slides.map((s, i) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => goTo(i)}
-              aria-label={`Go to slide ${i + 1}`}
-              aria-current={i === activeIndex}
-              // 28×40px hit area around an 8px dot: over the 24px WCAG 2.5.8
-              // floor without spreading the dots so far apart they stop reading
-              // as one control.
-              className="flex h-10 w-7 items-center justify-center"
-            >
-              <span
-                className={`block h-2 rounded-full transition-all duration-300 ${
-                  i === activeIndex ? "w-6 bg-brass" : "w-2 bg-graphite-950/25"
-                }`}
-              />
-            </button>
-          ))}
-        </div>
-      )}
     </section>
+  );
+}
+
+/**
+ * A square 48px control on a solid fill — the desktop cluster's pause, previous
+ * and next all share it.
+ *
+ * Solid, not translucent: these sit over photography nobody controls, and a
+ * white/20 button vanishes on a pale image. No radius and no shadow — the two
+ * things the rest of the storefront has already shed.
+ *
+ * The `disabled` state this used to carry is gone with the clamping: the track
+ * wraps, so there is no end to be stranded at and nothing to grey out.
+ */
+function HeroControl({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="flex size-12 items-center justify-center bg-white/90 text-graphite-950 transition-colors hover:bg-white"
+    >
+      {children}
+    </button>
   );
 }

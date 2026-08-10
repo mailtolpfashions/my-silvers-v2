@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
 import { Button } from "@/components/ui/button";
 import { loadMoreProducts } from "@/actions/product-list-actions";
@@ -28,6 +28,7 @@ export function ProductGrid({
   initialHasMore,
   total,
   params,
+  interrupt,
 }: {
   initialItems: ProductListItem[];
   initialHasMore: boolean;
@@ -39,6 +40,16 @@ export function ProductGrid({
     minPrice?: string;
     maxPrice?: string;
   };
+  /**
+   * An editorial block dropped into the run of tiles, so a 120-product
+   * catalogue has a breath in it rather than reading as an endless shelf.
+   *
+   * Rendered as a full-width grid child at a FIXED index, which is what keeps
+   * it clear of pagination: appended pages are pushed on after the existing
+   * items, so the interrupt never moves and never has to be re-placed. It is
+   * simply skipped when the first page is shorter than `after`.
+   */
+  interrupt?: { after: number; node: React.ReactNode };
 }) {
   const [items, setItems] = useState(initialItems);
   const [page, setPage] = useState(1);
@@ -102,8 +113,16 @@ export function ProductGrid({
       {/* Wider gap between rows than columns — vertical breathing room separates
           rows without pushing the columns apart and shrinking each image. */}
       <div className={`mt-8 ${PRODUCT_GRID_CLASS}`}>
-        {items.map((product) => (
-          <ProductCard key={product.id} product={product} morphName={productMorphName(product.id)} />
+        {items.map((product, index) => (
+          <Fragment key={product.id}>
+            <ProductCard product={product} morphName={productMorphName(product.id)} />
+            {interrupt && index === interrupt.after - 1 && (
+              // col-span-full and a negative inline margin so the block spans
+              // the whole row and reaches the tile edges, where the grid's own
+              // columns are gapless.
+              <div className="col-span-full my-6 sm:my-10">{interrupt.node}</div>
+            )}
+          </Fragment>
         ))}
       </div>
 

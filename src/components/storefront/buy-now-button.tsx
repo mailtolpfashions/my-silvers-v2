@@ -98,11 +98,22 @@ export function BuyNowButton({
 
   return (
     <Button
-      size="lg"
-      // Brass fill with a graphite label — the same pairing as the hero CTA, so
-      // the strongest action on the page reads as the brand accent rather than
-      // competing with "Add to cart" as a second dark button.
-      className="h-11 w-full rounded-full bg-brass px-8 text-sm text-graphite-950 hover:bg-brass-light sm:h-12 sm:w-auto sm:text-base"
+      variant="cta"
+      size="cta"
+      // Square graphite block — the primary commerce CTA, and the only filled
+      // one in the stack. It used to be a fully-rounded BRASS pill, which broke
+      // the palette rule twice over: --brass is a decorative accent, not a fill
+      // behind a label, and a gold pill beside a dark "Add to cart" read as a
+      // promotional sticker rather than the primary action. Add to cart and
+      // Save are now outlined beneath it, so the hierarchy is legible without
+      // any colour at all.
+      // `min-w-0 shrink px-4` matters in the pinned mobile bar, where this sits
+      // beside Add to cart inside a 360px row. size="cta" carries `px-10
+      // sm:px-14` and the Button base sets `shrink-0` and `whitespace-nowrap` —
+      // so without this the label was clipped at the screen edge on a 360px
+      // phone. Any cta-sized button in a flex row must restate its padding and
+      // allow itself to shrink.
+      className="w-full min-w-0 shrink px-4 text-[12px] tracking-[0.06em] sm:px-4 md:text-[13px] md:tracking-[0.08em]"
       disabled={stock === 0 || isPending}
       onClick={handleClick}
     >

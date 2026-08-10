@@ -40,7 +40,7 @@ export function ProfileForm({
             id="title"
             name="title"
             defaultValue={initial.title ?? ""}
-            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
           >
             <option value="">—</option>
             {TITLES.map((t) => (

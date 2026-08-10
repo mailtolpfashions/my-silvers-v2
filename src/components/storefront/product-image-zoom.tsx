@@ -81,7 +81,7 @@ export function ProductImageZoom({
         {...swipe.handlers}
         // pan-y keeps vertical scrolling native while telling the browser not to
         // handle horizontal gestures itself, which would otherwise fight this.
-        className="group relative aspect-[4/5] touch-pan-y overflow-hidden rounded-md bg-muted"
+        className="group relative aspect-[4/5] touch-pan-y overflow-hidden bg-muted"
       >
         <div
           className="absolute inset-0 transition-transform duration-200 ease-out motion-reduce:transition-none"
@@ -112,7 +112,7 @@ export function ProductImageZoom({
             pointer-events-none so it never blocks the overlay button. */}
         <span
           aria-hidden
-          className="pointer-events-none absolute bottom-3 right-3 flex size-9 items-center justify-center rounded-full bg-background/85 text-foreground opacity-0 shadow-sm backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100 motion-reduce:transition-none"
+          className="pointer-events-none absolute bottom-3 right-3 flex size-9 items-center justify-center bg-background/85 text-foreground opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100 motion-reduce:transition-none"
         >
           <ZoomIn className="size-4" />
         </span>
@@ -161,7 +161,7 @@ function Lightbox({
 
         <div
           ref={frameRef}
-          className="relative aspect-[4/5] max-h-[90vh] w-full overflow-hidden rounded-lg bg-graphite-950"
+          className="relative aspect-[4/5] max-h-[90vh] w-full overflow-hidden bg-graphite-950"
         >
           <div
             className="absolute inset-0 transition-transform duration-200 ease-out motion-reduce:transition-none"
@@ -198,7 +198,7 @@ function Lightbox({
 
         <DialogClose
           aria-label="Close"
-          className="absolute -top-2 right-0 flex size-10 -translate-y-full items-center justify-center rounded-full bg-background/90 text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background"
+          className="absolute -top-2 right-0 flex size-10 -translate-y-full items-center justify-center bg-background/90 text-foreground backdrop-blur-sm transition-colors hover:bg-background"
         >
           <X className="size-5" />
         </DialogClose>

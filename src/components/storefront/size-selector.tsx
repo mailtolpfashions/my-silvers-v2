@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useId, useState } from "react";
+import { Ruler } from "lucide-react";
 
 type SizeState = {
   sizes: string[];
@@ -92,12 +93,16 @@ export function SizeSelector({ sizeGuideHref }: { sizeGuideHref?: string }) {
         <p id={labelId} className="text-sm font-medium">
           Size{selected && <span className="text-muted-foreground"> · {selected}</span>}
         </p>
+        {/* Ring sizing is the single biggest reason a silver order comes back,
+            so this is the one secondary link on the page worth making obvious.
+            It was a faint brass word that read as body copy. */}
         {sizeGuideHref && (
           <a
             href={sizeGuideHref}
-            className="text-sm text-brass-text underline underline-offset-4"
+            className="inline-flex items-center gap-1.5 border-b border-foreground pb-0.5 text-sm transition-colors hover:border-brass hover:text-brass-text"
           >
-            Size guide
+            <Ruler className="size-3.5" aria-hidden />
+            Find your size
           </a>
         )}
       </div>
@@ -131,7 +136,7 @@ export function SizeSelector({ sizeGuideHref }: { sizeGuideHref?: string }) {
                 setSelected(size);
                 setMissing(false);
               }}
-              className={`min-w-11 rounded-full border px-3.5 py-2 text-sm transition-colors sm:min-w-12 sm:px-4 sm:py-2.5 sm:text-base ${
+              className={`min-w-11 border px-3.5 py-2 text-sm transition-colors sm:min-w-12 sm:px-4 sm:py-2.5 ${
                 soldOut
                   ? "cursor-not-allowed border-input/60 text-muted-foreground/60 line-through"
                   : active

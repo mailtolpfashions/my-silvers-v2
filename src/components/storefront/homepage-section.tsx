@@ -1,12 +1,14 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
+import { ArrowRight } from "lucide-react";
 import { CmsIcon } from "@/components/storefront/cms/cms-icon";
 import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
 import { CollectionCard } from "@/components/storefront/collection-card";
 import { RevealSection } from "@/components/storefront/reveal-section";
 import { StorySection } from "@/components/storefront/story-section";
 import { EditorialPair } from "@/components/storefront/editorial-pair";
+import { EditorialLink } from "@/components/storefront/editorial-link";
+import { SectionHeading } from "@/components/storefront/section-heading";
 import type { HomepageSection as Section } from "@/server/products/homepage-sections";
 
 /**
@@ -66,14 +68,14 @@ export function HomepageSection({
   if (section.kind === "editorial") {
     const imageFirst = section.imageSide === "left";
     return (
-      <RevealSection className="container-page py-20 sm:py-28 lg:py-40">
+      <RevealSection className="container-page rhythm-editorial">
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
           {section.image && (
             <div
               // order controls which side the image lands on without changing
               // the DOM order, so the heading still precedes its copy for
               // screen readers and keyboard users.
-              className={`relative aspect-[4/3] overflow-hidden rounded-md bg-muted ${
+              className={`relative aspect-[4/3] overflow-hidden bg-muted ${
                 imageFirst ? "lg:order-1" : "lg:order-2"
               }`}
             >
@@ -97,10 +99,12 @@ export function HomepageSection({
                 {section.body}
               </p>
             )}
+            {/* Editorial link, not a rounded button — this block invites, it
+                does not transact. */}
             {section.ctaLabel && section.ctaHref && (
-              <Button asChild size="lg" className="mt-8">
-                <Link href={section.ctaHref}>{section.ctaLabel}</Link>
-              </Button>
+              <div className="mt-8">
+                <EditorialLink href={section.ctaHref}>{section.ctaLabel}</EditorialLink>
+              </div>
             )}
           </div>
         </div>
@@ -109,48 +113,78 @@ export function HomepageSection({
   }
 
   if (section.kind === "categoryTiles") {
-    // Tall full-bleed panels running edge to edge with no gap between them and
-    // the category name laid over the photograph — not the row of small circles
-    // this used to be. The circles were a chip: they turned the photography into
-    // a thumbnail and pushed the name outside the picture. These are closer to
-    // three doorways, and the whole band is one continuous image.
-    //
-    // Deliberately outside container-page so it reaches the viewport edges, and
-    // deliberately without a heading — the panels name themselves.
+    /**
+     * Three square category tiles in one gapless band.
+     *
+     * Rebuilt against the reference's category teaser: equal thirds, a 1:1
+     * crop (its mobile and desktop srcsets point at the same square asset), the
+     * category name laid over the picture, a scrim that fades up on hover, and
+     * a slight vertical drift on the image as the band crosses the viewport.
+     *
+     * The square crop is also what the catalogue actually has — Category.image
+     * is 900×900 today — so this asks nothing new of the photography that the
+     * portrait panels it replaces did.
+     *
+     * Deliberately outside container-page so it reaches the viewport edges, and
+     * deliberately without a heading — the tiles name themselves.
+     */
     return (
       <RevealSection className="grid grid-cols-1 sm:grid-cols-3">
-        {section.items.slice(0, 3).map((item) => (
+        {section.items.slice(0, 3).map((item, i) => (
           <Link
             key={item.id}
             href={`/category/${item.slug}`}
-            // 4:5 stacked on a phone so three panels do not become three
-            // screens of scrolling; tall and near-viewport-height side by side.
-            className="group relative flex aspect-[4/5] items-end justify-center overflow-hidden bg-muted sm:aspect-auto sm:h-[70vh] lg:h-[85vh]"
+            // Square at every width. Stacked on a phone rather than three
+            // 120px thumbnails, which is what three columns would be at 375 —
+            // the name would not fit and the photograph would stop being one.
+            className="group relative flex aspect-square items-center justify-center overflow-hidden bg-muted"
           >
             {item.image && (
-              <Image
-                src={item.image}
-                alt=""
-                fill
-                className="object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.03]"
-                sizes="(max-width: 640px) 100vw, 33vw"
-              />
+              // Taller than the tile and pulled up by half the overflow, so the
+              // ±5% drift never exposes an edge. The wrapper is the positioned
+              // ancestor that `fill` resolves against.
+              <div
+                aria-hidden
+                className="tile-drift absolute inset-x-0 top-[-5%] h-[110%]"
+              >
+                <Image
+                  src={item.image}
+                  alt=""
+                  fill
+                  loading={i === 0 ? undefined : "lazy"}
+                  className="object-cover"
+                  sizes="(max-width: 640px) 100vw, 33vw"
+                />
+              </div>
             )}
 
-            {/* Just enough darkening at the foot to carry white type over an
-                arbitrary photograph, and nothing at the top. */}
+            {/* An EVEN wash, not a foot gradient. The name is centred, so it
+                sits where a bottom-up scrim is at its weakest — white type on
+                the middle of a pale photograph would be unreadable. A flat 30%
+                guarantees contrast against any uploaded image, and deepens on
+                hover, which is the reference's own `opacity: 0` overlay. */}
             <div
               aria-hidden
-              className="absolute inset-0 bg-gradient-to-t from-graphite-950/60 via-graphite-950/10 to-transparent"
+              className="absolute inset-0 bg-graphite-950/30 transition-colors duration-500 group-hover:bg-graphite-950/45"
             />
 
-            <div className="relative flex flex-col items-center gap-6 p-8 pb-12 sm:pb-16">
-              <span className="text-h3 font-medium text-white">{item.name}</span>
-              {/* The block button appears on hover, the way theirs does — at
-                  rest the panel is a photograph and a name. On touch there is
-                  no hover, so it is always visible below sm. */}
-              <span className="inline-flex h-12 items-center bg-graphite-950 px-10 text-[13px] uppercase tracking-[0.08em] text-ivory-100 transition-opacity duration-300 sm:opacity-0 sm:group-hover:opacity-100">
-                Discover now
+            <div className="relative flex flex-col items-center gap-4 px-6 text-center">
+              {/* 28px, not 20px. On a 475px tile the smaller size read as a
+                  caption rather than a doorway — this is one of three things
+                  the band exists to say. */}
+              <span className="text-h2 font-medium text-white">{item.name}</span>
+              {/* A span, not a link: the whole tile is already an anchor, and a
+                  nested <a> is invalid and breaks keyboard navigation. Styled
+                  to match <EditorialLink light> so the site keeps one visual
+                  CTA language even where the markup has to differ. At rest the
+                  tile is a photograph and a name; the rule fades up on hover.
+                  Always visible below sm, where there is no hover to reveal it. */}
+              <span className="inline-flex items-center gap-2 border-b border-white/70 pb-1 text-sm font-medium text-white transition-opacity duration-300 sm:opacity-0 sm:group-hover:opacity-100">
+                Discover
+                <ArrowRight
+                  aria-hidden
+                  className="size-4 transition-transform duration-300 group-hover:translate-x-1"
+                />
               </span>
             </div>
           </Link>
@@ -161,25 +195,30 @@ export function HomepageSection({
 
   if (section.kind === "usp") {
     return (
-      <RevealSection className="border-y bg-muted/40">
-        <div className="container-page py-20 sm:py-28 lg:py-40">
+      // No tinted band and no enclosing border. A filled strip with four
+      // icon cards in it is the "trust badges" pattern every template ships,
+      // and it announced these claims as marketing. They carry further set
+      // quietly on the page, separated by hairlines, with the icon small and
+      // the type at body size.
+      <RevealSection className="border-t">
+        <div className="container-page rhythm-editorial">
           <SectionHeading
             title={section.title}
             eyebrow={section.eyebrow}
             subtitle={section.subtitle}
+            align="center"
           />
-          <ul className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <ul className="grid gap-x-10 sm:grid-cols-2 lg:grid-cols-4">
             {section.items.map((item, i) => (
-              <li key={i} className="flex flex-col items-center text-center">
+              <li
+                key={i}
+                className="flex flex-col items-start gap-2 border-t py-6 lg:border-t-0 lg:py-0"
+              >
                 {/* Same resolver as the trust bar: a Lucide name or an emoji. */}
-                <CmsIcon name={item.icon} className="mb-3 size-6 text-brass-text" />
-                {item.title && (
-                  <p className="font-heading text-base text-foreground">{item.title}</p>
-                )}
+                <CmsIcon name={item.icon} className="size-5 text-brass-text" />
+                {item.title && <p className="text-sm font-medium text-foreground">{item.title}</p>}
                 {item.text && (
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                    {item.text}
-                  </p>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{item.text}</p>
                 )}
               </li>
             ))}
@@ -191,7 +230,7 @@ export function HomepageSection({
 
   if (section.kind === "banner") {
     const banner = (
-      <div className="relative aspect-[16/5] w-full overflow-hidden rounded-lg bg-muted">
+      <div className="relative aspect-[16/5] w-full overflow-hidden bg-muted">
         <Image
           src={section.image}
           alt={section.title}
@@ -204,11 +243,11 @@ export function HomepageSection({
             <div className="absolute inset-0 bg-gradient-to-r from-black/55 to-transparent" />
             <div className="absolute inset-y-0 left-0 flex max-w-md flex-col justify-center p-6 sm:p-10">
               {section.eyebrow && (
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-brass-light">
+                <p className="label-eyebrow label-eyebrow-light mb-2">
                   {section.eyebrow}
                 </p>
               )}
-              <p className="font-heading text-2xl text-white sm:text-3xl">{section.title}</p>
+              <p className="text-h2 font-heading text-white">{section.title}</p>
             </div>
           </>
         )}
@@ -231,16 +270,22 @@ export function HomepageSection({
   // One reveal mechanism for the whole section, and it is the CSS one. The
   // GSAP stagger that used to animate each card individually is gone — see
   // story-section.tsx for what the measurement showed.
-  // Padding roughly doubled from what it was. On the reference site there is
-  // something like 200px of empty page between one section and the next, and
-  // that emptiness is doing as much work as anything inside the sections. It
-  // is the cheapest luxury signal there is and the easiest one to spend.
+  //
+  // Commerce grids are LEFT-aligned and carry their "view all" beside the
+  // heading; the editorial blocks above are centred. Centring everything was
+  // flattening the page — see the note in section-heading.tsx.
+  const viewAll = section.viewAllHref ? (
+    <EditorialLink href={section.viewAllHref}>View all</EditorialLink>
+  ) : undefined;
+
   return (
-    <RevealSection className="container-page py-20 sm:py-28 lg:py-40">
+    <RevealSection className="container-page rhythm-editorial">
       <SectionHeading
         title={section.title}
         eyebrow={section.eyebrow}
         subtitle={section.subtitle}
+        align="left"
+        action={viewAll}
       />
 
       {section.kind === "products" ? (
@@ -258,50 +303,12 @@ export function HomepageSection({
           ))}
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
           {section.items.map((collection) => (
             <CollectionCard key={collection.id} collection={collection} />
           ))}
         </div>
       )}
-
-      {/* Below the grid, not beside the heading — a centred heading has no right
-          edge to hang it off, and this is the point where a shopper who scanned
-          the row actually wants more. */}
-      {section.viewAllHref && (
-        <div className="mt-14 flex justify-center">
-          <Button asChild variant="cta" size="cta">
-            <Link href={section.viewAllHref}>View all</Link>
-          </Button>
-        </div>
-      )}
     </RevealSection>
-  );
-}
-
-/**
- * Shared heading block. Centred, because that rhythm — eyebrow, heading,
- * one explanatory line — is what makes a long homepage read as chapters rather
- * than a stack of grids. Every section with a heading now uses it, including
- * products and collections, which used to left-align their own inline version.
- */
-function SectionHeading({
-  title,
-  eyebrow,
-  subtitle,
-}: {
-  title?: string;
-  eyebrow?: string;
-  subtitle?: string;
-}) {
-  if (!title && !eyebrow && !subtitle) return null;
-  return (
-    <div className="mb-10 text-center sm:mb-14">
-      {eyebrow && <p className="label-eyebrow mb-3">{eyebrow}</p>}
-      {title && <h2 className="text-h2">{title}</h2>}
-      {subtitle && (
-        <p className="text-lead mx-auto mt-3 max-w-prose text-muted-foreground">{subtitle}</p>
-      )}
-    </div>
   );
 }

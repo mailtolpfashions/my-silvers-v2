@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 export default function ProductNotFound() {
   return (
     <div className="mx-auto max-w-lg px-4 py-24 text-center">
-      <h1 className="text-2xl font-semibold">This piece isn&apos;t available</h1>
+      <h1 className="text-h2">This piece isn&apos;t available</h1>
       <p className="mt-3 text-sm text-muted-foreground">
         It may have been retired from the collection. There&apos;s plenty more to see.
       </p>

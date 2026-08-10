@@ -67,7 +67,9 @@ export function WishlistButton({
       <Button
         variant="secondary"
         size="icon"
-        className="size-8 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background"
+        // 36px square. The circle was the last rounded thing left on a tile
+        // whose every other corner is now square.
+        className="size-9 rounded-none bg-background/80 backdrop-blur-sm hover:bg-background"
         disabled={isPending}
         onClick={handleClick}
         aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
@@ -79,15 +81,18 @@ export function WishlistButton({
   }
 
   return (
+    // Square, and outlined rather than filled: on the product page this sits
+    // beside Buy now and Add to cart, and three filled blocks in a row give a
+    // shopper no reading of which one is the point.
     <Button
-      variant="outline"
-      size="lg"
-      className="h-11 w-full rounded-full px-6 text-sm sm:h-12 sm:w-auto sm:text-base"
+      variant="cta"
+      size="cta"
+      className="w-full border-input bg-transparent px-8 text-foreground hover:bg-muted sm:w-auto"
       disabled={isPending}
       onClick={handleClick}
     >
       <Heart className={inWishlist ? "fill-current" : ""} />
-      {inWishlist ? "In wishlist" : "Wishlist"}
+      {inWishlist ? "In wishlist" : "Save"}
     </Button>
   );
 }

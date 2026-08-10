@@ -5,7 +5,7 @@ import { getCartWithProducts } from "@/server/cart";
 import { CartRecommendations } from "@/components/storefront/cart/cart-recommendations";
 import { toPaise, MAX_ITEM_QUANTITY } from "@/server/orders/money";
 import { formatINR } from "@/lib/format";
-import { Button } from "@/components/ui/button";
+import { EmptyCart } from "@/components/storefront/cart/empty-cart";
 import { CartSummary } from "@/components/storefront/cart/cart-summary";
 import { CartRowControls } from "@/components/storefront/cart/cart-row-controls";
 import { GuestCartView } from "@/components/storefront/cart/guest-cart-view";
@@ -15,11 +15,14 @@ export default async function CartPage() {
   const session = await auth();
 
   return (
+    // Transactional rhythm — 32/40/56. A cart is a single task, and the
+    // editorial 160px used elsewhere on the site would just be scrolling
+    // between the shopper and the checkout button.
     // The recommendations row breaks out of this container — see the note in
     // cart-recommendations.tsx.
     // The spacer stops the sticky checkout bar covering the last cart row.
-    <div className={`container-checkout py-10 ${STICKY_BAR_SPACER}`}>
-      <h1 className="mb-8 text-2xl font-semibold">Your cart</h1>
+    <div className={`container-checkout rhythm-transactional ${STICKY_BAR_SPACER}`}>
+      <h1 className="mb-8 text-h1">Your cart</h1>
       {session?.user?.id ? <AuthedCart userId={session.user.id} /> : <GuestCartView />}
     </div>
   );
@@ -29,16 +32,7 @@ async function AuthedCart({ userId }: { userId: string }) {
   const cart = await getCartWithProducts(userId);
   const rows = (cart?.items ?? []).filter((i) => i.product.isActive);
 
-  if (rows.length === 0) {
-    return (
-      <div className="py-16 text-center">
-        <p className="text-muted-foreground">Your cart is empty.</p>
-        <Button asChild className="mt-4">
-          <Link href="/products">Continue shopping</Link>
-        </Button>
-      </div>
-    );
-  }
+  if (rows.length === 0) return <EmptyCart />;
 
   const subtotalPaise = rows.reduce(
     (sum, i) => sum + toPaise(i.product.price) * i.quantity,
@@ -47,66 +41,81 @@ async function AuthedCart({ userId }: { userId: string }) {
 
   return (
     <>
-    <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-      <div className="space-y-4">
-        {rows.map((item) => (
-          // On a phone the stepper and the bin take ~150px of a ~230px content
-          // column, which left the name wrapping one word per line. Below sm
-          // the controls drop to their own line under the name instead; from sm
-          // up there is room for the original single row.
-          <div key={item.id} className="flex gap-4 rounded-lg border p-4">
-            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-muted">
-              {item.product.images[0] && (
-                <Image
-                  src={item.product.images[0]}
-                  alt={item.product.name}
-                  fill
-                  className="object-cover"
-                />
-              )}
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-              <div className="min-w-0 flex-1">
-                <Link
-                  href={`/products/${item.product.slug}`}
-                  className="line-clamp-2 text-sm font-medium hover:underline"
-                >
-                  {item.product.name}
-                </Link>
-                {item.size && (
-                  <p className="mt-0.5 text-sm text-muted-foreground">Size: {item.size}</p>
+      <div className="grid gap-10 lg:grid-cols-[1fr_20rem] lg:gap-16">
+        {/* Hairline-separated rows, not bordered cards. A cart of six boxed
+            cards reads as six unrelated objects; a ruled list reads as one
+            order — which is what it is. */}
+        <ul className="border-t">
+          {rows.map((item) => (
+            <li key={item.id} className="flex gap-5 border-b py-6">
+              {/* 96×120 portrait, matching the 4:5 crop the rest of the site
+                  uses. It was an 80px rounded square, which cropped the piece
+                  differently here than on the page the shopper just came from. */}
+              <Link
+                href={`/products/${item.product.slug}`}
+                className="relative h-[7.5rem] w-24 shrink-0 overflow-hidden bg-muted"
+              >
+                {item.product.images[0] && (
+                  <Image
+                    src={item.product.images[0]}
+                    alt={item.product.name}
+                    fill
+                    sizes="96px"
+                    className="object-cover"
+                  />
                 )}
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {formatINR(item.product.price.toString())}
-                </p>
-                {/* No count — see src/lib/stock-label.ts. */}
-                {item.product.stock < item.quantity && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {item.product.stock === 0
-                      ? "Now out of stock"
-                      : "We have fewer of these than you've added"}
-                  </p>
-                )}
-              </div>
-              <CartRowControls
-                productId={item.productId}
-                size={item.size}
-                quantity={item.quantity}
-                maxQuantity={Math.min(MAX_ITEM_QUANTITY, item.product.stock)}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div>
-        <CartSummary subtotalPaise={subtotalPaise} />
-      </div>
-    </div>
+              </Link>
 
-    <CartRecommendations
-      excludeProductIds={rows.map((r) => r.productId)}
-      subtotalPaise={subtotalPaise}
-    />
+              {/* On a phone the stepper and the bin take ~150px of a ~230px
+                  content column, which left the name wrapping one word per
+                  line. Below sm the controls drop to their own line under the
+                  name; from sm up there is room for a single row. */}
+              <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-start sm:gap-6">
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/products/${item.product.slug}`}
+                    className="line-clamp-2 text-sm font-medium decoration-brass/60 underline-offset-4 hover:underline"
+                  >
+                    {item.product.name}
+                  </Link>
+                  {item.size && (
+                    <p className="mt-1 text-xs text-muted-foreground">Size {item.size}</p>
+                  )}
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {formatINR(item.product.price.toString())}
+                  </p>
+                  {/* No count — see src/lib/stock-label.ts. */}
+                  {item.product.stock < item.quantity && (
+                    <p className="mt-2 text-xs text-destructive">
+                      {item.product.stock === 0
+                        ? "Now out of stock"
+                        : "We have fewer of these than you've added"}
+                    </p>
+                  )}
+                </div>
+                <CartRowControls
+                  productId={item.productId}
+                  size={item.size}
+                  quantity={item.quantity}
+                  maxQuantity={Math.min(MAX_ITEM_QUANTITY, item.product.stock)}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        {/* Sticky from lg: on a wide screen the summary would otherwise sit at
+            the top of a column while the shopper reads the bottom of the list. */}
+        <div className="lg:sticky lg:top-[7.5rem]">
+          <CartSummary subtotalPaise={subtotalPaise} />
+        </div>
+      </div>
+
+      <CartRecommendations
+        excludeProductIds={rows.map((r) => r.productId)}
+        subtotalPaise={subtotalPaise}
+      />
     </>
   );
 }
+
