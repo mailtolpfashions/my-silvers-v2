@@ -114,30 +114,37 @@ export function HomepageSection({
 
   if (section.kind === "categoryTiles") {
     /**
-     * Three square category tiles in one gapless band.
+     * Three category tiles in one gapless band that resizes under the pointer.
      *
-     * Rebuilt against the reference's category teaser: equal thirds, a 1:1
-     * crop (its mobile and desktop srcsets point at the same square asset), the
-     * category name laid over the picture, a scrim that fades up on hover, and
-     * a slight vertical drift on the image as the band crosses the viewport.
+     * Rebuilt against the reference's category teaser: the category name laid
+     * over the picture, a scrim that fades up on hover, a slight vertical drift
+     * on the image as the band crosses the viewport, and — the part that makes
+     * the band feel like a place rather than three links — the hovered tile
+     * expanding to about twice its width while its neighbours compress. The
+     * ratio and the .6s timing are measured, not invented; see .tile-accordion
+     * in globals.css, which owns the whole interaction in CSS.
      *
-     * The square crop is also what the catalogue actually has — Category.image
-     * is 900×900 today — so this asks nothing new of the photography that the
-     * portrait panels it replaces did.
+     * The band is 2:1 from sm, so at 1440 each resting tile is 480×720 — the
+     * portrait proportion the reference uses, and the shape that lets a name
+     * and a CTA sit in a tile that is only a third of the screen. Below sm the
+     * tiles stack and stay square: three columns at 375 would be 120px
+     * thumbnails, where the name would not fit and the photograph would stop
+     * being one. Category.image is 900×900 today and still covers both crops.
      *
      * Deliberately outside container-page so it reaches the viewport edges, and
      * deliberately without a heading — the tiles name themselves.
      */
     return (
-      <RevealSection className="grid grid-cols-1 sm:grid-cols-3">
+      <RevealSection className="tile-accordion flex flex-col sm:aspect-[2/1] sm:flex-row">
         {section.items.slice(0, 3).map((item, i) => (
           <Link
             key={item.id}
             href={`/category/${item.slug}`}
-            // Square at every width. Stacked on a phone rather than three
-            // 120px thumbnails, which is what three columns would be at 375 —
-            // the name would not fit and the photograph would stop being one.
-            className="group relative flex aspect-square items-center justify-center overflow-hidden bg-muted"
+            // Square while stacked; from sm the band owns the height and each
+            // tile fills it, so only the width is left for the accordion to
+            // animate. `overflow-hidden` is what keeps the photograph steady
+            // while its frame narrows.
+            className="group relative flex aspect-square items-center justify-center overflow-hidden bg-muted sm:aspect-auto sm:h-full"
           >
             {item.image && (
               // Taller than the tile and pulled up by half the overflow, so the
@@ -153,7 +160,11 @@ export function HomepageSection({
                   fill
                   loading={i === 0 ? undefined : "lazy"}
                   className="object-cover"
-                  sizes="(max-width: 640px) 100vw, 33vw"
+                  // 50vw, not 33vw: a hovered tile grows to half the band, and
+                  // sizing for the resting third would resample it upward for
+                  // the whole time it is expanded — which is exactly when it is
+                  // being looked at.
+                  sizes="(max-width: 640px) 100vw, 50vw"
                 />
               </div>
             )}

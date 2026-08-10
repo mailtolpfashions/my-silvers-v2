@@ -714,6 +714,60 @@
   }
 }
 
+/* ─── Tile accordion ──────────────────────────────────────────────────────────
+   The category band resizes to follow the pointer: the tile under the cursor
+   grows to roughly twice its resting width and its two neighbours give up the
+   difference. Measured off the reference, where a 1920px band holds three tiles
+   at 470px until one is hovered and takes 945px — so the hovered tile's
+   flex-grow is 2 against its siblings' 1, and nothing else changes.
+
+   This is the site's most-touched interaction and it carries no JavaScript.
+   Only `flex-grow` is animated; the siblings are never given a rule of their
+   own, because their widths fall out of the ratio and therefore interpolate in
+   step with the hovered tile for free.
+
+   `flex-grow` is a layout property, so this does relayout the band each frame
+   rather than riding the compositor. That is affordable for three boxes on a
+   pointer device and unaffordable on a mid-range phone, which is the reason for
+   the (hover: hover) and (pointer: fine) gate below rather than a width
+   breakpoint — a touch tablet is wide but must never run this.
+
+   Guards:
+     min-width          — below sm the tiles are stacked and full width, so
+                          there is no row to redistribute
+     hover/pointer      — expansion on hover is for real pointers only
+     :focus-visible     — keyboard users get the same expansion, ungated, so
+                          tabbing through the band is not a dead flat row
+     reduced-motion     — still expands, but arrives instantly; the information
+                          is preserved and only the travel is dropped
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 40rem) {
+  .tile-accordion > * {
+    flex: 1 1 0%;
+    /* Without this a flex item refuses to shrink below its content's intrinsic
+       width, and the long category names would stop the band redistributing. */
+    min-width: 0;
+  }
+
+  .tile-accordion > *:focus-visible {
+    flex-grow: 2;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .tile-accordion > *:hover {
+      flex-grow: 2;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .tile-accordion > * {
+      /* .6s ease-out — the reference's spatial timing, and the same curve the
+         rest of this stylesheet uses for anything that moves in space. */
+      transition: flex-grow 600ms ease-out;
+    }
+  }
+}
+
 /* A hairline in the accent, used to close a heading block. Purely decorative,
    so --brass rather than --brass-text is correct here. */
 .rule-brass::after {
