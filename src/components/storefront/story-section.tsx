@@ -90,7 +90,7 @@ export function StorySection({
           {stages.length > 0 && (
             <div className="mt-6 space-y-3">
               {stages.map((stage, i) => (
-                <p key={i} className="font-serif text-lg leading-relaxed text-white/85 sm:text-xl">
+                <p key={i} className="font-serif text-h3 leading-relaxed text-white/85">
                   {stage}
                 </p>
               ))}

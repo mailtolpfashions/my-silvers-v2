@@ -58,7 +58,7 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
           ← All orders
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold">{order.orderNumber}</h1>
+          <h1 className="text-h2 font-semibold">{order.orderNumber}</h1>
           <Badge variant={order.paymentStatus === "failed" ? "destructive" : "outline"}>
             {order.paymentMethod === "cod" ? "COD" : order.paymentStatus}
           </Badge>

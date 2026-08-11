@@ -16,7 +16,7 @@ export default async function CmsDashboardPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Studio</h1>
+      <h1 className="text-h2 font-semibold">Studio</h1>
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {stats.map((stat) => (
           <Card key={stat.label}>
@@ -26,7 +26,7 @@ export default async function CmsDashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-semibold">{stat.value}</p>
+              <p className="text-h1 font-semibold">{stat.value}</p>
             </CardContent>
           </Card>
         ))}

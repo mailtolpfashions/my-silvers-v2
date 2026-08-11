@@ -46,7 +46,7 @@ export default async function EditProductPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Edit product</h1>
+      <h1 className="text-h2 font-semibold">Edit product</h1>
       <ProductForm productId={product.id} initial={initial} categories={categories} />
     </div>
   );

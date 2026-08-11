@@ -174,7 +174,7 @@ export function HomepageSection({
               // order controls which side the image lands on without changing
               // the DOM order, so the heading still precedes its copy for
               // screen readers and keyboard users.
-              className={`relative aspect-[4/3] overflow-hidden bg-muted ${
+              className={`relative aspect-[16/9] overflow-hidden bg-muted ${
                 imageFirst ? "lg:order-1" : "lg:order-2"
               }`}
             >

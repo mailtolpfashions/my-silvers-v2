@@ -9,7 +9,7 @@ import { RevealSection } from "@/components/storefront/reveal-section";
  */
 export function CustomerReviewsPreviewNote() {
   return (
-    <RevealSection className="container-page border-t py-12 text-center">
+    <RevealSection className="container-page border-t rhythm-commerce text-center">
       <p className="label-eyebrow mb-2">In their words</p>
       <h2 className="text-h2">What our customers say</h2>
       <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">

@@ -316,7 +316,7 @@ export function ProductFilters({
             <SlidersHorizontal className="size-4" />
             Filter
             {activeCount > 0 && (
-              <span className="ml-1 flex size-5 items-center justify-center bg-foreground text-[11px] text-background">
+              <span className="ml-1 flex size-5 items-center justify-center bg-foreground text-micro text-background">
                 {activeCount}
               </span>
             )}
@@ -324,7 +324,7 @@ export function ProductFilters({
 
           {/* Sort stays its own control on a phone: it is the more frequent
               action and burying it one level deeper costs a tap every time. */}
-          <label className="relative flex h-11 flex-1 items-center justify-center border border-input bg-background text-[13px] uppercase tracking-[0.08em]">
+          <label className="relative flex h-11 flex-1 items-center justify-center border border-input bg-background text-xs uppercase tracking-[0.08em]">
             <span className="pointer-events-none">Sort</span>
             <select
               value={activeSort}

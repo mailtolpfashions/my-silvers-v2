@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export default function AccountLoading() {
   return (
-    <div className="container-checkout py-10">
+    <div className="container-checkout rhythm-transactional">
       <Skeleton className="h-8 w-56" />
       <div className="mt-8 space-y-4">
         {Array.from({ length: 4 }, (_, i) => (

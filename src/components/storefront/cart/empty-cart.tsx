@@ -13,7 +13,7 @@ import { EditorialLink } from "@/components/storefront/editorial-link";
  */
 export function EmptyCart() {
   return (
-    <div className="border-t py-24 text-center">
+    <div className="border-t rhythm-commerce text-center">
       <p className="text-h3">Your cart is empty</p>
       <p className="mt-3 text-sm text-muted-foreground">
         Nothing here yet — the collection is a good place to start.

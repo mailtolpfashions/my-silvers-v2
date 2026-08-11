@@ -43,7 +43,7 @@ export default async function ContentListPage({
     const entry = await getSingletonEntry(typeName);
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">{type.label}</h1>
+        <h1 className="text-h2 font-semibold">{type.label}</h1>
         <div className="rounded-lg border p-6">
           {entry ? (
             <div className="flex items-center justify-between">
@@ -81,7 +81,7 @@ export default async function ContentListPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{type.label}</h1>
+        <h1 className="text-h2 font-semibold">{type.label}</h1>
         <Button asChild size="sm">
           <Link href={`/cms/content/${typeName}/new`}>New entry</Link>
         </Button>

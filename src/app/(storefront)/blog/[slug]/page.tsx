@@ -78,7 +78,7 @@ async function BlogPostBody({ params }: { params: Params }) {
         {/* The serif, on purpose. The journal is the one place on the site that
             is writing rather than interface, and it is what Playfair is loaded
             for — see the note in story-section.tsx. */}
-        <h1 className="font-serif text-[2rem] leading-tight sm:text-[2.5rem]">{d.title}</h1>
+        <h1 className="font-serif text-h1 leading-tight">{d.title}</h1>
         <p className="mt-4 border-b pb-6 text-sm text-muted-foreground">
           {d.author && <>By {d.author} · </>}
           {(d.publishedAt ? new Date(d.publishedAt) : post.publishedAt)?.toLocaleDateString(

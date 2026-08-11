@@ -26,7 +26,7 @@ export default async function CollectionsPage() {
 
       <div className="container-page pt-10 rhythm-commerce-bottom">
         {collections.length === 0 ? (
-          <div className="border-t py-24 text-center">
+          <div className="border-t rhythm-commerce text-center">
             <p className="text-h3">No collections yet</p>
             <p className="mt-3 text-sm text-muted-foreground">
               The full catalogue is open in the meantime.

@@ -158,7 +158,7 @@ async function HomepageSections({
  */
 function HomepageSectionsSkeleton() {
   return (
-    <section className="container-page min-h-svh py-10 sm:py-16 lg:py-20">
+    <section className="container-page min-h-svh rhythm-commerce">
       <ProductGridSkeleton count={8} />
     </section>
   );

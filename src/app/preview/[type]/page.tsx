@@ -239,7 +239,7 @@ function TypePreview({ type, data }: { type: string; data: EntryData }) {
               <>
                 <div className="absolute inset-0 bg-gradient-to-r from-black/55 to-transparent" />
                 <div className="absolute inset-y-0 left-0 flex max-w-md flex-col justify-center p-6 sm:p-10">
-                  <p className="font-heading text-2xl text-white sm:text-3xl">{str(data.title)}</p>
+                  <p className="font-heading text-h2 text-white">{str(data.title)}</p>
                 </div>
               </>
             )}
@@ -254,7 +254,7 @@ function TypePreview({ type, data }: { type: string; data: EntryData }) {
       return (
         <div>
           {str(data.heroImage) && (
-            <div className="relative aspect-[21/9] w-full overflow-hidden bg-muted">
+            <div className="relative aspect-[16/5] w-full overflow-hidden bg-muted">
               <Image src={str(data.heroImage)!} alt="" fill className="object-cover" sizes="100vw" />
             </div>
           )}

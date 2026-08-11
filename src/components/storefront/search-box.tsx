@@ -205,7 +205,7 @@ export function SearchBox({
           aria-expanded={open && (hasResults || showIdlePanel)}
           aria-controls={listId}
           aria-autocomplete="list"
-          className="h-14 w-full rounded-none border-0 border-b border-input bg-transparent pl-9 pr-10 text-lg outline-none transition-colors focus:border-foreground [&::-webkit-search-cancel-button]:hidden"
+          className="h-14 w-full rounded-none border-0 border-b border-input bg-transparent pl-9 pr-10 text-base outline-none transition-colors focus:border-foreground [&::-webkit-search-cancel-button]:hidden"
         />
         {query && (
           <button

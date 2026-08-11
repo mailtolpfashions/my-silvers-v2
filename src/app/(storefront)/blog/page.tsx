@@ -29,7 +29,7 @@ export default async function BlogListPage() {
 
       <div className="container-page pt-10 rhythm-commerce-bottom">
         {posts.length === 0 ? (
-          <div className="border-t py-24 text-center">
+          <div className="border-t rhythm-commerce text-center">
             <p className="text-h3">Nothing published yet</p>
             <p className="mt-3 text-sm text-muted-foreground">
               The first piece is on its way.

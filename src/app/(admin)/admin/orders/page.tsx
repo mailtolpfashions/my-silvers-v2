@@ -53,7 +53,7 @@ export default async function AdminOrdersPage({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Orders</h1>
+        <h1 className="text-h2 font-semibold">Orders</h1>
         <div className="flex gap-2">
           <Button asChild variant="outline" size="sm">
             <a href="/api/admin/export/orders">Export orders CSV</a>

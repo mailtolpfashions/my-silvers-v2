@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CategoryLoading() {
   return (
-    <div className="container-page py-10">
+    <div className="container-page rhythm-commerce">
       <Skeleton className="h-8 w-56" />
       <Skeleton className="mt-2 h-4 w-80" />
 

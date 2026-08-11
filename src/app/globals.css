@@ -97,6 +97,14 @@
   /* Flat on purpose — theirs is 14px at every width. */
   --text-lead: 0.875rem;
 
+  /* 10px, and the ONLY size below --text-xs. It exists because seven call sites
+     had independently invented it — five at text-[10px] and two at text-[11px] —
+     and every one of them is the same role: a short uppercase letterspaced label
+     inside a badge, pill or counter bubble, where 12px does not fit the box.
+     Naming it turns seven arbitrary values into one token; it is not licence to
+     shrink body copy. Never use it for a sentence. */
+  --text-micro: 0.625rem;
+
   /* Three widths, deliberately. Anything not on this list is a bug — the site
      previously mixed max-w-[1600px] and max-w-6xl at random, so the catalogue
      and a category page rendered visibly different card sizes. */

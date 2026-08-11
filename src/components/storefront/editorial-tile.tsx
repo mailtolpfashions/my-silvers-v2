@@ -54,7 +54,7 @@ export function EditorialTile({
         className={`relative overflow-hidden bg-muted ${
           // 5:7 on a phone, 4:5 from sm — a slightly taller crop at small
           // widths, where a single tile owns the whole screen.
-          ratio === "portrait" ? "aspect-[5/7] sm:aspect-[4/5]" : "aspect-[3/2]"
+          ratio === "portrait" ? "aspect-[4/5]" : "aspect-[16/9]"
         }`}
       >
         {image ? (

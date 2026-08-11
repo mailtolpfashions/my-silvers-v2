@@ -144,7 +144,7 @@ export function CheckoutForm({
 
   if (lines === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (lines.length === 0) {
-    return <p className="py-12 text-center text-muted-foreground">Your cart is empty.</p>;
+    return <p className="rhythm-transactional text-center text-muted-foreground">Your cart is empty.</p>;
   }
 
   const subtotalPaise = lines.reduce((s, l) => s + l.pricePaise * l.quantity, 0);

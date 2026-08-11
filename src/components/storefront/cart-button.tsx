@@ -46,7 +46,7 @@ export function CartButton({
             // Inset rather than hung off the corner: the button is 48px around a
             // 24px glyph, so a negative offset would float the badge in dead
             // space well clear of the bag.
-            className="absolute right-0.5 top-1 flex h-[17px] min-w-[17px] items-center justify-center bg-black px-1 text-[10px] font-medium leading-none text-white"
+            className="absolute right-0.5 top-1 flex h-[17px] min-w-[17px] items-center justify-center bg-black px-1 text-micro font-medium leading-none text-white"
             aria-hidden
           >
             {count > 99 ? "99+" : count}

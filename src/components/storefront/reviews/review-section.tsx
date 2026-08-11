@@ -29,7 +29,7 @@ export async function ReviewSection({
   const { reviews, averageRating, count } = await getProductReviews(productId);
 
   return (
-    <section className="container-detail border-t py-12">
+    <section className="container-detail border-t rhythm-commerce">
       <div className="flex flex-wrap items-center gap-4">
         <h2 className="text-h2">Reviews</h2>
         {count > 0 && (
@@ -53,7 +53,7 @@ export async function ReviewSection({
                   <Stars rating={review.rating} />
                   <span className="text-sm font-medium">{review.user.name ?? "Customer"}</span>
                   {review.isVerifiedPurchase && (
-                    <span className="text-[10px] uppercase tracking-[0.1em] text-black">Verified purchase</span>
+                    <span className="text-micro uppercase tracking-[0.1em] text-black">Verified purchase</span>
                   )}
                   <span className="text-xs text-muted-foreground">
                     {review.createdAt.toLocaleDateString("en-IN", { dateStyle: "medium" })}

@@ -89,7 +89,7 @@ export default async function CategoryPage({
         </Suspense>
 
         {items.length === 0 ? (
-          <div className="py-24 text-center">
+          <div className="rhythm-commerce text-center">
             <p className="text-h3">Nothing matched those filters</p>
             <p className="mt-3 text-sm text-muted-foreground">
               Try removing a filter to see everything in {category.name.toLowerCase()}.

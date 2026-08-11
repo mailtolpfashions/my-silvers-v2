@@ -62,7 +62,7 @@ export default async function AdminProductsPage({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Products</h1>
+        <h1 className="text-h2 font-semibold">Products</h1>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm">
             <a href="/api/admin/export/products">Export CSV</a>
@@ -133,12 +133,12 @@ export default async function AdminProductsPage({
                       <p className="truncate text-sm font-medium">{product.name}</p>
                       <div className="flex gap-1">
                         {product.isFeatured && (
-                          <Badge variant="outline" className="text-[10px]">
+                          <Badge variant="outline" className="text-micro">
                             Featured
                           </Badge>
                         )}
                         {product.isBestseller && (
-                          <Badge variant="outline" className="text-[10px]">
+                          <Badge variant="outline" className="text-micro">
                             Bestseller
                           </Badge>
                         )}

@@ -135,7 +135,7 @@ async function Results({ searchParams }: { searchParams: SearchParams }) {
     return (
       <>
         {filterBar}
-        <div className="py-24 text-center">
+        <div className="rhythm-commerce text-center">
           <p className="text-h3">Nothing matched those filters</p>
           <p className="mt-3 text-sm text-muted-foreground">
             Try removing a filter, or browse the full collection.
@@ -194,7 +194,7 @@ function CatalogueBreak({
   banner: { title?: string; image: string; link?: string };
 }) {
   const art = (
-    <div className="relative aspect-[21/9] w-full overflow-hidden bg-muted sm:aspect-[3/1]">
+    <div className="relative aspect-[16/5] w-full overflow-hidden bg-muted">
       <Image
         src={banner.image}
         alt=""

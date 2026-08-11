@@ -17,7 +17,7 @@ export default async function AccountOrdersPage() {
       <h1 className="mb-8 text-h1">Your orders</h1>
 
       {orders.length === 0 ? (
-        <div className="py-16 text-center">
+        <div className="rhythm-commerce text-center">
           <p className="text-muted-foreground">You haven&apos;t placed any orders yet.</p>
           <Button asChild className="mt-4">
             <Link href="/products">Start shopping</Link>

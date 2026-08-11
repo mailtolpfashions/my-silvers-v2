@@ -225,7 +225,7 @@ export function EntryEditor({
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold">{typeLabel}</h1>
+            <h1 className="text-h2 font-semibold">{typeLabel}</h1>
             <Badge variant={status === "published" ? "default" : "secondary"}>
               {status ?? "new"}
             </Badge>

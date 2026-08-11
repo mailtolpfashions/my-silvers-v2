@@ -42,7 +42,7 @@ export function HomepageView({
       className="relative overflow-hidden"
       style={heroBackground ? { backgroundColor: heroBackground } : undefined}
     >
-      <div className="container-page grid items-center gap-8 py-16 sm:py-24 lg:grid-cols-2">
+      <div className="container-page grid items-center gap-8 rhythm-editorial lg:grid-cols-2">
         <div className={heroImage ? "text-left" : "text-center lg:col-span-2"}>
           <p className="label-eyebrow">925 Sterling Silver</p>
           {heroTitle && (
@@ -63,7 +63,7 @@ export function HomepageView({
           )}
         </div>
         {heroImage && (
-          <div className="relative aspect-[4/3] overflow-hidden">
+          <div className="relative aspect-[16/9] overflow-hidden">
             <Image
               src={heroImage}
               // Decorative when there's no headline to describe it.

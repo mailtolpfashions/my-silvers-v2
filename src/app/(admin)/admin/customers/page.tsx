@@ -75,7 +75,7 @@ export default async function AdminCustomersPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Customers</h1>
+      <h1 className="text-h2 font-semibold">Customers</h1>
 
       <Card className="max-w-xs">
         <CardHeader>
@@ -84,7 +84,7 @@ export default async function AdminCustomersPage({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-2xl font-semibold">{totalCustomers}</p>
+          <p className="text-h1 font-semibold">{totalCustomers}</p>
         </CardContent>
       </Card>
 

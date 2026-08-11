@@ -150,7 +150,7 @@ export function ProductCard({
             shopper who clicks through to an unbuyable piece has been wasted.
             A hairline label rather than a filled pill. */}
         {product.stock <= 0 && (
-          <span className="absolute left-3 top-3 z-10 bg-background/90 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-black backdrop-blur-sm">
+          <span className="absolute left-3 top-3 z-10 bg-background/90 px-2.5 py-1 text-micro uppercase tracking-[0.14em] text-black backdrop-blur-sm">
             Sold out
           </span>
         )}

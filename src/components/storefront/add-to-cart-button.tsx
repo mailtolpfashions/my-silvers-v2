@@ -131,7 +131,7 @@ export function AddToCartButton({
         // hairline at 1.24:1 against the page, far too faint to read as a 44px
         // control. cn() is tailwind-merge, so these beat the variant's own
         // background rather than fighting it.
-        className={`h-12 w-full min-w-0 shrink px-4 text-[12px] tracking-[0.06em] sm:h-12 sm:px-4 ${
+        className={`h-12 w-full min-w-0 shrink px-4 text-xs tracking-[0.06em] sm:h-12 sm:px-4 ${
           inCart ? "bg-secondary text-secondary-foreground hover:bg-secondary/80" : ""
         }`}
         disabled={stock === 0 || isPending || atStockLimit}

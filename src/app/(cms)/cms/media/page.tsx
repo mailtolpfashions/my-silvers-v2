@@ -17,7 +17,7 @@ export default async function MediaLibraryPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Media library</h1>
+      <h1 className="text-h2 font-semibold">Media library</h1>
       <MediaLibrary
         assets={assets.map((a) => ({
           id: a.id,

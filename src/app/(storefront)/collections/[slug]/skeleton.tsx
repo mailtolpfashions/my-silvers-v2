@@ -8,8 +8,8 @@ export function CollectionPageSkeleton() {
   return (
     <div>
       <section className="relative">
-        <Skeleton className="aspect-[21/9] w-full rounded-none" />
-        <div className="mx-auto flex max-w-3xl flex-col items-center px-4 py-12">
+        <Skeleton className="aspect-[16/5] w-full rounded-none" />
+        <div className="mx-auto flex max-w-3xl flex-col items-center px-4 rhythm-commerce">
           <Skeleton className="h-4 w-32" />
           <Skeleton className="mt-3 h-9 w-2/3" />
           <Skeleton className="mt-4 h-4 w-full max-w-xl" />

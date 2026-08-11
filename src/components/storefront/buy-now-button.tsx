@@ -113,7 +113,7 @@ export function BuyNowButton({
       // so without this the label was clipped at the screen edge on a 360px
       // phone. Any cta-sized button in a flex row must restate its padding and
       // allow itself to shrink.
-      className="w-full min-w-0 shrink px-4 text-[12px] tracking-[0.06em] sm:px-4 md:text-[13px] md:tracking-[0.08em]"
+      className="w-full min-w-0 shrink px-4 text-xs tracking-[0.06em] sm:px-4 md:tracking-[0.08em]"
       disabled={stock === 0 || isPending}
       onClick={handleClick}
     >

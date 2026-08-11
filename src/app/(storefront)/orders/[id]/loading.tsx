@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export default function OrderLoading() {
   return (
-    <div className="container-checkout py-10">
+    <div className="container-checkout rhythm-transactional">
       <Skeleton className="h-8 w-64" />
       <Skeleton className="mt-2 h-4 w-40" />
       <div className="mt-8 space-y-4">

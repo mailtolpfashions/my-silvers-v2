@@ -26,7 +26,7 @@ export default async function AdminDashboardPage() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <h1 className="text-h2 font-semibold">Dashboard</h1>
         {stats.pendingReturns > 0 && (
           <Link
             href="/admin/orders?status=return_requested"
@@ -46,7 +46,7 @@ export default async function AdminDashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-semibold">{card.value}</p>
+              <p className="text-h1 font-semibold">{card.value}</p>
             </CardContent>
           </Card>
         ))}

@@ -9,7 +9,7 @@ export default async function AdminCategoriesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Categories</h1>
+      <h1 className="text-h2 font-semibold">Categories</h1>
       <CategoryManager
         categories={categories.map((c) => ({
           id: c.id,

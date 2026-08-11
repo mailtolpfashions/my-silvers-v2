@@ -25,7 +25,7 @@ export default async function WishlistPage() {
       {products.length === 0 ? (
         // A premium empty state: a sentence explaining what the page is for and
         // one way forward. It was a grey line and a rounded button.
-        <div className="py-24 text-center">
+        <div className="rhythm-commerce text-center">
           <p className="text-h3">Nothing saved yet</p>
           <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
             Tap the heart on any piece to keep it here while you decide. Your

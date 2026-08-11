@@ -18,7 +18,7 @@ export default function GlobalError({
     <html lang="en">
       <body className="flex min-h-screen items-center justify-center p-8">
         <div className="text-center">
-          <h1 className="text-xl font-semibold">Something went wrong</h1>
+          <h1 className="text-h2 font-semibold">Something went wrong</h1>
           <p className="mt-2 text-sm text-neutral-500">
             We&apos;ve been notified and are looking into it.
           </p>

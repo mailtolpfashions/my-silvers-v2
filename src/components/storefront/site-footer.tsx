@@ -64,7 +64,7 @@ export function SiteFooter() {
           opened with a link list. Deliberately not a marketing claim: it says
           what the shop sells and what it is made of, both of which are facts. */}
       <div className="container-page border-b border-white/10 py-14 sm:py-20">
-        <p className="max-w-2xl font-serif text-xl leading-relaxed text-white/90 sm:text-2xl">
+        <p className="max-w-2xl font-serif text-h2 leading-relaxed text-white/90">
           Hallmarked 925 sterling silver, made in India — designed to be worn
           every day rather than kept for an occasion.
         </p>

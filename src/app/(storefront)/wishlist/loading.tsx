@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function WishlistLoading() {
   return (
-    <div className="container-page py-10">
+    <div className="container-page rhythm-commerce">
       <Skeleton className="mb-8 h-8 w-48" />
       <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
         {Array.from({ length: 4 }, (_, i) => (

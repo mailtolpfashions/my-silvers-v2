@@ -44,7 +44,7 @@ function StatusLabel({
 }) {
   return (
     <span
-      className={`inline-flex items-center border px-2.5 py-1 text-[11px] uppercase tracking-[0.1em] ${
+      className={`inline-flex items-center border px-2.5 py-1 text-micro uppercase tracking-[0.1em] ${
         tone === "alert"
           ? "border-destructive/40 bg-destructive/10 text-destructive"
           : "border-border text-muted-foreground"
