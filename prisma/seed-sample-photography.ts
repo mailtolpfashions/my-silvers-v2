@@ -124,6 +124,22 @@ async function existingSamples(): Promise<Set<string>> {
 }
 
 /**
+ * Cloudinary serialises context as `key=value|key=value`, so a value carrying
+ * `=`, `|` or a newline is rejected outright with "Invalid encoding in context".
+ * Photographer names are free text from a third party and do contain them, so
+ * everything is stripped to plain ASCII and truncated before it goes near the
+ * API. Metadata is a nicety here; losing an exotic character from a credit
+ * matters far less than losing the upload.
+ */
+function safeContext(value: string): string {
+  return value
+    .replace(/[=|&,\r\n]/g, " ")
+    .replace(/[^\x20-\x7E]/g, "")
+    .trim()
+    .slice(0, 80);
+}
+
+/**
  * Hands Cloudinary the Pexels URL and lets it do the fetching. `overwrite:false`
  * plus a deterministic public_id is what makes a second run a no-op.
  */
@@ -136,7 +152,11 @@ async function upload(photo: Photo, publicId: string): Promise<string> {
     // storefront is delivered above 2048 (see deviceSizes in next.config.ts),
     // and storing the full size only burns quota.
     transformation: [{ width: 2048, height: 2048, crop: "limit", quality: "auto:good" }],
-    context: { source: "pexels", pexels_id: String(photo.id), credit: photo.credit },
+    context: {
+      source: "pexels",
+      pexels_id: String(photo.id),
+      credit: safeContext(photo.credit),
+    },
   });
   return res.secure_url as string;
 }
@@ -195,6 +215,7 @@ async function main() {
   const urls: Record<string, string[]> = {};
   let uploaded = 0;
   let reused = 0;
+  const failures: string[] = [];
 
   for (const [key, photos] of Object.entries(pool)) {
     urls[key] = [];
@@ -204,14 +225,33 @@ async function main() {
       if (cached.has(publicId)) {
         urls[key].push(cloudinary.url(publicId, { secure: true }));
         reused++;
-      } else {
+        continue;
+      }
+      try {
         urls[key].push(await upload(photo, publicId));
         uploaded++;
         process.stdout.write(`\r  uploaded ${uploaded}…`);
+      } catch (e) {
+        // One unusable source photo must not cost the whole run. The pools are
+        // deliberately larger than the slots that consume them, so a handful of
+        // skips changes nothing downstream.
+        failures.push(`${publicId}: ${(e as Error).message}`);
       }
     }
   }
-  console.log(`\n  ${uploaded} uploaded, ${reused} reused.\n`);
+  console.log(`\n  ${uploaded} uploaded, ${reused} reused, ${failures.length} skipped.`);
+  if (failures.length) {
+    console.log("  skipped:");
+    failures.slice(0, 10).forEach((f) => console.log(`    ${f}`));
+    if (failures.length > 10) console.log(`    …and ${failures.length - 10} more`);
+  }
+  console.log();
+
+  // A category whose entire pool failed would silently leave its products on
+  // placeholders, so say so rather than reporting a clean run.
+  for (const name of Object.keys(CATEGORY_QUERIES)) {
+    if (!urls[name]?.length) console.log(`  ⚠  no usable photos for ${name}`);
+  }
 
   // ── 3. Categories ──────────────────────────────────────────────────────────
   const categories = await prisma.category.findMany({ select: { id: true, name: true } });
@@ -260,65 +300,137 @@ async function main() {
   }
   console.log(`  products  ${touched} updated\n`);
 
-  // ── 5. Homepage CMS ────────────────────────────────────────────────────────
-  const homepage = await prisma.contentEntry.findFirst({
-    where: { contentType: { name: "homepage" } },
+  // ── 5. CMS entries ─────────────────────────────────────────────────────────
+  /**
+   * Every image-bearing key the CMS uses, across every content type. An earlier
+   * version walked only homepage.sections and looked for `image`, which left the
+   * hero carousel (homepage.slides[].media) on placeholders — the single most
+   * visible image on the site. Matching on the key name at any depth means a new
+   * section shape does not silently reintroduce that.
+   */
+  const IMAGE_KEYS = new Set([
+    "image",
+    "media",
+    "heroImage",
+    "thumbnailImage",
+    "coverImage",
+    "backgroundImage",
+    "storyImage",
+  ]);
+
+  /**
+   * Slug/title hints → the mood pool that suits them, so the bridal collection
+   * gets bridal photography rather than whatever came next in the queue. Falls
+   * back to a round-robin over everything when nothing matches.
+   */
+  const MOOD_HINTS: [RegExp, string][] = [
+    [/bridal|wedding/i, "mood:bridal"],
+    [/everyday|daily|minimal/i, "mood:everyday"],
+    [/office|work|quiet/i, "mood:office"],
+    [/oxidis|oxidiz|antique/i, "mood:oxidised"],
+    [/story|studio|craft|care|guide|hallmark/i, "mood:story"],
+    [/ring/i, "Rings"],
+    [/earring/i, "Earrings"],
+    [/necklace/i, "Necklaces"],
+    [/bracelet/i, "Bracelets"],
+    [/anklet/i, "Anklets"],
+    [/pendant/i, "Pendants"],
+  ];
+
+  const fallbackPool = [
+    ...(urls["mood:hero"] ?? []),
+    ...(urls["mood:everyday"] ?? []),
+    ...(urls["mood:bridal"] ?? []),
+    ...(urls["mood:office"] ?? []),
+    ...(urls["mood:oxidised"] ?? []),
+    ...(urls["mood:story"] ?? []),
+  ].filter(Boolean);
+
+  let fallbackIndex = 0;
+
+  /** Picks a photo for one field, preferring a pool the entry's own text implies. */
+  function pickFor(hintText: string): string | undefined {
+    for (const [re, key] of MOOD_HINTS) {
+      if (re.test(hintText) && urls[key]?.length) {
+        // Rotate within the matched pool so two bridal fields differ.
+        return urls[key][fallbackIndex++ % urls[key].length];
+      }
+    }
+    if (!fallbackPool.length) return undefined;
+    return fallbackPool[fallbackIndex++ % fallbackPool.length];
+  }
+
+  function swapPlaceholders(node: unknown, hint: string): unknown {
+    if (Array.isArray(node)) return node.map((v) => swapPlaceholders(v, hint));
+    if (node && typeof node === "object") {
+      const src = node as Json;
+      // Local hint wins: a slide with its own title should draw on that rather
+      // than on the entry's title.
+      const localHint =
+        [src.title, src.slug, src.name, src.heading, src.eyebrow]
+          .filter((v) => typeof v === "string")
+          .join(" ") || hint;
+      const out: Json = {};
+      for (const [k, v] of Object.entries(src)) {
+        if (IMAGE_KEYS.has(k) && typeof v === "string" && v.includes("placehold.co")) {
+          out[k] = pickFor(localHint) ?? v;
+        } else {
+          out[k] = swapPlaceholders(v, localHint);
+        }
+      }
+      return out;
+    }
+    return node;
+  }
+
+  const entries = await prisma.contentEntry.findMany({
+    select: {
+      id: true,
+      data: true,
+      publishedData: true,
+      contentType: { select: { name: true } },
+    },
   });
 
-  if (homepage) {
-    const backup = `prisma/backup-homepage-${Date.now()}.json`;
-    writeFileSync(
-      backup,
-      JSON.stringify({ data: homepage.data, publishedData: homepage.publishedData }, null, 2)
+  const backup = `prisma/backup-homepage-${Date.now()}.json`;
+  writeFileSync(backup, JSON.stringify(entries, null, 2));
+  console.log(`  backup    ${backup}  (all ${entries.length} CMS entries)`);
+
+  const perType: Record<string, number> = {};
+
+  for (const entry of entries) {
+    const hint = JSON.stringify(
+      (entry.data as Json)?.title ?? (entry.data as Json)?.slug ?? entry.contentType.name
     );
-    console.log(`  backup    ${backup}`);
+    const nextDraft = swapPlaceholders(entry.data, hint) as Json;
+    const nextPublished = entry.publishedData
+      ? (swapPlaceholders(entry.publishedData, hint) as Json)
+      : null;
 
-    const draft = structuredClone(homepage.data ?? {}) as Json;
-    const swap = (v: unknown, replacement: string | undefined) =>
-      typeof v === "string" && v.includes("placehold.co") && replacement ? replacement : v;
-
-    draft.heroImage = swap(draft.heroImage, urls["mood:hero"]?.[0]);
-
-    // Walk the section list and replace any placeholder image it carries,
-    // whatever shape the section is — the CMS owns the arrangement, this only
-    // swaps artwork.
-    const moodPool = [
-      ...(urls["mood:everyday"] ?? []),
-      ...(urls["mood:bridal"] ?? []),
-      ...(urls["mood:office"] ?? []),
-      ...(urls["mood:oxidised"] ?? []),
-    ];
-    let moodIndex = 0;
-    const nextMood = () => moodPool[moodIndex++ % Math.max(moodPool.length, 1)];
-
-    const walk = (node: unknown): unknown => {
-      if (Array.isArray(node)) return node.map(walk);
-      if (node && typeof node === "object") {
-        const out: Json = {};
-        for (const [k, v] of Object.entries(node as Json)) {
-          out[k] =
-            (k === "image" || k === "backgroundImage") && typeof v === "string" && v.includes("placehold.co")
-              ? nextMood() ?? v
-              : walk(v);
-        }
-        return out;
-      }
-      return node;
-    };
-
-    draft.sections = walk(draft.sections);
-    if (typeof draft.storyImage === "string") {
-      draft.storyImage = swap(draft.storyImage, urls["mood:story"]?.[0]);
-    }
+    const changed =
+      JSON.stringify(nextDraft) !== JSON.stringify(entry.data) ||
+      JSON.stringify(nextPublished) !== JSON.stringify(entry.publishedData);
+    if (!changed) continue;
 
     await prisma.contentEntry.update({
-      where: { id: homepage.id },
+      where: { id: entry.id },
       // Draft AND published, per the explicit request to auto-publish. See the
       // caveat printed below: this bypasses revalidateTag().
-      data: { data: draft as never, publishedData: draft as never, publishedAt: new Date() },
+      data: {
+        data: nextDraft as never,
+        ...(nextPublished
+          ? { publishedData: nextPublished as never, publishedAt: new Date() }
+          : {}),
+      },
     });
-    console.log("  homepage  draft + published\n");
+    perType[entry.contentType.name] = (perType[entry.contentType.name] ?? 0) + 1;
   }
+
+  console.log("  cms entries updated:");
+  Object.entries(perType)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([t, n]) => console.log(`    ${String(n).padStart(3)}  ${t}`));
+  console.log();
 
   console.log("Done.\n");
   console.log("⚠  Published straight from a script, so Next's cache was NOT invalidated.");
