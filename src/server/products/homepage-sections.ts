@@ -50,6 +50,7 @@ export type HomepageSection =
       eyebrow?: string;
       image: string;
       link?: string;
+      pinnedReveal?: boolean;
     }
   | { kind: "instagram"; key: string; title: string; eyebrow?: string }
   /** Asymmetric image + copy split. The storytelling beat between grids. */
@@ -103,6 +104,7 @@ export type HomepageSection =
       image?: string;
       ctaLabel?: string;
       ctaHref?: string;
+      pinnedReveal?: boolean;
     }
   /** Round category pills — the fastest route into the catalogue. */
   | {
@@ -113,6 +115,14 @@ export type HomepageSection =
       /** Optional line under the heading, rendered with --text-lead. */
       subtitle?: string;
       items: Array<{ id: string; name: string; slug: string; image: string | null }>;
+      /**
+       * Editor opt-in to the pinned reveal: the section is held to the viewport
+       * and uncovered as whatever is above it scrolls away. Only carried by the
+       * three full-bleed kinds — see the field definition in prisma/seed.ts.
+       * Whether it is HONOURED is the page's decision, not the section's: the
+       * chain has to start directly under a full-bleed hero.
+       */
+      pinnedReveal?: boolean;
     }
   /** The 925/BIS/hallmark craft story, as editable claims rather than fixed copy. */
   | {
@@ -153,6 +163,8 @@ type SectionSpec = {
   imageSide?: unknown;
   // usp
   items?: unknown;
+  // categoryTiles | story | banner
+  pinnedReveal?: unknown;
 };
 
 /** A banner is live only when active and inside its scheduled window. */
@@ -267,6 +279,7 @@ async function resolveOne(
       image,
       ctaLabel: str(spec.ctaLabel),
       ctaHref: str(spec.ctaHref),
+      pinnedReveal: spec.pinnedReveal === true,
     };
   }
 
@@ -279,7 +292,15 @@ async function resolveOne(
     // Every tile needs artwork, so a catalogue with no category images renders
     // nothing rather than a row of empty circles.
     if (items.length === 0) return null;
-    return { kind, key, title: str(spec.title) ?? "", eyebrow, subtitle, items };
+    return {
+      kind,
+      key,
+      title: str(spec.title) ?? "",
+      eyebrow,
+      subtitle,
+      items,
+      pinnedReveal: spec.pinnedReveal === true,
+    };
   }
 
   if (kind === "usp") {
@@ -312,6 +333,7 @@ async function resolveOne(
       eyebrow,
       image: str(d.image)!,
       link: str(d.link),
+      pinnedReveal: spec.pinnedReveal === true,
     };
   }
 

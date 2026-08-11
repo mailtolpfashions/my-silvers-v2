@@ -51,7 +51,7 @@ export function CartSummary({ subtotalPaise }: { subtotalPaise: number }) {
             <dd>{shippingPaise === 0 ? "Free" : formatINRPaise(shippingPaise)}</dd>
           </div>
           {remainingForFree > 0 && (
-            <p className="text-xs text-brass-text">
+            <p className="text-xs text-black">
               Add {formatINRPaise(remainingForFree)} more for free shipping.
             </p>
           )}

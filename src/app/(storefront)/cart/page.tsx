@@ -74,7 +74,7 @@ async function AuthedCart({ userId }: { userId: string }) {
                 <div className="min-w-0 flex-1">
                   <Link
                     href={`/products/${item.product.slug}`}
-                    className="line-clamp-2 text-sm font-medium decoration-brass/60 underline-offset-4 hover:underline"
+                    className="line-clamp-2 text-sm font-medium decoration-black/60 underline-offset-4 hover:underline"
                   >
                     {item.product.name}
                   </Link>

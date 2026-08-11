@@ -185,9 +185,9 @@ export function MediaPicker({
                           muted
                           playsInline
                           preload="metadata"
-                          className="h-full w-full bg-graphite-950 object-cover"
+                          className="h-full w-full bg-black object-cover"
                         />
-                        <span className="absolute inset-0 flex items-center justify-center bg-graphite-950/40">
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/40">
                           <Play className="size-5 fill-white text-white" aria-hidden />
                         </span>
                       </>

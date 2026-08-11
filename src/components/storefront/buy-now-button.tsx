@@ -102,7 +102,7 @@ export function BuyNowButton({
       size="cta"
       // Square graphite block — the primary commerce CTA, and the only filled
       // one in the stack. It used to be a fully-rounded BRASS pill, which broke
-      // the palette rule twice over: --brass is a decorative accent, not a fill
+      // the palette rule twice over: --black is a decorative accent, not a fill
       // behind a label, and a gold pill beside a dark "Add to cart" read as a
       // promotional sticker rather than the primary action. Add to cart and
       // Save are now outlined beneath it, so the hierarchy is legible without

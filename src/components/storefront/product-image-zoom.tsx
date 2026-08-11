@@ -161,7 +161,7 @@ function Lightbox({
 
         <div
           ref={frameRef}
-          className="relative aspect-[4/5] max-h-[90vh] w-full overflow-hidden bg-graphite-950"
+          className="relative aspect-[4/5] max-h-[90vh] w-full overflow-hidden bg-black"
         >
           <div
             className="absolute inset-0 transition-transform duration-200 ease-out motion-reduce:transition-none"

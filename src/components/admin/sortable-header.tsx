@@ -60,7 +60,7 @@ export function SortableHeader({
           className={`size-3.5 shrink-0 transition-colors ${
             // The neutral double-chevron is dimmed until hover so seven of them
             // don't compete with the one column actually in effect.
-            active ? "text-brass-text" : "text-muted-foreground/40 group-hover:text-muted-foreground"
+            active ? "text-black" : "text-muted-foreground/40 group-hover:text-muted-foreground"
           }`}
           aria-hidden
         />

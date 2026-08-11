@@ -176,7 +176,7 @@ export default async function ProductDetailPage({
             <p className="mt-5 text-sm text-destructive">Out of stock</p>
           ) : (
             isScarce(product.stock) && (
-              <p className="mt-5 text-sm text-brass-text">{stockLabel(product.stock)}</p>
+              <p className="mt-5 text-sm text-black">{stockLabel(product.stock)}</p>
             )
           )}
 

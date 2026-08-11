@@ -128,7 +128,7 @@ export function ProductGallery({
             >
               <span
                 className={`block h-1.5 transition-all duration-300 ${
-                  i === active ? "w-6 bg-brass" : "w-1.5 bg-graphite-950/25"
+                  i === active ? "w-6 bg-black" : "w-1.5 bg-black/25"
                 }`}
               />
             </button>
@@ -157,7 +157,7 @@ function ProductVideo({ videoUrl, poster }: { videoUrl: string; poster?: string 
       preload="none"
       poster={poster}
       aria-label="Product video"
-      className="absolute inset-0 h-full w-full bg-graphite-950 object-cover"
+      className="absolute inset-0 h-full w-full bg-black object-cover"
     />
   );
 }

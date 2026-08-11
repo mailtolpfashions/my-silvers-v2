@@ -25,6 +25,7 @@ export function StorySection({
   image,
   ctaLabel,
   ctaHref,
+  fill = false,
 }: {
   title: string;
   eyebrow?: string;
@@ -32,11 +33,27 @@ export function StorySection({
   image: string;
   ctaLabel?: string;
   ctaHref?: string;
+  /**
+   * Fill the parent's height instead of setting a min-height of its own.
+   *
+   * Set when this section is a stage in the homepage's shutter chain, where the
+   * pinned wrapper is exactly one viewport tall and owns the height. The
+   * section's own `min-h-[85vh]` would otherwise overflow that wrapper by 15vh
+   * at lg and push its copy below the fold for the whole reveal.
+   *
+   * `isolate` on the section is what keeps this safe inside a stage: the -z-10
+   * image and scrim below resolve against this section's own stacking context
+   * rather than escaping to sit behind the stage — and behind the stage is
+   * where the PREVIOUS stage is.
+   */
+  fill?: boolean;
 }) {
+  const frame = fill ? "h-full" : "min-h-[70vh] lg:min-h-[85vh]";
+
   return (
     // Deliberately outside container-page: edge to edge is the whole point of
     // this section, and it is the only full-bleed block on the homepage.
-    <section className="relative isolate min-h-[70vh] overflow-hidden lg:min-h-[85vh]">
+    <section className={`relative isolate overflow-hidden ${frame}`}>
       <Image
         src={image}
         alt=""
@@ -56,7 +73,7 @@ export function StorySection({
         }}
       />
 
-      <div className="container-page flex min-h-[70vh] items-end py-20 lg:min-h-[85vh] lg:py-28">
+      <div className={`container-page flex items-end py-20 lg:py-28 ${frame}`}>
         <div className="max-w-xl">
           {eyebrow && <p className="label-eyebrow label-eyebrow-light mb-4">{eyebrow}</p>}
           {/* text-white spelled out: the base layer colours every heading

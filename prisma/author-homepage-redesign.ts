@@ -120,9 +120,47 @@ async function main() {
     // second piece of storytelling before the site offered a route to product.
     // The component reads Category.image directly and renders nothing at all if
     // none of them have artwork.
-    { type: "categoryTiles", limit: 3, isActive: true },
+    //
+    // `pinnedReveal` makes this stage 1 of the shutter chain: held to the
+    // viewport and uncovered as the hero scrolls off it. See stage 2 below.
+    { type: "categoryTiles", limit: 3, isActive: true, pinnedReveal: true },
 
-    // 05 — Two ways in. The editorial beat, now AFTER the doorways.
+    // 05 — 925, in our words. STAGE 2 of the shutter chain.
+    //
+    // ── Why this sits here rather than after the first product grid ──────────
+    // It was authored at position 07, between "New in" and the collections,
+    // where a craft story lands after a shopper has already met the catalogue.
+    // It is second now for a structural reason, not an editorial one: the chain
+    // is LEADING and CONTIGUOUS. It starts at the first section and stops dead
+    // at the first one that has not opted in, because every stage is pulled up
+    // by exactly one viewport to sit behind its predecessor — arithmetic that
+    // only holds while each predecessor is itself exactly one viewport tall.
+    //
+    // So the second curtain can only ever be the section IMMEDIATELY below the
+    // band, and it has to be a kind that can own a viewport. Of the eight
+    // sections on this page, `story` is the only candidate: it is already a
+    // full-bleed photograph with copy laid over it. `editorialPair`, which used
+    // to sit here, is a padded container-page grid and cannot take the flag —
+    // it is now at 06, directly after this.
+    //
+    // The trade is real and was accepted deliberately: the brand now talks
+    // about how a piece is made before it shows a single product. If that reads
+    // as too slow, the fix is to move this back down and drop `pinnedReveal`,
+    // which returns the page to one curtain — not to force a grid into a
+    // viewport it was never designed for.
+    {
+      type: "story",
+      title: oldStory.title ?? "The making of a piece",
+      eyebrow: oldStory.eyebrow ?? "The craft",
+      image: oldStory.image,
+      items: oldStory.items ?? [],
+      ctaLabel: oldStory.ctaLabel,
+      ctaHref: oldStory.ctaHref,
+      isActive: true,
+      pinnedReveal: true,
+    },
+
+    // 06 — Two ways in. The editorial beat, now after both curtains.
     {
       type: "editorialPair",
       title: oldPair.title ?? "Two ways in",
@@ -156,17 +194,8 @@ async function main() {
       isActive: true,
     },
 
-    // 07 — 925, in our words. The pinned story block.
-    {
-      type: "story",
-      title: oldStory.title ?? "The making of a piece",
-      eyebrow: oldStory.eyebrow ?? "The craft",
-      image: oldStory.image,
-      items: oldStory.items ?? [],
-      ctaLabel: oldStory.ctaLabel,
-      ctaHref: oldStory.ctaHref,
-      isActive: true,
-    },
+    // (The story block moved up to 05 — it is stage 2 of the shutter chain and
+    // has to be contiguous with the band. See the note there.)
 
     // 08 — Featured collection.
     {

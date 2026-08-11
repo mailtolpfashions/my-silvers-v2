@@ -33,13 +33,13 @@ export function LoginForm() {
         {isPending ? "Signing in…" : "Sign in"}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
-        <Link href="/forgot-password" className="border-b border-foreground pb-0.5 text-foreground transition-colors hover:border-brass hover:text-brass-text">
+        <Link href="/forgot-password" className="border-b border-foreground pb-0.5 text-foreground transition-colors hover:border-black hover:text-black">
           Forgot your password?
         </Link>
       </p>
       <p className="text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}
-        <Link href="/register" className="border-b border-foreground pb-0.5 text-foreground transition-colors hover:border-brass hover:text-brass-text">
+        <Link href="/register" className="border-b border-foreground pb-0.5 text-foreground transition-colors hover:border-black hover:text-black">
           Create one
         </Link>
       </p>

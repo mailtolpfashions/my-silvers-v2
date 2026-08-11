@@ -53,7 +53,7 @@ export async function ReviewSection({
                   <Stars rating={review.rating} />
                   <span className="text-sm font-medium">{review.user.name ?? "Customer"}</span>
                   {review.isVerifiedPurchase && (
-                    <span className="text-[10px] uppercase tracking-[0.1em] text-brass-text">Verified purchase</span>
+                    <span className="text-[10px] uppercase tracking-[0.1em] text-black">Verified purchase</span>
                   )}
                   <span className="text-xs text-muted-foreground">
                     {review.createdAt.toLocaleDateString("en-IN", { dateStyle: "medium" })}

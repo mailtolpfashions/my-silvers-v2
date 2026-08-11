@@ -57,7 +57,7 @@ export function SiteFooter() {
     // The inset padding matters now that the root layout opts into
     // viewport-fit: cover — the page runs under Android's gesture pill, and the
     // copyright line is the last thing on it.
-    <footer className="mt-20 bg-graphite-950 pb-[env(safe-area-inset-bottom)] text-white sm:mt-28">
+    <footer className="mt-20 bg-black pb-[env(safe-area-inset-bottom)] text-white sm:mt-28">
       {/* ── The brand statement ─────────────────────────────────────────────
           One line, set large and quiet across the top of the footer. It is the
           last thing a shopper reads on any page, and the footer previously
@@ -76,10 +76,10 @@ export function SiteFooter() {
             <nav key={heading} aria-label={heading}>
               {/* .label-eyebrow, matching every other section label on the
                   site. These were an 11px/700/0.18em one-off that existed
-                  nowhere else. The class colours itself --brass-text, which is
+                  nowhere else. The class colours itself --black, which is
                   tuned for AA on ivory and goes muddy here, so the lighter ramp
                   is applied over it. */}
-              <h2 className="label-eyebrow mb-5 !text-brass-light">{heading}</h2>
+              <h2 className="label-eyebrow mb-5 !text-white">{heading}</h2>
               <ul className="space-y-3">
                 {links.map((link) => (
                   <li key={link.href}>
@@ -96,7 +96,7 @@ export function SiteFooter() {
           ))}
 
           <div>
-            <h2 className="label-eyebrow mb-5 !text-brass-light">Stay in touch</h2>
+            <h2 className="label-eyebrow mb-5 !text-white">Stay in touch</h2>
             <p className="mb-4 text-sm leading-relaxed text-white/70">
               New arrivals, care tips and first access to collections.
             </p>
@@ -173,7 +173,7 @@ function SocialLink({
       target="_blank"
       rel="noopener noreferrer"
       aria-label={label}
-      className="text-white/70 transition-colors hover:text-brass-light"
+      className="text-white/70 transition-colors hover:text-white"
     >
       <svg className="size-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         {children}

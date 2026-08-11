@@ -204,7 +204,7 @@ export function MobileNav({
               onClick={close}
               className="flex items-center gap-3 px-1 py-2 text-base text-muted-foreground transition-colors hover:text-foreground"
             >
-              <MessageCircle className="size-4 shrink-0 text-brass-text" />
+              <MessageCircle className="size-4 shrink-0 text-black" />
               <span>
                 Get help
                 <span className="block text-xs text-muted-foreground">

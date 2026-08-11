@@ -59,7 +59,7 @@ function ImageField({
               muted
               playsInline
               preload="metadata"
-              className="h-full w-full bg-graphite-950 object-cover"
+              className="h-full w-full bg-black object-cover"
             />
           ) : (
             <Image src={url} alt="" fill className="object-cover" sizes="80px" />

@@ -14,7 +14,7 @@ import { ArrowRight } from "lucide-react";
  * transition on the link's own hover, so it costs nothing.
  *
  * `light` is for placement over a dark photograph, where the ink underline
- * disappears and --brass-text goes muddy. It is a modifier rather than a
+ * disappears and --black goes muddy. It is a modifier rather than a
  * caller-supplied className because getting this wrong is invisible until
  * someone looks at the hero on a bright monitor.
  */
@@ -40,7 +40,7 @@ export function EditorialLink({
       className={`group/edlink inline-flex items-center gap-2 border-b pb-1 text-sm font-medium transition-colors ${
         light
           ? "border-white/70 text-white hover:border-white"
-          : "border-foreground text-foreground hover:border-brass hover:text-brass-text"
+          : "border-foreground text-foreground hover:border-black hover:text-black"
       } ${className}`}
     >
       {children}

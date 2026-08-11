@@ -29,7 +29,7 @@ export default async function AccountOrdersPage() {
             <Link
               key={order.id}
               href={`/account/orders/${order.id}`}
-              className="block border-b py-5 transition-colors hover:text-brass-text"
+              className="block border-b py-5 transition-colors hover:text-black"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>

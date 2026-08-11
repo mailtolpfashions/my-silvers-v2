@@ -27,10 +27,13 @@ export type HeroSlide = {
 /**
  * Backdrop for a slide with no artwork.
  *
- * Flat graphite reads as a missing image; a gradient reads as a design.
+ * A flat fill reads as a missing image; a gradient reads as a design. Three
+ * distinct stops — the old third stop was the brass accent, and monochroming it
+ * made stops 1 and 3 the same colour, which turned this back into the flat fill
+ * it exists to avoid. `--grey` is the light end now.
  */
 const EMPTY_BACKDROP =
-  "linear-gradient(135deg, var(--graphite-950) 0%, var(--graphite-800) 45%, var(--brass-text) 100%)";
+  "linear-gradient(135deg, var(--black) 0%, var(--half-black) 45%, var(--grey) 100%)";
 
 /** Cloudinary serves video from /video/upload/; also match bare file extensions. */
 function isVideo(url: string) {
@@ -183,7 +186,11 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
       // wants the same treatment (a full-bleed collection hero, say) opts in by
       // carrying this attribute; nothing has to know about the header.
       data-hero-full
-      className="relative"
+      // z-10 is what makes the pinned reveal work: the category band that
+      // follows is pulled up BEHIND this hero (see `revealUnderHero` in
+      // homepage-section.tsx) and, being a later sibling, would otherwise paint
+      // on top of it. Well under the header's z-40, which still floats above.
+      className="relative z-10"
       // Hold while someone is engaged with the hero. React's onFocus/onBlur
       // bubble, so these two behave as focus-within and cover a keyboard user
       // tabbing into a slide's links.
@@ -310,10 +317,10 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                       count > 1 ? "pb-20 sm:pb-20" : "pb-10 sm:pb-10"
                     }`}
                   >
-                    {/* White, not the brass modifier used elsewhere. The
+                    {/* White, not the black modifier used elsewhere. The
                         eyebrow sits above the headline where the bottom-up
                         scrim is already thinning out, so it has to read against
-                        an arbitrary uploaded photograph — and --brass-light on
+                        an arbitrary uploaded photograph — and --white on
                         a pale or warm image is invisible. The scrim guarantees
                         white; it guarantees nothing about the accent. */}
                     {slide.eyebrow && (
@@ -425,7 +432,11 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
               >
                 <span
                   className={`block h-1.5 transition-all duration-300 ${
-                    i === activeIndex ? "w-6 bg-brass" : "w-1.5 bg-white/45"
+                    // White, not the ink accent every other active dot uses:
+                    // these sit ON photography, where black would disappear
+                    // into a dark scrim. The inactive dash is already white at
+                    // 45%, so the pair reads as one control.
+                    i === activeIndex ? "w-6 bg-white" : "w-1.5 bg-white/45"
                   }`}
                 />
               </button>
@@ -483,7 +494,7 @@ function HeroControl({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex size-12 items-center justify-center bg-white/90 text-graphite-950 transition-colors hover:bg-white"
+      className="flex size-12 items-center justify-center bg-white/90 text-black transition-colors hover:bg-white"
     >
       {children}
     </button>

@@ -95,11 +95,11 @@ export function SizeSelector({ sizeGuideHref }: { sizeGuideHref?: string }) {
         </p>
         {/* Ring sizing is the single biggest reason a silver order comes back,
             so this is the one secondary link on the page worth making obvious.
-            It was a faint brass word that read as body copy. */}
+            It was a faint black word that read as body copy. */}
         {sizeGuideHref && (
           <a
             href={sizeGuideHref}
-            className="inline-flex items-center gap-1.5 border-b border-foreground pb-0.5 text-sm transition-colors hover:border-brass hover:text-brass-text"
+            className="inline-flex items-center gap-1.5 border-b border-foreground pb-0.5 text-sm transition-colors hover:border-black hover:text-black"
           >
             <Ruler className="size-3.5" aria-hidden />
             Find your size

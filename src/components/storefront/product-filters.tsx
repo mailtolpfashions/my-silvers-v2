@@ -238,7 +238,7 @@ export function ProductFilters({
             <SlidersHorizontal className="size-4" />
             Filter
             {activeCount > 0 && (
-              <span className="text-brass-text">({activeCount})</span>
+              <span className="text-black">({activeCount})</span>
             )}
           </button>
           {typeof total === "number" && (

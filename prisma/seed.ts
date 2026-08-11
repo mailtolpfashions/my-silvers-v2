@@ -142,6 +142,16 @@ const systemContentTypes = [
             type: "text",
             showWhen: { field: "type", equals: ["products", "collections"] },
           },
+          {
+            name: "pinnedReveal",
+            label: "Pinned reveal — held to the viewport and uncovered as the section above scrolls off",
+            type: "boolean",
+            // Only the full-bleed kinds. A padded grid cannot own a viewport:
+            // `products` needs its natural height and its own scroll, and
+            // `editorialPair`/`editorial` are container-page blocks. Offering
+            // the switch there would let an editor build a broken page.
+            showWhen: { field: "type", equals: ["categoryTiles", "story", "banner"] },
+          },
           { name: "isActive", label: "Show this section", type: "boolean" },
 
           // ── Editorial ──

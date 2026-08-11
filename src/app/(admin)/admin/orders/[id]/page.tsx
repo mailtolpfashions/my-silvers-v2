@@ -94,7 +94,7 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
                         same weight as the SKU rather than buried in the meta
                         line — a packer scanning this must not have to hunt. */}
                     {item.size && (
-                      <p className="mt-0.5 text-sm font-semibold text-brass-text">
+                      <p className="mt-0.5 text-sm font-semibold text-black">
                         Size: {item.size}
                       </p>
                     )}

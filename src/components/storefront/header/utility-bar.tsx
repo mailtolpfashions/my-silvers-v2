@@ -6,18 +6,18 @@ import { buildUtilityLinks } from "@/components/storefront/header/nav-model";
 /**
  * Tones are drawn from the palette rather than raw Tailwind colours, so the bar
  * cannot drift out of the brand the way bg-red-600/bg-blue-600 did. "sale" is
- * the loud one — brass on graphite, which is the brand's own emphasis pairing
+ * the loud one — black on graphite, which is the brand's own emphasis pairing
  * rather than a generic red.
  */
 const TONE_CLASSES: Record<string, string> = {
-  neutral: "bg-graphite-950 text-ivory-100",
-  // `sale` emphasises with brass TEXT on the same graphite band, not with a
-  // brass fill. A full-width brass strip across the top of every page is the
-  // "large promotional block" the palette rule forbids — --brass is a 1px rule,
+  neutral: "bg-black text-white",
+  // `sale` emphasises with black TEXT on the same graphite band, not with a
+  // black fill. A full-width black strip across the top of every page is the
+  // "large promotional block" the palette rule forbids — --black is a 1px rule,
   // an underline, a dot or a focus ring, never a field behind copy. This still
   // reads as louder than neutral without turning the header into a sale banner.
-  sale: "bg-graphite-950 text-brass-light",
-  info: "bg-ivory-200 text-graphite-800",
+  sale: "bg-black text-white",
+  info: "bg-half-white text-half-black",
   alert: "bg-destructive text-white",
 };
 
@@ -92,5 +92,5 @@ export async function UtilityBar() {
 
 /** Reserves the band's exact height so the page below doesn't shift. */
 export function UtilityBarSkeleton() {
-  return <div className="header-band h-8 bg-graphite-950" aria-hidden />;
+  return <div className="header-band h-8 bg-black" aria-hidden />;
 }

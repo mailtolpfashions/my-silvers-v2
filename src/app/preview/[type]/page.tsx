@@ -115,14 +115,36 @@ function HomepagePreview({ data }: { data: EntryData }) {
     return () => controller.abort();
   }, [data]);
 
+  const heroSlides = toHeroSlides(data);
+
+  /**
+   * The shutter chain, computed exactly as (storefront)/page.tsx does.
+   *
+   * Duplicated rather than shared because the two callers reach the sections by
+   * different routes — the storefront awaits the resolver on the server, this
+   * pane fetches already-resolved JSON — but the RULE has to stay identical or
+   * the preview stops showing editors what they are about to publish. If this
+   * gains a third caller, lift it into homepage-sections.ts rather than copying
+   * it again. See the note there for why the chain must be leading and
+   * contiguous, and why it needs a full-bleed hero above it.
+   */
+  const revealDepths = new Map<string, number>();
+  if (heroSlides.length > 0) {
+    for (const [i, section] of (resolved?.sections ?? []).entries()) {
+      if (!("pinnedReveal" in section) || !section.pinnedReveal) break;
+      revealDepths.set(section.key, i);
+    }
+  }
+
   return (
     <>
       {/* Slides come straight off the draft, so the hero updates as you type. */}
-      <HomepageView data={data} heroSlides={toHeroSlides(data)} />
+      <HomepageView data={data} heroSlides={heroSlides} />
       {resolved?.sections.map((section) => (
         <HomepageSection
           key={section.key}
           section={section}
+          revealDepth={revealDepths.get(section.key)}
           // The real feed is an async server component and can't render here;
           // the placeholder keeps the section's position in the page visible.
           instagramSlot={
@@ -192,11 +214,11 @@ function TypePreview({ type, data }: { type: string; data: EntryData }) {
       const tone = str(data.tone) ?? "neutral";
       const toneClass =
         {
-          neutral: "bg-graphite-950 text-ivory-100",
-          sale: "bg-brass text-graphite-950",
-          info: "bg-ivory-200 text-graphite-800",
+          neutral: "bg-black text-white",
+          sale: "bg-black text-white",
+          info: "bg-half-white text-half-black",
           alert: "bg-destructive text-white",
-        }[tone] ?? "bg-graphite-950 text-ivory-100";
+        }[tone] ?? "bg-black text-white";
       return (
         <div className={`px-4 py-2 text-center text-sm ${toneClass}`}>
           <span className="font-medium">{text}</span>

@@ -66,7 +66,7 @@ export function PageHeader({
     // is only 192px at 768px — not enough for a heading plus a description.
     // min-height is the floor: below ~1440px the band stops shrinking and
     // letterboxes the artwork rather than clipping the copy.
-    <section className="relative aspect-[16/4] min-h-[340px] w-full overflow-hidden bg-graphite-950">
+    <section className="relative aspect-[16/4] min-h-[340px] w-full overflow-hidden bg-black">
       {imageHref ? (
         <Link href={imageHref} aria-label={title} className="absolute inset-0">
           {art}

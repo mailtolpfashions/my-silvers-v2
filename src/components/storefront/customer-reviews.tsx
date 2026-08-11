@@ -28,7 +28,7 @@ export async function CustomerReviews() {
             the system now comes from a delivered order, so a per-card badge
             would mark 100% of them and signal nothing. */}
         <p className="mt-3 flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
-          <BadgeCheck className="size-4 text-brass-text" aria-hidden />
+          <BadgeCheck className="size-4 text-black" aria-hidden />
           Every review is from a verified buyer. Tap one to see the piece.
         </p>
       </div>
@@ -39,14 +39,14 @@ export async function CustomerReviews() {
             <Link
               href={`/products/${review.product.slug}`}
               transitionTypes={["nav-forward"]}
-              className="group flex h-full flex-col border-t pt-6 transition-colors hover:border-brass"
+              className="group flex h-full flex-col border-t pt-6 transition-colors hover:border-black"
             >
               <span className="flex gap-0.5" aria-label={`${review.rating} out of 5 stars`}>
                 {Array.from({ length: 5 }, (_, i) => (
                   <Star
                     key={i}
                     className={`size-3.5 ${
-                      i < review.rating ? "fill-brass text-brass" : "text-muted-foreground/30"
+                      i < review.rating ? "fill-black text-black" : "text-muted-foreground/30"
                     }`}
                     aria-hidden
                   />

@@ -93,7 +93,7 @@ export function OrderItemReview({
                   <Star
                     className={`size-6 transition-colors ${
                       value <= (hovered || rating)
-                        ? "fill-brass text-brass"
+                        ? "fill-black text-black"
                         : "text-muted-foreground/40"
                     }`}
                   />

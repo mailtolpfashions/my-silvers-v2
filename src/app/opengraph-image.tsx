@@ -24,11 +24,11 @@ export default async function Image() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          // Must track --ivory-100 in globals.css by hand: this renders in
+          // Must track --white in globals.css by hand: this renders in
           // Satori, which never sees the stylesheet, so a CSS variable is not
           // available here.
-          background: "#fffdf8", // --ivory-100
-          color: "#12161a", // --graphite-950
+          background: "#ffffff", // --white
+          color: "#0c0c0e", // --black
         }}
       >
         <div
@@ -36,7 +36,7 @@ export default async function Image() {
             fontSize: 30,
             letterSpacing: 14,
             textTransform: "uppercase",
-            color: "#856a31", // --brass-text
+            color: "#666666", // --grey
           }}
         >
           MY Silvers
@@ -54,10 +54,10 @@ export default async function Image() {
           Crafted in 925. Worn every day.
         </div>
 
-        {/* The brass hairline that closes a heading block across the site. */}
-        <div style={{ marginTop: 40, width: 90, height: 2, background: "#c9a96e" }} />
+        {/* The black hairline that closes a heading block across the site. */}
+        <div style={{ marginTop: 40, width: 90, height: 2, background: "#0c0c0e" }} />
 
-        <div style={{ marginTop: 38, fontSize: 27, color: "#5c666d" }}>
+        <div style={{ marginTop: 38, fontSize: 27, color: "#666666" }}>
           BIS hallmarked sterling silver · Made in India
         </div>
       </div>

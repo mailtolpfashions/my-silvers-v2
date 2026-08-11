@@ -13,7 +13,7 @@
 
 /* ─── Tailwind theme mapping ──────────────────────────────────────────────────
    Semantic shadcn tokens (left) resolve to the brand palette defined in :root.
-   The raw ramp is exposed directly too (bg-brass, text-graphite-950, …) for the
+   The raw ramp is exposed directly too (bg-black, text-grey, …) for the
    cases where no semantic slot fits — see the note on when that's appropriate.
    ─────────────────────────────────────────────────────────────────────────── */
 
@@ -34,31 +34,32 @@
   --font-brand: var(--font-raleway);
 
   /* ── Ramp vs semantic ─────────────────────────────────────────────────────
-     The ramp below (ivory/silver/graphite/brass) is the raw palette. The
-     semantic tokens further down — background, foreground, muted, card, accent
-     — are what components should normally use; they express intent rather than
-     a specific colour, which is what keeps a restyle to one file.
+     The ramp below is the raw palette: six tones, no accent. The semantic
+     tokens further down — background, foreground, muted, card, border — are
+     what components should normally use; they express intent rather than a
+     specific colour, which is what keeps a restyle to one file.
 
      Reach past them to a ramp token only when the pairing is deliberate and
-     self-contained: a brass fill with a graphite label on a badge, or text over
-     an image. Prefer the semantic name everywhere else.
+     self-contained: a black fill with a white label on a badge, or text over an
+     image. Prefer the semantic name everywhere else.
+
+     The old ivory/silver/graphite/brass names are GONE rather than aliased.
+     Aliasing would have left `bg-brass` compiling to black — a name that lies
+     about what it paints, which is worse than a rename. If you find one of
+     those classes in a branch, map it: brass/brass-text → black,
+     brass-light → white, brass-subtle → half-white, graphite-950 → black,
+     graphite-800 → half-black, graphite-600 → grey, silver-500 → half-grey,
+     ivory-50/100 → white, ivory-200 → half-white, ivory-300 → hairline.
      ─────────────────────────────────────────────────────────────────────── */
 
-  /* ── Neutral ramp — cool, keyed to silver ── */
-  --color-ivory-50: var(--ivory-50);
-  --color-ivory-100: var(--ivory-100);
-  --color-ivory-200: var(--ivory-200);
-  --color-ivory-300: var(--ivory-300);
-  --color-silver-500: var(--silver-500);
-  --color-graphite-600: var(--graphite-600);
-  --color-graphite-800: var(--graphite-800);
-  --color-graphite-950: var(--graphite-950);
-
-  /* ── The single warm accent ── */
-  --color-brass: var(--brass);
-  --color-brass-light: var(--brass-light);
-  --color-brass-subtle: var(--brass-subtle);
-  --color-brass-text: var(--brass-text);
+  /* ── The six tones, plus the one derived edge ── */
+  --color-black: var(--black);
+  --color-half-black: var(--half-black);
+  --color-grey: var(--grey);
+  --color-half-grey: var(--half-grey);
+  --color-hairline: var(--hairline);
+  --color-half-white: var(--half-white);
+  --color-white: var(--white);
 
   /* ── Fluid type scale — one source for heading sizes, so a section heading
      can't drift between components the way text-2xl and an inline clamp() did. ── */
@@ -152,79 +153,82 @@
 /* ─── Light theme ─────────────────────────────────────────────────────────── */
 
 :root {
-  /* ── Neutral ramp ─────────────────────────────────────────────────────────
-     Warm ivory, carried over from the previous MY Silvers storefront so the two
-     read as the same brand. This reverses an earlier call in this project that
-     went cool on the theory a gold-keyed neutral looks borrowed from Tanishq /
-     Kalyan — a deliberate product decision, not a cleanup, so don't "fix" it
-     back without asking.
+  /* ── Monochrome ramp ──────────────────────────────────────────────────────
+     Six tones and nothing else: black, half-black, grey, half-grey, half-white,
+     white. This replaced a warm ivory ramp keyed to a brass accent — that was a
+     deliberate product decision at the time, and replacing it was an equally
+     deliberate one, so don't restore either without asking.
 
-     The surfaces are the old project's values verbatim, and so are its ink and
-     charcoal. TWO of its text colours are NOT, and they are the only two that
-     failed: #C9A96E on ivory is 2.20:1, and it was the old store's colour for
-     prices and links — 151 uses. Its muted grey managed 4.15:1, under the
-     4.5:1 body-text rule. Both keep this project's checked values instead; see
-     --brass vs --brass-text below. Everything else here IS the old palette.
+     There is NO accent colour. The old --brass family is gone entirely; where
+     it carried emphasis, black does, and on dark surfaces white does. If a
+     future component needs to stand out, it does so with weight, size, or
+     inversion (black fill / white text) — not with hue.
 
-     Ratios in comments are worst-case, i.e. against --ivory-200 (#f7f5f3), not
+     ⚠️  --hairline is the one value here that is NOT one of the six. It exists
+     because the six leave a gap: --half-grey is the lightest tone that clears
+     the 3:1 WCAG floor for a real control boundary, and a border that heavy
+     around every card reads as a wireframe. So decorative edges get --hairline
+     and interactive ones get --half-grey. Do not use --hairline on an input.
+
+     Ratios in comments are worst-case, i.e. against --half-white (#f2f2f2), not
      the page background, since muted fills are the darkest thing text sits on.
      Every value here is contrast-checked — keep it that way when editing. ─── */
-  --ivory-50: #fffefc; /* elevated surfaces above the page */
-  --ivory-100: #fffdf8; /* page background — old --color-ivory */
-  --ivory-200: #f7f5f3; /* muted fills, secondary surfaces — old --color-surface */
-  --ivory-300: #e8e4e0; /* decorative hairlines and card edges — old --color-border */
-  --silver-500: #8c8781; /* control borders — 3.50:1, clears the 3:1 rule */
-  --graphite-600: #5c666d; /* muted foreground — 5.40:1 */
-  /* Body and headings are the old store's --color-charcoal and --color-ink
-     verbatim. Both are neutral where the previous values here were faintly
-     blue, and a cool grey over a warm ivory is the thing that made this site
-     read as a template rather than a catalogue. Both clear AAA comfortably, so
-     unlike the old gold and muted grey (see below) there was nothing to trade. */
-  --graphite-800: #2d2d2d; /* body ink — old --color-charcoal, 13.60:1 */
-  --graphite-950: #0c0c0e; /* headings, footer — old --color-ink, 19.56:1 */
+  --white: #ffffff; /* page background, cards, elevated surfaces */
+  --half-white: #f2f2f2; /* muted fills, secondary surfaces */
+  --hairline: #e0e0e0; /* decorative card edges and rules — see note above */
+  --half-grey: #8a8a8a; /* control borders, disabled — 3.08:1, clears the 3:1 rule */
+  --grey: #666666; /* muted foreground — 5.13:1 */
+  /* Body and headings. Both carried over unchanged from the ivory palette —
+     they were already neutral, which is why the switch to monochrome needed no
+     new values at the dark end. Both clear AAA comfortably. */
+  --half-black: #2d2d2d; /* body ink — 12.30:1 */
+  --black: #0c0c0e; /* headings, footer, primary fills, emphasis — 17.46:1 */
 
-  /* ── Warm accent ──────────────────────────────────────────────────────────
-     One accent, two roles. --brass is for fills, borders and decoration only:
-     at 2.20:1 on the ivory page it is not legible as text — this is exactly the
-     mistake the previous storefront made, rendering prices in it. --brass-text
-     is the text-safe variant, 4.71:1 at its worst (on --ivory-200). Never swap
-     them. ─────────────── */
-  --brass: #c9a96e;
-  --brass-light: #d4b87e;
-  --brass-subtle: #f4ecdc;
-  --brass-text: #856a31;
+  --background: var(--white);
+  --foreground: var(--half-black);
+  /* Cards and popovers are the same white as the page now, where they used to
+     lift off a warm ivory. They are separated by --border, not by fill. */
+  --card: var(--white);
+  --card-foreground: var(--half-black);
+  --popover: var(--white);
+  --popover-foreground: var(--half-black);
 
-  --background: var(--ivory-100);
-  --foreground: var(--graphite-800);
-  --card: #ffffff;
-  --card-foreground: var(--graphite-800);
-  --popover: #ffffff;
-  --popover-foreground: var(--graphite-800);
+  --primary: var(--black);
+  --primary-foreground: var(--white);
+  --secondary: var(--half-white);
+  --secondary-foreground: var(--black);
+  --muted: var(--half-white);
+  --muted-foreground: var(--grey);
+  --accent: var(--half-white);
+  --accent-foreground: var(--black);
 
-  --primary: var(--graphite-950);
-  --primary-foreground: var(--ivory-100);
-  --secondary: var(--ivory-200);
-  --secondary-foreground: var(--graphite-950);
-  --muted: var(--ivory-200);
-  --muted-foreground: var(--graphite-600);
-  --accent: var(--brass-subtle);
-  --accent-foreground: var(--graphite-950);
+  /* ── The only two colours left on the site ────────────────────────────────
+     Deliberately exempt from the monochrome rule, because these are the only
+     tokens here that carry MEANING rather than style. A grey "Payment failed"
+     reads as ordinary body copy, and a destructive button that looks identical
+     to a confirm button is a real hazard, not a design choice.
 
-  /* Both carry a white label, so they are rated against #fff, not the page. */
+     They appear on form validation, order status and stock warnings only —
+     never on anything the page uses as decoration. Both carry a white label, so
+     they are rated against #fff, not the page. ──────────────────────────── */
   --destructive: #b3261e; /* 6.54:1 against a white label */
-  --success: #0f7b3d; /* 4.92:1 worst case, on --ivory-200 */
+  --success: #0f7b3d; /* 4.92:1 worst case, on --half-white */
 
   /* Decorative edges are exempt from the 3:1 rule … */
-  --border: var(--ivory-300);
-  /* … real control boundaries are not. --silver-500 is 3.10:1. */
-  --input: var(--silver-500);
-  --ring: var(--brass-text);
+  --border: var(--hairline);
+  /* … real control boundaries are not. --half-grey is 3.08:1 on --half-white. */
+  --input: var(--half-grey);
+  --ring: var(--black);
 
-  --chart-1: var(--brass);
-  --chart-2: var(--brass-light);
-  --chart-3: var(--silver-500);
-  --chart-4: var(--graphite-600);
-  --chart-5: var(--graphite-950);
+  /* Five steps down the ramp, so series stay distinguishable without hue.
+     --white is deliberately NOT here: a white series is invisible on a white
+     page. Charts that need more than five series need pattern fills, not more
+     tones — there are only so many greys the eye can separate. */
+  --chart-1: var(--black);
+  --chart-2: var(--half-black);
+  --chart-3: var(--grey);
+  --chart-4: var(--half-grey);
+  --chart-5: var(--hairline);
 
   /* 12px base. The old 20px made every card and input read as a soft app
      surface; jewellery photography wants a quieter, more editorial frame.
@@ -241,14 +245,14 @@
      tile is a backdrop for the object, not a card sitting on the page. Nothing
      should reintroduce a radius token for imagery. */
 
-  --sidebar: var(--ivory-200);
-  --sidebar-foreground: var(--graphite-800);
-  --sidebar-primary: var(--graphite-950);
-  --sidebar-primary-foreground: var(--ivory-100);
-  --sidebar-accent: var(--brass-subtle);
-  --sidebar-accent-foreground: var(--graphite-950);
-  --sidebar-border: var(--ivory-300);
-  --sidebar-ring: var(--brass-text);
+  --sidebar: var(--half-white);
+  --sidebar-foreground: var(--half-black);
+  --sidebar-primary: var(--black);
+  --sidebar-primary-foreground: var(--white);
+  --sidebar-accent: var(--half-white);
+  --sidebar-accent-foreground: var(--black);
+  --sidebar-border: var(--hairline);
+  --sidebar-ring: var(--black);
 }
 
 /* ─── Base ────────────────────────────────────────────────────────────────── */
@@ -279,7 +283,7 @@
   h4,
   h5,
   h6 {
-    @apply font-heading text-graphite-950;
+    @apply font-heading text-black;
     font-weight: 500;
   }
 }
@@ -296,7 +300,7 @@
   font-weight: 400;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--brass-text);
+  color: var(--black);
   line-height: 1.5;
 }
 @media (min-width: 1024px) {
@@ -305,13 +309,13 @@
   }
 }
 
-/* For eyebrows over dark imagery — the hero. --brass-text is the ramp tuned for
-   AA on white and goes muddy on a dark scrim, where --brass-light reads clearly.
-   This exists as a modifier rather than a `text-brass-light` utility because
-   .label-eyebrow sits outside @layer and would beat the utility; the modifier
-   is a later rule of equal specificity, so it wins. */
+/* For eyebrows over dark imagery — the hero. The base eyebrow is --black, which
+   is invisible on a dark scrim, so this flips it to --white. Kept as a modifier
+   rather than a `text-white` utility because .label-eyebrow sits outside @layer
+   and would beat the utility; the modifier is a later rule of equal specificity,
+   so it wins. */
 .label-eyebrow-light {
-  color: var(--brass-light);
+  color: var(--white);
 }
 
 /* One page container. Replaces the max-w-[1600px] / max-w-6xl split, which had
@@ -408,7 +412,7 @@
    should hardcode a colour; that is what would break this.
 
    These rules sit OUTSIDE @layer deliberately, so they beat the Tailwind
-   utilities they are overriding (`bg-graphite-950` on the utility band, and so
+   utilities they are overriding (`bg-black` on the utility band, and so
    on) without a single `!important`.
    ─────────────────────────────────────────────────────────────────────────── */
 
@@ -486,10 +490,12 @@
   /* No hairline at all, so the header genuinely floats. The border fades back
      in with the fill on hover. */
   --border: transparent;
-  /* --brass-text is the AA-on-white variant and goes muddy on a scrim;
-     --brass-light is the one cut for dark imagery. Same swap the hero's own
-     eyebrow makes — see .label-eyebrow-light. */
-  --brass-text: var(--brass-light);
+  /* Emphasis inside the header is --black everywhere else on the site, which is
+     invisible over a photograph. Re-point it to white for this one subtree —
+     the same swap the hero's own eyebrow makes, see .label-eyebrow-light.
+     Re-pointing the TOKEN rather than restyling children is the pattern this
+     whole block relies on; see the note at the top of it. */
+  --black: var(--white);
 
   background-color: transparent;
   color: #ffffff;
@@ -691,14 +697,22 @@
    Three guards, all of which fail safe to a completely static image:
      @supports          — unsupported browsers get no animation at all
      prefers-reduced-motion — honoured, no travel
-     the ±5% is absorbed by the image being 110% tall, so no edge is ever shown
+     the ±12% is absorbed by the image being 134% tall, so no edge is ever shown
+
+   ⚠️  The travel and the wrapper's height are ONE decision, not two. A
+   percentage translateY resolves against the ELEMENT's own height, not its
+   container's — so ±12% on a 134%-tall wrapper moves the image by 12 × 1.34 =
+   16.08% OF THE TILE, and the wrapper's 17% of headroom per side (134% tall,
+   pulled up 17%) is what covers it. Change one of these three numbers and the
+   photograph slides off its own frame and shows the tile's bg-muted. The
+   headroom is `(height - 100) / 2` and it must stay above `travel × height`.
    ─────────────────────────────────────────────────────────────────────────── */
 @keyframes tile-drift {
   from {
-    transform: translateY(-5%);
+    transform: translateY(-12%);
   }
   to {
-    transform: translateY(5%);
+    transform: translateY(12%);
   }
 }
 
@@ -768,15 +782,16 @@
   }
 }
 
-/* A hairline in the accent, used to close a heading block. Purely decorative,
-   so --brass rather than --brass-text is correct here. */
-.rule-brass::after {
+/* A hairline used to close a heading block. Purely decorative, so it takes the
+   full --black rather than a muted tone — with no accent colour left, weight is
+   the only thing that separates a deliberate rule from an incidental border. */
+.rule-black::after {
   content: "";
   display: block;
   width: 2.5rem;
   height: 1px;
   margin-top: 1rem;
-  background: var(--brass);
+  background: var(--black);
 }
 
 /* ─── View transitions ────────────────────────────────────────────────────────

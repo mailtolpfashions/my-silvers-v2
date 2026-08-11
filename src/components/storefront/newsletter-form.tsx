@@ -41,10 +41,10 @@ export function NewsletterForm() {
           aria-label="Email address for newsletter"
           // border-white/40 is 3.82:1 against the footer. /25 looked right but
           // measured 2.24:1 — under the 3:1 a real control boundary needs.
-          className="h-11 w-full min-w-0 flex-1 border-0 border-b border-white/40 bg-transparent px-0 text-sm text-white outline-none transition-colors placeholder:text-white/50 focus:border-brass"
+          className="h-11 w-full min-w-0 flex-1 border-0 border-b border-white/40 bg-transparent px-0 text-sm text-white outline-none transition-colors placeholder:text-white/50 focus:border-white"
         />
         {/* A white block with a graphite label. It was a BRASS fill, which
-            broke the palette rule that --brass is decorative and never a fill
+            broke the palette rule that --black is decorative and never a fill
             behind text; white is the inverted commerce CTA used on the hero and
             the story block, so this matches the rest of the site. */}
         <Button
@@ -52,7 +52,7 @@ export function NewsletterForm() {
           disabled={isPending}
           variant="cta"
           size="cta"
-          className="h-11 shrink-0 bg-white px-6 text-graphite-950 hover:bg-ivory-200 sm:h-11 sm:px-6"
+          className="h-11 shrink-0 bg-white px-6 text-black hover:bg-half-white sm:h-11 sm:px-6"
         >
           {isPending ? "Subscribing…" : "Subscribe"}
         </Button>

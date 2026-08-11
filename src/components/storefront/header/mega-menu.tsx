@@ -169,7 +169,7 @@ function NavItem({
         <Link
           href={world.href}
           aria-current={active ? "page" : undefined}
-          className={`relative py-1 text-sm transition-colors after:absolute after:inset-x-0 after:-bottom-px after:h-px after:origin-center after:bg-brass after:transition-transform ${
+          className={`relative py-1 text-sm transition-colors after:absolute after:inset-x-0 after:-bottom-px after:h-px after:origin-center after:bg-black after:transition-transform ${
             active || isOpen
               ? "text-foreground after:scale-x-100"
               : "text-muted-foreground after:scale-x-0 hover:text-foreground hover:after:scale-x-100"
@@ -198,7 +198,7 @@ function NavItem({
             <span
               aria-hidden
               className={`mx-auto block size-1 rounded-full transition-colors ${
-                isOpen ? "bg-brass" : "bg-transparent"
+                isOpen ? "bg-black" : "bg-transparent"
               }`}
             />
           </button>
@@ -264,7 +264,7 @@ function NavItem({
                       )}
                     </div>
                     <p className="mt-3 text-sm font-medium">{tile.title}</p>
-                    <span className="mt-1 inline-flex items-center gap-1.5 border-b border-foreground pb-0.5 text-xs text-muted-foreground transition-colors group-hover/tile:border-brass group-hover/tile:text-brass-text">
+                    <span className="mt-1 inline-flex items-center gap-1.5 border-b border-foreground pb-0.5 text-xs text-muted-foreground transition-colors group-hover/tile:border-black group-hover/tile:text-black">
                       {tile.linkLabel}
                       <ArrowRight aria-hidden className="size-3" />
                     </span>

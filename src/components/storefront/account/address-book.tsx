@@ -106,7 +106,7 @@ function AddressCard({
               <span className="text-xs text-muted-foreground">({address.label})</span>
             )}
             {address.isDefault && (
-              <span className="text-xs uppercase tracking-[0.1em] text-brass-text">Default</span>
+              <span className="text-xs uppercase tracking-[0.1em] text-black">Default</span>
             )}
           </p>
           <p className="text-muted-foreground">

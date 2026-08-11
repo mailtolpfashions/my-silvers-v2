@@ -143,7 +143,7 @@ async function Results({ searchParams }: { searchParams: SearchParams }) {
           <div className="mt-8">
             <Link
               href="/products"
-              className="inline-flex items-center border-b border-foreground pb-1 text-sm font-medium transition-colors hover:border-brass hover:text-brass-text"
+              className="inline-flex items-center border-b border-foreground pb-1 text-sm font-medium transition-colors hover:border-black hover:text-black"
             >
               View all jewellery
             </Link>
@@ -207,7 +207,7 @@ function CatalogueBreak({
         <>
           <div
             aria-hidden
-            className="absolute inset-0 bg-gradient-to-t from-graphite-950/65 via-graphite-950/15 to-transparent"
+            className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent"
           />
           <div className="absolute inset-x-0 bottom-0 p-6 sm:p-10">
             <p className="text-h3 font-heading text-white">{banner.title}</p>

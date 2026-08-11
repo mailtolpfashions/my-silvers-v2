@@ -45,7 +45,7 @@ export function Expandable({
           aria-expanded={open}
           aria-controls={panelId}
           onClick={() => setOpen((v) => !v)}
-          className="flex w-full items-center justify-between gap-4 py-4 text-left text-sm font-medium transition-colors hover:text-brass-text"
+          className="flex w-full items-center justify-between gap-4 py-4 text-left text-sm font-medium transition-colors hover:text-black"
         >
           {title}
           {open ? (

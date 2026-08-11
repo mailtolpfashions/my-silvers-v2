@@ -38,7 +38,7 @@ export default async function AccountPage() {
           <li key={link.href}>
             <Link
               href={link.href}
-              className="group flex items-center justify-between gap-6 border-b py-5 transition-colors hover:text-brass-text"
+              className="group flex items-center justify-between gap-6 border-b py-5 transition-colors hover:text-black"
             >
               <span>
                 <span className="block text-sm font-medium">{link.label}</span>

@@ -51,7 +51,7 @@ function MaybeMorph({ name, children }: { name?: string; children: React.ReactNo
  * put six pieces of furniture on a tile whose whole thesis is a picture and a
  * name, and they are what made a grid of jewellery read as a shelf of offers.
  *
- * A brass-filled percentage badge in particular is a discount sticker, and it
+ * A black-filled percentage badge in particular is a discount sticker, and it
  * was the one place the palette's decorative accent was being used as a fill
  * behind text. The saving is still shown — as a struck-through compare-at price,
  * which is the quiet way to say the same thing.
@@ -150,7 +150,7 @@ export function ProductCard({
             shopper who clicks through to an unbuyable piece has been wasted.
             A hairline label rather than a filled pill. */}
         {product.stock <= 0 && (
-          <span className="absolute left-3 top-3 z-10 bg-background/90 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-graphite-950 backdrop-blur-sm">
+          <span className="absolute left-3 top-3 z-10 bg-background/90 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-black backdrop-blur-sm">
             Sold out
           </span>
         )}
@@ -172,7 +172,7 @@ export function ProductCard({
         <p className="text-xs text-muted-foreground">{product.categoryName}</p>
 
         <h3 className={`${CARD_TITLE_CLASS} mt-1 text-foreground`}>
-          <Link href={href} className="decoration-brass/60 underline-offset-4 hover:underline">
+          <Link href={href} className="decoration-black/60 underline-offset-4 hover:underline">
             {product.name}
           </Link>
         </h3>
@@ -193,7 +193,7 @@ export function ProductCard({
             piece with one left is information. Still never a count — see
             src/lib/stock-label.ts. */}
         {product.stock > 0 && isScarce(product.stock) && (
-          <p className="mt-1.5 text-xs text-brass-text">{stockLabel(product.stock)}</p>
+          <p className="mt-1.5 text-xs text-black">{stockLabel(product.stock)}</p>
         )}
       </div>
     </div>

@@ -250,7 +250,7 @@ export function SearchBox({
                     key={term}
                     type="button"
                     onClick={() => go(`/products?q=${encodeURIComponent(term)}`, term)}
-                    className="border px-3 py-1.5 text-sm transition-colors hover:border-brass hover:text-brass-text"
+                    className="border px-3 py-1.5 text-sm transition-colors hover:border-black hover:text-black"
                   >
                     {term}
                   </button>
@@ -275,7 +275,7 @@ export function SearchBox({
                     // Recording it would put an entry in "Recent" that goes
                     // somewhere different from the click that created it.
                     onClick={() => go(term.href)}
-                    className="border px-3 py-1.5 text-sm transition-colors hover:border-brass hover:text-brass-text"
+                    className="border px-3 py-1.5 text-sm transition-colors hover:border-black hover:text-black"
                   >
                     {term.label}
                   </button>
@@ -361,7 +361,7 @@ export function SearchBox({
           <button
             type="button"
             onClick={submit}
-            className="w-full border-t py-3.5 text-left text-sm text-brass-text transition-colors hover:text-foreground"
+            className="w-full border-t py-3.5 text-left text-sm text-black transition-colors hover:text-foreground"
           >
             See all results for &ldquo;{query.trim()}&rdquo;
           </button>

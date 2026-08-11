@@ -32,7 +32,7 @@ const buttonVariants = cva(
          * rectangle reads as print, and print is the association this design is
          * reaching for. Pair with size="cta".
          */
-        cta: "rounded-none bg-graphite-950 text-ivory-100 uppercase tracking-[0.08em] hover:bg-graphite-800",
+        cta: "rounded-none bg-black text-white uppercase tracking-[0.08em] hover:bg-half-black",
         /**
          * The storefront's OTHER call to action, and the one it should reach
          * for most: a text link with a hairline underline.
@@ -53,7 +53,7 @@ const buttonVariants = cva(
          * it carries the arrow and its hover translate.
          */
         editorial:
-          "rounded-none border-b border-foreground bg-transparent px-0 font-normal text-foreground hover:border-brass hover:text-brass-text",
+          "rounded-none border-b border-foreground bg-transparent px-0 font-normal text-foreground hover:border-black hover:text-black",
       },
       size: {
         default:

@@ -57,7 +57,7 @@ export function AuthFooterLink({
       {prompt}{" "}
       <Link
         href={href}
-        className="border-b border-foreground pb-0.5 text-foreground transition-colors hover:border-brass hover:text-brass-text"
+        className="border-b border-foreground pb-0.5 text-foreground transition-colors hover:border-black hover:text-black"
       >
         {label}
       </Link>

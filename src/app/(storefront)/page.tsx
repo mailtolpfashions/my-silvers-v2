@@ -6,6 +6,7 @@ import { HomepageView } from "@/components/storefront/cms/homepage-view";
 import { CustomerReviews } from "@/components/storefront/customer-reviews";
 import { HeroCarousel } from "@/components/storefront/hero-carousel";
 import { HomepageSection } from "@/components/storefront/homepage-section";
+import { HeroRevealSnap } from "@/components/storefront/motion/hero-reveal-snap";
 import { InstagramFeed } from "@/components/storefront/instagram-feed";
 import { ProductGridSkeleton } from "@/components/storefront/product-card-skeleton";
 
@@ -27,6 +28,17 @@ export default async function HomePage() {
   const homepage = await getPublishedEntry("homepage");
   const heroSlides = toHeroSlides(homepage?.data);
 
+  /**
+   * Whether the page opens with the full-bleed 100svh carousel, as opposed to
+   * HomepageView's in-flow fallback hero. Both branches below agree: slides are
+   * the only thing that produces a <HeroCarousel>.
+   *
+   * This is the precondition for the pinned reveal. The band is pulled up by a
+   * whole viewport to sit behind the hero, so under a short in-flow hero it
+   * would ride up over the header instead.
+   */
+  const heroIsFullBleed = heroSlides.length > 0;
+
   return (
     <div>
       {homepage ? (
@@ -36,7 +48,7 @@ export default async function HomePage() {
       )}
 
       <Suspense fallback={<HomepageSectionsSkeleton />}>
-        <HomepageSections data={homepage?.data} />
+        <HomepageSections data={homepage?.data} revealEnabled={heroIsFullBleed} />
       </Suspense>
 
       {/* Last thing before the footer — social proof lands after a shopper has
@@ -49,8 +61,42 @@ export default async function HomePage() {
   );
 }
 
-async function HomepageSections({ data }: { data?: Parameters<typeof resolveHomepageSections>[0] }) {
+async function HomepageSections({
+  data,
+  revealEnabled = false,
+}: {
+  data?: Parameters<typeof resolveHomepageSections>[0];
+  /** Set when the page opens with a full-bleed hero — see the note above. */
+  revealEnabled?: boolean;
+}) {
   const sections = await resolveHomepageSections(data);
+
+  /**
+   * The shutter chain: the LEADING run of sections that have opted into the
+   * pinned reveal, each one uncovered as the thing above it scrolls away.
+   *
+   * Leading, and that is a hard constraint rather than a simplification. Every
+   * stage is pulled up by exactly 100svh to sit behind its predecessor, which
+   * only lands correctly if that predecessor is itself exactly one viewport
+   * tall. The hero is (h-svh) and so is every stage in the chain — an ordinary
+   * in-flow section is not, so the moment the run is broken the arithmetic
+   * stops holding. Hence: start at index 0, stop at the first section that has
+   * not opted in.
+   *
+   * Indexed off the RESOLVED list, since sections that resolve to nothing are
+   * dropped upstream and spec[0] is routinely not sections[0].
+   *
+   * The depth each section gets is its position in the chain, which becomes its
+   * z-index: earlier stages paint over later ones, which is what makes each one
+   * a curtain for the next.
+   */
+  const revealDepths = new Map<string, number>();
+  if (revealEnabled) {
+    for (const [i, section] of sections.entries()) {
+      if (!("pinnedReveal" in section) || !section.pinnedReveal) break;
+      revealDepths.set(section.key, i);
+    }
+  }
 
   /**
    * Which section owns the morph for each product.
@@ -71,11 +117,24 @@ async function HomepageSections({ data }: { data?: Parameters<typeof resolveHome
 
   return (
     <>
+      {/* Renders nothing, and nothing at all below 1024px or under reduced
+          motion. One instance for the whole chain rather than one per stage —
+          the snap points are offsets on a single scroll, so they belong to the
+          page, not to any section. Mounted only when there IS a chain. */}
+      {revealDepths.size > 0 && <HeroRevealSnap stages={revealDepths.size} />}
+
       {sections.map((section) => (
         <HomepageSection
           key={section.key}
           section={section}
           morphOwner={morphOwner}
+          /**
+           * undefined for everything outside the chain, which is the ordinary
+           * page. An editor who reorders the homepage so a product grid leads,
+           * or who clears the "Pinned reveal" switch, gets that back with no
+           * code change.
+           */
+          revealDepth={revealDepths.get(section.key)}
           // Passed in rather than imported by the section renderer — see the
           // note on instagramSlot.
           instagramSlot={
@@ -89,9 +148,17 @@ async function HomepageSections({ data }: { data?: Parameters<typeof resolveHome
   );
 }
 
+/**
+ * `min-h-svh` so the document is never shorter than it will be once the
+ * sections arrive. When the first section is the pinned band it contributes a
+ * net 100svh below the hero (200svh of wrapper less its 100svh of negative
+ * margin); without a floor here the page would be hero-height during streaming
+ * and grow by a viewport on resolve, which moves the scrollbar under anyone who
+ * started scrolling immediately.
+ */
 function HomepageSectionsSkeleton() {
   return (
-    <section className="container-page py-10 sm:py-16 lg:py-20">
+    <section className="container-page min-h-svh py-10 sm:py-16 lg:py-20">
       <ProductGridSkeleton count={8} />
     </section>
   );

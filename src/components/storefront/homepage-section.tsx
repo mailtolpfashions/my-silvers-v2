@@ -12,6 +12,85 @@ import { SectionHeading } from "@/components/storefront/section-heading";
 import type { HomepageSection as Section } from "@/server/products/homepage-sections";
 
 /**
+ * The hero's own z-index, minus one.
+ *
+ * Stages count DOWN from here, so the first stage sits directly under the hero
+ * and each subsequent one under its predecessor — which is what makes every
+ * stage a curtain for the next. Nine stages is far more than any homepage
+ * should have, and the header at z-40 is clear of all of it.
+ */
+const REVEAL_Z_TOP = 9;
+
+/**
+ * One stage of the shutter chain: held to the viewport and uncovered as
+ * whatever sits above it scrolls away.
+ *
+ * ── The mechanism ────────────────────────────────────────────────────────────
+ * The stage is pinned to the top of the viewport from its first frame, sitting
+ * BEHIND the thing above it. That thing — the hero, or the previous stage — is
+ * an ordinary element that scrolls up and off normally, and what that uncovers
+ * is this stage's LOWER portion first. Nothing here moves; the thing above
+ * moving is the entire effect.
+ *
+ * The three numbers are one decision, and they are uniform across every stage,
+ * which is what lets hero-reveal-snap.tsx place its snap points at plain
+ * multiples of the hero's height without measuring anything:
+ *   -mt-[100svh]  pulls the stage up so its pinned position is the foot of the
+ *                 element above rather than the foot of the document so far
+ *   h-[200svh]    governs how long it stays stuck: it releases at
+ *                 (wrapper − 100svh), the exact frame the thing above has
+ *                 finished clearing. No hold, so no stretch of dead scroll
+ *   h-svh         the stage itself, exactly one viewport — the unit the whole
+ *                 chain's arithmetic is expressed in
+ *
+ * ⚠️  Do not add a hold. This wrapper was briefly 250svh, on the reasoning that
+ * a stage needed somewhere to REST or a hard flick would sail past it. The
+ * diagnosis was right and the fix was wrong: 50svh of pinned, fully-revealed
+ * section is 50svh in which scrolling does nothing, and it read as the page
+ * having stalled. Resting is a SCROLL problem, not a LAYOUT one, and
+ * hero-reveal-snap.tsx solves it with a snap point at exactly this release
+ * offset. Lengthening this again would put the dead scroll back AND duplicate
+ * what the snap already does.
+ *
+ * ── Gated at lg, not sm ──────────────────────────────────────────────────────
+ * Deliberately the same 1024px gate the Lenis provider uses. It was briefly sm,
+ * which left 640–1023px with a pinned reveal and no snap to land it — exactly
+ * the "cannot land on the section" complaint the snap exists to answer, still
+ * live on tablets. Below the gate every stage renders as an ordinary in-flow
+ * section, which is the layout they were designed as. Keep these two gates
+ * equal: a pinned stage without a snap is worse than no pinned stage.
+ *
+ * ── Not wrapped in RevealSection ─────────────────────────────────────────────
+ * That component fades its subtree in from a translateY, and a transformed
+ * ancestor becomes the containing block for `position: sticky` — the pin would
+ * be scoped to the wrapper and never reach the viewport. The fade would also be
+ * redundant: the curtain lifting is already the entrance.
+ */
+function PinnedRevealStage({
+  depth,
+  innerClassName = "",
+  children,
+}: {
+  depth: number;
+  /** Layout classes for the pinned element itself, which vary per section kind. */
+  innerClassName?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="lg:-mt-[100svh] lg:h-[200svh]">
+      <div
+        className={`lg:sticky lg:top-0 lg:h-svh ${innerClassName}`}
+        // Inline because it is derived. Inert below lg, where the element is
+        // not positioned and z-index therefore does nothing.
+        style={{ zIndex: REVEAL_Z_TOP - depth }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Renders one CMS-configured homepage section. All copy, counts and link
  * targets come from the section data — nothing is decided here.
  */
@@ -19,8 +98,20 @@ export function HomepageSection({
   section,
   morphOwner,
   instagramSlot,
+  revealDepth,
 }: {
   section: Section;
+  /**
+   * This section's position in the shutter chain, or undefined if it is not in
+   * one — which is the ordinary page.
+   *
+   * The caller owns the decision entirely, because it depends on things a
+   * single section cannot see: whether the page opens with a full-bleed hero,
+   * and whether every section above this one is also pinned. See the chain
+   * computation in (storefront)/page.tsx. The depth becomes the stage's
+   * z-index, so earlier stages curtain over later ones.
+   */
+  revealDepth?: number;
   /**
    * productId → the section key allowed to own that product's morph name.
    * Built once per page so a product shown twice cannot register a duplicate
@@ -53,7 +144,7 @@ export function HomepageSection({
   }
 
   if (section.kind === "story") {
-    return (
+    const story = (
       <StorySection
         title={section.title}
         eyebrow={section.eyebrow}
@@ -61,7 +152,15 @@ export function HomepageSection({
         image={section.image!}
         ctaLabel={section.ctaLabel}
         ctaHref={section.ctaHref}
+        // The stage owns the height; the section must not set its own.
+        fill={revealDepth !== undefined}
       />
+    );
+
+    return revealDepth !== undefined ? (
+      <PinnedRevealStage depth={revealDepth}>{story}</PinnedRevealStage>
+    ) : (
+      story
     );
   }
 
@@ -90,7 +189,7 @@ export function HomepageSection({
           )}
           <div className={imageFirst ? "lg:order-2" : "lg:order-1"}>
             {section.eyebrow && <p className="label-eyebrow mb-3">{section.eyebrow}</p>}
-            <h2 className="text-h2 rule-brass">{section.title}</h2>
+            <h2 className="text-h2 rule-black">{section.title}</h2>
             {section.subtitle && (
               <p className="text-lead mt-4 max-w-prose text-muted-foreground">{section.subtitle}</p>
             )}
@@ -134,9 +233,7 @@ export function HomepageSection({
      * Deliberately outside container-page so it reaches the viewport edges, and
      * deliberately without a heading — the tiles name themselves.
      */
-    return (
-      <RevealSection className="tile-accordion flex flex-col sm:aspect-[2/1] sm:flex-row">
-        {section.items.slice(0, 3).map((item, i) => (
+    const tiles = section.items.slice(0, 3).map((item, i) => (
           <Link
             key={item.id}
             href={`/category/${item.slug}`}
@@ -148,11 +245,13 @@ export function HomepageSection({
           >
             {item.image && (
               // Taller than the tile and pulled up by half the overflow, so the
-              // ±5% drift never exposes an edge. The wrapper is the positioned
-              // ancestor that `fill` resolves against.
+              // drift never exposes an edge. These two numbers are dictated by
+              // the ±12% in @keyframes tile-drift — see the arithmetic in the
+              // comment above that block before changing either. The wrapper is
+              // also the positioned ancestor that `fill` resolves against.
               <div
                 aria-hidden
-                className="tile-drift absolute inset-x-0 top-[-5%] h-[110%]"
+                className="tile-drift absolute inset-x-0 top-[-17%] h-[134%]"
               >
                 <Image
                   src={item.image}
@@ -176,7 +275,7 @@ export function HomepageSection({
                 hover, which is the reference's own `opacity: 0` overlay. */}
             <div
               aria-hidden
-              className="absolute inset-0 bg-graphite-950/30 transition-colors duration-500 group-hover:bg-graphite-950/45"
+              className="absolute inset-0 bg-black/30 transition-colors duration-500 group-hover:bg-black/45"
             />
 
             <div className="relative flex flex-col items-center gap-4 px-6 text-center">
@@ -199,7 +298,23 @@ export function HomepageSection({
               </span>
             </div>
           </Link>
-        ))}
+    ));
+
+    // The pinned variant lives in PinnedRevealStage — see the note on that
+    // component. Only the inner classes differ per section kind; here they are
+    // the accordion row itself, so the tiles keep resizing under the pointer
+    // exactly as they do in the ordinary in-flow band.
+    if (revealDepth !== undefined) {
+      return (
+        <PinnedRevealStage depth={revealDepth} innerClassName="tile-accordion flex flex-col lg:flex-row">
+          {tiles}
+        </PinnedRevealStage>
+      );
+    }
+
+    return (
+      <RevealSection className="tile-accordion flex flex-col sm:aspect-[2/1] sm:flex-row">
+        {tiles}
       </RevealSection>
     );
   }
@@ -226,7 +341,7 @@ export function HomepageSection({
                 className="flex flex-col items-start gap-2 border-t py-6 lg:border-t-0 lg:py-0"
               >
                 {/* Same resolver as the trust bar: a Lucide name or an emoji. */}
-                <CmsIcon name={item.icon} className="size-5 text-brass-text" />
+                <CmsIcon name={item.icon} className="size-5 text-black" />
                 {item.title && <p className="text-sm font-medium text-foreground">{item.title}</p>}
                 {item.text && (
                   <p className="text-sm leading-relaxed text-muted-foreground">{item.text}</p>
@@ -240,8 +355,17 @@ export function HomepageSection({
   }
 
   if (section.kind === "banner") {
+    const pinned = revealDepth !== undefined;
     const banner = (
-      <div className="relative aspect-[16/5] w-full overflow-hidden bg-muted">
+      // Pinned, the stage owns the height and the banner fills it edge to edge;
+      // in flow it keeps its 16:5 letterbox inside container-page. A 16:5 crop
+      // dropped into a 100svh stage would letterbox against bg-muted for most
+      // of the viewport, which is why this swaps rather than just stretching.
+      <div
+        className={`relative w-full overflow-hidden bg-muted ${
+          pinned ? "h-full" : "aspect-[16/5]"
+        }`}
+      >
         <Image
           src={section.image}
           alt={section.title}
@@ -265,16 +389,20 @@ export function HomepageSection({
       </div>
     );
 
-    return (
-      <RevealSection className="container-page py-4 sm:py-8">
-        {section.link ? (
-          <Link href={section.link} className="block">
-            {banner}
-          </Link>
-        ) : (
-          banner
-        )}
-      </RevealSection>
+    // `block h-full` on the link too, or the anchor collapses to its content's
+    // height inside the stage and the banner has nothing to fill.
+    const linked = section.link ? (
+      <Link href={section.link} className={pinned ? "block h-full" : "block"}>
+        {banner}
+      </Link>
+    ) : (
+      banner
+    );
+
+    return pinned ? (
+      <PinnedRevealStage depth={revealDepth}>{linked}</PinnedRevealStage>
+    ) : (
+      <RevealSection className="container-page py-4 sm:py-8">{linked}</RevealSection>
     );
   }
 
