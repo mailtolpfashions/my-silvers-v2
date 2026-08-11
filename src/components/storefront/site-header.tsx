@@ -16,7 +16,7 @@ import { buildNav, buildUtilityLinks } from "@/components/storefront/header/nav-
  * The storefront header. Two bands, and that is the whole design.
  *
  * Band 1 (32px) — the CMS announcement and the service links.
- * Band 2 (56px mobile / 72px desktop) — menu, wordmark, five nav words, search,
+ * Band 2 (48px mobile / 72px desktop) — menu, wordmark, five nav words, search,
  *   account, wishlist, cart.
  *
  * There is deliberately no third band. The category row that used to sit below
@@ -52,7 +52,7 @@ export function SiteHeader() {
       </Suspense>
 
       <div className="border-b">
-        <div className="container-page flex h-14 items-center gap-3 md:h-[72px] lg:gap-8">
+        <div className="container-page flex h-12 items-center gap-3 md:h-[72px] lg:gap-8">
           {/* Behind its own boundary: the drawer needs the nav model, and
               waiting on that would block the whole header shell from
               prerendering. */}
@@ -61,7 +61,7 @@ export function SiteHeader() {
           </Suspense>
 
           <Link href="/" aria-label="MY Silvers — home" className="shrink-0">
-            <Wordmark className="h-9 md:h-12" />
+            <Wordmark className="h-7 md:h-12" />
           </Link>
 
           {/* The nav sits left, next to the wordmark, rather than centred.

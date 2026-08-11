@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Check, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -47,20 +48,41 @@ export function AddToCartButton({
   /**
    * Full width and no helper text — for the pinned mobile action bar on the
    * product page, where the row is already two controls wide.
-   *
-   * This used to also serve a CTA rendered on every listing card. That is gone:
-   * the card navigates, the product page sells. Buying 925 silver is a
-   * considered purchase with a size attached, so add-to-cart from a grid both
-   * mostly cannot succeed for a sized piece and doubled the visual weight of
-   * every tile in the grid.
    */
   compact = false,
+  /**
+   * The listing-card variant: a quiet full-width control under the price.
+   *
+   * ⚠️  Read `requiresSize` below before touching this. A grid has no size
+   * selector, and src/server/cart.ts rejects any add for a sized product when
+   * no size is supplied — which is roughly two thirds of this catalogue. That
+   * is why the card variant is not simply this button made smaller.
+   */
+  card = false,
+  /**
+   * Set when the piece is sold in sizes. The card variant then renders a link
+   * to the product page labelled "Select size" instead of an add button.
+   *
+   * Not optional politeness — it is the difference between a control and a dead
+   * button. Without it a card for a ring would call the server, be refused with
+   * `size_required`, and toast "Please choose a size first" at a shopper who has
+   * been offered nowhere to choose one.
+   *
+   * Ignored outside the card variant: the product page has a real selector, and
+   * requireSize() reads it.
+   */
+  requiresSize = false,
+  /** The product page to send a sized piece to. Required with `card`. */
+  href,
 }: {
   productId: string;
   stock: number;
   isAuthed?: boolean;
   cartQuantity?: number;
   compact?: boolean;
+  card?: boolean;
+  requiresSize?: boolean;
+  href?: string;
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -117,6 +139,59 @@ export function AddToCartButton({
         action: { label: "View cart", onClick: () => router.push("/cart") },
       });
     }
+  }
+
+  if (card) {
+    // Shared so the two branches below are the same object at the same weight —
+    // a shopper scanning a row should not be able to tell which tiles are sized
+    // from the shape of the control, only from what it says.
+    const shell =
+      "h-10 w-full justify-center border border-input bg-transparent px-3 text-xs font-medium tracking-[0.06em] text-foreground hover:bg-muted";
+
+    // Sold out wins over everything: there is nothing to choose a size for.
+    if (stock === 0) {
+      return (
+        <Button variant="cta" size="cta" className={shell} disabled>
+          Sold out
+        </Button>
+      );
+    }
+
+    if (requiresSize) {
+      return (
+        <Button variant="cta" size="cta" className={shell} asChild>
+          {/* nav-forward, matching the card's own image link — this is the same
+              journey deeper into the catalogue, reached by a different control. */}
+          <Link href={href ?? "#"} transitionTypes={["nav-forward"]}>
+            Select size
+          </Link>
+        </Button>
+      );
+    }
+
+    return (
+      <Button
+        variant="cta"
+        size="cta"
+        className={shell}
+        disabled={isPending || atStockLimit}
+        onClick={handleClick}
+      >
+        {isPending ? (
+          "Adding…"
+        ) : inCart ? (
+          <>
+            <Check className="size-3.5" />
+            In cart{quantityInCart > 1 && ` (${quantityInCart})`}
+          </>
+        ) : (
+          <>
+            <ShoppingBag className="size-3.5" />
+            Add to cart
+          </>
+        )}
+      </Button>
+    );
   }
 
   if (compact) {

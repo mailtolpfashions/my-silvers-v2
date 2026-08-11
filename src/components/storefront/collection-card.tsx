@@ -16,9 +16,12 @@ import type { CollectionSummary } from "@/server/cms/collections";
  */
 export function CollectionCard({
   collection,
+  fillHeight = false,
   preload = false,
 }: {
   collection: CollectionSummary;
+  /** Forwarded to the tile — see EditorialTile. Set inside a .fit-viewport. */
+  fillHeight?: boolean;
   /** Set on above-the-fold tiles only — see next/image `preload`. */
   preload?: boolean;
 }) {
@@ -30,6 +33,7 @@ export function CollectionCard({
       eyebrow={collection.eyebrow}
       description={collection.description}
       linkLabel="Explore the collection"
+      fillHeight={fillHeight}
       preload={preload}
       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
     />

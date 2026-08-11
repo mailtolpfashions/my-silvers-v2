@@ -11,6 +11,15 @@ export type CollectionSummary = {
   heroImage?: string;
   cta?: string;
   isFeatured: boolean;
+  /**
+   * The Product.tags value this collection is built from. Collections have no
+   * Prisma relation to Product — membership rides on this tag.
+   *
+   * Carried on the summary so a section can show a collection's own pieces
+   * beside it without a second entry lookup. Frequently unset: a collection is
+   * a valid editorial entry before anyone has decided what belongs in it.
+   */
+  productTag?: string;
 };
 
 const str = (v: unknown): string | undefined =>
@@ -55,6 +64,7 @@ export function selectCollections(
         thumbnailImage: str(d.thumbnailImage) ?? str(d.heroImage),
         heroImage: str(d.heroImage),
         cta: str(d.cta),
+        productTag: str(d.productTag),
         isFeatured: d.isFeatured === true,
         sortOrder: Number(d.sortOrder ?? 0),
       };

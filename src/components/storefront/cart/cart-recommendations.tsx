@@ -36,10 +36,13 @@ export async function CartRecommendations({
     // re-applies the normal gutters and max width.
     <section className="mt-16 border-t pt-10 [margin-inline:calc(50%_-_50vw)]">
       <div className="container-page">
-        <h2 className="text-h2">You may also like</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Pieces under {inr.format(ceiling)} that go well with your order
-        </p>
+        {/* Centred with every other section heading — see section-heading.tsx. */}
+        <div className="text-center">
+          <h2 className="text-h2">You may also like</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pieces under {inr.format(ceiling)} that go well with your order
+          </p>
+        </div>
 
         <div className={`mt-6 ${PRODUCT_GRID_CLASS}`}>
         {items.map((product) => (

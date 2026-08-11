@@ -96,7 +96,6 @@ async function main() {
   const oldSections = Array.isArray(published.sections) ? (published.sections as Json[]) : [];
   const find = (type: string) => oldSections.find((s) => s.type === type) ?? {};
 
-  const oldPair = find("editorialPair") as Json;
   const oldStory = find("story") as Json;
 
   /**
@@ -137,11 +136,11 @@ async function main() {
     // only holds while each predecessor is itself exactly one viewport tall.
     //
     // So the second curtain can only ever be the section IMMEDIATELY below the
-    // band, and it has to be a kind that can own a viewport. Of the eight
-    // sections on this page, `story` is the only candidate: it is already a
-    // full-bleed photograph with copy laid over it. `editorialPair`, which used
-    // to sit here, is a padded container-page grid and cannot take the flag —
-    // it is now at 06, directly after this.
+    // band, and it has to be a kind that can own a viewport. Of the sections on
+    // this page, `story` is the only candidate: it is already a full-bleed
+    // photograph with copy laid over it. `editorialPair` — the kind the journal
+    // block below uses — is a padded container-page grid and cannot take the
+    // flag at all.
     //
     // The trade is real and was accepted deliberately: the brand now talks
     // about how a piece is made before it shows a single product. If that reads
@@ -160,28 +159,12 @@ async function main() {
       pinnedReveal: true,
     },
 
-    // 06 — Two ways in. The editorial beat, now after both curtains.
-    {
-      type: "editorialPair",
-      title: oldPair.title ?? "Two ways in",
-      eyebrow: oldPair.eyebrow ?? "Where to start",
-      subtitle: oldPair.subtitle,
-      isActive: true,
-      items: [
-        {
-          image: (oldPair.items as Json[])?.[0]?.image ?? "",
-          title: "Everyday Silver",
-          text: "Explore everyday",
-          href: "/collections/everyday",
-        },
-        {
-          image: (oldPair.items as Json[])?.[1]?.image ?? "",
-          title: "The Bridal Edit",
-          text: "Explore bridal",
-          href: "/collections/bridal",
-        },
-      ],
-    },
+    // (The "Two ways in" editorial pair that used to sit at 06 is gone. It said
+    // the same thing as the worldTiles band directly above it — both headed
+    // "Inspired by Love", both photographic doorways into the catalogue — and
+    // two of those back to back read as a mistake. The band is the one that
+    // stayed: it is curated, four-up, and names its own worlds. Do not
+    // reintroduce this without first moving or renaming that band.)
 
     // 06 — New in. First commerce section.
     {
@@ -220,7 +203,24 @@ async function main() {
       isActive: true,
     },
 
-    // 10 — From the journal. Two editorial tiles.
+    // 10 — Shop by category. Round pills, the quiet way back in.
+    //
+    // Placed after BOTH product grids on purpose. It is the same catalogue the
+    // full-bleed band at 04 opens, and putting a second route to it here is not
+    // a repeat: the band catches someone who has seen nothing yet, this catches
+    // someone who has scrolled sixteen products and not clicked one. Ahead of
+    // the journal so the page ends on editorial rather than on navigation.
+    //
+    // No heading — the pills name themselves, and a "Shop by category" title
+    // over a row of labelled circles says it twice. Left as empty fields rather
+    // than omitted so an editor can add one without touching code.
+    {
+      type: "categoryPills",
+      limit: 6,
+      isActive: true,
+    },
+
+    // 11 — From the journal. Two editorial tiles.
     {
       type: "editorialPair",
       title: "From the journal",
@@ -229,7 +229,7 @@ async function main() {
       items: [] as Json[], // filled below from real published posts
     },
 
-    // 11 — The craft. Trust claims, quietly, above the footer.
+    // 12 — The craft. Trust claims, quietly, above the footer.
     {
       type: "usp",
       title: "Why 925",
@@ -287,14 +287,6 @@ async function main() {
   };
   nextSlides.forEach((s, i) => s.isActive && scan(`hero slide ${i + 1}`, s.media));
   scan("story image", oldStory.image);
-  // Found by identity, not by index — this read `sections[0]` and broke the
-  // moment the running order changed.
-  const pairSection = sections.find(
-    (s) => s.type === "editorialPair" && s !== journalSection
-  );
-  ((pairSection?.items as Json[]) ?? []).forEach((it, i) =>
-    scan(`two-ways-in tile ${i + 1}`, it.image)
-  );
   ((journalSection.items as Json[]) ?? []).forEach((it, i) =>
     scan(`journal tile ${i + 1}`, it.image)
   );

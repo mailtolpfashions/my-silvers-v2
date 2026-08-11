@@ -75,7 +75,10 @@ export function RecentlyViewed({ excludeProductId }: { excludeProductId?: string
 
   return (
     <section className="container-page border-t rhythm-commerce">
-      <h2 className="mb-8 text-h2">Recently viewed</h2>
+      {/* Centred, like every section heading on the storefront — see
+          section-heading.tsx. Not that component itself only because this row
+          has no eyebrow or subtitle to give it. */}
+      <h2 className="mb-8 text-h2 text-center">Recently viewed</h2>
       <div className={PRODUCT_GRID_CLASS}>
         {items.map((product) => (
           // No morphName: the same product can appear here and in another row

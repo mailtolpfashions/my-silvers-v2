@@ -53,21 +53,9 @@ export async function getCartRecommendations({
     take,
   });
 
-  return {
-    ceiling,
-    items: products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      price: p.price.toString(),
-      compareAtPrice: p.compareAtPrice?.toString() ?? null,
-      images: p.images,
-      isBestseller: p.isBestseller,
-      isFeatured: p.isFeatured,
-      stock: p.stock,
-      categoryName: p.category.name,
-    })),
-  };
+  // The shared mapper, not a hand-rolled literal — this one drifted the moment
+  // ProductListItem gained a field.
+  return { ceiling, items: products.map(toProductListItem) };
 }
 
 /**
@@ -105,12 +93,14 @@ export async function getSimilarProducts({
       isFeatured: boolean;
       stock: number;
       categoryName: string;
+      requiresSize: boolean;
     }>
   >`
     SELECT p."id", p."name", p."slug", p."price"::text,
            p."compareAtPrice"::text as "compareAtPrice",
            p."images", p."isBestseller", p."isFeatured", p."stock",
-           c."name" as "categoryName"
+           c."name" as "categoryName",
+           COALESCE(array_length(p."sizes", 1), 0) > 0 as "requiresSize"
     FROM "Product" p
     JOIN "Category" c ON c."id" = p."categoryId"
     WHERE p."isActive" = true

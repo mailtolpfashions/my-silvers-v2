@@ -55,11 +55,22 @@ export const CARD_SHELL_CLASS = "overflow-hidden bg-muted";
  * five — so a five-column grid leaves every homepage section with a ragged
  * final row.
  *
- * No gaps between columns from sm up. The row reads as one continuous band of
- * photography rather than four objects with air between them; each tile carries
- * its own internal padding instead, so the space goes INSIDE the tile. A
- * single-pixel column gap remains on phones, where two touching tiles at that
- * width genuinely do read as one confusing block.
+ * ── Gaps, and the reversal ──────────────────────────────────────────────────
+ * This grid used to run gapless from sm up — `gap-x-px sm:gap-x-0` — so a row
+ * read as one continuous band of photography rather than four objects with air
+ * between them, with each tile's own padding standing in for the space.
+ *
+ * That was written before the tiles carried a control. A per-tile add-to-cart
+ * button changes what the row IS: four buttons at the same height in a gapless
+ * band read as one segmented toolbar, and it stops being obvious which button
+ * belongs to which photograph. The columns are separated now for that reason,
+ * and the amount is the smallest that makes the pairing unambiguous.
+ *
+ * The spacing itself is no longer spelled out here. `.grid-gutter` in
+ * globals.css owns it for every tiled section on the site — this grid, the
+ * collection row, the editorial pair and the worldTiles band — because four
+ * grids each inventing their own gap is precisely what put four different
+ * column gaps on one homepage. Change it there, not here.
  */
 export const PRODUCT_GRID_CLASS =
-  "grid grid-cols-2 gap-x-px gap-y-8 sm:grid-cols-3 sm:gap-x-0 lg:grid-cols-4";
+  "grid grid-cols-2 grid-gutter sm:grid-cols-3 lg:grid-cols-4";

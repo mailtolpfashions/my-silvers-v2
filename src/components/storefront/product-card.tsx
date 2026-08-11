@@ -5,6 +5,7 @@ import { stockLabel, isScarce } from "@/lib/stock-label";
 import { formatINR } from "@/lib/format";
 import { CARD_IMAGE_CLASS, CARD_TITLE_CLASS, CARD_SHELL_CLASS } from "@/lib/card-styles";
 import { WishlistButton } from "@/components/storefront/wishlist-button";
+import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
 import type { ProductListItem } from "@/server/products/search";
 
 /**
@@ -46,10 +47,17 @@ function MaybeMorph({ name, children }: { name?: string; children: React.ReactNo
  * A product, as a photograph and its name.
  *
  * ── What this card deliberately does NOT show ────────────────────────────────
- * A discount pill, a bestseller pill, an "In stock" dot and an add-to-cart
- * button have all been removed. Each was individually defensible; together they
- * put six pieces of furniture on a tile whose whole thesis is a picture and a
- * name, and they are what made a grid of jewellery read as a shelf of offers.
+ * A discount pill, a bestseller pill and an "In stock" dot have all been
+ * removed. Each was individually defensible; together they put six pieces of
+ * furniture on a tile whose whole thesis is a picture and a name, and they are
+ * what made a grid of jewellery read as a shelf of offers.
+ *
+ * The add-to-cart control came BACK, having been on that list. It is the one
+ * exception, and it is drawn to stay one: a hairline outline under the price,
+ * never a filled block, so the photograph is still the loudest thing on the
+ * tile. Two thirds of this catalogue is sold in sizes and cannot be added from
+ * a grid at all — those tiles say "Select size" and lead to the product page.
+ * See the `card` and `requiresSize` props in add-to-cart-button.tsx.
  *
  * A black-filled percentage badge in particular is a discount sticker, and it
  * was the one place the palette's decorative accent was being used as a fill
@@ -194,6 +202,23 @@ export function ProductCard({
             src/lib/stock-label.ts. */}
         {product.stock > 0 && isScarce(product.stock) && (
           <p className="mt-1.5 text-xs text-black">{stockLabel(product.stock)}</p>
+        )}
+
+        {/* `mt-auto` pins this to the foot of the card, so a row of buttons
+            lines up across tiles whose names wrap to different heights — the
+            grid's `h-full` and this column's `flex-1` exist for exactly that.
+            Above the fold of the tile it would be furniture; at the bottom it
+            is the last thing read, which is where an action belongs. */}
+        {showActions && (
+          <div className="mt-auto pt-3">
+            <AddToCartButton
+              card
+              productId={product.id}
+              stock={product.stock}
+              requiresSize={product.requiresSize}
+              href={href}
+            />
+          </div>
         )}
       </div>
     </div>

@@ -395,17 +395,19 @@ function ProductRow({
 }) {
   return (
     <RevealSection className="container-page rhythm-commerce border-t">
-      <SectionHeading
-        title={title}
-        eyebrow={eyebrow}
-        align="left"
-        action={viewAllHref ? <EditorialLink href={viewAllHref}>View all</EditorialLink> : undefined}
-      />
+      <SectionHeading title={title} eyebrow={eyebrow} />
       <div className={PRODUCT_GRID_CLASS}>
         {items.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
       </div>
+      {/* Below the grid and centred, matching the homepage sections — see the
+          note in section-heading.tsx for why it cannot sit beside the heading. */}
+      {viewAllHref && (
+        <div className="mt-12 flex justify-center">
+          <EditorialLink href={viewAllHref}>View all</EditorialLink>
+        </div>
+      )}
     </RevealSection>
   );
 }

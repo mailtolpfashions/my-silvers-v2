@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/server/db";
+import { toProductListItem } from "@/server/products/search";
 
 /**
  * Public product summaries for client-side stores that keep only ids in
@@ -29,6 +30,8 @@ export async function GET(req: NextRequest) {
       isBestseller: true,
       isFeatured: true,
       category: { select: { name: true } },
+      // Only to answer requiresSize — see the field's note in search.ts.
+      sizes: true,
     },
   });
 
@@ -41,17 +44,7 @@ export async function GET(req: NextRequest) {
       image: p.images[0] ?? null,
       stock: p.stock,
     })),
-    items: products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      price: p.price.toString(),
-      compareAtPrice: p.compareAtPrice?.toString() ?? null,
-      images: p.images,
-      isBestseller: p.isBestseller,
-      isFeatured: p.isFeatured,
-      stock: p.stock,
-      categoryName: p.category.name,
-    })),
+    // The shared mapper, so this cannot drift from ProductListItem again.
+    items: products.map(toProductListItem),
   });
 }

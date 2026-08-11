@@ -9,6 +9,8 @@ import { StorySection } from "@/components/storefront/story-section";
 import { EditorialPair } from "@/components/storefront/editorial-pair";
 import { EditorialLink } from "@/components/storefront/editorial-link";
 import { SectionHeading } from "@/components/storefront/section-heading";
+import { WorldTile } from "@/components/storefront/world-tile";
+import { CollectionSpotlight } from "@/components/storefront/collection-spotlight";
 import type { HomepageSection as Section } from "@/server/products/homepage-sections";
 
 /**
@@ -132,6 +134,29 @@ export function HomepageSection({
     return instagramSlot ?? null;
   }
 
+  if (section.kind === "collectionSpotlight") {
+    return (
+      // Fitted to one screen like the other tile sections. The rail carries its
+      // own horizontal travel; making the shopper scroll VERTICALLY through it
+      // as well was the complaint — at a fixed 16:9 banner the block ran about
+      // two and a half screens tall. The card now takes the height it is given
+      // and the banner absorbs the remainder; see collection-spotlight.tsx.
+      <RevealSection className="container-page rhythm-editorial fit-viewport">
+        <SectionHeading
+          title={section.title}
+          eyebrow={section.eyebrow}
+          subtitle={section.subtitle}
+        />
+        <CollectionSpotlight items={section.items} />
+        {section.viewAllHref && (
+          <div className="mt-12 flex justify-center">
+            <EditorialLink href={section.viewAllHref}>View all</EditorialLink>
+          </div>
+        )}
+      </RevealSection>
+    );
+  }
+
   if (section.kind === "editorialPair") {
     return (
       <EditorialPair
@@ -207,6 +232,172 @@ export function HomepageSection({
             )}
           </div>
         </div>
+      </RevealSection>
+    );
+  }
+
+  if (section.kind === "worldTiles") {
+    /**
+     * Photographic doorways, in one of two compositions the editor picks.
+     *
+     * ── row (the default) ───────────────────────────────────────────────────
+     * One row of four across the page's full width. At 1920 that is 435×578 per
+     * tile — portrait, generous, and the whole section fits a screen.
+     *
+     * ── stagger ─────────────────────────────────────────────────────────────
+     * A 2×2 whose two columns are the same total height but whose inner seams
+     * are deliberately NOT level. Modelled on tanishq.co.in's "Tanishq World",
+     * measured off the rendered page: 486-wide tiles alternating 312/341 down
+     * one column against 346/307 down the other — a 47/53 split, flipped
+     * between columns. Four flush rectangles read as a table of contents; the
+     * offset turns them back into a picture.
+     *
+     *   ── This is the ONE section that does not fit a screen ──
+     *   Everything else on this homepage is capped at a viewport (.fit-viewport).
+     *   This one is not, deliberately, and the reason is arithmetic rather than
+     *   inconsistency.
+     *
+     *   Inside a screen the tiles get ~580px between them, so two rows are 267
+     *   and 301 tall, and holding the reference's ~1.5:1 forces a tile width of
+     *   about 420 — a block of 852. That is what this was, and it kept the
+     *   proportions but not the SIZE: the reference's tiles are 590 wide, not
+     *   420. You cannot have both. Widening inside a screen only flattens the
+     *   crop — at 1200 the tiles would be 2.25:1 and 1.95:1, considerably
+     *   flatter than the thing being matched.
+     *
+     *   So this block takes the reference's actual scale — 1200 wide, tiles
+     *   590×386 and 590×447 — and runs about 260px past the fold at a 914px
+     *   window. tanishq.co.in's own section does exactly the same; their
+     *   heading has scrolled away by the time the bottom row is on screen.
+     *
+     *   The height comes from `aspect-ratio` on the grid rather than a pixel
+     *   value, so the whole block scales with its width and the fr rows below
+     *   still have something definite to divide.
+     *
+     *   ── The stagger is grid placement, not two column elements ──
+     *   Rows are `47fr 6fr 47fr` and each tile spans a different pair, so the
+     *   seams land 6fr apart while both columns still total 100fr. Two real
+     *   column divs give the identical picture but put the DOM order at
+     *   0,2,1,3, so a screen reader meets the worlds in a different order from
+     *   the eye. Placement keeps source order at 0,1,2,3 for four static
+     *   classes.
+     *
+     *   ⚠️  It only makes sense for exactly four items and the CMS lets an
+     *   editor supply any number, so anything else falls back to the row.
+     *
+     * Below lg neither applies: there is no fixed height to divide, so the tiles
+     * keep their own 16:10 crop and stack two-up, then one-up.
+     */
+    const staggered = section.layout === "stagger" && section.items.length === 4;
+    /** Column, then the row pair. Index-aligned with the four items. */
+    const STAGGER_PLACEMENT = [
+      "lg:col-start-1 lg:row-start-1 lg:row-end-2",
+      "lg:col-start-2 lg:row-start-1 lg:row-end-3",
+      "lg:col-start-1 lg:row-start-2 lg:row-end-4",
+      "lg:col-start-2 lg:row-start-3 lg:row-end-4",
+    ];
+
+    return (
+      // The row is held to one screen; the stagger is not — see above.
+      <RevealSection
+        className={`container-page rhythm-editorial ${staggered ? "" : "fit-viewport"}`}
+      >
+        {/* Renders nothing at all if the editor left the heading fields empty,
+            which is a supported state — the tiles name themselves. */}
+        <SectionHeading
+          title={section.title}
+          eyebrow={section.eyebrow}
+          subtitle={section.subtitle}
+        />
+
+        {/* The row keeps the site's shared gutter. The stagger does not: that
+            gutter's 40px row gap exists because tiles elsewhere carry a caption
+            BELOW the photograph and the gap stops it crowding the next row's
+            image — see the note on .grid-gutter. These carry their name ON the
+            picture, so the reasoning does not apply, and a 40px seam would pull
+            the four apart into separate photographs rather than one
+            composition. 12px still matches the gutter's column gap at lg.
+
+            `aspect-[1200/845]` is the reference's block, to scale: 1200 wide
+            against 845 tall, which the 47fr/6fr/47fr rows then divide into
+            590×386 and 590×447 tiles. An aspect rather than a height so it
+            tracks the container instead of being right at exactly one width. */}
+        <div
+          className={
+            staggered
+              ? "mx-auto grid w-full max-w-[75rem] grid-cols-1 gap-3 sm:grid-cols-2 lg:aspect-[1200/845] lg:[grid-template-rows:47fr_6fr_47fr]"
+              : "grid grid-gutter fit-grow sm:grid-cols-2 lg:grid-cols-4"
+          }
+        >
+          {section.items.map((item, i) => (
+            <WorldTile
+              key={i}
+              item={item}
+              fillHeight
+              className={staggered ? STAGGER_PLACEMENT[i] : ""}
+            />
+          ))}
+        </div>
+      </RevealSection>
+    );
+  }
+
+  if (section.kind === "categoryPills") {
+    /**
+     * The catalogue's categories as a centred row of round portraits.
+     *
+     * Carried over from before the redesign, and deliberately unchanged in
+     * shape: circles, a name beneath, wrapping to as many rows as it needs. It
+     * is the quiet counterpart to the full-bleed band at the top of the page —
+     * that one is a doorway a shopper meets before they have seen anything;
+     * this is a way back into the catalogue after they have scrolled two
+     * product grids, so it should not compete with them.
+     *
+     * Two classes did change, because their tokens no longer exist:
+     *   ring-brass  → ring-black       the brass accent was deleted, not
+     *                                  aliased; see the mapping in globals.css
+     *   py-10 sm:py-16 lg:py-20
+     *               → rhythm-editorial the one-off section paddings were
+     *                                  retired into that token in 5cd6b05
+     */
+    return (
+      <RevealSection className="container-page rhythm-editorial">
+        {/* Renders nothing at all when the editor leaves the heading fields
+            empty — the pills name themselves, which is how this section
+            shipped originally. */}
+        <SectionHeading
+          title={section.title}
+          eyebrow={section.eyebrow}
+          subtitle={section.subtitle}
+        />
+        <ul className="flex flex-wrap justify-center gap-x-8 gap-y-10 sm:gap-x-12">
+          {section.items.map((item) => (
+            <li key={item.id}>
+              <Link
+                href={`/category/${item.slug}`}
+                className="group flex w-28 flex-col items-center gap-4 sm:w-40"
+              >
+                <div className="relative size-28 overflow-hidden rounded-full bg-muted ring-1 ring-border transition-all duration-300 group-hover:ring-2 group-hover:ring-black sm:size-40">
+                  {item.image && (
+                    <Image
+                      src={item.image}
+                      alt=""
+                      fill
+                      loading="lazy"
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      // The circle is a fixed 112/160px, so these are exact —
+                      // no viewport arithmetic to get wrong.
+                      sizes="(max-width: 640px) 112px, 160px"
+                    />
+                  )}
+                </div>
+                <span className="text-center text-base font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+                  {item.name}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </RevealSection>
     );
   }
@@ -306,7 +497,15 @@ export function HomepageSection({
     // exactly as they do in the ordinary in-flow band.
     if (revealDepth !== undefined) {
       return (
-        <PinnedRevealStage depth={revealDepth} innerClassName="tile-accordion flex flex-col lg:flex-row">
+        // `tile-stack` is the mobile half of this band and does nothing above
+        // 1024px: below it the three tiles become full-viewport panels that
+        // curtain over one another, continuing the gesture the sticky hero
+        // starts. See the .tile-stack block in globals.css — in particular why
+        // it can only go on this variant and not on the in-flow one.
+        <PinnedRevealStage
+          depth={revealDepth}
+          innerClassName="tile-stack tile-accordion flex flex-col lg:flex-row"
+        >
           {tiles}
         </PinnedRevealStage>
       );
@@ -332,7 +531,6 @@ export function HomepageSection({
             title={section.title}
             eyebrow={section.eyebrow}
             subtitle={section.subtitle}
-            align="center"
           />
           <ul className="grid gap-x-10 sm:grid-cols-2 lg:grid-cols-4">
             {section.items.map((item, i) => (
@@ -410,21 +608,27 @@ export function HomepageSection({
   // GSAP stagger that used to animate each card individually is gone — see
   // story-section.tsx for what the measurement showed.
   //
-  // Commerce grids are LEFT-aligned and carry their "view all" beside the
-  // heading; the editorial blocks above are centred. Centring everything was
-  // flattening the page — see the note in section-heading.tsx.
-  const viewAll = section.viewAllHref ? (
-    <EditorialLink href={section.viewAllHref}>View all</EditorialLink>
-  ) : undefined;
+  /**
+   * Only the collections row is fitted to a screen, never the product grid.
+   *
+   * A product section shows 8 or 12 pieces — three or four rows — and forcing
+   * those into one viewport would leave each card a couple of hundred pixels
+   * tall, which is a contact sheet rather than a catalogue. A shopper scrolling
+   * through products is doing the thing the page is for. Collections is three
+   * tiles in a single row and is a beat between grids, so it can own a screen
+   * the way the editorial blocks above do.
+   */
+  const fitsViewport = section.kind === "collections";
 
   return (
-    <RevealSection className="container-page rhythm-editorial">
+    <RevealSection
+      className={`container-page rhythm-editorial ${fitsViewport ? "fit-viewport" : ""}`}
+    >
+      {/* Centred, like every heading on the site — see section-heading.tsx. */}
       <SectionHeading
         title={section.title}
         eyebrow={section.eyebrow}
         subtitle={section.subtitle}
-        align="left"
-        action={viewAll}
       />
 
       {section.kind === "products" ? (
@@ -442,10 +646,19 @@ export function HomepageSection({
           ))}
         </div>
       ) : (
-        <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-gutter fit-grow sm:grid-cols-2 lg:grid-cols-3">
           {section.items.map((collection) => (
-            <CollectionCard key={collection.id} collection={collection} />
+            <CollectionCard key={collection.id} collection={collection} fillHeight />
           ))}
+        </div>
+      )}
+
+      {/* Below the grid, not beside the heading. A centred heading has no right
+          edge to hang this from, and this is the order it gets used in anyway:
+          the heading, the pieces, then the way to see more. */}
+      {section.viewAllHref && (
+        <div className="mt-12 flex justify-center">
+          <EditorialLink href={section.viewAllHref}>View all</EditorialLink>
         </div>
       )}
     </RevealSection>

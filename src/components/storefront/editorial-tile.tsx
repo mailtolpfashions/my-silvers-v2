@@ -30,6 +30,7 @@ export function EditorialTile({
   description,
   linkLabel,
   ratio = "portrait",
+  fillHeight = false,
   preload = false,
   sizes = "(max-width: 640px) 100vw, 50vw",
   headingLevel: Heading = "h3",
@@ -43,18 +44,33 @@ export function EditorialTile({
   linkLabel?: string | null;
   /** `portrait` 4:5 for collections and pairs, `landscape` 3:2 for journal. */
   ratio?: "portrait" | "landscape";
+  /**
+   * From lg, drop the fixed crop and let the frame take whatever height is
+   * left in the row.
+   *
+   * For sections inside a .fit-viewport, where the section owns exactly one
+   * screen and the tiles absorb the remainder after the heading. The resulting
+   * crop is an outcome of the window height — around 16:9 at 1920 — rather than
+   * a ratio anyone maintains. Below lg the fixed crop still applies, because
+   * there the section is free to be as tall as it likes.
+   */
+  fillHeight?: boolean;
   /** Next 16 renamed `priority` to `preload`; above-the-fold tiles only. */
   preload?: boolean;
   sizes?: string;
   headingLevel?: "h2" | "h3";
 }) {
   return (
-    <article className="group relative flex flex-col">
+    <article className={`group relative flex flex-col ${fillHeight ? "lg:h-full" : ""}`}>
       <div
         className={`relative overflow-hidden bg-muted ${
           // 5:7 on a phone, 4:5 from sm — a slightly taller crop at small
           // widths, where a single tile owns the whole screen.
           ratio === "portrait" ? "aspect-[4/5]" : "aspect-[16/9]"
+        } ${
+          // `min-h-0` is what lets the frame shrink below the image's intrinsic
+          // height; without it flex refuses and the section overflows again.
+          fillHeight ? "lg:aspect-auto lg:min-h-0 lg:flex-1" : ""
         }`}
       >
         {image ? (

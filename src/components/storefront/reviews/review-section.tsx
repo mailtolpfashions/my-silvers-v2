@@ -30,7 +30,10 @@ export async function ReviewSection({
 
   return (
     <section className="container-detail border-t rhythm-commerce">
-      <div className="flex flex-wrap items-center gap-4">
+      {/* Centred with every other section heading — see section-heading.tsx.
+          The rating summary rides on the same centred row rather than sitting
+          under the heading, so the two still read as one line. */}
+      <div className="flex flex-wrap items-center justify-center gap-4">
         <h2 className="text-h2">Reviews</h2>
         {count > 0 && (
           <span className="flex items-center gap-2 text-sm text-muted-foreground">

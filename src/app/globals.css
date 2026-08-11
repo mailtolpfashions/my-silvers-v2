@@ -112,6 +112,12 @@
      their content box is 1392 wide, i.e. the page runs very nearly edge to
      edge. Combined with the small type above, that is what gives their imagery
      the room to be the loudest thing on the screen. */
+  /* The sticky header's height at lg — utility bar plus the main row. Read by
+     .fit-viewport, which subtracts it to work out how much screen a section
+     actually gets. Measured, not guessed: if the header ever gains or loses a
+     band, this must move with it or those sections overflow by the difference. */
+  --header-h: 105px;
+
   --container-page: 90rem; /* listings, homepage sections, header, footer */
   --container-detail: 72rem; /* product detail + its reviews */
   --container-checkout: 64rem; /* cart + checkout — narrow on purpose */
@@ -336,16 +342,51 @@
 /* Gutters are 24px at every width above the phone, matching the reference's
    1392-in-1440. The phone keeps 16px — theirs runs its imagery fully edge to
    edge on mobile, and 16px is the smallest gutter that still keeps *text* off
-   the screen edge. */
+   the screen edge.
+
+   ── No maximum width, and the gutter steps up instead ───────────────────────
+   This used to cap at --container-page (90rem / 1440), which is the width the
+   reference was measured at. On a 1440 screen that is very nearly edge to edge
+   and looks right; the trouble is everything above it. At 1920 the cap left
+   257px of empty page down each side while the catalogue's tiles shrank to
+   330px, so the widest screens got the SMALLEST photography — the opposite of
+   what a page resting on its imagery wants.
+
+   So the page tracks the viewport and the gutter grows in two steps instead.
+   At 1920 that yields a 1792px content box, within 13px of what GIVA does at
+   the same width. Below 1440 nothing changes at all.
+
+   The cap is gone rather than raised because a raised one only moves the
+   problem to the next monitor: 120rem would fill a 1920 screen and strand a
+   2560 one exactly as before.
+
+   --container-page still exists and is still the token other things measure
+   against; it is simply no longer applied as a ceiling here. */
 .container-page {
   margin-inline: auto;
   width: 100%;
-  max-width: var(--container-page);
   padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
 }
 @media (min-width: 640px) {
   .container-page {
     padding-inline: max(1.5rem, env(safe-area-inset-left)) max(1.5rem, env(safe-area-inset-right));
+  }
+}
+/* Above the reference's own width the gutter takes the extra room, so the
+   content box keeps growing without the tiles ever touching the screen edge.
+
+   ⚠️  These start at 1536 and 1920, NOT at 1440. A step at 1440 fires AT 1440,
+   which is the one width this design was measured at — it took the content box
+   from the intended 1392 down to 1345, making the reference width narrower than
+   before rather than leaving it alone. Any future step must clear 1440. */
+@media (min-width: 1536px) {
+  .container-page {
+    padding-inline: max(2.5rem, env(safe-area-inset-left)) max(2.5rem, env(safe-area-inset-right));
+  }
+}
+@media (min-width: 1920px) {
+  .container-page {
+    padding-inline: max(4rem, env(safe-area-inset-left)) max(4rem, env(safe-area-inset-right));
   }
 }
 
@@ -437,11 +478,42 @@
     color 300ms ease;
 }
 
+/* ── "This page opens with a full-bleed hero" ─────────────────────────────────
+   The condition behind every rule below, and it is written the long way for a
+   reason. The short version — `.storefront-shell:has([data-hero-full])` — is
+   wrong, and was live long enough to be reported as a bug: the header overlaid
+   the heading on the catalogue, then corrected itself after a couple of
+   navigations.
+
+   React's <ViewTransition> does not REMOVE the page you navigate away from. It
+   keeps a small pool of exiting subtrees inside <main>, each hidden with an
+   inline `display: none !important`, and evicts them a few navigations later.
+   So after leaving the homepage, <main> holds the live page AND a dead homepage
+   that still carries `data-hero-full` — and a bare :has() sees it. Measured:
+
+     homepage        1 child             marker ✓   fixed    correct
+     → catalogue     2 children (1 dead) marker ✓   fixed    WRONG
+     → about         3 children (2 dead) marker ✓   fixed    WRONG
+     → journal       3 children (2 dead) marker ✗   sticky   corrects itself
+
+   Hence `main > :not([style*="display: none"])`: the live page is the only
+   unhidden direct child of <main>, so this asks for a hero on the page actually
+   being displayed.
+
+   ⚠️  That `:not()` is coupled to the exact string React writes. If exiting
+   subtrees are ever hidden some other way, this silently stops excluding them
+   and the overlap comes straight back — the symptom to look for is the header
+   floating over a page that has no hero. The `:has()` approach itself is not
+   negotiable, though: it resolves during the first paint, and the JavaScript
+   alternative flashes a solid header on the homepage. See the note above.
+   ─────────────────────────────────────────────────────────────────────────── */
+
 /* Pages that open with a full-bleed hero give the header the top of the
    viewport. `fixed` rather than `sticky` — sticky still occupies a strip of
    layout, which would push a 100svh hero down by the header's height and put
    its last 130px below the fold on every load. */
-.storefront-shell:has([data-hero-full]) .site-header {
+.storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full])
+  .site-header {
   position: fixed;
   inset-inline: 0;
   top: 0;
@@ -485,8 +557,10 @@
   transition-timing-function: ease;
 }
 
-/* ── The transparent state ───────────────────────────────────────────────── */
-.storefront-shell:has([data-hero-full])
+/* ── The transparent state ─────────────────────────────────────────────────
+   Same live-page guard as the `position: fixed` rule above — see the note there
+   before editing this selector. */
+.storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full])
   .site-header:not([data-scrolled]):not(:hover):not(:focus-within) {
   /* Re-pointed for one dark band. Raw values, not ramp tokens: the ramp is
      tuned for ink on ivory, and there is no "white on an arbitrary
@@ -509,7 +583,7 @@
   color: #ffffff;
 }
 
-.storefront-shell:has([data-hero-full])
+.storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full])
   .site-header:not([data-scrolled]):not(:hover):not(:focus-within)::before {
   opacity: 1;
 }
@@ -517,7 +591,7 @@
 /* The utility band paints its own fill from a tone class, so a token swap
    cannot reach it — it needs to be told directly. `color` too: the `info` tone
    is graphite on ivory, which would be unreadable once the fill is gone. */
-.storefront-shell:has([data-hero-full])
+.storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full])
   .site-header:not([data-scrolled]):not(:hover):not(:focus-within)
   .header-band {
   background-color: transparent;
@@ -530,15 +604,26 @@
    sat at a flat 40px — and that inconsistency reads worse than uniform
    tightness, because the shopper's second page contradicts the first.
 
-   editorial     80 / 112 / 160   homepage sections, story, editorial pairs
+   editorial     40 /  56 /  80   homepage sections, story, editorial pairs
    commerce      48 /  64 /  80   listings, product detail, recommendation rows
    transactional 32 /  40 /  56   cart, checkout, account, auth
 
    A cart with 160px between blocks is not luxurious, it is a scroll. Pick the
    rhythm from what the page is FOR.
+
+   ⚠️  READ THESE AS DOUBLE. `padding-block` pads both edges, so the whitespace
+   a shopper actually sees between two adjacent sections is the sum of the one
+   above's bottom and the one below's top — the numbers in this table are each
+   HALF of the gap they produce. Editorial therefore reads as 80 / 112 / 160.
+
+   That doubling is why editorial was halved from 80/112/160. At the old values
+   six of the seven homepage sections sat 320px apart at 1440 — a third of the
+   viewport of empty page between every beat, which read as the page having
+   ended rather than as breathing room. The token said 160 and nobody was
+   reading it as 320, which is the trap this note exists to close.
    ─────────────────────────────────────────────────────────────────────────── */
 .rhythm-editorial {
-  padding-block: 5rem;
+  padding-block: 2.5rem;
 }
 .rhythm-commerce {
   padding-block: 3rem;
@@ -548,7 +633,7 @@
 }
 @media (min-width: 640px) {
   .rhythm-editorial {
-    padding-block: 7rem;
+    padding-block: 3.5rem;
   }
   .rhythm-commerce {
     padding-block: 4rem;
@@ -559,7 +644,7 @@
 }
 @media (min-width: 1024px) {
   .rhythm-editorial {
-    padding-block: 10rem;
+    padding-block: 5rem;
   }
   .rhythm-commerce {
     padding-block: 5rem;
@@ -689,6 +774,69 @@
   }
 }
 
+/* ─── Hero curtain, phones and tablets only ───────────────────────────────────
+   The page's opening move below 1024px: the hero holds the viewport and the
+   content that follows rises over it and covers it.
+
+   ── Why this is the INVERSE of the desktop chain ────────────────────────────
+   Above lg the same read is produced the other way round — the hero scrolls off
+   normally and each section below is PINNED behind it, uncovered as it goes.
+   See PinnedRevealStage in homepage-section.tsx. That mechanism cannot come
+   down to a phone, for two reasons, and the second is the harder one:
+
+     1. It has no way to LAND. Each stage is a place the page should come to
+        rest at, and nothing about a pin makes a flick stop there — Lenis's Snap
+        does, and Lenis is off below 1024px because a phone's momentum belongs
+        to the OS (see smooth-scroll-provider.tsx).
+     2. Every stage must be exactly one viewport tall, because each is pulled up
+        by exactly one viewport. The first stage on this page is the category
+        band, which below lg is a COLUMN of three square tiles — around 1170px
+        on a 390px phone. It cannot be one viewport without being redesigned.
+
+   Pinning the hero instead sidesteps both. Nothing needs to land, because the
+   hero is not a destination — it is the thing being left. And the covering
+   content can be any height at all, so the band stays the stacked column it was
+   designed as. It is also pure CSS: no Lenis, no snap, no measurement, and it
+   adds no scroll length to the page.
+
+   ── The two rules are ONE mechanism ─────────────────────────────────────────
+   Do not keep one without the other. The hero must drop below its siblings in
+   paint order AND they must be opaque; either alone gives a broken page rather
+   than a lesser effect — an opaque hero over the content, or a transparent
+   sheet of sections sliding over a photograph that shows through them.
+
+   `z-index: 0` and not a negative one, which was the first attempt and is a
+   trap: <body> carries the page background, so a negatively-stacked hero paints
+   behind it and disappears entirely.
+
+   ⚠️  The cover goes on ONE wrapper — .page-over-hero in (storefront)/page.tsx
+   — and never on the sections themselves. Putting it on the sections was the
+   first attempt and it is a trap worth spelling out: every homepage section is
+   a .reveal-section, which starts at `opacity: 0`, and opacity applies to an
+   element's own background as well as to its contents. The backdrop was
+   therefore transparent for precisely as long as the section was fading in, so
+   scrolling faster than the IntersectionObserver showed the hero straight
+   through the page — a report of "I can see the hero underneath every section".
+   Any future fix that reaches for `.hero-curtain ~ *` reintroduces it.
+
+   Off under prefers-reduced-motion — a hero that stays put while the page moves
+   over it is exactly the kind of relative movement that setting asks for less
+   of.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1023px) and (prefers-reduced-motion: no-preference) {
+  .hero-curtain {
+    position: sticky;
+    top: 0;
+    z-index: 0;
+  }
+
+  .hero-curtain ~ .page-over-hero {
+    position: relative;
+    z-index: 1;
+    background-color: var(--background);
+  }
+}
+
 /* ─── Tile drift ──────────────────────────────────────────────────────────────
    A very slight vertical travel on the category tile images as the band passes
    through the viewport. The reference drives this from a --parallax-y custom
@@ -787,6 +935,187 @@
          rest of this stylesheet uses for anything that moves in space. */
       transition: flex-grow 600ms ease-out;
     }
+  }
+}
+
+/* ─── Tile stack, phones and tablets only ─────────────────────────────────────
+   Below 1024px the three category tiles stop being a stacked column of squares
+   and become three FULL-VIEWPORT panels, each one holding the top of the screen
+   while the next rises over and covers it.
+
+   It is the same gesture as .hero-curtain directly above the band, and that is
+   the point: the hero holds and the first tile covers it, the first tile holds
+   and the second covers it, and so on. One continuous idea from the top of the
+   page rather than a piece of motion that happens once and stops.
+
+   ── How it works, which is entirely in the flow ─────────────────────────────
+   Every panel is `sticky; top: 0` inside the same parent, so each sticks the
+   moment its own top edge reaches the viewport top and stays there for the rest
+   of the band. Nothing is pulled up or offset — a later sibling simply paints
+   over an earlier one, which is what makes each panel a curtain for the next.
+   No z-index is needed or wanted: DOM order already gives the right answer, and
+   the first tile is the one that must end up furthest back.
+
+   ⚠️  `flex: none` is load-bearing and must not be dropped. The parent is a
+   flex COLUMN below lg, and the .tile-accordion rule above sets `flex: 1 1 0%`
+   from 640px up — in a column that is a flex-basis on the HEIGHT, which beats
+   the `height` declared here and collapses all three panels between 640 and
+   1023px. The accordion needs it, this needs it gone, and they overlap.
+
+   This block must stay AFTER .tile-accordion: the two selectors have equal
+   specificity, so source order is the only thing deciding which wins.
+
+   `aspect-ratio: auto` clears the tiles' own `aspect-square`, which is what
+   they fall back to under reduced motion and above lg.
+
+   Applied only to the PINNED variant of the band (see homepage-section.tsx).
+   The in-flow variant sits inside a RevealSection, whose transform would make
+   itself the containing block for these sticky panels and scope the whole
+   effect to a wrapper that never moves — the same trap documented on
+   PinnedRevealStage.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1023px) and (prefers-reduced-motion: no-preference) {
+  .tile-stack > * {
+    position: sticky;
+    top: 0;
+    flex: none;
+    height: 100svh;
+    aspect-ratio: auto;
+  }
+}
+
+/* ─── Fit one section to one screen ───────────────────────────────────────────
+   A section carrying this owns exactly one viewport and never asks to be
+   scrolled through — heading, tiles and all.
+
+   ── The arithmetic ──────────────────────────────────────────────────────────
+   Measured at 1920×1000, which is where the overrun was reported:
+
+     viewport                 1000
+     − sticky header           105     --header-h, below
+     = available                895
+
+     − section padding (80×2)   160     .rhythm-editorial at lg
+     − heading block            101     eyebrow + h2 + subtitle
+     − heading margin            56     mb-14
+     = left for the tiles       578
+
+   Before this the tiles were 1222 tall, so the section ran 644px past the fold
+   and you had to scroll to see one block.
+
+   ── Why the tiles are not given a fixed crop instead ────────────────────────
+   Because 578 is not a constant — it falls out of the window height, and a crop
+   tuned to a 1000px window is wrong on a 800px laptop and wasteful on a 1440px
+   monitor. So the section takes the height and the LAST CHILD absorbs whatever
+   is left after the heading. The crop is then an outcome rather than a number
+   anyone has to maintain. At 1920 it lands at roughly 16:9; on a shorter window
+   it flattens further, which is the correct behaviour — the alternative is
+   overflowing again.
+
+   ── `.fit-grow` marks the element that absorbs the slack ────────────────────
+   Named rather than `:last-child`, which is what this used to be and which is
+   wrong the moment a section gains anything after its grid. "The collections"
+   does exactly that — its "View all" sits below the tiles — so `:last-child`
+   handed the whole leftover height to a one-line link and left the grid at its
+   natural height, overflowing exactly as before. Mark the grid, not a position.
+
+   `min-height: 0` on it is load-bearing and easy to delete by accident. A flex
+   item's default `min-height: auto` refuses to shrink below its content, so
+   without it the images push the section straight back past the fold and this
+   whole block silently does nothing.
+
+   ── lg only ─────────────────────────────────────────────────────────────────
+   A phone has no height to spare: four tiles and a heading inside 600-odd px
+   would be thumbnails. Below 1024px these sections stay their natural height
+   and scroll, which on a phone is the normal way to read a page anyway.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 1024px) {
+  .fit-viewport {
+    display: flex;
+    flex-direction: column;
+    /* svh, not vh: the small viewport is the stable one — dvh would resize the
+       section as browser chrome retracts and reflow it mid-scroll. */
+    height: calc(100svh - var(--header-h));
+  }
+
+  /* ── A tighter rhythm, so the pictures get the screen ────────────────────
+     The editorial rhythm's 80px each side and the heading's 56px bottom margin
+     are right for a section that is free to be as tall as it likes. Inside a
+     fixed screen they are not: at a 914px window they took 317 of the
+     section's 809px, leaving 492 for photographs and reading as a band of
+     empty page under the tiles. 48 and 32 give 88px of that back — the tiles
+     go from 220/260 tall to 267/301, about 15% larger, with no change to the
+     composition.
+
+     Scoped to .fit-viewport so ordinary sections keep the full rhythm. This
+     block sits after .rhythm-editorial in the file, which is what lets it win:
+     both are unlayered and equally specific, so source order decides. Moving
+     either one above the other silently reverts this. */
+  .fit-viewport {
+    padding-block: 3rem;
+  }
+
+  .fit-viewport .section-heading {
+    margin-bottom: 2rem;
+  }
+
+  .fit-viewport > .fit-grow {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+}
+
+/* ─── Grid gutter ─────────────────────────────────────────────────────────────
+   ONE gap for every tiled section on the site: the product grid, the collection
+   row, the editorial pair and the worldTiles band.
+
+   Each of those had invented its own, and the result was four column gaps and
+   three row gaps on a single homepage — 8px between the editorial pair's two
+   photographs, 8px in the worldTiles band, 24px between collections, 16–24px
+   between products. Nothing lined up with anything, and the page read as
+   several designs sharing a stylesheet.
+
+   The scale is the product grid's, because that grid appears on more pages than
+   all the others put together — so the catalogue, where a shopper spends the
+   longest, did not move, and the homepage came to meet it.
+
+   ── Rows are larger than columns, on purpose ────────────────────────────────
+   Not decoration and not a rounding artefact. Tiles in these grids carry their
+   caption BELOW the photograph, so the row gap is the only thing separating one
+   tile's text from the next tile's image. At equal gaps a caption reads as
+   belonging to the picture underneath it. Keep row > column if these change.
+
+   ── The columns get TIGHTER as the viewport grows ───────────────────────────
+   16 / 14 / 12, which looks backwards next to every other scale in this file
+   and is not. The tiles themselves grow with the viewport, so a fixed gap is a
+   shrinking proportion of the row: 12px between four 430px desktop tiles is
+   less air than 16px between two 180px phone tiles. Holding the RATIO roughly
+   steady means the number falls. Measured against giva.co, whose catalogue runs
+   ~14px between tiles at 1920.
+
+   The phone keeps the largest value for a second reason: at 8px two tiles at
+   that width read as one block, which is exactly the confusion the original
+   gapless grid produced.
+
+   ⚠️  Deliberately NOT applied to the full-bleed category band under the hero.
+   That one is gapless by design — see .tile-accordion, where the tiles resize
+   edge to edge under the pointer and the absence of gaps is what makes three
+   tiles read as one band.
+   ─────────────────────────────────────────────────────────────────────────── */
+.grid-gutter {
+  column-gap: 1rem;
+  row-gap: 2rem;
+}
+@media (min-width: 640px) {
+  .grid-gutter {
+    column-gap: 0.875rem;
+    row-gap: 2.25rem;
+  }
+}
+@media (min-width: 1024px) {
+  .grid-gutter {
+    column-gap: 0.75rem;
+    row-gap: 2.5rem;
   }
 }
 

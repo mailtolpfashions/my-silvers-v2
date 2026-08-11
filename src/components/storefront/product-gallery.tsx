@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import Image from "next/image";
 import { ProductImageZoom } from "@/components/storefront/product-image-zoom";
+import { GalleryRail } from "@/components/storefront/gallery-rail";
 
 /**
  * The product gallery.
@@ -27,10 +28,16 @@ import { ProductImageZoom } from "@/components/storefront/product-image-zoom";
  * abandon the card → page morph for the whole document. Frame 0 must exist
  * exactly once in the tree.
  *
- * The thumbnail strip is gone at both widths. It made the photography secondary
- * — you looked at a small picture and clicked to see a bigger one — which is
- * backwards for a design that rests on the photographs being the loudest thing
- * on the page.
+ * ── The thumbnail rail ───────────────────────────────────────────────────────
+ * A persistent thumbnail strip was removed here once, because it made the
+ * photography secondary: you looked at a small picture and clicked to see a
+ * bigger one, which is backwards for a design that rests on the photographs
+ * being the loudest thing on the page.
+ *
+ * What is here now is not that. It is hidden until the pointer is over the
+ * gallery, so at rest the page is still nothing but photography, and it does
+ * not swap a main image — it scrolls to one. Desktop only. See gallery-rail.tsx
+ * for why that is the only job the control can do against a stacked gallery.
  */
 export function ProductGallery({
   images,
@@ -52,6 +59,10 @@ export function ProductGallery({
   morphSlot?: React.ReactNode;
 }) {
   const [active, setActive] = useState(0);
+  // Stable across renders and unique per gallery instance, so the rail can find
+  // its frames by id without either of them owning a ref list.
+  const galleryId = useId();
+  const frameIds = images.map((_, i) => `${galleryId}-frame-${i}`);
 
   // Handed to ProductImageZoom rather than wrapped around it: that component
   // already owns the swipe/click interaction and needs to know a swipe
@@ -74,11 +85,17 @@ export function ProductGallery({
   return (
     <div>
       {/* gap-2 on desktop rather than a flush stack: at full column width two
-          touching photographs read as one very tall picture. */}
-      <div className="flex flex-col lg:gap-2">
+          touching photographs read as one very tall picture.
+
+          `group/gallery` is the hover scope the rail fades in from. Named
+          rather than bare, because each frame inside is already a `group` of
+          its own for the zoom affordance, and an unnamed one here would be the
+          nearer ancestor for those. */}
+      <div className="group/gallery relative flex flex-col lg:gap-2">
         {images.map((src, i) => (
           <div
             key={src}
+            id={frameIds[i]}
             // The whole responsive behaviour, in one line: on a phone only the
             // active frame is laid out; from lg every frame is.
             className={i === active ? "block" : "hidden lg:block"}
@@ -107,6 +124,12 @@ export function ProductGallery({
             <ProductVideo videoUrl={videoUrl} poster={images[0]} />
           </div>
         )}
+
+        {/* Last in the DOM so it paints over the photographs, and INSIDE the
+            hover group so moving onto the rail itself does not dismiss it. It
+            is sticky with zero height, so it costs the column no layout — see
+            the note in gallery-rail.tsx. */}
+        <GalleryRail images={images} alt={alt} frameIds={frameIds} />
       </div>
 
       {/* Dots are a phone affordance only — on desktop every frame is already

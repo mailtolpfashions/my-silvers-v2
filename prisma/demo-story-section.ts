@@ -40,30 +40,14 @@ const STORY = {
   isActive: true,
 };
 
-const PAIR_KEY = "Gifts that say it for you";
-
-/** The reference site's signature editorial beat, for the same reason. */
-const PAIR = {
-  type: "editorialPair",
-  title: PAIR_KEY,
-  eyebrow: "Inspired by love",
-  subtitle: "Two ways into the collection, chosen for the people you buy for.",
-  items: [
-    {
-      image: "https://placehold.co/720x900/e8e4e0/0C0C0E.png?text=For+Her",
-      title: "Moments Set in Silver",
-      text: "Discover gifts for her",
-      href: "/products",
-    },
-    {
-      image: "https://placehold.co/720x900/d8d4d0/0C0C0E.png?text=Everyday",
-      title: "For Everything She Is",
-      text: "Shop everyday pieces",
-      href: "/products",
-    },
-  ],
-  isActive: true,
-};
+/**
+ * Titles this script has owned at some point, so `remove` takes back exactly
+ * what it added — including the "Gifts that say it for you" editorial pair it
+ * used to add alongside the story. That pair is gone: it duplicated the
+ * worldTiles band above it, both headed "Inspired by Love". Keeping its title
+ * here means a database still carrying it gets cleaned up on the next run.
+ */
+const OWNED_TITLES = [DEMO_KEY, "Gifts that say it for you"];
 
 type SectionRow = Record<string, unknown>;
 
@@ -85,13 +69,11 @@ async function main() {
     if (!doc) continue;
 
     const sections = (Array.isArray(doc.sections) ? doc.sections : []).filter(
-      (s) => s?.title !== DEMO_KEY && s?.title !== PAIR_KEY,
+      (s) => !OWNED_TITLES.includes(s?.title as string),
     );
     // Second position: after the first product grid, so it is reached by
-    // scrolling rather than being the first thing on the page. The editorial
-    // pair follows it, which is the reference's own rhythm — a full-bleed
-    // statement, then two photographs, then commerce.
-    if (mode === "add") sections.splice(1, 0, STORY, PAIR);
+    // scrolling rather than being the first thing on the page.
+    if (mode === "add") sections.splice(1, 0, STORY);
 
     await prisma.contentEntry.update({
       where: { id: entry.id },

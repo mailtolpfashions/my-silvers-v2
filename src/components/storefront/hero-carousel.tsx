@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { useSwipe } from "@/lib/use-swipe";
+import { usePointerPause } from "@/lib/use-pointer-pause";
 
 export type HeroSlide = {
   id: string;
@@ -43,11 +44,16 @@ function isVideo(url: string) {
 /**
  * How long a slide holds before the next one takes its place.
  *
- * Six seconds, matching the reference. Long enough to read a headline and a
- * subline without hurrying, which is the actual constraint — a hero that
- * changes faster than it can be read is just flicker.
+ * ⚠️  Four seconds is still faster than a headline and a subline can be read
+ * unhurriedly. It has come down from six — the reference's value, chosen on
+ * exactly that reasoning — via three, which read as too fast. If the hero ever
+ * starts feeling like flicker again, this is the number to raise, not the
+ * transition.
  */
-const AUTOPLAY_MS = 6000;
+const AUTOPLAY_MS = 4000;
+
+/** How long a pointer interaction holds the rotation before it resumes. */
+const POINTER_PAUSE_MS = 2000;
 
 /**
  * The homepage hero.
@@ -113,8 +119,18 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
    */
   const [playing, setPlaying] = useState(true);
 
-  /** Pointer over the hero, or focus somewhere inside it. */
-  const [engaged, setEngaged] = useState(false);
+  /**
+   * Focus somewhere inside the hero. Holds for as long as it lasts.
+   *
+   * Split from the pointer, which now only pauses briefly — see
+   * usePointerPause. A keyboard user working through a slide's links cannot be
+   * asked to read against a two-second timer, and the explicit pause button
+   * below is the WCAG 2.2.2 mechanism for everyone else.
+   */
+  const [focusHeld, setFocusHeld] = useState(false);
+
+  /** Pointer interaction: pauses for two seconds, then resumes on its own. */
+  const { paused: pointerPaused, nudge } = usePointerPause(POINTER_PAUSE_MS);
 
   /** Tab in the background. No reason to advance a hero nobody is looking at. */
   const [documentHidden, setDocumentHidden] = useState(false);
@@ -158,7 +174,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
   }, []);
 
   const autoplaying =
-    count > 1 && motionAllowed && playing && !engaged && !documentHidden;
+    count > 1 && motionAllowed && playing && !focusHeld && !pointerPaused && !documentHidden;
 
   /**
    * setTimeout, not setInterval, and `activeIndex` is deliberately a dependency:
@@ -187,17 +203,30 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
       // carrying this attribute; nothing has to know about the header.
       data-hero-full
       // z-10 is what makes the pinned reveal work: the category band that
-      // follows is pulled up BEHIND this hero (see `revealUnderHero` in
+      // follows is pulled up BEHIND this hero (see PinnedRevealStage in
       // homepage-section.tsx) and, being a later sibling, would otherwise paint
       // on top of it. Well under the header's z-40, which still floats above.
-      className="relative z-10"
-      // Hold while someone is engaged with the hero. React's onFocus/onBlur
-      // bubble, so these two behave as focus-within and cover a keyboard user
-      // tabbing into a slide's links.
-      onMouseEnter={() => setEngaged(true)}
-      onMouseLeave={() => setEngaged(false)}
-      onFocus={() => setEngaged(true)}
-      onBlur={() => setEngaged(false)}
+      //
+      // `hero-curtain` is the opposite arrangement, and it applies only below
+      // 1024px, where that pinned chain cannot run at all: this hero sticks to
+      // the top of the viewport and the sections after it scroll over and cover
+      // it. The class carries both halves — the stick and the siblings' cover —
+      // so the two can never be half-applied. It overrides the `relative z-10`
+      // above inside its own media query; both are left here because each is
+      // what the OTHER breakpoint needs. See the .hero-curtain block in
+      // globals.css before changing either.
+      className="hero-curtain relative z-10"
+      // Pointer and focus are handled differently on purpose — see the two
+      // pieces of state above. `onMouseMove` as well as `onMouseEnter` so that
+      // moving around inside the hero keeps deferring the resume rather than
+      // letting it fire while the shopper is still reading.
+      //
+      // React's onFocus/onBlur bubble, so those two behave as focus-within and
+      // cover a keyboard user tabbing into a slide's links.
+      onMouseEnter={nudge}
+      onMouseMove={nudge}
+      onFocus={() => setFocusHeld(true)}
+      onBlur={() => setFocusHeld(false)}
     >
       <div
         {...swipe.handlers}
@@ -470,12 +499,24 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
 }
 
 /**
- * A square 48px control on a solid fill — the desktop cluster's pause, previous
- * and next all share it.
+ * A square 48px HOLLOW control — the desktop cluster's pause, previous and next
+ * all share it. No radius and no shadow, like everything else on this
+ * storefront.
  *
- * Solid, not translucent: these sit over photography nobody controls, and a
- * white/20 button vanishes on a pale image. No radius and no shadow — the two
- * things the rest of the storefront has already shed.
+ * ── It used to be solid, and that was not an accident ────────────────────────
+ * The note here previously read: "Solid, not translucent: these sit over
+ * photography nobody controls, and a white/20 button vanishes on a pale image."
+ * That risk is real and has not gone away — an outline over a bright, busy
+ * photograph is the weakest state this control can be in.
+ *
+ * Two things carry it instead of a fill:
+ *   backdrop-blur   softens whatever is behind the glyph, so the edge stays
+ *                   readable over detail rather than only over flat colour
+ *   white/70 border at 1px against a white glyph, which is the same pairing the
+ *                   hero's own copy already relies on over these images
+ *
+ * If a slide ever defeats it, the fix is a darker scrim on that slide — not a
+ * return to a white block, which is what this was asked to stop being.
  *
  * The `disabled` state this used to carry is gone with the clamping: the track
  * wraps, so there is no end to be stranded at and nothing to grey out.
@@ -494,7 +535,7 @@ function HeroControl({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex size-12 items-center justify-center bg-white/90 text-black transition-colors hover:bg-white"
+      className="flex size-12 items-center justify-center border border-white/70 text-white backdrop-blur-sm transition-colors hover:border-white hover:bg-white/15"
     >
       {children}
     </button>

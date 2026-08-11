@@ -4,60 +4,53 @@
  * Extracted from homepage-section.tsx so the editorial pair, the journal row
  * and any future section share one rhythm rather than each re-implementing it.
  *
- * `align` exists because centring everything was flattening the page. When
- * every section announces itself with the same centred three-line block, the
- * page has no shape — each one reads as equally important, which is the same as
- * none of them being important. The rule now:
+ * ── Every section heading is centred ─────────────────────────────────────────
+ * There used to be an `align` prop, and a rule behind it: editorial beats
+ * centred, commerce grids left with a "view all" hung off the right edge. The
+ * argument for it was that centring everything flattens the page, since a
+ * column of identical centred three-line blocks makes every section read as
+ * equally important.
  *
- *   center  editorial beats — the pairs, the craft claims, social proof
- *   left    commerce grids — new in, bestsellers, a catalogue listing
+ * In practice the split read as a mistake rather than as hierarchy — a page
+ * where some headings sit centred and the next one starts at the left margin
+ * looks unaligned, not deliberate. One axis for all of them is the decision
+ * now. If a section ever needs to be set apart again, do it with something
+ * that reads as intent — a rule, a different type size, more space around it —
+ * rather than by moving it off the page's centre line.
  *
  * Full-bleed blocks (story, category doorways) pass no heading at all; they
  * name themselves.
+ *
+ * ── There is no `action` slot any more ───────────────────────────────────────
+ * A centred heading has no right edge to hang a "view all" from. Sections that
+ * have one render it centred BELOW their grid, which is the order a shopper
+ * uses it in anyway: the heading, the pieces, then the way to see more. See the
+ * `viewAll` block in homepage-section.tsx.
  */
 export function SectionHeading({
   title,
   eyebrow,
   subtitle,
-  align = "left",
-  /** Rendered to the right of a left-aligned heading — usually a "view all". */
-  action,
 }: {
   title?: string;
   eyebrow?: string;
   subtitle?: string;
-  align?: "left" | "center";
-  action?: React.ReactNode;
 }) {
   if (!title && !eyebrow && !subtitle) return null;
 
-  const centered = align === "center";
-
   return (
-    <div
-      className={`mb-10 sm:mb-14 ${
-        centered
-          ? "text-center"
-          : "flex flex-wrap items-end justify-between gap-x-8 gap-y-4"
-      }`}
-    >
-      <div className={centered ? "" : "min-w-0"}>
-        {eyebrow && <p className="label-eyebrow mb-3">{eyebrow}</p>}
-        {title && <h2 className="text-h2">{title}</h2>}
-        {subtitle && (
-          <p
-            className={`text-lead mt-3 max-w-prose text-muted-foreground ${
-              centered ? "mx-auto" : ""
-            }`}
-          >
-            {subtitle}
-          </p>
-        )}
-      </div>
-      {/* Only ever hung off a left-aligned heading — a centred heading has no
-          right edge to hang it from, so those sections put their action below
-          the grid instead. */}
-      {!centered && action}
+    // `section-heading` carries no styling of its own — it is the hook
+    // .fit-viewport uses to tighten this block's bottom margin, so a section
+    // that has to fit one screen spends less of it on the gap under its title.
+    // See globals.css.
+    <div className="section-heading mb-10 text-center sm:mb-14">
+      {eyebrow && <p className="label-eyebrow mb-3">{eyebrow}</p>}
+      {title && <h2 className="text-h2">{title}</h2>}
+      {subtitle && (
+        <p className="text-lead mx-auto mt-3 max-w-prose text-muted-foreground">
+          {subtitle}
+        </p>
+      )}
     </div>
   );
 }

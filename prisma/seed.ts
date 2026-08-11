@@ -93,6 +93,9 @@ const systemContentTypes = [
               "editorialPair",
               "story",
               "categoryTiles",
+              "categoryPills",
+              "worldTiles",
+              "collectionSpotlight",
               "usp",
             ],
             required: true,
@@ -121,7 +124,7 @@ const systemContentTypes = [
             name: "featuredOnly",
             label: "Featured collections only",
             type: "boolean",
-            showWhen: { field: "type", equals: ["collections"] },
+            showWhen: { field: "type", equals: ["collections", "collectionSpotlight"] },
           },
           {
             name: "bannerPosition",
@@ -134,13 +137,25 @@ const systemContentTypes = [
             name: "limit",
             label: "How many items",
             type: "number",
-            showWhen: { field: "type", equals: ["products", "collections", "categoryTiles"] },
+            showWhen: {
+              field: "type",
+              equals: [
+                "products",
+                "collections",
+                "collectionSpotlight",
+                "categoryTiles",
+                "categoryPills",
+              ],
+            },
           },
           {
             name: "viewAllHref",
             label: "'View all' link (blank to hide)",
             type: "text",
-            showWhen: { field: "type", equals: ["products", "collections"] },
+            showWhen: {
+              field: "type",
+              equals: ["products", "collections", "collectionSpotlight"],
+            },
           },
           {
             name: "pinnedReveal",
@@ -150,7 +165,21 @@ const systemContentTypes = [
             // `products` needs its natural height and its own scroll, and
             // `editorialPair`/`editorial` are container-page blocks. Offering
             // the switch there would let an editor build a broken page.
+            //
+            // `categoryPills` is absent on purpose and is the easiest one to
+            // add here by mistake, since it shows the same categories as
+            // `categoryTiles` — but it draws them as a padded row of circles,
+            // so it belongs with the blocks above, not with the band.
             showWhen: { field: "type", equals: ["categoryTiles", "story", "banner"] },
+          },
+          {
+            name: "layout",
+            label: "Arrangement — a row of four, or a staggered 2×2",
+            type: "select",
+            options: ["row", "stagger"],
+            // Only the doorway band has two arrangements. A page can carry one
+            // of each by adding two sections.
+            showWhen: { field: "type", equals: ["worldTiles"] },
           },
           { name: "isActive", label: "Show this section", type: "boolean" },
 
@@ -195,9 +224,12 @@ const systemContentTypes = [
             // repeater and reads only each row's Text, so a pinned section
             // needs no second array field on this form — the label explains
             // which column is being read.
-            label: "Rows — a 'story' uses each Text as one stage; an 'editorialPair' uses Image, Title as the caption, Text as the link label, and Link",
+            label: "Rows — a 'story' uses each Text as one stage; an 'editorialPair' uses Image, Title as the caption, Text as the link label, and Link; a 'worldTiles' uses Image, Title as the word laid over it, and Link (four rows is the shape it was drawn for)",
             type: "array",
-            showWhen: { field: "type", equals: ["usp", "story", "editorialPair"] },
+            showWhen: {
+              field: "type",
+              equals: ["usp", "story", "editorialPair", "worldTiles"],
+            },
             of: [
               {
                 name: "icon",

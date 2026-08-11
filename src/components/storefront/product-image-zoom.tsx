@@ -1,13 +1,11 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import { X, ZoomIn } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useSwipe } from "@/lib/use-swipe";
 
-/** How far the hover lens magnifies the main image. */
-const HOVER_SCALE = 2.2;
 /** How far a click inside the lightbox magnifies. */
 const MODAL_SCALE = 2.5;
 
@@ -27,16 +25,22 @@ function originFromEvent(
 }
 
 /**
- * Hover-to-magnify over the product image, plus a full-screen lightbox.
+ * Opens the product image full screen. The image in the page does not react to
+ * the cursor at all.
  *
- * The magnifier is a CSS transform on the existing <Image> rather than a second,
- * larger download: Next already serves this image at up to 45vw, so scaling the
- * decoded bitmap costs nothing extra and there is no second network request to
- * wait for. It composites on the GPU, so following the cursor stays smooth.
+ * ── The hover magnifier was removed, deliberately ────────────────────────────
+ * This used to also carry a lens: moving the pointer over the image scaled it
+ * 2.2× and tracked the cursor. It was cheap and it worked, and it still went,
+ * because the lightbox below already does the same job better — bigger, at a
+ * larger source, pannable, and reachable from a phone. Two zooms on one image
+ * meant the page magnified itself under a pointer that was only passing over
+ * it, and the accidental version was the worse of the two.
  *
- * Hover zoom is gated on a fine pointer. On touch there is no hover state, so a
- * tap opens the lightbox instead — which is the only sensible zoom on a phone
- * anyway, where the image is already full-bleed.
+ * So the interaction is now one thing at every width and on every input: click,
+ * tap or Enter opens the full-screen view. Do not reintroduce a hover
+ * behaviour here without removing the lightbox first — the reason this is a
+ * single gesture is that the picture should hold still until it is asked not
+ * to.
  */
 export function ProductImageZoom({
   src,
@@ -58,48 +62,28 @@ export function ProductImageZoom({
    */
   children: React.ReactNode;
 }) {
-  const [origin, setOrigin] = useState<Origin>(CENTRE);
-  const [zooming, setZooming] = useState(false);
   const [open, setOpen] = useState(false);
-  const frameRef = useRef<HTMLDivElement | null>(null);
 
   // Shared with the hero carousel — same gesture, same two traps.
   const swipe = useSwipe({ onPrev, onNext });
 
-  const handleMove = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    // matchMedia on every move is cheap and always current — a laptop with a
-    // touchscreen can switch between the two mid-session.
-    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
-    setOrigin(originFromEvent(event, frameRef.current));
-    setZooming(true);
-  }, []);
-
   return (
     <>
       <div
-        ref={frameRef}
         {...swipe.handlers}
         // pan-y keeps vertical scrolling native while telling the browser not to
         // handle horizontal gestures itself, which would otherwise fight this.
         className="group relative aspect-[4/5] touch-pan-y overflow-hidden bg-muted"
       >
-        <div
-          className="absolute inset-0 transition-transform duration-200 ease-out motion-reduce:transition-none"
-          style={{
-            transform: zooming ? `scale(${HOVER_SCALE})` : "scale(1)",
-            transformOrigin: `${origin.x}% ${origin.y}%`,
-          }}
-        >
-          {children}
-        </div>
+        {children}
 
-        {/* A transparent overlay owns the pointer, so the transform underneath
-            can never swallow a mousemove or steal the click. */}
+        {/* A transparent overlay owns the pointer rather than the image owning
+            it: `children` is sometimes the server-rendered <Image> carrying the
+            view-transition name, and attaching handlers to it here would mean
+            re-rendering it and breaking the card → page morph. */}
         <button
           type="button"
           aria-label={`Open ${alt} at full size`}
-          onMouseMove={handleMove}
-          onMouseLeave={() => setZooming(false)}
           onClick={() => {
             // A swipe must not also open the lightbox.
             if (swipe.consumeSwipe()) return;
@@ -108,7 +92,9 @@ export function ProductImageZoom({
           className="absolute inset-0 cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         />
 
-        {/* Affordance — without it nothing tells a shopper the image is zoomable.
+        {/* Affordance — without it nothing tells a shopper the image opens. It
+            matters more now than it did: with the hover magnifier gone this is
+            the only thing that answers the cursor at all.
             pointer-events-none so it never blocks the overlay button. */}
         <span
           aria-hidden

@@ -26,12 +26,21 @@ export function EditorialPair({
   items: Array<{ image: string; caption: string; linkLabel?: string; href?: string }>;
 }) {
   return (
-    <RevealSection className="container-page rhythm-editorial">
-      <SectionHeading title={title} eyebrow={eyebrow} subtitle={subtitle} align="center" />
+    // `fit-viewport` makes this block own exactly one screen from lg up: the
+    // heading takes what it needs and the row below absorbs the rest, so the
+    // whole section is readable without scrolling. See globals.css for the
+    // arithmetic. It is why the tiles are landscape here rather than the 4:5
+    // portrait they were — two half-width tiles cannot be portrait AND fit.
+    <RevealSection className="container-page rhythm-editorial fit-viewport">
+      <SectionHeading title={title} eyebrow={eyebrow} subtitle={subtitle} />
 
-      {/* The images almost touch, which keeps the pair reading as one
-          composition rather than two unrelated pictures. */}
-      <div className="grid gap-x-2 gap-y-12 sm:grid-cols-2">
+      {/* The site's one grid gutter — see .grid-gutter in globals.css.
+          These two photographs used to sit 8px apart, so the pair read as a
+          single composition rather than two unrelated pictures. That was a real
+          effect and it was given up knowingly: it was also the reason a single
+          homepage showed four different column gaps. Uniformity across every
+          tiled section was worth more than this one block's tightness. */}
+      <div className="grid grid-gutter fit-grow sm:grid-cols-2">
         {items.map((item, i) => (
           <EditorialTile
             key={i}
@@ -41,6 +50,7 @@ export function EditorialPair({
             image={item.image}
             title={item.caption}
             linkLabel={item.linkLabel}
+            fillHeight
             sizes="(max-width: 640px) 100vw, 50vw"
           />
         ))}

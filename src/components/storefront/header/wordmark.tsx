@@ -14,7 +14,7 @@ import Image from "next/image";
  * footer separately.
  *
  * Two assets, not one scaled asset. The full lockup is stacked (mark above
- * wordmark) and needs vertical room; the square mark alone is what fits a 56px
+ * wordmark) and needs vertical room; the square mark alone is what fits a 48px
  * mobile band beside three icons. Same approach as the previous storefront.
  */
 export function Wordmark({ className = "" }: { className?: string }) {

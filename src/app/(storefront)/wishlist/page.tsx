@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth/auth";
 import { getWishlistProducts } from "@/server/cart";
+import { toProductListItem } from "@/server/products/search";
 import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
 import { EditorialLink } from "@/components/storefront/editorial-link";
 
@@ -37,25 +38,14 @@ export default async function WishlistPage() {
         </div>
       ) : (
         // The same card as every other grid on the site, so a saved piece looks
-        // exactly as it did where the shopper saved it. Add-to-cart is on the
-        // product page — see the note in add-to-cart-button.tsx.
+        // exactly as it did where the shopper saved it — including its
+        // add-to-cart control.
         <div className={PRODUCT_GRID_CLASS}>
           {products.map((product) => (
             <ProductCard
               key={product.id}
               morphName={productMorphName(product.id)}
-              product={{
-                id: product.id,
-                name: product.name,
-                slug: product.slug,
-                price: product.price.toString(),
-                compareAtPrice: product.compareAtPrice?.toString() ?? null,
-                images: product.images,
-                isBestseller: product.isBestseller,
-                isFeatured: product.isFeatured,
-                stock: product.stock,
-                categoryName: product.category.name,
-              }}
+              product={toProductListItem(product)}
             />
           ))}
         </div>

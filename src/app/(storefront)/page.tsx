@@ -47,16 +47,38 @@ export default async function HomePage() {
         heroSlides.length > 0 && <HeroCarousel slides={heroSlides} />
       )}
 
-      <Suspense fallback={<HomepageSectionsSkeleton />}>
-        <HomepageSections data={homepage?.data} revealEnabled={heroIsFullBleed} />
-      </Suspense>
+      {/*
+        Everything below the hero, in one element.
 
-      {/* Last thing before the footer — social proof lands after a shopper has
-          seen the products it's vouching for. Behind its own boundary so a
-          review query never delays the catalogue above it. */}
-      <Suspense fallback={null}>
-        <CustomerReviews />
-      </Suspense>
+        ── Why the wrapper exists ────────────────────────────────────────────
+        It is the opaque sheet that covers the sticky hero below 1024px — see
+        the .hero-curtain block in globals.css. That backdrop CANNOT live on
+        the sections themselves, which was the first attempt: every section is
+        a .reveal-section that starts at `opacity: 0`, and opacity applies to
+        an element's own background as well as its contents. So each section's
+        backdrop was transparent for exactly as long as the section was fading
+        in — outscroll the IntersectionObserver and the hero showed straight
+        through the page. This wrapper never animates, so it is never
+        transparent.
+
+        Inert above lg and under reduced motion, where it is a plain div with
+        no position and no fill: the negative top margin on the first pinned
+        stage collapses through it and the desktop chain's geometry is
+        unchanged. Verified — the stage still resolves to margin-top: -900px
+        at 1440.
+      */}
+      <div className="page-over-hero">
+        <Suspense fallback={<HomepageSectionsSkeleton />}>
+          <HomepageSections data={homepage?.data} revealEnabled={heroIsFullBleed} />
+        </Suspense>
+
+        {/* Last thing before the footer — social proof lands after a shopper has
+            seen the products it's vouching for. Behind its own boundary so a
+            review query never delays the catalogue above it. */}
+        <Suspense fallback={null}>
+          <CustomerReviews />
+        </Suspense>
+      </div>
     </div>
   );
 }
