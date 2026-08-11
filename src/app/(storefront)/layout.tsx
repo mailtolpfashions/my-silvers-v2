@@ -3,6 +3,7 @@ import { SiteHeader } from "@/components/storefront/site-header";
 import { SiteFooter } from "@/components/storefront/site-footer";
 import { UserStateHydrator } from "@/components/storefront/user-state-hydrator";
 import { SiteJsonLd } from "@/components/storefront/structured-data";
+import { SmoothScrollProvider } from "@/components/storefront/motion/smooth-scroll-provider";
 
 /**
  * Only the <main> content slides during navigation. The announcement bar,
@@ -29,6 +30,12 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
       {/* Organization + WebSite, once for the whole storefront. Synchronous and
           built from environment values only, so it costs the layout nothing. */}
       <SiteJsonLd />
+
+      {/* Renders nothing, and nothing below 1024px or under reduced motion.
+          Unlike the version removed in ef2fe2d this needs no Suspense boundary:
+          it reads no runtime data — no usePathname — so it does not make every
+          storefront route blocking, and /blog/[slug] stays fully static. */}
+      <SmoothScrollProvider />
 
 
       {/* ── Atmosphere ──────────────────────────────────────────────────────
