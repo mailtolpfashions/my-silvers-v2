@@ -49,6 +49,18 @@ const systemContentTypes = [
             type: "image",
           },
           { name: "overlayOpacity", label: "Overlay opacity (0–100)", type: "number" },
+          // The header floats OVER the hero in white type, held together by a
+          // scrim that has faded to nothing by the header's lower edge — which
+          // is exactly where the wordmark, nav and cart sit. That works on
+          // photography and fails completely on a pale slide, so a pale slide
+          // has to say so. Blank means "light", which is what every slide
+          // authored before this field existed wants.
+          {
+            name: "headerTone",
+            label: "Header text over this slide — choose Dark if the artwork is pale",
+            type: "select",
+            options: ["light", "dark"],
+          },
           { name: "isActive", label: "Show this slide", type: "boolean" },
         ],
       },

@@ -23,6 +23,20 @@ export type HeroSlide = {
    */
   mediaMobile?: string;
   overlayOpacity?: number;
+  /**
+   * Which way the FLOATING HEADER's text runs while this slide is showing.
+   *
+   * "light" (white type) is the default and suits photography. "dark" exists for
+   * pale artwork: the header over a hero is transparent, and its only defence is
+   * a scrim that fades to nothing by the header's bottom edge — so on a white
+   * slide the wordmark, nav and cart all sit at roughly 1:1 contrast and vanish.
+   * Deepening the scrim is not the fix; it just paints a grey bar across the top
+   * of a white photograph.
+   *
+   * Per SLIDE rather than per hero, because a carousel can mix a white packshot
+   * with a dark editorial frame — the attribute follows the active index.
+   */
+  headerTone?: "light" | "dark";
 };
 
 /**
@@ -202,6 +216,11 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
       // wants the same treatment (a full-bleed collection hero, say) opts in by
       // carrying this attribute; nothing has to know about the header.
       data-hero-full
+      // Set ONLY on a slide that asks for dark header type, so the default path
+      // emits exactly the markup it always did and the CSS needs no rule for it.
+      // It tracks the active index: with a mixed carousel the header flips as
+      // the pale slide comes round. See `headerTone` on HeroSlide.
+      data-header-ink={slides[activeIndex]?.headerTone === "dark" ? "dark" : undefined}
       // z-10 is what makes the pinned reveal work: the category band that
       // follows is pulled up BEHIND this hero (see PinnedRevealStage in
       // homepage-section.tsx) and, being a later sibling, would otherwise paint

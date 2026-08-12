@@ -38,6 +38,10 @@ export function toHeroSlides(data: EntryData | undefined): HeroSlide[] {
         overlayOpacity: Number.isFinite(overlay)
           ? Math.min(100, Math.max(0, overlay))
           : undefined,
+        // Anything other than an explicit "dark" is light, so slides authored
+        // before this field existed — and the empty value a fresh select starts
+        // on — both land on the white type the hero has always used.
+        headerTone: str(slide.headerTone) === "dark" ? "dark" : "light",
       };
     });
 }

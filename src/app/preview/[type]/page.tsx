@@ -202,6 +202,9 @@ function TypePreview({ type, data }: { type: string; data: EntryData }) {
               overlayOpacity: Number.isFinite(overlay)
                 ? Math.min(100, Math.max(0, overlay))
                 : undefined,
+              // Same fallback as toHeroSlides, so a preview shows the header
+              // the way the live page will render it.
+              headerTone: str(data.headerTone) === "dark" ? "dark" : "light",
             },
           ]}
         />
