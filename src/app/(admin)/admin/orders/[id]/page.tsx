@@ -261,7 +261,10 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
                   )}
                 </div>
               ) : canShip ? (
-                <ShipOrderButton orderId={order.id} />
+                <ShipOrderButton
+                  orderId={order.id}
+                  hasShiprocketOrder={Boolean(order.shiprocketOrderId)}
+                />
               ) : (
                 <p className="text-xs text-muted-foreground">
                   {order.paymentStatus !== "paid" && order.paymentMethod !== "cod"

@@ -52,6 +52,9 @@ export const TIERS = {
   order: { tokens: 10, window: "15 m", prefix: "rl:order" },
   orderOps: { tokens: 15, window: "15 m", prefix: "rl:orderops" },
   webhook: { tokens: 10, window: "1 m", prefix: "rl:webhook" },
+  // Looser than the order tiers because it fires while someone is typing their
+  // pincode, but still capped: it is an unauthenticated hop to a paid upstream.
+  pincode: { tokens: 20, window: "5 m", prefix: "rl:pincode" },
   newsletter: { tokens: 3, window: "15 m", prefix: "rl:newsletter" },
   review: { tokens: 5, window: "15 m", prefix: "rl:review" },
 } as const satisfies Record<string, Tier>;

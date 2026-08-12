@@ -7,6 +7,7 @@ import { OrderStatus } from "@/generated/prisma/enums";
 import {
   updateOrderStatus,
   createShipmentForOrder,
+  assignAwbForOrder,
   processReturn,
   AdminOrderError,
 } from "@/server/orders/admin";
@@ -30,20 +31,40 @@ export async function updateOrderStatusAction(
   return { ok: true };
 }
 
-export async function createShipmentAction(orderId: string): Promise<
-  AdminOrderActionResult | { ok: true; trackingNumber: string }
-> {
+/**
+ * Step one — free, and the safe end of the integration to exercise. See the
+ * note at the top of integrations/shiprocket.ts.
+ */
+export async function createShipmentAction(orderId: string): Promise<AdminOrderActionResult> {
   await requireRole("admin");
   try {
-    const result = await createShipmentForOrder(orderId);
+    await createShipmentForOrder(orderId);
     revalidatePath("/admin/orders");
-    return { ok: true, trackingNumber: result.awbCode };
+    return { ok: true };
   } catch (err) {
     if (err instanceof AdminOrderError || err instanceof ShiprocketError) {
       return { ok: false, error: err.message };
     }
     console.error("createShipmentAction failed", err);
     return { ok: false, error: "Shipment creation failed. Please try again." };
+  }
+}
+
+/** Step two — ⚠️ billable. Books a courier and buys the waybill. */
+export async function assignAwbAction(
+  orderId: string
+): Promise<AdminOrderActionResult | { ok: true; trackingNumber: string }> {
+  await requireRole("admin");
+  try {
+    const awb = await assignAwbForOrder(orderId);
+    revalidatePath("/admin/orders");
+    return { ok: true, trackingNumber: awb.awbCode };
+  } catch (err) {
+    if (err instanceof AdminOrderError || err instanceof ShiprocketError) {
+      return { ok: false, error: err.message };
+    }
+    console.error("assignAwbAction failed", err);
+    return { ok: false, error: "Could not assign a waybill. Please try again." };
   }
 }
 
