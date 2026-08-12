@@ -22,6 +22,8 @@ import {
 import {
   updateOrderStatusAction,
   createShipmentAction,
+  assignAwbAction,
+  schedulePickupAction,
   processReturnAction,
 } from "@/actions/admin-order-actions";
 
@@ -72,51 +74,127 @@ export function OrderStatusSelect({
   );
 }
 
-export function ShipOrderButton({ orderId }: { orderId: string }) {
+/**
+ * The two halves of shipping, as two buttons.
+ *
+ * They are deliberately not merged back into one "Ship" control. Creating the
+ * Shiprocket order is free and undoable; assigning the waybill spends money and
+ * puts the parcel in a courier's queue. An admin should be able to do the first
+ * without being committed to the second — see integrations/shiprocket.ts.
+ *
+ * Which one shows is driven by state the row already has: no shiprocketOrderId
+ * means step one is outstanding, an id with no AWB means step two is.
+ */
+export function ShipOrderButton({
+  orderId,
+  hasShiprocketOrder,
+}: {
+  orderId: string;
+  hasShiprocketOrder: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  function ship() {
+  function run() {
     startTransition(async () => {
-      const result = await createShipmentAction(orderId);
-      if (result.ok) {
-        toast.success(
-          "trackingNumber" in result
-            ? `Shipment created — AWB ${result.trackingNumber}`
-            : "Shipment created."
-        );
-        setOpen(false);
-      } else {
+      const result = hasShiprocketOrder
+        ? await assignAwbAction(orderId)
+        : await createShipmentAction(orderId);
+
+      if (!result.ok) {
         toast.error(result.error);
+        return;
       }
+      toast.success(
+        "trackingNumber" in result
+          ? `Waybill assigned — AWB ${result.trackingNumber}`
+          : "Sent to Shiprocket. Assign a courier when you are ready to dispatch."
+      );
+      setOpen(false);
     });
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          Ship
+        <Button variant={hasShiprocketOrder ? "default" : "outline"} size="sm">
+          {hasShiprocketOrder ? "Assign courier" : "Send to Shiprocket"}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create Shiprocket shipment?</DialogTitle>
+          <DialogTitle>
+            {hasShiprocketOrder ? "Assign a courier and buy the waybill?" : "Send this order to Shiprocket?"}
+          </DialogTitle>
           <DialogDescription>
-            This books the shipment and assigns a tracking number (AWB). The
-            order will be marked as shipped.
+            {hasShiprocketOrder
+              ? "This books a courier, charges your Shiprocket wallet and marks the order shipped. It cannot be undone for free — cancelling afterwards cancels a live waybill."
+              : "This registers the order in your Shiprocket account so you can see and check it there. Nothing is booked with a courier and nothing is charged; you can cancel it freely."}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
             Cancel
           </Button>
-          <Button onClick={ship} disabled={isPending}>
-            {isPending ? "Creating…" : "Create shipment"}
+          <Button onClick={run} disabled={isPending}>
+            {isPending
+              ? hasShiprocketOrder
+                ? "Assigning…"
+                : "Sending…"
+              : hasShiprocketOrder
+                ? "Assign courier"
+                : "Send to Shiprocket"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Step three, once a waybill exists: book the collection and get the label.
+ *
+ * Free and repeatable, so unlike the two before it this one goes straight
+ * through without a confirmation dialogue — asking "are you sure?" about an
+ * action that costs nothing and can be repeated just trains people to click
+ * past dialogues that do matter.
+ *
+ * The label opens in a new tab rather than downloading: it is a PDF the admin
+ * wants to look at and print, and a silent download into a folder is a worse
+ * default for something you need in your hand in the next ten seconds.
+ */
+export function SchedulePickupButton({ orderId }: { orderId: string }) {
+  const [isPending, startTransition] = useTransition();
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={isPending}
+      onClick={() =>
+        startTransition(async () => {
+          const result = await schedulePickupAction(orderId);
+          if (!result.ok) {
+            toast.error(result.error);
+            return;
+          }
+          // `ok: true` alone does not narrow the union — the plain success
+          // shape carries neither field. Probe for the label instead.
+          if (!("labelUrl" in result)) {
+            toast.success("Pickup requested.");
+            return;
+          }
+          toast.success(
+            result.scheduledFor
+              ? `Pickup scheduled for ${result.scheduledFor}. Opening the label…`
+              : "Pickup requested. Opening the label…"
+          );
+          window.open(result.labelUrl, "_blank", "noopener,noreferrer");
+        })
+      }
+    >
+      {isPending ? "Scheduling…" : "Pickup & label"}
+    </Button>
   );
 }
 

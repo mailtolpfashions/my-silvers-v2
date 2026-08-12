@@ -52,6 +52,21 @@ export const TIERS = {
   order: { tokens: 10, window: "15 m", prefix: "rl:order" },
   orderOps: { tokens: 15, window: "15 m", prefix: "rl:orderops" },
   webhook: { tokens: 10, window: "1 m", prefix: "rl:webhook" },
+  /**
+   * Courier tracking, which is a different shape of traffic from payments.
+   *
+   * Razorpay's `webhook` tier is 10/min because a payment webhook fires a
+   * handful of times per ORDER. Shiprocket fires once per SCAN, across every
+   * live shipment at once, all from its own small set of IPs — so the same
+   * ceiling silently drops tracking updates as soon as more than a few parcels
+   * are moving. 120/min is generous for a catalogue this size and still bounds
+   * an unauthenticated endpoint; the route drops anything it cannot match to a
+   * known AWB regardless.
+   */
+  shiprocketWebhook: { tokens: 120, window: "1 m", prefix: "rl:srwebhook" },
+  // Looser than the order tiers because it fires while someone is typing their
+  // pincode, but still capped: it is an unauthenticated hop to a paid upstream.
+  pincode: { tokens: 20, window: "5 m", prefix: "rl:pincode" },
   newsletter: { tokens: 3, window: "15 m", prefix: "rl:newsletter" },
   review: { tokens: 5, window: "15 m", prefix: "rl:review" },
 } as const satisfies Record<string, Tier>;

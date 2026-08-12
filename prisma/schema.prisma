@@ -350,6 +350,15 @@ model Order {
   trackingUrl          String?
   courierName          String?
   shipmentCreatedAt    DateTime?
+  /// The courier's scan trail, newest first, as stored by the Shiprocket
+  /// webhook. Read whole with the order and filtered by nothing, so JSON rather
+  /// than a child table — see the migration note.
+  shipmentScans        Json?
+  /// Issued lazily on first render, not at order creation — see invoice.ts.
+  invoiceNumber        String?       @unique
+  invoicedAt           DateTime?
+  /// Snapshot, so a future rate change cannot reprint old invoices differently.
+  gstRatePercent       Decimal?      @db.Decimal(5, 2)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 

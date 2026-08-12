@@ -7,6 +7,8 @@ import { OrderStatus } from "@/generated/prisma/enums";
 import {
   updateOrderStatus,
   createShipmentForOrder,
+  assignAwbForOrder,
+  schedulePickupForOrder,
   processReturn,
   AdminOrderError,
 } from "@/server/orders/admin";
@@ -30,20 +32,61 @@ export async function updateOrderStatusAction(
   return { ok: true };
 }
 
-export async function createShipmentAction(orderId: string): Promise<
-  AdminOrderActionResult | { ok: true; trackingNumber: string }
-> {
+/**
+ * Step one — free, and the safe end of the integration to exercise. See the
+ * note at the top of integrations/shiprocket.ts.
+ */
+export async function createShipmentAction(orderId: string): Promise<AdminOrderActionResult> {
   await requireRole("admin");
   try {
-    const result = await createShipmentForOrder(orderId);
+    await createShipmentForOrder(orderId);
     revalidatePath("/admin/orders");
-    return { ok: true, trackingNumber: result.awbCode };
+    return { ok: true };
   } catch (err) {
     if (err instanceof AdminOrderError || err instanceof ShiprocketError) {
       return { ok: false, error: err.message };
     }
     console.error("createShipmentAction failed", err);
     return { ok: false, error: "Shipment creation failed. Please try again." };
+  }
+}
+
+/**
+ * Step three — free. Schedules the collection and returns the courier's label
+ * PDF so the admin never has to open the Shiprocket dashboard.
+ */
+export async function schedulePickupAction(
+  orderId: string
+): Promise<AdminOrderActionResult | { ok: true; labelUrl: string; scheduledFor: string | null }> {
+  await requireRole("admin");
+  try {
+    const result = await schedulePickupForOrder(orderId);
+    revalidatePath("/admin/orders");
+    return { ok: true, ...result };
+  } catch (err) {
+    if (err instanceof AdminOrderError || err instanceof ShiprocketError) {
+      return { ok: false, error: err.message };
+    }
+    console.error("schedulePickupAction failed", err);
+    return { ok: false, error: "Could not schedule the pickup. Please try again." };
+  }
+}
+
+/** Step two — ⚠️ billable. Books a courier and buys the waybill. */
+export async function assignAwbAction(
+  orderId: string
+): Promise<AdminOrderActionResult | { ok: true; trackingNumber: string }> {
+  await requireRole("admin");
+  try {
+    const awb = await assignAwbForOrder(orderId);
+    revalidatePath("/admin/orders");
+    return { ok: true, trackingNumber: awb.awbCode };
+  } catch (err) {
+    if (err instanceof AdminOrderError || err instanceof ShiprocketError) {
+      return { ok: false, error: err.message };
+    }
+    console.error("assignAwbAction failed", err);
+    return { ok: false, error: "Could not assign a waybill. Please try again." };
   }
 }
 

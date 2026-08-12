@@ -2,6 +2,7 @@ import { prisma } from "@/server/db";
 import { restoreStock } from "@/server/products/stock";
 import { toPaise } from "@/server/orders/money";
 import { createRefund } from "@/server/payments/razorpay";
+import { releaseShipment } from "@/server/orders/cancel-shipment";
 
 export class CancelError extends Error {
   constructor(
@@ -41,6 +42,12 @@ export async function cancelOrder(input: { orderId: string; userId: string }) {
   if (claim.count === 0) {
     throw new CancelError("NOT_CANCELLABLE", "This order can no longer be cancelled.");
   }
+
+  // Hand the parcel back before anything else. The claim above guarantees this
+  // order has no waybill (shipmentCreatedAt is null), so in practice this
+  // cancels a free Shiprocket order — but an admin who sent it across is
+  // holding a record that would otherwise sit there forever.
+  await releaseShipment(order);
 
   // Restore stock ONLY where it was actually decremented: COD decrements at
   // creation; Razorpay decrements at payment confirmation. A cancelled

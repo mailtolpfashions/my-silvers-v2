@@ -19,6 +19,7 @@ import { formatINRPaise } from "@/lib/format";
 import { shippingChargePaise } from "@/server/orders/money";
 import { INDIAN_STATES, MAX_ADDRESSES } from "@/lib/validation/account";
 import { saveCheckoutAddressAction } from "@/actions/account-actions";
+import { checkPincodeAction, type PincodeCheck } from "@/actions/shipping-actions";
 
 export type CheckoutLine = { name: string; quantity: number; pricePaise: number };
 
@@ -80,6 +81,26 @@ export function CheckoutForm({
   const [paymentDismissed, setPaymentDismissed] = useState(false);
   const [saveAddress, setSaveAddress] = useState(true);
 
+  /**
+   * The last serviceability answer, stored WITH the question it answers.
+   *
+   * Keyed rather than bare so both "is this still the pincode we asked about"
+   * and "are we waiting" can be derived during render instead of reset from an
+   * effect — clearing it with `useEffect(() => setX(null), [pincode])` is a
+   * synchronous setState in an effect body, which schedules a second render on
+   * every keystroke and which the project's lint rules reject. Same reasoning
+   * as the open-panel state in mega-menu.tsx.
+   *
+   * `cod` is part of the key because COD serviceability is a different question
+   * from prepaid: a pincode can take one and not the other, so switching
+   * payment method has to re-ask rather than reuse the previous answer.
+   */
+  const [pincodeAnswer, setPincodeAnswer] = useState<{
+    pincode: string;
+    cod: boolean;
+    result: PincodeCheck;
+  } | null>(null);
+
   // Preselect the default address so the common case is one click, not a form.
   const preselected = savedAddresses.find((a) => a.isDefault) ?? savedAddresses[0];
   const [selectedAddressId, setSelectedAddressId] = useState<string>(
@@ -98,6 +119,49 @@ export function CheckoutForm({
     notes: "",
     paymentMethod: "razorpay" as "razorpay" | "cod",
   });
+
+  const { pincode: formPincode, paymentMethod } = form;
+  const wantCod = paymentMethod === "cod";
+  const pincodeComplete = /^\d{6}$/.test(formPincode);
+
+  /** The stored answer, but only if it answers the question currently on screen. */
+  const pincodeCheck =
+    pincodeAnswer && pincodeAnswer.pincode === formPincode && pincodeAnswer.cod === wantCod
+      ? pincodeAnswer.result
+      : null;
+
+  /** Six digits typed and no answer for them yet — nothing to reset. */
+  const checkingPincode = pincodeComplete && pincodeCheck === null;
+
+  /**
+   * Ask Shiprocket, debounced.
+   *
+   * Every in-flight answer is discarded if the question changed while it was in
+   * the air. Without that guard a slow reply for "560001" can land after a fast
+   * one for "560002" and label the wrong pincode serviceable.
+   */
+  useEffect(() => {
+    if (!pincodeComplete || !checkingPincode) return;
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const result = await checkPincodeAction(formPincode, wantCod);
+      if (!cancelled) setPincodeAnswer({ pincode: formPincode, cod: wantCod, result });
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [formPincode, wantCod, pincodeComplete, checkingPincode]);
+
+  /**
+   * ONLY a definite "no" blocks the order. Not the pending check, not an
+   * outage, not an un-asked pincode — the whole point of this is to stop taking
+   * money for a parcel that cannot be delivered, not to gate checkout behind a
+   * third-party API being up.
+   */
+  const blockedByPincode = pincodeCheck?.status === "unserviceable";
 
   /** Copies a saved address into the form, or clears it for manual entry. */
   function chooseAddress(id: string) {
@@ -416,6 +480,30 @@ export function CheckoutForm({
                   title: "6-digit pincode",
                 })}
 
+                {/* Only two of the four states say anything. "unknown" is an
+                    outage and stays silent — telling a shopper we could not
+                    reach our courier tells them nothing they can act on — and
+                    the un-asked state has nothing to report either. */}
+                {checkingPincode && (
+                  <p className="text-xs text-muted-foreground">Checking delivery…</p>
+                )}
+                {!checkingPincode && pincodeCheck?.status === "serviceable" && (
+                  <p className="text-xs text-muted-foreground">
+                    {pincodeCheck.estimatedDays
+                      ? `Delivers in about ${pincodeCheck.estimatedDays} day${
+                          pincodeCheck.estimatedDays === 1 ? "" : "s"
+                        }.`
+                      : "We deliver to this pincode."}
+                  </p>
+                )}
+                {!checkingPincode && pincodeCheck?.status === "unserviceable" && (
+                  <p className="text-xs text-destructive">
+                    {form.paymentMethod === "cod"
+                      ? "Cash on delivery isn't available for this pincode. Try paying online, or use a different address."
+                      : "We can't deliver to this pincode yet. Please try a different address."}
+                  </p>
+                )}
+
                 {isAuthed && savedAddresses.length < MAX_ADDRESSES && (
                   <label className="flex items-center gap-2 text-sm">
                     <input
@@ -469,7 +557,7 @@ export function CheckoutForm({
             variant="cta"
             size="cta"
             className="hidden w-full md:inline-flex"
-            disabled={submitting}
+            disabled={submitting || blockedByPincode}
           >
             {submitting
               ? "Placing order…"
@@ -497,7 +585,7 @@ export function CheckoutForm({
               variant="cta"
               size="cta"
               className="h-12 shrink-0 px-8 sm:h-12"
-              disabled={submitting}
+              disabled={submitting || blockedByPincode}
             >
               {submitting
                 ? "Placing…"

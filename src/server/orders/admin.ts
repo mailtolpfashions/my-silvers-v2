@@ -5,7 +5,13 @@ import type { SortDir } from "@/server/products/admin";
 import type { PaymentStatus } from "@/generated/prisma/client";
 import { toPaise } from "@/server/orders/money";
 import { createRefund } from "@/server/payments/razorpay";
-import { createShiprocketShipment } from "@/server/integrations/shiprocket";
+import {
+  createShiprocketOrder,
+  assignShiprocketAwb,
+  schedulePickup,
+  generateLabel,
+} from "@/server/integrations/shiprocket";
+import { releaseShipmentByOrderId } from "@/server/orders/cancel-shipment";
 
 export class AdminOrderError extends Error {
   constructor(message: string) {
@@ -16,6 +22,14 @@ export class AdminOrderError extends Error {
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   await prisma.order.update({ where: { id: orderId }, data: { orderStatus: status } });
+
+  // The dropdown is a manual override and can reach 'cancelled' from anywhere,
+  // including from 'shipped'. Without this the order goes cancelled in our
+  // database while the waybill stays live at Shiprocket, and the courier
+  // collects a parcel for an order that no longer exists.
+  if (status === "cancelled") {
+    await releaseShipmentByOrderId(orderId);
+  }
 }
 
 type ShippingAddress = {
@@ -29,10 +43,17 @@ type ShippingAddress = {
 };
 
 /**
- * Admin-triggered shipment creation — runs the two Shiprocket calls inline.
- * The shipmentCreatedAt-null claim makes double-clicks and concurrent admins
- * safe; a Shiprocket failure leaves the order in 'processing' with the claim
- * fields still null, so the admin can simply retry.
+ * Step one of two: register the order with Shiprocket.
+ *
+ * Free, reversible, and books nothing with a courier — see the note at the top
+ * of integrations/shiprocket.ts for why the AWB is a separate action. The
+ * shiprocketOrderId-null claim makes double-clicks and concurrent admins safe;
+ * a Shiprocket failure leaves the order in 'processing' with the claim fields
+ * still null, so the admin can simply retry.
+ *
+ * shipmentCreatedAt is deliberately NOT set here. It means "dispatched", and
+ * cancelOrder guards on it — writing it at this point would strip the customer
+ * of their right to cancel an order that has not actually been booked yet.
  */
 export async function createShipmentForOrder(orderId: string) {
   const order = await prisma.order.findUnique({
@@ -40,8 +61,8 @@ export async function createShipmentForOrder(orderId: string) {
     include: { items: true, user: true },
   });
   if (!order) throw new AdminOrderError("Order not found.");
-  if (order.shiprocketOrderId || order.shipmentCreatedAt) {
-    throw new AdminOrderError("A shipment already exists for this order.");
+  if (order.shiprocketOrderId) {
+    throw new AdminOrderError("This order is already in Shiprocket.");
   }
   if (order.paymentMethod === "razorpay" && order.paymentStatus !== "paid") {
     throw new AdminOrderError("Cannot ship an unpaid online order.");
@@ -68,7 +89,7 @@ export async function createShipmentForOrder(orderId: string) {
   );
   const weightKg = Math.max(0.5, weightGrams / 1000);
 
-  const result = await createShiprocketShipment({
+  const result = await createShiprocketOrder({
     orderNumber: order.orderNumber,
     orderDate: order.createdAt,
     customer: {
@@ -99,15 +120,90 @@ export async function createShipmentForOrder(orderId: string) {
     data: {
       shiprocketOrderId: result.shiprocketOrderId,
       shiprocketShipmentId: result.shiprocketShipmentId,
-      trackingNumber: result.awbCode,
-      trackingUrl: result.trackingUrl,
-      courierName: result.courierName,
-      shipmentCreatedAt: new Date(),
-      orderStatus: "shipped",
     },
   });
 
   return result;
+}
+
+/**
+ * Step two of two: buy the waybill.
+ *
+ * ⚠️  This is the billable half. Everything up to here can be undone for free.
+ *
+ * The claim transitions processing → shipped BEFORE the API call, because that
+ * is the only atomic lock available without a dedicated column, and buying two
+ * waybills for one parcel is worse than a status that is briefly optimistic. A
+ * failure rolls it straight back, so a retry is safe.
+ */
+export async function assignAwbForOrder(orderId: string) {
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order) throw new AdminOrderError("Order not found.");
+  if (!order.shiprocketShipmentId) {
+    throw new AdminOrderError("Create the Shiprocket shipment first.");
+  }
+  if (order.trackingNumber) {
+    throw new AdminOrderError(`An AWB already exists (${order.trackingNumber}).`);
+  }
+
+  const claim = await prisma.order.updateMany({
+    where: { id: orderId, trackingNumber: null, orderStatus: "processing" },
+    data: { orderStatus: "shipped" },
+  });
+  if (claim.count === 0) {
+    throw new AdminOrderError("Order is not ready for a waybill.");
+  }
+
+  try {
+    const awb = await assignShiprocketAwb(order.shiprocketShipmentId);
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        trackingNumber: awb.awbCode,
+        trackingUrl: awb.trackingUrl,
+        courierName: awb.courierName,
+        shipmentCreatedAt: new Date(),
+      },
+    });
+    return awb;
+  } catch (err) {
+    // Give the claim back, or the order is stranded as 'shipped' with no
+    // waybill and the admin has no way to retry.
+    await prisma.order.updateMany({
+      where: { id: orderId, trackingNumber: null, orderStatus: "shipped" },
+      data: { orderStatus: "processing" },
+    });
+    throw err;
+  }
+}
+
+/**
+ * Step three: schedule the courier pickup and fetch the label.
+ *
+ * Both in one action because they are one physical act — you print the label,
+ * stick it on, and the courier comes. Splitting them would leave an admin
+ * wondering which of two buttons they had already pressed.
+ *
+ * Neither call is billable; the money was spent assigning the waybill. Safe to
+ * repeat, which matters because the label is often wanted again after a
+ * printer jam.
+ */
+export async function schedulePickupForOrder(orderId: string) {
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order) throw new AdminOrderError("Order not found.");
+  if (!order.shiprocketShipmentId) {
+    throw new AdminOrderError("Create the Shiprocket shipment first.");
+  }
+  if (!order.trackingNumber) {
+    throw new AdminOrderError("Assign a courier before scheduling a pickup.");
+  }
+
+  const [pickup, label] = await Promise.all([
+    schedulePickup(order.shiprocketShipmentId),
+    generateLabel(order.shiprocketShipmentId),
+  ]);
+
+  return { scheduledFor: pickup.scheduledFor, labelUrl: label.labelUrl };
 }
 
 /** Customer-side: request a return — only from 'delivered'. */

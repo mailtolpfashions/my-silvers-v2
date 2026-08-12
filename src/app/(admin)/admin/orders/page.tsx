@@ -171,7 +171,12 @@ export default async function AdminOrdersPage({
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      {shippable && <ShipOrderButton orderId={order.id} />}
+                      {shippable && (
+                        <ShipOrderButton
+                          orderId={order.id}
+                          hasShiprocketOrder={Boolean(order.shiprocketOrderId)}
+                        />
+                      )}
                       {order.orderStatus === "return_requested" && (
                         <ReturnReviewButtons
                           orderId={order.id}
