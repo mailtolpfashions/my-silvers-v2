@@ -36,18 +36,55 @@ export class ShiprocketError extends Error {
 }
 
 async function login(): Promise<string> {
-  const res = await fetch(`${BASE}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: process.env.SHIPROCKET_EMAIL,
-      password: process.env.SHIPROCKET_PASSWORD,
-    }),
-  });
-  const data = await res.json().catch(() => null);
-  if (!res.ok || !data?.token) {
-    throw new ShiprocketError("Shiprocket login failed — check SHIPROCKET_EMAIL/PASSWORD.");
+  const email = process.env.SHIPROCKET_EMAIL;
+  const password = process.env.SHIPROCKET_PASSWORD;
+
+  // Distinguished from a rejected login, because the fixes are different and
+  // this one is by far the more common: unset variables mean the process was
+  // started before .env was filled in, or the deployment is missing them.
+  if (!email || !password) {
+    throw new ShiprocketError(
+      "Shiprocket credentials are not set. SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD are missing from this environment — if you have just edited .env, restart the server."
+    );
   }
+
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch (err) {
+    throw new ShiprocketError(
+      `Could not reach Shiprocket: ${err instanceof Error ? err.message : "network error"}.`
+    );
+  }
+
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok || !data?.token) {
+    /**
+     * Report what actually happened.
+     *
+     * This used to say "check SHIPROCKET_EMAIL/PASSWORD" for every failure —
+     * including rate limits, outages and 500s — which sent people to inspect
+     * an .env file that was perfectly correct. Only a 401/403 is evidence
+     * about the credentials; everything else is Shiprocket's own message, and
+     * the status is always shown so the cause is never guessed at.
+     */
+    const detail = String(data?.message ?? "").trim();
+    const hint =
+      res.status === 401 || res.status === 403
+        ? " — Shiprocket rejected these credentials. Check SHIPROCKET_EMAIL/PASSWORD."
+        : res.status === 429
+          ? " — too many login attempts. Shiprocket throttles this endpoint; wait a few minutes."
+          : "";
+    throw new ShiprocketError(
+      `Shiprocket login failed (HTTP ${res.status})${detail ? `: ${detail}` : ""}${hint}`
+    );
+  }
+
   cachedToken = { token: data.token, fetchedAt: Date.now() };
   return data.token;
 }
