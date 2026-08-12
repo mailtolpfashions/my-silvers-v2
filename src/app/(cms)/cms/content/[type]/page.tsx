@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { listEntries, getSingletonEntry, CmsError } from "@/server/cms/entries";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/page-header";
+import { EmptyState } from "@/components/layout/empty-state";
 import {
   Table,
   TableBody,
@@ -43,7 +45,7 @@ export default async function ContentListPage({
     const entry = await getSingletonEntry(typeName);
     return (
       <div className="space-y-6">
-        <h1 className="text-h2 font-semibold">{type.label}</h1>
+        <PageHeader title={type.label} />
         <div className="rounded-lg border p-6">
           {entry ? (
             <div className="flex items-center justify-between">
@@ -80,12 +82,14 @@ export default async function ContentListPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-h2 font-semibold">{type.label}</h1>
-        <Button asChild size="sm">
-          <Link href={`/cms/content/${typeName}/new`}>New entry</Link>
-        </Button>
-      </div>
+      <PageHeader
+        title={type.label}
+        actions={
+          <Button asChild size="sm">
+            <Link href={`/cms/content/${typeName}/new`}>New entry</Link>
+          </Button>
+        }
+      />
 
       <div className="flex gap-2 text-sm">
         {[
@@ -149,9 +153,32 @@ export default async function ContentListPage({
               </TableRow>
             ))}
             {entries.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
-                  No entries yet.
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={4} className="p-0">
+                  {/* `status` is the only filter this list has, so it is the
+                      only thing that can produce an empty result other than
+                      there being nothing at all. */}
+                  {sp.status ? (
+                    <EmptyState
+                      title={`No ${sp.status} ${type.label.toLowerCase()}`}
+                      description="Nothing here with that status yet."
+                      action={
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/cms/content/${typeName}`}>Show all</Link>
+                        </Button>
+                      }
+                    />
+                  ) : (
+                    <EmptyState
+                      title={`No ${type.label.toLowerCase()} yet`}
+                      description="Create the first entry — it saves as a draft, so nothing goes live until you publish it."
+                      action={
+                        <Button asChild size="sm">
+                          <Link href={`/cms/content/${typeName}/new`}>New entry</Link>
+                        </Button>
+                      }
+                    />
+                  )}
                 </TableCell>
               </TableRow>
             )}

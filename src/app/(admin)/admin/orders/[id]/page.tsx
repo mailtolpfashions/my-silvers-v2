@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -9,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { OrderStatusSelect, ShipOrderButton } from "@/components/admin/order-row-actions";
 import { CopyButton } from "@/components/admin/copy-button";
+import { BreadcrumbLabel } from "@/components/layout/breadcrumb-label";
 
 export const metadata: Metadata = { title: "Order" };
 
@@ -53,11 +55,24 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
 
   return (
     <div className="space-y-6">
+      {/* The order number, so the trail reads "Orders › MYS-000009" rather
+          than "Orders › Edit". */}
+      <BreadcrumbLabel value={order.orderNumber} />
       <div>
-        <Link href="/admin/orders" className="text-sm text-muted-foreground underline">
-          ← All orders
+        {/* This block keeps its own shape rather than using PageHeader — the
+            status badge and the timestamp belong on the heading's line, which
+            is a layout that component deliberately does not try to express. It
+            carries PageHeader's back link by hand for the same reason, and for
+            the same purpose: on a phone the breadcrumb truncates and its parent
+            link is the first thing to go. */}
+        <Link
+          href="/admin/orders"
+          className="mb-1 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ChevronLeft className="size-4" aria-hidden />
+          All orders
         </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-h2 font-semibold">{order.orderNumber}</h1>
           <Badge variant={order.paymentStatus === "failed" ? "destructive" : "outline"}>
             {order.paymentMethod === "cod" ? "COD" : order.paymentStatus}

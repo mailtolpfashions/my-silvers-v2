@@ -984,6 +984,80 @@
   }
 }
 
+/* ─── The admin surface ───────────────────────────────────────────────────────
+   /admin and /cms opt into this by carrying `.admin-surface` on their shell.
+   Everything below is scoped to it and reaches nothing on the storefront.
+
+   ── Why the admin gets its own language at all ──────────────────────────────
+   The storefront's rules are deliberate and they are wrong here. It is
+   monochrome because there is no accent colour and imagery should be the only
+   thing with hue; it is square because a rounded frame around a photograph
+   reads as a theme; it is airy because it is selling. An admin is none of
+   those things. Its job is to let someone scan two hundred orders and find the
+   three that failed, which is exactly what colour is for, and to fit as much
+   legible information on a screen as it can.
+
+   So: colour carries STATE here, and only state. It is not decoration and it
+   must never be the only signal — every pill that uses one also spells the
+   state out in words, because roughly one man in twelve cannot separate the
+   green from the amber.
+
+   ── Keep these two surfaces apart ───────────────────────────────────────────
+   Do not lift these tokens into :root "so both can use them". The storefront's
+   note at the top of this file is explicit that its accent family was removed
+   rather than aliased, and reintroducing one globally is how that decision gets
+   quietly undone.
+   ─────────────────────────────────────────────────────────────────────────── */
+.admin-surface {
+  /* Six states, each a fill / text pair. Fills are pale enough to sit under
+     small type at the 4.5:1 the text colours are chosen to hit against them. */
+  --state-success: oklch(0.96 0.03 155);
+  --state-success-fg: oklch(0.42 0.11 155);
+  --state-warning: oklch(0.96 0.05 85);
+  --state-warning-fg: oklch(0.45 0.11 65);
+  --state-danger: oklch(0.96 0.03 25);
+  --state-danger-fg: oklch(0.48 0.16 25);
+  --state-info: oklch(0.96 0.03 250);
+  --state-info-fg: oklch(0.45 0.13 255);
+  --state-neutral: oklch(0.95 0 0);
+  --state-neutral-fg: oklch(0.42 0 0);
+
+  /* A denser rhythm than the storefront's. An admin page is a working surface;
+     160px between blocks is a scroll, not luxury. */
+  --admin-gap: 1.5rem;
+}
+
+/* Status pill. `data-state` picks the pair; the label inside is the real
+   information and the colour is the accelerant. */
+.state-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  background-color: var(--state-neutral);
+  color: var(--state-neutral-fg);
+}
+.state-pill[data-state="success"] {
+  background-color: var(--state-success);
+  color: var(--state-success-fg);
+}
+.state-pill[data-state="warning"] {
+  background-color: var(--state-warning);
+  color: var(--state-warning-fg);
+}
+.state-pill[data-state="danger"] {
+  background-color: var(--state-danger);
+  color: var(--state-danger-fg);
+}
+.state-pill[data-state="info"] {
+  background-color: var(--state-info);
+  color: var(--state-info-fg);
+}
+
 /* ─── Fit one section to one screen ───────────────────────────────────────────
    A section carrying this owns exactly one viewport and never asks to be
    scrolled through — heading, tiles and all.

@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default async function CmsDashboardPage() {
   const [entryCount, publishedCount, mediaCount] = await Promise.all([
@@ -16,7 +17,10 @@ export default async function CmsDashboardPage() {
 
   return (
     <div>
-      <h1 className="text-h2 font-semibold">Studio</h1>
+      <PageHeader
+        title="Studio"
+        description="Everything the storefront reads its words and pictures from. Changes are saved as drafts and only go live when published."
+      />
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {stats.map((stat) => (
           <Card key={stat.label}>

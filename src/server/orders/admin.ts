@@ -215,6 +215,45 @@ export function isOrderSortKey(value: unknown): value is OrderSortKey {
   return typeof value === "string" && (ORDER_SORT_KEYS as string[]).includes(value);
 }
 
+/**
+ * The two enum filters, validated rather than trusted.
+ *
+ * ⚠️  These are query-string values. The admin page casts them
+ * (`params.status as OrderStatus`), which satisfies the compiler and does
+ * nothing at runtime — so `/admin/orders?status=zzzz` reached Prisma as an enum
+ * value, threw PrismaClientValidationError and took the page down with a 500.
+ * Anyone editing the URL could do it.
+ *
+ * Guarded here rather than at the page because this function already guards
+ * `sort` the same way, and every caller then gets it for free. An unknown value
+ * is dropped, so a mangled URL shows the unfiltered list instead of an error.
+ */
+const ORDER_STATUSES = [
+  "placed",
+  "confirmed",
+  "processing",
+  "shipped",
+  "delivered",
+  "cancelled",
+  "return_requested",
+  "returned",
+  "refunded",
+] as const;
+
+const PAYMENT_STATUSES = ["pending", "paying", "paid", "failed", "refunded"] as const;
+
+function asOrderStatus(value: unknown): OrderStatus | undefined {
+  return typeof value === "string" && (ORDER_STATUSES as readonly string[]).includes(value)
+    ? (value as OrderStatus)
+    : undefined;
+}
+
+function asPaymentStatus(value: unknown): PaymentStatus | undefined {
+  return typeof value === "string" && (PAYMENT_STATUSES as readonly string[]).includes(value)
+    ? (value as PaymentStatus)
+    : undefined;
+}
+
 export async function getAdminOrders(params: {
   status?: OrderStatus;
   payment?: PaymentStatus;
@@ -226,9 +265,12 @@ export async function getAdminOrders(params: {
   const page = Math.max(1, params.page ?? 1);
   const pageSize = 20;
 
+  const status = asOrderStatus(params.status);
+  const payment = asPaymentStatus(params.payment);
+
   const where = {
-    ...(params.status ? { orderStatus: params.status } : {}),
-    ...(params.payment ? { paymentStatus: params.payment } : {}),
+    ...(status ? { orderStatus: status } : {}),
+    ...(payment ? { paymentStatus: payment } : {}),
     // Matches the order number or the customer's name/email — the three things
     // an admin has to hand when someone gets in touch about an order.
     ...(params.q

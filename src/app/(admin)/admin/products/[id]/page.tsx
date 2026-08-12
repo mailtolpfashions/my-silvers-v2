@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/server/db";
 import { ProductForm, type ProductFormValues } from "@/components/admin/product-form";
+import { PageHeader } from "@/components/layout/page-header";
+import { BreadcrumbLabel } from "@/components/layout/breadcrumb-label";
 
 export default async function EditProductPage({
   params,
@@ -46,7 +48,17 @@ export default async function EditProductPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-h2 font-semibold">Edit product</h1>
+      {/* Names the last breadcrumb, which would otherwise read "Edit" — the
+          shell derives the trail from the URL and the URL holds an id. */}
+      <BreadcrumbLabel value={product.name} />
+      {/* The product's own name, not "Edit product" — the breadcrumb above
+          already says where you are, so the heading can say WHAT you are on. */}
+      <PageHeader
+        title={product.name}
+        description={product.sku}
+        backHref="/admin/products"
+        backLabel="All products"
+      />
       <ProductForm productId={product.id} initial={initial} categories={categories} />
     </div>
   );

@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { prisma } from "@/server/db";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -10,6 +12,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomerSearch } from "@/components/admin/customer-search";
 import { SortableHeader } from "@/components/admin/sortable-header";
+import { PageHeader } from "@/components/layout/page-header";
+import { EmptyState } from "@/components/layout/empty-state";
 
 type SearchParams = Promise<{ q?: string; sort?: string; dir?: string }>;
 
@@ -75,7 +79,10 @@ export default async function AdminCustomersPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-h2 font-semibold">Customers</h1>
+      <PageHeader
+        title="Customers"
+        description="Everyone who has placed an order or created an account."
+      />
 
       <Card className="max-w-xs">
         <CardHeader>
@@ -150,6 +157,22 @@ export default async function AdminCustomersPage({
                 </TableCell>
               </TableRow>
             ))}
+            {customers.length === 0 && (
+              <TableRow className="hover:bg-transparent">
+                {/* Name, email, phone, location, orders, joined. */}
+                <TableCell colSpan={6} className="p-0">
+                  <EmptyState
+                    title="No customers match"
+                    description="Customers appear here once they place an order or create an account."
+                    action={
+                      <Button asChild variant="outline" size="sm">
+                        <Link href="/admin/customers">Clear search</Link>
+                      </Button>
+                    }
+                  />
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>

@@ -18,8 +18,14 @@ import {
   ProductRowActions,
 } from "@/components/admin/product-table-controls";
 import { SortableHeader } from "@/components/admin/sortable-header";
-import { CsvImportDialog } from "@/components/admin/csv-import-dialog";
-import { PdfExportButton } from "@/components/admin/pdf-export-button";
+import { PageHeader } from "@/components/layout/page-header";
+import { ProductHeaderActions } from "@/components/admin/product-header-actions";
+import {
+  BulkSelectProvider,
+  BulkSelectAll,
+  BulkRowCheckbox,
+} from "@/components/admin/bulk-select";
+import { EmptyState } from "@/components/layout/empty-state";
 
 type SearchParams = Promise<{
   q?: string;
@@ -59,24 +65,30 @@ export default async function AdminProductsPage({
   const currentSort = params.sort ?? "created";
   const currentDir: "asc" | "desc" = params.dir === "asc" ? "asc" : "desc";
 
+  // Which empty state to show. Sort and page are excluded on purpose: neither
+  // can cause an empty result, so offering "clear filters" for them would point
+  // at the wrong culprit.
+  const hasFilters = Boolean(
+    params.q || params.category || params.active || params.stock || params.flag
+  );
+
   return (
+    // The provider wraps the WHOLE page, not just the table, so the header's
+    // export buttons can read the selection — see ProductExportButtons. Row
+    // checkboxes and the bulk bar are the only other things inside it that
+    // care.
+    <BulkSelectProvider>
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-h2 font-semibold">Products</h1>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline" size="sm">
-            <a href="/api/admin/export/products">Export CSV</a>
-          </Button>
-          <PdfExportButton
-            endpoint="/api/admin/export/products"
-            filename="products.pdf"
+      <PageHeader
+        title="Products"
+        actions={
+          // Becomes the selection toolbar once rows are ticked, and is the ONLY
+          // place the bulk actions appear — see the component.
+          <ProductHeaderActions
+            categories={categories.map((c) => ({ id: c.id, name: c.name }))}
           />
-          <CsvImportDialog />
-          <Button asChild size="sm">
-            <Link href="/admin/products/new">Add product</Link>
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       <AdminProductFilters
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
@@ -85,10 +97,54 @@ export default async function AdminProductsPage({
 
       <p className="text-sm text-muted-foreground">{total} products</p>
 
+      {products.length === 0 ? (
+        // The two empty cases are different problems and get different ways
+        // out — see the note on EmptyState.
+        <div className="rounded-lg border">
+          {hasFilters ? (
+            <EmptyState
+              title="No products match these filters"
+              description="Try widening the search, or clear the filters to see everything."
+              action={
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/admin/products">Clear filters</Link>
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              title="No products yet"
+              description="Add your first piece, or import a catalogue from a CSV."
+              action={
+                <Button asChild size="sm">
+                  <Link href="/admin/products/new">Add product</Link>
+                </Button>
+              }
+            />
+          )}
+        </div>
+      ) : (
+      <>
       <div className="overflow-x-auto rounded-lg border">
         <Table>
+          {/* ⚠️  NOT sticky, and it cannot be while the wrapper scrolls
+              horizontally. `overflow-x-auto` on the div above coerces
+              overflow-y to `auto` as well, which makes that div a scroll
+              container — so `position: sticky` on this header resolves against
+              the DIV rather than the viewport. Measured: the header sat 56px
+              over the first row at rest and then scrolled away entirely, which
+              is the worst of both.
+
+              Making it stick would mean giving the wrapper a bounded height so
+              it scrolls internally (`max-h-[70vh] overflow-auto`, header at
+              `top-0`). That is a real option but it changes the page's
+              scrolling model — the table would scroll inside itself while the
+              page stayed put — so it is a deliberate decision, not a tweak. */}
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <BulkSelectAll ids={products.map((p) => p.id)} />
+              </TableHead>
               {(
                 [
                   ["name", "Product"],
@@ -116,6 +172,9 @@ export default async function AdminProductsPage({
           <TableBody>
             {products.map((product) => (
               <TableRow key={product.id}>
+                <TableCell className="w-10">
+                  <BulkRowCheckbox id={product.id} label={product.name} />
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-muted">
@@ -130,7 +189,16 @@ export default async function AdminProductsPage({
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{product.name}</p>
+                      {/* The name opens the product, the way an order number
+                          opens an order. It was plain text, so the only way in
+                          was the Edit button at the far right of a wide row —
+                          a long mouse journey from the thing you just read. */}
+                      <Link
+                        href={`/admin/products/${product.id}`}
+                        className="block truncate text-sm font-medium underline-offset-2 hover:underline"
+                      >
+                        {product.name}
+                      </Link>
                       <div className="flex gap-1">
                         {product.isFeatured && (
                           <Badge variant="outline" className="text-micro">
@@ -155,9 +223,15 @@ export default async function AdminProductsPage({
                   </span>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={product.isActive ? "secondary" : "destructive"}>
+                  {/* The admin surface's state pair rather than a destructive
+                      badge: an archived product is a normal, reversible state,
+                      not an error, and red said otherwise. */}
+                  <span
+                    className="state-pill"
+                    data-state={product.isActive ? "success" : "neutral"}
+                  >
                     {product.isActive ? "Active" : "Archived"}
-                  </Badge>
+                  </span>
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
@@ -172,6 +246,8 @@ export default async function AdminProductsPage({
           </TableBody>
         </Table>
       </div>
+      </>
+      )}
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
@@ -195,5 +271,6 @@ export default async function AdminProductsPage({
         </div>
       )}
     </div>
+    </BulkSelectProvider>
   );
 }

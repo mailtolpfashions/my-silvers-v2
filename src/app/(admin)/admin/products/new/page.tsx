@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { ProductForm, EMPTY_PRODUCT_FORM } from "@/components/admin/product-form";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default async function NewProductPage() {
   const categories = await prisma.category.findMany({
@@ -10,7 +11,12 @@ export default async function NewProductPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-h2 font-semibold">Add product</h1>
+      <PageHeader
+        title="Add product"
+        description="A product is only visible on the storefront once it is active and has stock."
+        backHref="/admin/products"
+        backLabel="All products"
+      />
       <ProductForm initial={EMPTY_PRODUCT_FORM} categories={categories} />
     </div>
   );

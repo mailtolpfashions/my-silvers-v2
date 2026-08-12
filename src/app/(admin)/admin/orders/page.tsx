@@ -19,6 +19,8 @@ import {
 } from "@/components/admin/order-row-actions";
 import { PdfExportButton } from "@/components/admin/pdf-export-button";
 import { SortableHeader } from "@/components/admin/sortable-header";
+import { PageHeader } from "@/components/layout/page-header";
+import { EmptyState } from "@/components/layout/empty-state";
 import { AdminOrderFilters } from "@/components/admin/order-filters";
 
 type SearchParams = Promise<{
@@ -52,22 +54,24 @@ export default async function AdminOrdersPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-h2 font-semibold">Orders</h1>
-        <div className="flex gap-2">
-          <Button asChild variant="outline" size="sm">
-            <a href="/api/admin/export/orders">Export orders CSV</a>
-          </Button>
-          <PdfExportButton
-            endpoint="/api/admin/export/orders"
-            filename="orders.pdf"
-            label="Orders PDF"
-          />
-          <Button asChild variant="outline" size="sm">
-            <a href="/api/admin/export/customers">Export customers CSV</a>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Orders"
+        actions={
+          <>
+            <Button asChild variant="outline" size="sm">
+              <a href="/api/admin/export/orders">Export orders CSV</a>
+            </Button>
+            <PdfExportButton
+              endpoint="/api/admin/export/orders"
+              filename="orders.pdf"
+              label="Orders PDF"
+            />
+            <Button asChild variant="outline" size="sm">
+              <a href="/api/admin/export/customers">Export customers CSV</a>
+            </Button>
+          </>
+        }
+      />
 
       <AdminOrderFilters
         current={{ status: params.status, payment: params.payment, q: params.q }}
@@ -180,6 +184,22 @@ export default async function AdminOrdersPage({
                 </TableRow>
               );
             })}
+            {orders.length === 0 && (
+              <TableRow className="hover:bg-transparent">
+                {/* 5 sortable columns plus Tracking and Actions. */}
+                <TableCell colSpan={7} className="p-0">
+                  <EmptyState
+                    title="No orders match"
+                    description="Nothing here with the current filters. Orders appear the moment a customer checks out."
+                    action={
+                      <Button asChild variant="outline" size="sm">
+                        <Link href="/admin/orders">Clear filters</Link>
+                      </Button>
+                    }
+                  />
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>

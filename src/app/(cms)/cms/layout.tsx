@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { auth } from "@/server/auth/auth";
+import { auth, signOut } from "@/server/auth/auth";
 import { prisma } from "@/server/db";
-import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { DashboardShell, type NavGroup } from "@/components/layout/dashboard-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
@@ -55,29 +55,62 @@ async function CmsGate({ children }: { children: React.ReactNode }) {
     (a, b) => rank(a.name) - rank(b.name) || a.label.localeCompare(b.label)
   );
 
-  const navItems = [
-    { href: "/cms", label: "Dashboard" },
-    ...sorted.map((type) => ({
-      href: `/cms/content/${type.name}`,
-      label: type.label,
-    })),
-    { href: "/cms/media", label: "Media" },
+  /**
+   * Content types get their own group, so the list stays legible as types are
+   * added — which is the whole reason this menu is queried rather than
+   * hardcoded. The icon key is the type's own name, and dashboard-nav falls
+   * back to a generic mark for any it does not recognise, so a new type is
+   * never iconless-and-broken.
+   */
+  const groups: NavGroup[] = [
+    { items: [{ href: "/cms", label: "Dashboard", icon: "dashboard" }] },
+    {
+      label: "Content",
+      items: sorted.map((type) => ({
+        href: `/cms/content/${type.name}`,
+        label: type.label,
+        icon: type.name,
+      })),
+    },
+    {
+      label: "Library",
+      items: [{ href: "/cms/media", label: "Media", icon: "media" }],
+    },
   ];
 
   return (
-    <DashboardShell title="Studio" navItems={navItems} roleLabel={role}>
+    <DashboardShell
+      title="Studio"
+      groups={groups}
+      roleLabel={role}
+      // From the same query as the sidebar, so a renamed content type changes
+      // in both places at once. These used to be hardcoded in the breadcrumb
+      // component and had already drifted — "Blog" there, "Journal" here.
+      breadcrumbLabels={Object.fromEntries(sorted.map((t) => [t.name, t.label]))}
+      user={{ name: session.user?.name, email: session.user?.email }}
+      signOutAction={async () => {
+        "use server";
+        await signOut({ redirectTo: "/" });
+      }}
+    >
       {children}
     </DashboardShell>
   );
 }
 
+/** Matches the real shell's geometry, so nothing jumps when the gate resolves. */
 function CmsShellSkeleton() {
   return (
     <div className="flex min-h-screen">
-      <Skeleton className="hidden w-60 shrink-0 md:block" />
-      <div className="flex-1 space-y-4 p-6">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-64 w-full" />
+      <Skeleton className="hidden h-screen w-60 shrink-0 lg:block" />
+      <div className="flex-1">
+        <div className="flex h-14 items-center border-b px-4">
+          <Skeleton className="h-4 w-40" />
+        </div>
+        <div className="space-y-4 p-6">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-64 w-full" />
+        </div>
       </div>
     </div>
   );

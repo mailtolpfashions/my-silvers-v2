@@ -3,6 +3,7 @@ import { auth } from "@/server/auth/auth";
 import { getContentType, getEntryForEdit, CmsError } from "@/server/cms/entries";
 import { parseFields, type EntryData } from "@/server/cms/types";
 import { EntryEditor } from "@/components/cms/entry-editor";
+import { BreadcrumbLabel } from "@/components/layout/breadcrumb-label";
 
 export default async function EntryEditorPage({
   params,
@@ -47,7 +48,23 @@ export default async function EntryEditorPage({
   const entry = await getEntryForEdit(id);
   if (!entry || entry.contentType.name !== typeName) notFound();
 
+  /**
+   * What to call this entry in the breadcrumb.
+   *
+   * Entries have no `title` COLUMN — the fields are per-type JSON, so a blog
+   * post carries `title` while a banner may not carry anything resembling one.
+   * The slug is the reliable fallback: every entry has one and it is
+   * human-readable, which an id is not.
+   */
+  const entryData = entry.data as EntryData;
+  const crumb =
+    (typeof entryData.title === "string" && entryData.title.trim()) ||
+    (typeof entryData.name === "string" && entryData.name.trim()) ||
+    entry.slug;
+
   return (
+    <>
+    <BreadcrumbLabel value={crumb} />
     <EntryEditor
       typeName={type.name}
       typeLabel={type.label}
@@ -70,5 +87,6 @@ export default async function EntryEditorPage({
       }))}
       isAdmin={isAdmin}
     />
+    </>
   );
 }

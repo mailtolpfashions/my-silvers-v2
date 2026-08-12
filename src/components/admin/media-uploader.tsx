@@ -36,6 +36,13 @@ export function ImagesUploader({
         urls.push(await uploadToCloudinary(file, folder));
       }
       onChange([...images, ...urls]);
+      // Uploading only reported FAILURE before. A slow upload that worked
+      // looked identical to one that had not started — the thumbnail appearing
+      // was the only confirmation, and on a large file that is many seconds of
+      // wondering.
+      toast.success(
+        urls.length === 1 ? "Image uploaded." : `${urls.length} images uploaded.`
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed.");
     } finally {
@@ -105,6 +112,7 @@ export function VideoUploader({
     setUploading(true);
     try {
       onChange(await uploadToCloudinary(file, folder));
+      toast.success("Video uploaded.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed.");
     } finally {

@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { CategoryManager } from "@/components/admin/category-manager";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default async function AdminCategoriesPage() {
   const categories = await prisma.category.findMany({
@@ -9,7 +10,10 @@ export default async function AdminCategoriesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-h2 font-semibold">Categories</h1>
+      <PageHeader
+        title="Categories"
+        description="Categories drive the storefront's navigation and the homepage's category band. A category with no image is skipped by that band."
+      />
       <CategoryManager
         categories={categories.map((c) => ({
           id: c.id,

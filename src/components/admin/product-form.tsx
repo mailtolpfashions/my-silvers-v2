@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
+import { FormSaveBar } from "@/components/layout/form-save-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -84,6 +86,20 @@ export function ProductForm({
   const [saving, setSaving] = useState(false);
   const isEdit = !!productId;
 
+  /**
+   * Has anything changed since the form was loaded.
+   *
+   * A stringify comparison rather than a field-by-field one: every value here
+   * is a primitive or an array of them, and both sides are built from the same
+   * shape in the same order, so key order is stable. It would be the wrong tool
+   * for a graph with optional keys or Dates.
+   */
+  const dirty = JSON.stringify(form) !== JSON.stringify(initial);
+
+  // Guards the tab close AND in-app link clicks — this form previously threw
+  // away every field without a word if you touched the sidebar mid-edit.
+  useUnsavedChanges(dirty);
+
   function set<K extends keyof ProductFormValues>(key: K, value: ProductFormValues[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
@@ -152,7 +168,14 @@ export function ProductForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">
+    // The FORM is full width and the FIELDS are capped, rather than capping the
+    // form itself. The save bar is a child of the form — it has to be, to
+    // submit it — so a capped form made the bar 816px inside a 1185px column:
+    // flush with the left edge because of its negative margin, and stopping
+    // dead a third of the way from the right. A bar that spans the working area
+    // is the shape this pattern has everywhere it appears.
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="max-w-3xl space-y-6">
       {textField("name", "Name", { required: true })}
 
       <div className="space-y-1.5">
@@ -330,16 +353,19 @@ export function ProductForm({
             {label}
           </label>
         ))}
+        </div>
       </div>
 
-      <div className="flex gap-3">
-        <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : isEdit ? "Save changes" : "Create product"}
-        </Button>
-        <Button type="button" variant="outline" onClick={() => router.push("/admin/products")}>
-          Cancel
-        </Button>
-      </div>
+      {/* Always present, so Save and Cancel sit in one fixed place rather than
+          at the foot of a twenty-field form. A new product has nothing saved to
+          discard BACK to, so that button is offered only when editing. */}
+      <FormSaveBar
+        dirty={dirty}
+        saving={saving}
+        saveLabel={isEdit ? "Save changes" : "Create product"}
+        onDiscard={isEdit ? () => setForm(initial) : undefined}
+        onCancel={() => router.push("/admin/products")}
+      />
     </form>
   );
 }

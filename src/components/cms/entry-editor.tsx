@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
+import { FormSaveBar } from "@/components/layout/form-save-bar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -61,6 +63,19 @@ export function EntryEditor({
   const [showPreview, setShowPreview] = useState(false);
   const [seoOpen, setSeoOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  /**
+   * The last values known to be on the server. Moved forward by save(), so
+   * "unsaved changes" means what it says rather than "changed since the page
+   * loaded".
+   */
+  const [baseline, setBaseline] = useState({ data: initialData, seo: initialSeo });
+  const dirty =
+    JSON.stringify({ data, seo }) !== JSON.stringify(baseline);
+
+  // Guards both the tab close and clicks on the Studio's own sidebar, which
+  // previously discarded an in-progress entry without a word.
+  useUnsavedChanges(dirty);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   /**
@@ -131,6 +146,10 @@ export function EntryEditor({
       setCurrentId(result.entryId);
       window.history.replaceState(null, "", `/cms/content/${typeName}/${result.entryId}`);
     }
+    // The editor stays on the page after a save, unlike the product form which
+    // navigates away — so the baseline has to move forward or the entry would
+    // read as permanently unsaved.
+    setBaseline({ data, seo });
     return result.entryId ?? currentId;
   }
 
@@ -225,10 +244,20 @@ export function EntryEditor({
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <h1 className="text-h2 font-semibold">{typeLabel}</h1>
+            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{typeLabel}</h1>
             <Badge variant={status === "published" ? "default" : "secondary"}>
               {status ?? "new"}
             </Badge>
+            {/* Beside the published/draft badge, because the two answer
+                different questions — that one is "what is live", this one is
+                "does the server have what I am looking at". An entry can be
+                published AND have unsaved edits, which is the state most likely
+                to be lost. */}
+            {dirty && (
+              <span className="state-pill" data-state="warning">
+                Unsaved
+              </span>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -327,6 +356,21 @@ export function EntryEditor({
             </CardContent>
           </Card>
         )}
+
+        {/* onSave rather than a submit: this editor drives server actions from
+            click handlers and has no <form> around it. Publish stays in the
+            header — the bar is about not losing work, and publishing is a
+            separate, deliberate decision. */}
+        <FormSaveBar
+          dirty={dirty}
+          saving={isPending}
+          saveLabel="Save draft"
+          onSave={handleSaveDraft}
+          onDiscard={() => {
+            setData(baseline.data);
+            setSeo(baseline.seo);
+          }}
+        />
       </div>
 
       {showPreview && (

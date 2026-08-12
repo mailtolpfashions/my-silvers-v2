@@ -19,7 +19,12 @@ export function PdfExportButton({
   async function handleClick() {
     setBusy(true);
     try {
-      const res = await fetch(`${endpoint}?format=json`);
+      // `&` when the endpoint already carries a query, not a second `?`. The
+      // products export now passes ?ids= for a selection, and appending
+      // "?format=json" to that produced "?ids=a,b?format=json" — one malformed
+      // parameter, so the server saw no format and returned CSV to a PDF
+      // builder.
+      const res = await fetch(`${endpoint}${endpoint.includes("?") ? "&" : "?"}format=json`);
       if (!res.ok) throw new Error("Export failed");
       const data = (await res.json()) as {
         title: string;

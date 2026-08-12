@@ -7,7 +7,21 @@ export async function GET(req: NextRequest) {
   const session = await auth();
   if (session?.user?.role !== "admin") return new Response("Forbidden", { status: 403 });
 
+  /**
+   * `?ids=a,b,c` exports just those rows — the products table's bulk bar sends
+   * the current selection. Absent, the whole catalogue is exported as before,
+   * so the page's own Export CSV button is unchanged.
+   *
+   * Capped at the same 200 the bulk actions use, and only because a URL has a
+   * practical length limit; a larger selection should use the full export.
+   */
+  const idsParam = req.nextUrl.searchParams.get("ids");
+  const ids = idsParam
+    ? idsParam.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 200)
+    : null;
+
   const products = await prisma.product.findMany({
+    where: ids && ids.length > 0 ? { id: { in: ids } } : undefined,
     include: { category: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
   });

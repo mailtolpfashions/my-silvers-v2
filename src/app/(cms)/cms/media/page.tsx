@@ -1,5 +1,6 @@
 import { listMedia } from "@/server/cms/media";
 import { MediaLibrary } from "@/components/cms/media-library";
+import { PageHeader } from "@/components/layout/page-header";
 
 type SearchParams = Promise<{ q?: string; folder?: string; page?: string }>;
 
@@ -17,7 +18,10 @@ export default async function MediaLibraryPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-h2 font-semibold">Media library</h1>
+      <PageHeader
+        title="Media library"
+        description="Every image uploaded to the Studio. Pick from here rather than re-uploading — the same file used twice is one asset, not two."
+      />
       <MediaLibrary
         assets={assets.map((a) => ({
           id: a.id,
