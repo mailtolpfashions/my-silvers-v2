@@ -28,6 +28,25 @@ const TOKEN_TTL_MS = 8 * 24 * 60 * 60 * 1000;
 
 let cachedToken: { token: string; fetchedAt: number } | null = null;
 
+/**
+ * A rejected login, remembered briefly so we stop asking.
+ *
+ * ⚠️  Shiprocket LOCKS THE ACCOUNT after too many failed logins, and the lock
+ * applies to the correct password too — a blocked account cannot be recovered
+ * by fixing the credentials, only by waiting or by contacting support. That
+ * turns every retry into a way of making the problem worse.
+ *
+ * Which is exactly how this account got blocked: a dev server started before
+ * .env was filled in, and every click on "Send to Shiprocket" spent another
+ * attempt. Without this gate, an admin who clicks a failing button five times
+ * has burned five attempts and deepened a lockout they cannot see.
+ *
+ * Deliberately short. It exists to absorb a burst of clicks, not to make a
+ * corrected password wait a quarter of an hour to be tried.
+ */
+const AUTH_FAILURE_COOLDOWN_MS = 60_000;
+let authFailure: { message: string; at: number } | null = null;
+
 export class ShiprocketError extends Error {
   constructor(message: string) {
     super(message);
@@ -46,6 +65,13 @@ async function login(): Promise<string> {
     throw new ShiprocketError(
       "Shiprocket credentials are not set. SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD are missing from this environment — if you have just edited .env, restart the server."
     );
+  }
+
+  // Don't spend an attempt we already know will fail — see the note on
+  // AUTH_FAILURE_COOLDOWN_MS. Network errors are not recorded there, so an
+  // outage never gates a retry.
+  if (authFailure && Date.now() - authFailure.at < AUTH_FAILURE_COOLDOWN_MS) {
+    throw new ShiprocketError(authFailure.message);
   }
 
   let res: Response;
@@ -74,16 +100,37 @@ async function login(): Promise<string> {
      * the status is always shown so the cause is never guessed at.
      */
     const detail = String(data?.message ?? "").trim();
-    const hint =
-      res.status === 401 || res.status === 403
+
+    /**
+     * A LOCKED account also answers 403, and telling someone to check their
+     * password then is worse than saying nothing: the password is usually
+     * correct, and the only things that clear a lock are time and Shiprocket
+     * support. Checked before the credential hint, because it is a 403 too.
+     */
+    const blocked = /blocked|too many failed/i.test(detail);
+
+    const hint = blocked
+      ? " — the account is locked, and the correct password will not open it. Wait for the lock to clear, or ask Shiprocket support to lift it. Do not keep retrying; each attempt can extend the lock."
+      : res.status === 401 || res.status === 403
         ? " — Shiprocket rejected these credentials. Check SHIPROCKET_EMAIL/PASSWORD."
         : res.status === 429
           ? " — too many login attempts. Shiprocket throttles this endpoint; wait a few minutes."
           : "";
-    throw new ShiprocketError(
-      `Shiprocket login failed (HTTP ${res.status})${detail ? `: ${detail}` : ""}${hint}`
-    );
+
+    const message = `Shiprocket login failed (HTTP ${res.status})${detail ? `: ${detail}` : ""}${hint}`;
+
+    // Only auth outcomes are remembered. A 500 from Shiprocket is worth
+    // retrying immediately; a rejection or a lock is not.
+    if (res.status === 401 || res.status === 403 || res.status === 429) {
+      authFailure = { message, at: Date.now() };
+    }
+
+    throw new ShiprocketError(message);
   }
+
+  // A success clears the gate, so a corrected credential works on the next
+  // click rather than waiting out a cooldown it no longer deserves.
+  authFailure = null;
 
   cachedToken = { token: data.token, fetchedAt: Date.now() };
   return data.token;
