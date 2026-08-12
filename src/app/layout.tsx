@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Playfair_Display, DM_Sans, Raleway } from "next/font/google";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 // Headings — the brand's display serif.
@@ -91,7 +92,28 @@ export default function RootLayout({
       {/* Single light theme by design. There is no theme provider: next-themes
           was a client-side context wrapping every page, and the site has one
           palette, so it was pure cost. */}
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        {/*
+          ⚠️  This was MISSING, and had been for as long as the code has used
+          toasts. `components/ui/sonner.tsx` exported a Toaster that nothing
+          rendered, so every `toast.success(...)` and `toast.error(...)` in the
+          app resolved happily and drew nothing — 47 calls across the admin and
+          Studio alone, plus the storefront's wishlist, cart and checkout.
+
+          Failures were the worse half: "Could not add to cart", "Upload
+          failed", "Please choose a size first" all fired into a void, so an
+          action that failed looked exactly like one that had not registered.
+
+          Mounted once in the ROOT layout rather than per-surface: the
+          storefront, /admin and /cms are separate route groups with separate
+          layouts, and a per-layout Toaster would have to be added to each and
+          remembered for the next one. `richColors` so success and failure are
+          distinguishable at a glance, and a longer duration than the 4s default
+          because several of these carry a "View cart" action worth reaching.
+        */}
+        <Toaster richColors closeButton position="bottom-right" duration={5000} />
+      </body>
     </html>
   );
 }
