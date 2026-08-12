@@ -35,13 +35,25 @@ export function SearchBox({
   className = "",
   placeholders,
   popular = [],
+  variant = "panel",
 }: {
   className?: string;
   /** Derived from the catalogue, or the CMS override. Cycled one at a time. */
   placeholders?: string[];
   /** Chips shown under an idle field, before anything is typed. */
   popular?: SearchTerm[];
+  /**
+   * `panel` is the overlay's layout: a tall underlined field with its results
+   * flowing BELOW it, inside a band that already owns the top of the screen.
+   *
+   * `inline` is the header's: a pill-shaped field sized to a header row, with
+   * the results floating over the page instead of pushing it down. That
+   * distinction is the whole reason this prop exists — the panel layout in a
+   * header makes the header grow to 500px tall the moment you type.
+   */
+  variant?: "panel" | "inline";
 }) {
+  const inline = variant === "inline";
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Suggestion>(EMPTY);
@@ -180,7 +192,11 @@ export function SearchBox({
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       <div className="relative">
-        <Search className="pointer-events-none absolute left-0 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
+        <Search
+          className={`pointer-events-none absolute top-1/2 size-5 -translate-y-1/2 text-muted-foreground ${
+            inline ? "left-3.5" : "left-0"
+          }`}
+        />
         <input
           ref={inputRef}
           type="search"
@@ -205,7 +221,15 @@ export function SearchBox({
           aria-expanded={open && (hasResults || showIdlePanel)}
           aria-controls={listId}
           aria-autocomplete="list"
-          className="h-14 w-full rounded-none border-0 border-b border-input bg-transparent pl-9 pr-10 text-base outline-none transition-colors focus:border-foreground [&::-webkit-search-cancel-button]:hidden"
+          className={
+            inline
+              ? // A pill, and the ONE rounded frame on this storefront. The
+                // tile system is square because a radius around a photograph
+                // reads as a theme; a search field is a control, not a picture,
+                // and the same argument that keeps form inputs rounded applies.
+                "h-11 w-full rounded-full border border-input bg-background pl-10 pr-10 text-sm outline-none transition-colors focus:border-foreground [&::-webkit-search-cancel-button]:hidden"
+              : "h-14 w-full rounded-none border-0 border-b border-input bg-transparent pl-9 pr-10 text-base outline-none transition-colors focus:border-foreground [&::-webkit-search-cancel-button]:hidden"
+          }
         />
         {query && (
           <button
@@ -228,7 +252,20 @@ export function SearchBox({
       {open && !hasResults && showIdlePanel && (
         <div
           id={listId}
-          className="mt-6 space-y-6"
+          className={
+            inline
+              ? // Floats over the page. `top-full` hangs it off the input
+                // rather than the container, so it stays put whatever the
+                // header's own height turns out to be.
+                // Wider than the field and right-aligned to it. The field is
+                // capped at 20rem to keep it out of the wordmark's way, but a
+                // 296px dropdown truncated every product name — the panel is
+                // reading material, the input is not, so they are sized
+                // separately. `max-w-[calc(100vw-2rem)]` keeps it on screen
+                // when the header is narrow.
+                "absolute right-0 top-full z-50 mt-2 w-[26rem] max-w-[calc(100vw-2rem)] max-h-[70vh] space-y-6 overflow-y-auto border bg-background p-4 shadow-lg"
+              : "mt-6 space-y-6"
+          }
         >
           {recent.length > 0 && (
             <div>
@@ -290,7 +327,13 @@ export function SearchBox({
         <div
           id={listId}
           role="listbox"
-          className="mt-6 border-t"
+          className={
+            inline
+              ? // Same width and alignment as the idle panel above, so the two
+                // do not jump sideways as you start typing.
+                "absolute right-0 top-full z-50 mt-2 w-[26rem] max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto border bg-background shadow-lg"
+              : "mt-6 border-t"
+          }
         >
           {active.categories.length > 0 && (
             <div className="border-b py-1.5">

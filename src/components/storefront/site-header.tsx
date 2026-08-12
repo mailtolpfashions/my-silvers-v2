@@ -73,15 +73,38 @@ export function SiteHeader() {
             <MegaMenuLoader />
           </Suspense>
 
-          <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
-            {/* Search at every width now, behind a glyph. The 640px pill that
-                used to sit in the middle of this row was the loudest element on
-                the page and read as a marketplace. */}
-            <SearchOverlay>
-              <Suspense fallback={<SearchBox />}>
-                <HeaderSearch />
-              </Suspense>
-            </SearchOverlay>
+          {/* ── Search ────────────────────────────────────────────────────────
+              Inline from lg, behind a glyph below it.
+
+              This reinstates a visible field. The note that stood here argued
+              search belongs behind an icon because a large centred box is the
+              marketplace signal — Amazon, Flipkart, Myntra all lead with one —
+              and that a curated brand puts navigation first. That reasoning is
+              still on record in search-overlay.tsx and is worth reading before
+              anyone changes this again; it was overruled deliberately, not
+              forgotten.
+
+              Two mitigations keep it from becoming that 640px pill: it is
+              capped at 20rem and sits in the RIGHT cluster rather than centred,
+              so the wordmark and the categories still lead the row.
+
+              Only one of the two renders at any width — `hidden` removes the
+              other from the accessibility tree entirely, so there is never a
+              second combobox for a screen reader to find. */}
+          <div className="ml-auto hidden w-full max-w-80 pl-6 lg:block">
+            <Suspense fallback={<SearchBox variant="inline" />}>
+              <HeaderSearch variant="inline" />
+            </Suspense>
+          </div>
+
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1 lg:ml-2">
+            <div className="lg:hidden">
+              <SearchOverlay>
+                <Suspense fallback={<SearchBox />}>
+                  <HeaderSearch />
+                </Suspense>
+              </SearchOverlay>
+            </div>
 
             <Suspense fallback={<HeaderAccountSkeleton />}>
               <HeaderAccount />

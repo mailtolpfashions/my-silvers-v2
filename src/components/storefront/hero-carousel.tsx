@@ -23,6 +23,20 @@ export type HeroSlide = {
    */
   mediaMobile?: string;
   overlayOpacity?: number;
+  /**
+   * Which way the FLOATING HEADER's text runs while this slide is showing.
+   *
+   * "light" (white type) is the default and suits photography. "dark" exists for
+   * pale artwork: the header over a hero is transparent, and its only defence is
+   * a scrim that fades to nothing by the header's bottom edge — so on a white
+   * slide the wordmark, nav and cart all sit at roughly 1:1 contrast and vanish.
+   * Deepening the scrim is not the fix; it just paints a grey bar across the top
+   * of a white photograph.
+   *
+   * Per SLIDE rather than per hero, because a carousel can mix a white packshot
+   * with a dark editorial frame — the attribute follows the active index.
+   */
+  headerTone?: "light" | "dark";
 };
 
 /**
@@ -202,6 +216,11 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
       // wants the same treatment (a full-bleed collection hero, say) opts in by
       // carrying this attribute; nothing has to know about the header.
       data-hero-full
+      // Set ONLY on a slide that asks for dark header type, so the default path
+      // emits exactly the markup it always did and the CSS needs no rule for it.
+      // It tracks the active index: with a mixed carousel the header flips as
+      // the pale slide comes round. See `headerTone` on HeroSlide.
+      data-header-ink={slides[activeIndex]?.headerTone === "dark" ? "dark" : undefined}
       // z-10 is what makes the pinned reveal work: the category band that
       // follows is pulled up BEHIND this hero (see PinnedRevealStage in
       // homepage-section.tsx) and, being a later sibling, would otherwise paint
@@ -503,20 +522,27 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
  * all share it. No radius and no shadow, like everything else on this
  * storefront.
  *
- * ── It used to be solid, and that was not an accident ────────────────────────
- * The note here previously read: "Solid, not translucent: these sit over
- * photography nobody controls, and a white/20 button vanishes on a pale image."
- * That risk is real and has not gone away — an outline over a bright, busy
- * photograph is the weakest state this control can be in.
+ * ── It used to be a box, and the box went in two steps ───────────────────────
+ * First a solid white fill, on the reasoning that these sit over photography
+ * nobody controls and a translucent button vanishes on a pale image. Then a
+ * 1px white/70 outline with a backdrop-blur, which was asked for as "hollow".
+ * Now no container at all — just the glyph, which is what was asked for last.
  *
- * Two things carry it instead of a fill:
- *   backdrop-blur   softens whatever is behind the glyph, so the edge stays
- *                   readable over detail rather than only over flat colour
- *   white/70 border at 1px against a white glyph, which is the same pairing the
- *                   hero's own copy already relies on over these images
+ * The legibility risk that argued for a fill is real and has not gone away, so
+ * two things carry the bare glyph:
+ *   the scrim   the arrows sit at bottom-8, and the slide's overlay is a
+ *               `to top` gradient — strongest exactly there. This is the same
+ *               ground the phone's pause toggle has always stood on as a bare
+ *               white glyph, so the pattern is not new to this hero.
+ *   drop-shadow a 3px dark shadow on the glyph itself rather than a box behind
+ *               it, which keeps it readable if a slide sets overlayOpacity to
+ *               0 and takes the scrim away.
  *
- * If a slide ever defeats it, the fix is a darker scrim on that slide — not a
- * return to a white block, which is what this was asked to stop being.
+ * If a slide still defeats it, the fix is a darker scrim on that slide, or its
+ * headerTone — not a return to a container.
+ *
+ * The 48px footprint stays: it is the touch target and the cluster's rhythm,
+ * and only the border that used to draw it is gone.
  *
  * The `disabled` state this used to carry is gone with the clamping: the track
  * wraps, so there is no end to be stranded at and nothing to grey out.
@@ -535,7 +561,7 @@ function HeroControl({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex size-12 items-center justify-center border border-white/70 text-white backdrop-blur-sm transition-colors hover:border-white hover:bg-white/15"
+      className="flex size-12 items-center justify-center text-white/80 drop-shadow-[0_1px_3px_rgba(12,12,14,0.55)] transition-colors hover:text-white"
     >
       {children}
     </button>

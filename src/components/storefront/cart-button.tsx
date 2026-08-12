@@ -46,7 +46,12 @@ export function CartButton({
             // Inset rather than hung off the corner: the button is 48px around a
             // 24px glyph, so a negative offset would float the badge in dead
             // space well clear of the bag.
-            className="absolute right-0.5 top-1 flex h-[17px] min-w-[17px] items-center justify-center bg-black px-1 text-micro font-medium leading-none text-white"
+            // `cart-count` is the hook the transparent header uses to flip the
+            // digit to ink. Over a hero the header re-points --black to white,
+            // so `bg-black` correctly becomes a white pill — but `text-white`
+            // came with it and the count went white-on-white. See the
+            // `.cart-count` rule in globals.css.
+            className="cart-count absolute right-0.5 top-1 flex h-[17px] min-w-[17px] items-center justify-center bg-black px-1 text-micro font-medium leading-none text-white"
             aria-hidden
           >
             {count > 99 ? "99+" : count}

@@ -559,9 +559,17 @@
 
 /* ── The transparent state ─────────────────────────────────────────────────
    Same live-page guard as the `position: fixed` rule above — see the note there
-   before editing this selector. */
+   before editing this selector.
+
+   `:has(:focus-visible)` rather than `:focus-within`, and the difference is a
+   bug that was reported from the live site: clicking the wordmark to go home
+   leaves focus ON the wordmark, so `:focus-within` stayed true and the header
+   sat there solid over the hero until you clicked somewhere else. A mouse click
+   does not set `:focus-visible`, so the pointer path is now clean while the
+   keyboard path — which is the reason this guard exists at all, so a tabbing
+   user can see the controls they are moving through — still works. */
 .storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full])
-  .site-header:not([data-scrolled]):not(:hover):not(:focus-within) {
+  .site-header:not([data-scrolled]):not(:hover):not(:has(:focus-visible)) {
   /* Re-pointed for one dark band. Raw values, not ramp tokens: the ramp is
      tuned for ink on ivory, and there is no "white on an arbitrary
      photograph" entry in it — nor should there be, since this is the only
@@ -584,7 +592,7 @@
 }
 
 .storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full])
-  .site-header:not([data-scrolled]):not(:hover):not(:focus-within)::before {
+  .site-header:not([data-scrolled]):not(:hover):not(:has(:focus-visible))::before {
   opacity: 1;
 }
 
@@ -592,9 +600,73 @@
    cannot reach it — it needs to be told directly. `color` too: the `info` tone
    is graphite on ivory, which would be unreadable once the fill is gone. */
 .storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full])
-  .site-header:not([data-scrolled]):not(:hover):not(:focus-within)
+  .site-header:not([data-scrolled]):not(:hover):not(:has(:focus-visible))
   .header-band {
   background-color: transparent;
+  color: #ffffff;
+}
+
+/* The cart count is the one child that carries BOTH halves of the contrast
+   pair, so the token swap breaks it: `--black` becomes white, which is the
+   right pill colour over a photograph, but its `text-white` digit came along
+   and the badge went white-on-white — a blank chip. Only the digit needs
+   turning over; the pill is already correct. */
+.storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full])
+  .site-header:not([data-scrolled]):not(:hover):not(:has(:focus-visible))
+  .cart-count {
+  /* The raw value, not `var(--black)` — that token is re-pointed to white
+     three rules up, in this very scope, which is what broke the badge. */
+  color: #0c0c0e;
+}
+
+/* ── The transparent state, over PALE artwork ──────────────────────────────
+   Everything above assumes the hero is photography, and white type plus a dark
+   scrim is right for that. On a pale slide it fails outright, and the scrim
+   cannot save it: the gradient runs rgba(12,12,14,0.55) at the header's top
+   edge to fully transparent at its bottom, so against a white hero the contrast
+   goes 4.3:1 at y=0, 1.9:1 by y≈52, and 1:1 at y=105 — and the wordmark, nav,
+   search and cart all sit in that lower band. Deepening the scrim only paints a
+   grey bar across the top of a white photograph, which is the thing the
+   floating header exists to avoid.
+
+   So a pale slide says so, and this mirrors the block above: same guards, ink
+   instead of white, and a white scrim instead of a dark one. It is scoped to
+   `[data-header-ink="dark"]` on the hero, which the carousel sets from the
+   ACTIVE slide — so a carousel that mixes a white packshot with a dark frame
+   flips the header as it rotates. Authored in the CMS per slide; see the
+   `headerTone` field in prisma/seed.ts.
+
+   Specificity beats the block above on the extra attribute alone, but it is
+   also placed after it deliberately — keep the two adjacent and in this order
+   if either is ever edited. */
+.storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full][data-header-ink="dark"])
+  .site-header:not([data-scrolled]):not(:hover):not(:has(:focus-visible)) {
+  --foreground: #0c0c0e;
+  --muted-foreground: rgba(12, 12, 14, 0.72);
+  --black: #0c0c0e;
+
+  color: #0c0c0e;
+}
+
+/* The scrim turns over with the type: a white veil lifts ink off a pale
+   photograph the same way the dark one lifts white off a shadowed one. */
+.storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full][data-header-ink="dark"])
+  .site-header:not([data-scrolled]):not(:hover):not(:has(:focus-visible))::before {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0) 100%);
+}
+
+.storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full][data-header-ink="dark"])
+  .site-header:not([data-scrolled]):not(:hover):not(:has(:focus-visible))
+  .header-band {
+  color: #0c0c0e;
+}
+
+/* And the badge turns back. In this mode `--black` is ink again, so `bg-black`
+   already gives an ink pill — it is the rule above, which forces the digit to
+   ink for the white-pill case, that would now make it ink on ink. */
+.storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full][data-header-ink="dark"])
+  .site-header:not([data-scrolled]):not(:hover):not(:has(:focus-visible))
+  .cart-count {
   color: #ffffff;
 }
 

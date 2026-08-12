@@ -215,7 +215,20 @@ function NavItem({
           inert={!isOpen}
           className="absolute inset-x-0 top-full z-40 border-t bg-background"
         >
-          <div className="container-page grid gap-10 py-10 lg:grid-cols-[1fr_auto] lg:gap-16">
+          {/* The one place the page's no-max-width rule is deliberately not
+              followed. `.container-page` tracks the viewport so that the WIDEST
+              screens get the widest photography — right for a catalogue of
+              tiles, wrong for a menu, where it strands the link columns against
+              the far left edge with a third of the panel empty between them and
+              the tiles.
+
+              Capped at --container-page, the token the rest of the page still
+              measures against even though it is no longer applied as a ceiling
+              there (see the .container-page block in globals.css). At 1920 that
+              puts the first column at x=304; the reference this was matched to
+              sits at 305. Below 1440 the cap never binds, so nothing changes at
+              the width the design was drawn at. */}
+          <div className="container-page grid max-w-[var(--container-page)] gap-10 py-10 lg:grid-cols-[1fr_auto] lg:gap-16">
             {world.columns && world.columns.length > 0 && (
               <div
                 className="grid gap-x-12 gap-y-8"
