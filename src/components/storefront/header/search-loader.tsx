@@ -17,7 +17,14 @@ import { SearchBox } from "@/components/storefront/search-box";
  * first version made the CMS the only source, so a fresh install showed one
  * hardcoded fallback string until someone typed four rows by hand.
  */
-export async function HeaderSearch({ className }: { className?: string }) {
+export async function HeaderSearch({
+  className,
+  variant,
+}: {
+  className?: string;
+  /** Passed straight through — see the note on SearchBox's own `variant`. */
+  variant?: "panel" | "inline";
+}) {
   const [entry, terms] = await Promise.all([
     getPublishedEntry("homepage"),
     getSearchTerms(),
@@ -37,6 +44,7 @@ export async function HeaderSearch({ className }: { className?: string }) {
   return (
     <SearchBox
       className={className}
+      variant={variant}
       placeholders={override.length > 0 ? override : terms.placeholders}
       popular={terms.popular}
     />
