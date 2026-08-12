@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { prisma } from "@/server/db";
 import { checkRateLimit, getClientIp } from "@/server/rate-limit/limiter";
+import { normaliseScans, type ScanEvent } from "@/server/integrations/shiprocket";
 import type { OrderStatus } from "@/generated/prisma/client";
 
 /**
@@ -91,6 +92,7 @@ export async function POST(req: Request) {
     current_status?: string;
     shipment_status?: string;
     courier_name?: string;
+    scans?: unknown;
   };
   try {
     event = await req.json();
@@ -103,10 +105,6 @@ export async function POST(req: Request) {
   const raw = (event.current_status ?? event.shipment_status ?? "").trim().toLowerCase();
   const next = STATUS_MAP[raw];
 
-  // 200 on an unmapped scan, not 4xx: this is the common case, and a non-2xx
-  // teaches Shiprocket to retry a payload that will never be actionable.
-  if (!next) return new Response("Ignored", { status: 200 });
-
   // AWB first — it is the identifier Shiprocket owns. order_id is our own
   // orderNumber echoed back, and is the fallback for scans that omit the AWB.
   const order = awb
@@ -117,19 +115,50 @@ export async function POST(req: Request) {
 
   if (!order) return new Response("Unknown shipment", { status: 200 });
 
-  if ((RANK[next] ?? 0) <= (RANK[order.orderStatus] ?? 0)) {
-    return new Response("Stale", { status: 200 });
-  }
+  /**
+   * The scan trail is stored for EVERY push, including the ones STATUS_MAP
+   * ignores — and especially those. "In Transit" and "Out for Delivery" do not
+   * move our order status, because there is no status for them and inventing
+   * one would promise something we cannot stand behind; but they are exactly
+   * what a customer wants to read on the tracking page. Dropping them was the
+   * behaviour before the timeline existed.
+   */
+  const scans = normaliseScans(event.scans);
+
+  // Only ever grows. A push carrying two scans must not replace a trail of ten
+  // — Shiprocket sends the recent window, not the full history.
+  const merged = mergeScans(order.shipmentScans, scans);
+
+  const advances = Boolean(next) && (RANK[next!] ?? 0) > (RANK[order.orderStatus] ?? 0);
 
   await prisma.order.update({
     where: { id: order.id },
     data: {
-      orderStatus: next,
+      ...(advances ? { orderStatus: next } : {}),
+      ...(merged ? { shipmentScans: merged } : {}),
       // Couriers get reassigned more often than you would think, and the name
       // shown on the customer's tracking page should follow.
       ...(event.courier_name ? { courierName: String(event.courier_name) } : {}),
     },
   });
 
-  return new Response("OK", { status: 200 });
+  return new Response(advances ? "OK" : "Recorded", { status: 200 });
+}
+
+/**
+ * Union of what we hold and what just arrived, keyed on timestamp + activity.
+ *
+ * Returns null when nothing changed, so an unchanged trail is not rewritten on
+ * every scan. Couriers repeat events across pushes, so de-duplication is the
+ * normal path rather than an edge case.
+ */
+function mergeScans(existing: unknown, incoming: ScanEvent[]): ScanEvent[] | null {
+  if (incoming.length === 0) return null;
+
+  const held = normaliseScans(existing);
+  const seen = new Set(held.map((s) => `${s.at}|${s.activity}`));
+  const added = incoming.filter((s) => !seen.has(`${s.at}|${s.activity}`));
+  if (added.length === 0) return null;
+
+  return [...held, ...added].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
 }

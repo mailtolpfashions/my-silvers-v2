@@ -8,6 +8,8 @@ import { createRefund } from "@/server/payments/razorpay";
 import {
   createShiprocketOrder,
   assignShiprocketAwb,
+  schedulePickup,
+  generateLabel,
 } from "@/server/integrations/shiprocket";
 import { releaseShipmentByOrderId } from "@/server/orders/cancel-shipment";
 
@@ -173,6 +175,35 @@ export async function assignAwbForOrder(orderId: string) {
     });
     throw err;
   }
+}
+
+/**
+ * Step three: schedule the courier pickup and fetch the label.
+ *
+ * Both in one action because they are one physical act — you print the label,
+ * stick it on, and the courier comes. Splitting them would leave an admin
+ * wondering which of two buttons they had already pressed.
+ *
+ * Neither call is billable; the money was spent assigning the waybill. Safe to
+ * repeat, which matters because the label is often wanted again after a
+ * printer jam.
+ */
+export async function schedulePickupForOrder(orderId: string) {
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order) throw new AdminOrderError("Order not found.");
+  if (!order.shiprocketShipmentId) {
+    throw new AdminOrderError("Create the Shiprocket shipment first.");
+  }
+  if (!order.trackingNumber) {
+    throw new AdminOrderError("Assign a courier before scheduling a pickup.");
+  }
+
+  const [pickup, label] = await Promise.all([
+    schedulePickup(order.shiprocketShipmentId),
+    generateLabel(order.shiprocketShipmentId),
+  ]);
+
+  return { scheduledFor: pickup.scheduledFor, labelUrl: label.labelUrl };
 }
 
 /** Customer-side: request a return — only from 'delivered'. */

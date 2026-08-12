@@ -8,6 +8,7 @@ import {
   updateOrderStatus,
   createShipmentForOrder,
   assignAwbForOrder,
+  schedulePickupForOrder,
   processReturn,
   AdminOrderError,
 } from "@/server/orders/admin";
@@ -47,6 +48,27 @@ export async function createShipmentAction(orderId: string): Promise<AdminOrderA
     }
     console.error("createShipmentAction failed", err);
     return { ok: false, error: "Shipment creation failed. Please try again." };
+  }
+}
+
+/**
+ * Step three — free. Schedules the collection and returns the courier's label
+ * PDF so the admin never has to open the Shiprocket dashboard.
+ */
+export async function schedulePickupAction(
+  orderId: string
+): Promise<AdminOrderActionResult | { ok: true; labelUrl: string; scheduledFor: string | null }> {
+  await requireRole("admin");
+  try {
+    const result = await schedulePickupForOrder(orderId);
+    revalidatePath("/admin/orders");
+    return { ok: true, ...result };
+  } catch (err) {
+    if (err instanceof AdminOrderError || err instanceof ShiprocketError) {
+      return { ok: false, error: err.message };
+    }
+    console.error("schedulePickupAction failed", err);
+    return { ok: false, error: "Could not schedule the pickup. Please try again." };
   }
 }
 

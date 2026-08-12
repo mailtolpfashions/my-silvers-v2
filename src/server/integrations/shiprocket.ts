@@ -213,6 +213,41 @@ export async function assignShiprocketAwb(
 }
 
 /**
+ * Step three: tell the courier to come and collect it.
+ *
+ * Assigning a waybill does NOT schedule a pickup — that surprises people, and
+ * it is why a shipment can sit with a perfectly valid AWB and never move.
+ *
+ * Returns the scheduled date when Shiprocket gives one. Treated as idempotent
+ * on our side: asking twice for the same shipment is answered rather than
+ * refused, so a double-click does not become an error the admin has to
+ * interpret.
+ */
+export async function schedulePickup(shipmentId: string): Promise<{ scheduledFor: string | null }> {
+  const res = await srFetch("/courier/generate/pickup", { shipment_id: [Number(shipmentId) || shipmentId] });
+  const response = res.response as { pickup_scheduled_date?: string } | undefined;
+  return { scheduledFor: response?.pickup_scheduled_date ?? null };
+}
+
+/**
+ * The courier's own label PDF.
+ *
+ * This is the one piece that genuinely cannot be built here: the label carries
+ * the courier's barcode and has to be in their format, or it is refused at
+ * pickup. Shiprocket returns a URL to the generated PDF, which the admin panel
+ * links to — so the admin never has to open the Shiprocket dashboard, even
+ * though the artwork is theirs.
+ */
+export async function generateLabel(shipmentId: string): Promise<{ labelUrl: string }> {
+  const res = await srFetch("/courier/generate/label", { shipment_id: [Number(shipmentId) || shipmentId] });
+  const url = res.label_url;
+  if (!url || typeof url !== "string") {
+    throw new ShiprocketError("Shiprocket did not return a label URL — is the AWB assigned?");
+  }
+  return { labelUrl: url };
+}
+
+/**
  * Undoes step one. Only valid before an AWB exists — once a waybill is out,
  * cancelShiprocketAwbs is the call.
  */
@@ -228,6 +263,68 @@ export async function cancelShiprocketOrders(shiprocketOrderIds: string[]): Prom
 export async function cancelShiprocketAwbs(awbCodes: string[]): Promise<void> {
   if (awbCodes.length === 0) return;
   await srFetch("/orders/cancel/shipment/awbs", { awbs: awbCodes });
+}
+
+/**
+ * One courier scan, in our shape rather than Shiprocket's.
+ *
+ * Normalised because the same event reaches us through two doors with two
+ * different field names: the webhook sends `activity`/`date`, and the tracking
+ * endpoint sends `activity`/`date` nested under shipment_track_activities with
+ * `status` alongside. Storing either raw would mean the order page had to know
+ * which door the data came through.
+ */
+export type ScanEvent = {
+  /** ISO-ish timestamp string, exactly as the courier reported it. */
+  at: string;
+  activity: string;
+  location: string | null;
+};
+
+/**
+ * Pulls a scan list out of whatever shape it arrived in, newest first.
+ *
+ * Deliberately total: anything unrecognised becomes an empty list rather than
+ * an exception. This runs inside a webhook handler, and a courier inventing a
+ * new field must not turn into a 500 that Shiprocket then retries forever.
+ */
+export function normaliseScans(raw: unknown): ScanEvent[] {
+  if (!Array.isArray(raw)) return [];
+
+  const scans = raw
+    .filter((s): s is Record<string, unknown> => Boolean(s) && typeof s === "object")
+    .map((s) => ({
+      // `at` first, because this function is also how we re-read our OWN
+      // stored trail before merging a new push into it. Reading only
+      // Shiprocket's `date` made the existing trail parse as empty, so every
+      // push replaced the history instead of extending it — the timeline never
+      // showed more than the last scan.
+      at: String(s.at ?? s.date ?? s.updated_at ?? ""),
+      activity: String(s.activity ?? s["sr-status-label"] ?? s.status ?? "").trim(),
+      location: s.location ? String(s.location) : null,
+    }))
+    .filter((s) => s.at && s.activity);
+
+  // Newest first. Courier feeds are inconsistent about direction, so sort
+  // rather than trust the order they arrived in.
+  return scans.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+}
+
+/**
+ * Full scan history for a waybill, straight from Shiprocket.
+ *
+ * The webhook is the primary source — this is the backfill for orders shipped
+ * before the webhook was configured, and the repair path for a push that was
+ * missed while the site was down.
+ */
+export async function trackByAwb(awb: string): Promise<ScanEvent[]> {
+  const res = await srFetch(`/courier/track/awb/${encodeURIComponent(awb)}`);
+  // Shape: { tracking_data: { shipment_track_activities: [...] } }, and
+  // occasionally wrapped in an array keyed by the AWB.
+  const data = (res.tracking_data ?? (Array.isArray(res) ? res[0]?.tracking_data : null)) as
+    | { shipment_track_activities?: unknown }
+    | undefined;
+  return normaliseScans(data?.shipment_track_activities);
 }
 
 export type Serviceability = {

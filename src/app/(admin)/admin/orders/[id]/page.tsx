@@ -8,7 +8,11 @@ import { getAdminOrder } from "@/server/orders/admin";
 import { formatINR } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { OrderStatusSelect, ShipOrderButton } from "@/components/admin/order-row-actions";
+import {
+  OrderStatusSelect,
+  ShipOrderButton,
+  SchedulePickupButton,
+} from "@/components/admin/order-row-actions";
 import { CopyButton } from "@/components/admin/copy-button";
 import { BreadcrumbLabel } from "@/components/layout/breadcrumb-label";
 
@@ -83,6 +87,13 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
               timeStyle: "short",
             })}
           </span>
+          {/* Same gate the invoice route enforces, so the link never 404s. */}
+          {order.orderStatus !== "cancelled" &&
+            (order.paymentStatus === "paid" || order.paymentMethod === "cod") && (
+              <Link href={`/admin/orders/${order.id}/invoice`} className="text-sm underline">
+                Tax invoice
+              </Link>
+            )}
         </div>
       </div>
 
@@ -259,6 +270,11 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
                   {order.courierName && (
                     <p className="text-xs text-muted-foreground">{order.courierName}</p>
                   )}
+                  {/* The waybill exists, so the remaining act is physical:
+                      book the collection and print the label. */}
+                  <div className="mt-3">
+                    <SchedulePickupButton orderId={order.id} />
+                  </div>
                 </div>
               ) : canShip ? (
                 <ShipOrderButton

@@ -23,6 +23,7 @@ import {
   updateOrderStatusAction,
   createShipmentAction,
   assignAwbAction,
+  schedulePickupAction,
   processReturnAction,
 } from "@/actions/admin-order-actions";
 
@@ -147,6 +148,53 @@ export function ShipOrderButton({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Step three, once a waybill exists: book the collection and get the label.
+ *
+ * Free and repeatable, so unlike the two before it this one goes straight
+ * through without a confirmation dialogue — asking "are you sure?" about an
+ * action that costs nothing and can be repeated just trains people to click
+ * past dialogues that do matter.
+ *
+ * The label opens in a new tab rather than downloading: it is a PDF the admin
+ * wants to look at and print, and a silent download into a folder is a worse
+ * default for something you need in your hand in the next ten seconds.
+ */
+export function SchedulePickupButton({ orderId }: { orderId: string }) {
+  const [isPending, startTransition] = useTransition();
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={isPending}
+      onClick={() =>
+        startTransition(async () => {
+          const result = await schedulePickupAction(orderId);
+          if (!result.ok) {
+            toast.error(result.error);
+            return;
+          }
+          // `ok: true` alone does not narrow the union — the plain success
+          // shape carries neither field. Probe for the label instead.
+          if (!("labelUrl" in result)) {
+            toast.success("Pickup requested.");
+            return;
+          }
+          toast.success(
+            result.scheduledFor
+              ? `Pickup scheduled for ${result.scheduledFor}. Opening the label…`
+              : "Pickup requested. Opening the label…"
+          );
+          window.open(result.labelUrl, "_blank", "noopener,noreferrer");
+        })
+      }
+    >
+      {isPending ? "Scheduling…" : "Pickup & label"}
+    </Button>
   );
 }
 

@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
 import { auth } from "@/server/auth/auth";
 import { getUserOrder } from "@/server/orders/queries";
 import { OrderDetail } from "@/components/storefront/orders/order-detail";
@@ -31,6 +32,10 @@ export default async function AccountOrderDetailPage({
     (CANCELLABLE as readonly string[]).includes(order.orderStatus) &&
     !order.shipmentCreatedAt;
 
+  const invoiceAvailable =
+    order.orderStatus !== "cancelled" &&
+    (order.paymentStatus === "paid" || order.paymentMethod === "cod");
+
   return (
     <div className="container-checkout rhythm-transactional">
       {placed && (
@@ -39,12 +44,19 @@ export default async function AccountOrderDetailPage({
         </p>
       )}
       <OrderDetail order={order} reviewable={reviewable} />
-      {(cancellable || order.orderStatus === "delivered") && (
-        <div className="mt-6 flex gap-3">
+      {(cancellable || order.orderStatus === "delivered" || invoiceAvailable) && (
+        <div className="mt-6 flex flex-wrap items-center gap-3">
           {cancellable && (
             <CancelOrderButton orderId={order.id} wasPaid={order.paymentStatus === "paid"} />
           )}
           {order.orderStatus === "delivered" && <RequestReturnButton orderId={order.id} />}
+          {/* Same condition the invoice route enforces — offering a link that
+              404s is worse than not offering one. */}
+          {invoiceAvailable && (
+            <Link href={`/account/orders/${order.id}/invoice`} className="text-sm underline">
+              View tax invoice
+            </Link>
+          )}
         </div>
       )}
     </div>
