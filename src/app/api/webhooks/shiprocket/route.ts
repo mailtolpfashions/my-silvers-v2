@@ -76,7 +76,8 @@ function tokenMatches(provided: string | null): boolean {
 }
 
 export async function POST(req: Request) {
-  if (!(await checkRateLimit("webhook", await getClientIp()))) {
+  // Its own tier, not Razorpay's — see the note on shiprocketWebhook.
+  if (!(await checkRateLimit("shiprocketWebhook", await getClientIp()))) {
     return new Response("Too many requests", { status: 429 });
   }
 
