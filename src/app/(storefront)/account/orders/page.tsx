@@ -36,7 +36,14 @@ export default async function AccountOrdersPage() {
                   <p className="font-medium">{order.orderNumber}</p>
                   <p className="text-sm text-muted-foreground">
                     {order.createdAt.toLocaleDateString("en-IN", { dateStyle: "medium" })} ·{" "}
-                    {order.items.length} item{order.items.length === 1 ? "" : "s"} ·{" "}
+                    {order.items.length} item{order.items.length === 1 ? "" : "s"}
+                  </p>
+                  {/* Lifted out of the grey metadata run it used to sit in, at
+                      the tail of "date · 2 items · ₹5,000". The amount is what a
+                      shopper scans an order list for, and it was the third
+                      clause of a muted sentence. Its own line, at the same 16px
+                      semibold every other price on the storefront now uses. */}
+                  <p className="mt-1.5 text-base font-semibold text-foreground">
                     {formatINR(order.totalAmount.toString())}
                   </p>
                 </div>

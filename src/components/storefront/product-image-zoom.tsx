@@ -73,7 +73,9 @@ export function ProductImageZoom({
         {...swipe.handlers}
         // pan-y keeps vertical scrolling native while telling the browser not to
         // handle horizontal gestures itself, which would otherwise fight this.
-        className="group relative aspect-[4/5] touch-pan-y overflow-hidden bg-muted"
+        // product-frame: 4:5 on a phone, one screen tall from lg. See the block
+        // in globals.css — it is why the first photograph now fits the window.
+        className="product-frame group relative touch-pan-y overflow-hidden bg-muted"
       >
         {children}
 
@@ -147,7 +149,11 @@ function Lightbox({
 
         <div
           ref={frameRef}
-          className="relative aspect-[4/5] max-h-[90vh] w-full overflow-hidden bg-black"
+          // Square, matching every other product frame. It was 4:5, which on
+          // any window shorter than about 1150px was flattened into a landscape
+          // box by max-h — so the one surface meant to show the piece properly
+          // was also the one whose shape changed with the window.
+          className="relative aspect-square max-h-[90vh] w-full overflow-hidden bg-black"
         >
           <div
             className="absolute inset-0 transition-transform duration-200 ease-out motion-reduce:transition-none"

@@ -205,7 +205,10 @@ export function OrderDetail({
                 </p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">
-                <p className="text-sm font-medium">
+                {/* The line's own money, a step up from the product name — same
+                    treatment as a cart row. The `₹x × 2` above is the working
+                    that gets to it and stays at 14px. */}
+                <p className="text-base font-semibold">
                   {formatINR(Number(item.price) * item.quantity)}
                 </p>
                 {/* Only present on delivered orders — see getReviewableItems. */}
@@ -233,7 +236,10 @@ export function OrderDetail({
                   : formatINR(order.shippingCharge.toString())}
               </span>
             </div>
-            <div className="flex justify-between font-medium">
+            {/* Subtotal and Shipping stay at 14px — they are the arithmetic.
+                Only the total steps up, matching the cart and checkout
+                summaries this block mirrors. */}
+            <div className="flex items-baseline justify-between pt-1 text-base font-semibold">
               <span>Total</span>
               <span>{formatINR(order.totalAmount.toString())}</span>
             </div>

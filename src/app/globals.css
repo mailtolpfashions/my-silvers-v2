@@ -118,6 +118,13 @@
      band, this must move with it or those sections overflow by the difference. */
   --header-h: 105px;
 
+  /* The air between the header and the top of the product page at lg.
+     Read in TWO places that must agree — .product-page-top sets it as padding,
+     and .product-frame subtracts it to work out how tall one photograph can be.
+     A literal in either place instead of this token means the first image
+     overruns the fold, or comes out smaller than the window allows. */
+  --product-top-gap: 1.5rem;
+
   --container-page: 90rem; /* listings, homepage sections, header, footer */
   --container-detail: 72rem; /* product detail + its reviews */
   --container-checkout: 64rem; /* cart + checkout — narrow on purpose */
@@ -836,6 +843,117 @@
   }
 }
 
+/* ─── The per-tile pop ────────────────────────────────────────────────────────
+   `.reveal-section` above fades a whole block in as one object, which is right
+   for an editorial section and wrong for a grid — a catalogue arriving in a
+   single sheet reads as a page load, not as products appearing.
+
+   This hides the CHILDREN instead and lets each one rise on its own. The
+   container stays visible throughout, so a grid carrying this must NOT also
+   carry .reveal-section: two layers of opacity would multiply.
+
+   ── The cascade is nth-child, not an index prop ─────────────────────────────
+   A cycle of four, because four is the widest the product grid ever gets (see
+   PRODUCT_GRID_CLASS). Tile 1 of each row leaves immediately and the rest of
+   the row follows it across, then the next row starts over — so the delay never
+   accumulates down a 60-tile catalogue. An index-based delay would have tile 40
+   waiting two and a half seconds for a turn it does not need, because it was
+   revealed by its own position on screen anyway.
+
+   Doing it in CSS also means no per-card prop and no call-site bookkeeping: any
+   grid can opt in by passing `stagger` to RevealSection.
+
+   ── Ported from GSAP, deliberately without it ───────────────────────────────
+   The previous storefront did this with GSAP + ScrollTrigger
+   (lib/animations/useScrollReveal.ts there): y 50px, 1.1s power3.out, stagger
+   0.12s with a random 0–0.05s jitter for organic variance. GSAP was removed
+   from this project in ef2fe2d after the reference site was measured and found
+   to run no animation JavaScript at all, and one grid animation is not worth
+   reversing that for ~70KB. What is lost is the jitter and the springier curve;
+   what is kept is the effect.
+   ─────────────────────────────────────────────────────────────────────────── */
+.reveal-stagger > * {
+  opacity: 0;
+  transform: translateY(var(--reveal-offset, 24px));
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s ease;
+}
+.reveal-stagger > .reveal-item-visible {
+  opacity: 1;
+  transform: none;
+}
+.reveal-stagger > :nth-child(4n + 2) {
+  transition-delay: 60ms;
+}
+.reveal-stagger > :nth-child(4n + 3) {
+  transition-delay: 120ms;
+}
+.reveal-stagger > :nth-child(4n + 4) {
+  transition-delay: 180ms;
+}
+
+/* Quicker on phones — same reasoning as .reveal-section, and the delays go too:
+   a two-column grid on a small screen shows a whole row at once, so a cascade
+   across it is just latency. */
+@media (max-width: 1023px) {
+  .reveal-stagger > * {
+    transition:
+      opacity 0.3s ease,
+      transform 0.3s ease;
+    transition-delay: 0ms;
+  }
+}
+
+/* The `!important` is load-bearing: the nth-child rules above are more specific
+   than this one, so without it the delays survive and a shopper who asked for
+   no motion still waits for a cascade. */
+@media (prefers-reduced-motion: reduce) {
+  .reveal-stagger > * {
+    opacity: 1;
+    transform: none;
+    transition: none;
+    transition-delay: 0ms !important;
+  }
+}
+
+/* ─── The loading mark ────────────────────────────────────────────────────────
+   The breathing logo in brand-loader.tsx. A slow fade in and out with a barely
+   perceptible scale — not a spin. The mark is a stacked lockup; rotating it
+   turns the brand upside down twice a second, which is the one thing a logo
+   must never do while representing you.
+
+   1.6s is deliberately unhurried. A fast pulse communicates urgency and this
+   indicator only ever appears when something is already slow; hurrying it makes
+   the wait feel worse rather than shorter.
+
+   Under prefers-reduced-motion the animation is dropped entirely rather than
+   shortened to 0.01ms as the global rule does — the mark must sit there at full
+   opacity, because it is the only thing telling a shopper the click landed. The
+   `!important` matches the global rule's, or that one wins and the logo is
+   frozen at whatever opacity the keyframe happened to reach. */
+@keyframes brand-loader-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.brand-loader-pulse {
+  animation: brand-loader-pulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-loader-pulse {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Without JavaScript the observer never runs and every section would stay at
    opacity 0 — a blank page rather than a plain one. The old store shipped
    without this guard; there is no reason to inherit that. */
@@ -1208,6 +1326,112 @@
   .fit-viewport > .fit-grow {
     flex: 1 1 0;
     min-height: 0;
+  }
+}
+
+/* ─── One product photograph, one screen ──────────────────────────────────────
+   Every frame in the product gallery, including the video and the "no image"
+   placeholder. They must all agree, or the stack develops a step in it.
+
+   ── The problem this fixes ──────────────────────────────────────────────────
+   These frames took their height from a ratio and their width from the column.
+   On a phone that is fine. On a desktop it was not, because the gallery column
+   is the wide one — at 1920 it measured about 910px, so the frame came out over
+   1100px tall against roughly 765px of usable screen. The first photograph on
+   every product page overran the fold by nearly 400px, and a shopper had to
+   scroll before they had seen the piece they had just clicked on. The rail in
+   gallery-rail.tsx has always described these frames as "a viewport tall each";
+   from here that is true.
+
+   ── The arithmetic ──────────────────────────────────────────────────────────
+     viewport                 100svh
+     − sticky header         --header-h          105, it covers the top of frame 1
+     − the gap above the grid --product-top-gap    24 at lg, via .product-page-top
+     = the frame
+
+   ⚠️  Both subtractions are tokens, not literals, and both must stay that way.
+   These two rules are the only things standing between "one photograph, one
+   screen" and a first image that overruns the fold — put padding above the grid
+   without subtracting it here and every product page overruns by that amount;
+   subtract more than the grid actually has and the picture comes out smaller
+   than the window allows. An earlier version hardcoded `- 5rem` and cost the
+   photograph 80px the moment the padding above it changed.
+
+   svh, not vh or dvh: same reason as .fit-viewport — the small viewport is the
+   stable one, and dvh would resize every frame as browser chrome retracts and
+   reflow the gallery mid-scroll.
+
+   The floor stops a short laptop window in landscape, or a browser with three
+   toolbars, from collapsing the photography into a letterbox.
+
+   ── Square, and the width is the only thing set ─────────────────────────────
+   ⚠️  1:1 here must match CARD_IMAGE_CLASS in src/lib/card-styles.ts. The grid
+   tile, this frame, the lightbox and the thumbnail rail are one crop; a shopper
+   tapping a tile has to land on the same shaped photograph. Change both or
+   neither, in the same commit. card-styles.ts carries the reasoning for why the
+   catalogue is square rather than 4:5.
+
+   Only the WIDTH is declared, and that is deliberate. `aspect-ratio` supplies
+   the height, so there is exactly one number in play and the box cannot be
+   anything but square. The version before this one set the height and derived
+   the width with `calc(var(--h) * 4 / 5)` — a multiplication over a nested
+   `max()`, which is the kind of expression a browser can reject outright. When
+   it does, the whole `width` declaration is dropped, the frame falls back to
+   filling the column, and a 900×735 box appears where a portrait one was
+   intended. At 1:1 the arithmetic is not needed at all; do not reintroduce it.
+
+     width = min( the column , the window )
+
+   The first term keeps the frame inside its column. The second is what keeps
+   one photograph on one screen — and because the box is square, capping the
+   width caps the height by the same number.
+
+   ── Why cover, and why the box hugs the picture ─────────────────────────────
+   An earlier version took the full column width and used `object-contain` so
+   nothing was cropped. It fitted the window, but a wide box holding a portrait
+   photograph left bands of #f2f2f2 down both sides of every product: visibly a
+   picture sitting in a grey box rather than a picture.
+
+   Now the box is the shape of the picture, so `object-cover` fills it edge to
+   edge and the `bg-muted` behind it never shows at all. Whatever an admin
+   uploads — portrait, square, a phone snap in landscape — every product page
+   presents the same photograph. That uniformity is the point, and it is why
+   cover is right here despite the crop: the catalogue cannot look consistent
+   while the frame changes shape per upload.
+   ─────────────────────────────────────────────────────────────────────────── */
+.product-frame {
+  aspect-ratio: 1 / 1;
+}
+@media (min-width: 1024px) {
+  .product-frame {
+    width: min(100%, max(24rem, calc(100svh - var(--header-h) - var(--product-top-gap))));
+    /* Centred in its column. The frame is capped by the window HEIGHT while the
+       column is an equal half of the viewport WIDTH, so on most windows it is a
+       little narrower than its column and something has to absorb the
+       difference. Split evenly it reads as a margin around the picture; pushed
+       to one side it reads as the picture having slipped. */
+    margin-inline: auto;
+  }
+}
+
+/* The air above the product grid, and the other half of the arithmetic above.
+   A class rather than the shared `.rhythm-commerce-top` because the product
+   page needs a different number from every other commerce page — the gallery is
+   sized to the window, so padding here is subtracted directly from the
+   photograph.
+
+   ⚠️  And it CANNOT be done by putting `lg:pt-0` next to `.rhythm-commerce-top`
+   in the markup. That was tried and silently did nothing: `.rhythm-commerce-top`
+   is unlayered, Tailwind's utilities live in `@layer utilities`, and unlayered
+   rules beat layered ones no matter the source order or the class list. Any
+   future override of a class from this file has the same problem — change the
+   rule here, do not try to out-utility it. */
+.product-page-top {
+  padding-top: 2rem;
+}
+@media (min-width: 1024px) {
+  .product-page-top {
+    padding-top: var(--product-top-gap);
   }
 }
 

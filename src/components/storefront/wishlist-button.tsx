@@ -4,6 +4,7 @@ import { useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toggleWishlistAction } from "@/actions/cart-actions";
 import {
@@ -13,20 +14,37 @@ import {
   setWishlistLocal,
 } from "@/lib/user-state-store";
 
+/**
+ * Always a heart, never a labelled block.
+ *
+ * The full-width "Save" button that used to stand under Add to cart on the
+ * product page is gone. Saving is not a third thing to weigh against buying —
+ * putting it in the same stack, at the same size, asked the shopper to choose
+ * between two actions of wildly different consequence. As a heart at the top of
+ * the rail it is available without competing.
+ */
 export function WishlistButton({
   productId,
   /**
-   * Server-known state. Supplied only on the product page, where the CTA is the
-   * page and a flip after hydration would be jarring. Listing cards omit it and
-   * read the shared store instead, which is what lets those pages be cached.
+   * Server-known state. Supplied only where a flip after hydration would be
+   * jarring. Listing cards omit it and read the shared store instead, which is
+   * what lets those pages be cached.
    */
   initialInWishlist,
-  /** Circular heart-only button, for the corner of a listing card. */
-  iconOnly = false,
+  /**
+   * Where the heart is sitting.
+   *
+   * "overlay" floats over a product photograph, on a listing tile — the
+   * translucent fill is what makes it legible against whatever is behind it.
+   * "plain" sits on the page's own background and needs no chrome at all.
+   */
+  surface = "overlay",
+  className,
 }: {
   productId: string;
   initialInWishlist?: boolean;
-  iconOnly?: boolean;
+  surface?: "overlay" | "plain";
+  className?: string;
 }) {
   const state = useSyncExternalStore(
     subscribeUserState,
@@ -36,8 +54,8 @@ export function WishlistButton({
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  // Trust the server value until the store has actually loaded, so the product
-  // page never flickers from "In wishlist" to "Wishlist" and back.
+  // Trust the server value until the store has actually loaded, so a page given
+  // one never flickers from saved to unsaved and back.
   const inWishlist =
     state.status === "ready" ? state.wishlist.has(productId) : (initialInWishlist ?? false);
 
@@ -62,37 +80,22 @@ export function WishlistButton({
     });
   }
 
-  if (iconOnly) {
-    return (
-      <Button
-        variant="secondary"
-        size="icon"
-        // 36px square. The circle was the last rounded thing left on a tile
-        // whose every other corner is now square.
-        className="size-9 rounded-none bg-background/80 backdrop-blur-sm hover:bg-background"
-        disabled={isPending}
-        onClick={handleClick}
-        aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
-        aria-pressed={inWishlist}
-      >
-        <Heart className={`size-4 ${inWishlist ? "fill-destructive text-destructive" : ""}`} />
-      </Button>
-    );
-  }
-
   return (
-    // Square, and outlined rather than filled: on the product page this sits
-    // beside Buy now and Add to cart, and three filled blocks in a row give a
-    // shopper no reading of which one is the point.
     <Button
-      variant="cta"
-      size="cta"
-      className="w-full border-input bg-transparent px-8 text-foreground hover:bg-muted sm:w-auto"
+      variant="ghost"
+      size="icon"
+      className={cn(
+        // Square, like every other corner on a tile.
+        "size-9 rounded-none",
+        surface === "overlay" && "bg-background/80 backdrop-blur-sm hover:bg-background",
+        className
+      )}
       disabled={isPending}
       onClick={handleClick}
+      aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
+      aria-pressed={inWishlist}
     >
-      <Heart className={inWishlist ? "fill-current" : ""} />
-      {inWishlist ? "In wishlist" : "Save"}
+      <Heart className={inWishlist ? "fill-destructive text-destructive" : ""} />
     </Button>
   );
 }

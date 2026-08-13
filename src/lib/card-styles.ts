@@ -9,18 +9,33 @@
  */
 
 /**
- * 4:5 portrait.
+ * 1:1 square. ⚠️  Must match `.product-frame` in globals.css.
  *
- * This reverses the square crop, which was chosen to match the PREVIOUS MY
- * Silvers storefront rather than anything about the photography. Jewellery is a
- * tall subject — a pendant on a chain, a ring stack, a pair of drops — and a
- * square frame either crops it or floats it in dead space. Portrait also buys
- * roughly 25% more image height per grid row at the same column width, which is
- * the cheapest way to make the photography the loudest thing on the page.
+ * ── One ratio, everywhere ────────────────────────────────────────────────────
+ * This is the whole catalogue's crop: the grid tile here, the product page
+ * gallery, its lightbox and the hover thumbnail rail. A shopper who taps a tile
+ * and lands on the product page must see the same shaped photograph, and an
+ * admin must be able to upload anything and get a uniform result. Two ratios in
+ * that chain is a bug, not a style — if this line changes, `.product-frame`
+ * changes with it in the same commit.
  *
- * If the catalogue is ever reshot to a different ratio, this is the one line.
+ * ── Why square, having twice been 4:5 ────────────────────────────────────────
+ * The argument for portrait was real and is worth stating, because it is what
+ * you will rediscover if you change this back: jewellery is a tall subject, and
+ * 4:5 buys about 25% more image height per grid row at the same column width.
+ *
+ * What decided it was the product page rather than the grid. There the frame's
+ * HEIGHT is fixed — one photograph has to fit the window without scrolling —
+ * so the ratio only decides how much of the column the picture fills. At 1920
+ * that is a 735px height against a gallery column of roughly 900: 4:5 fills 588
+ * of it and strands the rest, square fills 735. Square is simply the ratio that
+ * spends a fixed height on the widest possible picture.
+ *
+ * The cost is paid in the crop, and it is not small: `object-cover` takes about
+ * a third off the top and bottom of a 2:3 studio shot. Shoot to square and
+ * nothing is lost.
  */
-export const CARD_IMAGE_CLASS = "relative aspect-[4/5] overflow-hidden bg-muted";
+export const CARD_IMAGE_CLASS = "relative aspect-square overflow-hidden bg-muted";
 
 /**
  * 14px, weight 500, in the body sans — the product name.

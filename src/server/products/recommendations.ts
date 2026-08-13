@@ -1,5 +1,6 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { prisma } from "@/server/db";
+import { withBlurPlaceholders } from "@/server/media/blur";
 import { toProductListItem, type ProductListItem } from "@/server/products/search";
 
 /**
@@ -111,7 +112,7 @@ export async function getSimilarProducts({
     LIMIT ${take}
   `;
 
-  return rows;
+  return withBlurPlaceholders(rows);
 }
 
 /**
@@ -147,5 +148,5 @@ export async function getAlsoLikeProducts({
     take,
   });
 
-  return products.map(toProductListItem);
+  return withBlurPlaceholders(products.map(toProductListItem));
 }

@@ -611,7 +611,9 @@ export function CheckoutForm({
               <span className="text-muted-foreground">Shipping</span>
               <span>{shippingPaise === 0 ? "Free" : formatINRPaise(shippingPaise)}</span>
             </div>
-            <div className="flex justify-between border-t pt-3 text-sm font-medium">
+            {/* Steps up while the line items stay at 14px — same reasoning as
+                the cart's summary block, which this mirrors. */}
+            <div className="flex items-baseline justify-between border-t pt-3 text-base font-semibold">
               <span>Total</span>
               <span>{formatINRPaise(totalPaise)}</span>
             </div>

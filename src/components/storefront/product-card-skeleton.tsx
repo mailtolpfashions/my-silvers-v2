@@ -19,18 +19,20 @@ export function ProductCardSkeleton() {
       <div className={`${CARD_SHELL_CLASS} ${CARD_IMAGE_CLASS}`}>
         <Skeleton className="size-full" />
       </div>
-      {/* Category line, two lines of name, price, then the cart control. The
-          last one is not decoration: the card's button is h-10 above pt-3, and
+      {/* Price, two lines of name, then the cart control — the card's order, and
+          it must stay the card's order or a streamed grid reflows as it
+          resolves. The category line that used to head this block is gone from
+          both.
+
+          The button is not decoration either: the card's is h-10 above pt-3, and
           a skeleton without it would be 52px shorter than the card it stands in
-          for — so every streamed grid would jump as it resolved. Keep these two
-          in step. */}
+          for. Keep these two in step. */}
       <div className="flex flex-1 flex-col px-1 pt-4 sm:px-2">
-        <Skeleton className="h-3 w-16" />
-        <div className={`${CARD_TITLE_CLASS} mt-1`}>
+        <Skeleton className="h-3.5 w-20" />
+        <div className={`${CARD_TITLE_CLASS} mt-1.5`}>
           <Skeleton className="h-3.5 w-full" />
           <Skeleton className="mt-1.5 h-3.5 w-2/3" />
         </div>
-        <Skeleton className="mt-1.5 h-3.5 w-20" />
         <div className="mt-auto pt-3">
           <Skeleton className="h-10 w-full" />
         </div>

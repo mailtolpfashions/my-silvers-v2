@@ -5,6 +5,7 @@ import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/
 import { Button } from "@/components/ui/button";
 import { loadMoreProducts } from "@/actions/product-list-actions";
 import type { ProductListItem } from "@/server/products/search";
+import { RevealSection } from "@/components/storefront/reveal-section";
 
 /**
  * Number of pages that load automatically on scroll before the shopper has to
@@ -99,9 +100,13 @@ export function ProductGrid({
       (entries) => {
         if (entries[0]?.isIntersecting) loadMore("scroll");
       },
-      // Start fetching before the sentinel is visible so new rows are usually
-      // ready by the time the user reaches them.
-      { rootMargin: "600px 0px" }
+      // Start fetching well before the sentinel is visible so new rows are
+      // usually ready by the time the shopper reaches them. 1200px rather than
+      // 600: at 600 a fast flick outruns the fetch and lands on the spinner,
+      // which is the whole complaint this is here to prevent. The cost of
+      // overshooting is one page of products the shopper may not reach — and
+      // AUTO_LOAD_LIMIT already caps how often that can happen.
+      { rootMargin: "1200px 0px" }
     );
 
     observer.observe(node);
@@ -111,11 +116,25 @@ export function ProductGrid({
   return (
     <>
       {/* Wider gap between rows than columns — vertical breathing room separates
-          rows without pushing the columns apart and shrinking each image. */}
-      <div className={`mt-8 ${PRODUCT_GRID_CLASS}`}>
+          rows without pushing the columns apart and shrinking each image.
+
+          `stagger` reveals each TILE as it reaches the fold rather than the grid
+          as one sheet. That matters most here, on the infinite list: RevealSection
+          watches for appended children and observes them too, so page two pops in
+          exactly like page one. Without that watch the second batch would render
+          into a container already styling its children to `opacity: 0` with
+          nothing left to take it off — see the MutationObserver note in
+          reveal-section.tsx. */}
+      <RevealSection as="div" stagger className={`mt-8 ${PRODUCT_GRID_CLASS}`}>
         {items.map((product, index) => (
           <Fragment key={product.id}>
-            <ProductCard product={product} morphName={productMorphName(product.id)} />
+            {/* First row eager, the rest lazy. Four is the widest this grid
+                ever gets, so this is exactly the row on screen at arrival. */}
+            <ProductCard
+              product={product}
+              morphName={productMorphName(product.id)}
+              eager={index < 4}
+            />
             {interrupt && index === interrupt.after - 1 && (
               // col-span-full and a negative inline margin so the block spans
               // the whole row and reaches the tile edges, where the grid's own
@@ -124,7 +143,7 @@ export function ProductGrid({
             )}
           </Fragment>
         ))}
-      </div>
+      </RevealSection>
 
       {/* Announce new results to screen readers, which can't perceive the append. */}
       <p aria-live="polite" className="sr-only">

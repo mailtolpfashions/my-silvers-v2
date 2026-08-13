@@ -4,6 +4,7 @@ import { CollectionCard } from "@/components/storefront/collection-card";
 import { PageHeader } from "@/components/storefront/page-header";
 import { EditorialLink } from "@/components/storefront/editorial-link";
 import { BreadcrumbJsonLd } from "@/components/storefront/structured-data";
+import { RevealSection } from "@/components/storefront/reveal-section";
 
 export const metadata: Metadata = {
   title: "Collections",
@@ -43,11 +44,15 @@ export default async function CollectionsPage() {
             {/* The same editorial tile as the homepage and the journal — the
                 three surfaces that show a photograph with words under it now
                 share one component. */}
-            <div className="mt-10 grid gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
+            <RevealSection
+              as="div"
+              stagger
+              className="mt-10 grid gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-3"
+            >
               {collections.map((collection, i) => (
                 <CollectionCard key={collection.id} collection={collection} preload={i < 3} />
               ))}
-            </div>
+            </RevealSection>
           </>
         )}
       </div>

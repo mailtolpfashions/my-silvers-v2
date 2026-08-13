@@ -8,12 +8,14 @@ import { getProductBySlug } from "@/server/products/search";
 import { isInWishlist, getCartQuantityFor } from "@/server/cart";
 import { stockLabel, isScarce } from "@/lib/stock-label";
 import { formatINR } from "@/lib/format";
+import { ogImage } from "@/lib/og-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
 import { BuyNowButton } from "@/components/storefront/buy-now-button";
 import { SizeProvider, SizeSelector } from "@/components/storefront/size-selector";
 import { StickyActionBar, STICKY_BAR_SPACER } from "@/components/storefront/sticky-action-bar";
 import { WishlistButton } from "@/components/storefront/wishlist-button";
+import { ShareButton } from "@/components/storefront/share-button";
 import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
 import { getSimilarProducts, getAlsoLikeProducts } from "@/server/products/recommendations";
 import { RecordProductView, RecentlyViewed } from "@/components/storefront/recently-viewed";
@@ -30,6 +32,13 @@ import { ProductJsonLd } from "@/components/storefront/structured-data";
 import { ContentGap } from "@/components/storefront/content-gap";
 import { isPagePublished } from "@/components/storefront/header/nav-model";
 
+/**
+ * The save/share pair at the top of the information rail. A little larger than
+ * the 16px default, because at 16px on a column this wide they read as
+ * decoration rather than controls.
+ */
+const PRODUCT_ACTION_ICON_CLASS = "size-11 text-muted-foreground [&_svg]:size-6";
+
 export async function generateMetadata({
   params,
 }: {
@@ -42,10 +51,29 @@ export async function generateMetadata({
   // status 200 rather than 404. noindex is what keeps those soft 404s out of
   // search results. See the note in collections/[slug]/page.tsx.
   if (!product) return { title: "Not found", robots: { index: false, follow: false } };
+
+  const description = product.shortDescription ?? product.description ?? undefined;
+  const url = `/products/${product.slug}`;
+  // The photograph a shopper sees when this link lands in WhatsApp. Padded to
+  // 1200x630 and flattened to JPEG rather than handed over raw — see
+  // src/lib/og-image.ts for why every part of that matters to an unfurler.
+  const images = product.images[0] ? [ogImage(product.images[0], product.name)] : undefined;
+
   return {
     title: product.name,
-    description: product.shortDescription ?? product.description ?? undefined,
-    ...(product.images[0] ? { openGraph: { images: [product.images[0]] } } : {}),
+    description,
+    alternates: { canonical: url },
+    // Spelled out rather than left to inherit. Next would derive og:title from
+    // `title`, but it derives the TEMPLATED one — "Name | MY Silvers" — and the
+    // site name is already its own line in the preview card.
+    openGraph: {
+      type: "website",
+      url,
+      title: product.name,
+      description,
+      images,
+    },
+    twitter: { card: "summary_large_image", title: product.name, description, images },
   };
 }
 
@@ -84,11 +112,44 @@ export default async function ProductDetailPage({
         `stretch` gives both columns the height of the taller one, and a sticky
         element inside a full-height column has nothing to slide against.
 
-        Wider than container-detail's 72rem: at 1440 the photographs deserve the
-        room, and a 55/45 split gives the gallery a genuinely large frame.
+        ── Equal halves, and why the two near-misses were worse ──────────────
+        This has now been three things, so the reasoning is worth keeping.
+
+        1.15fr gave the gallery 55% on the theory that the photographs deserve
+        the room. That was written when the frame took whatever width the column
+        offered; once the frame became square and capped to the window height it
+        stopped growing with the column, and the surplus turned into a gap
+        beside the picture rather than more picture.
+
+        0.8fr then tried to shrink the column onto the frame. It very nearly
+        did — within about 20px at 1920 — but it made the TEXT column the wider
+        of the two, and a product page where the specifications are broader than
+        the photograph reads as an admin form. Chasing an exact fit was the
+        wrong goal anyway: the frame follows the window HEIGHT and the column
+        follows the viewport WIDTH, so no single ratio can track it.
+
+        So: equal halves, and the residue is handled rather than designed
+        around. `grid-cols-2` is `minmax(0, 1fr)` twice, which is what keeps a
+        long unbroken product name from pushing the rail wider than its share.
+
+        At 1920 that is an 848px column holding a ~730px frame. The frame is
+        left-aligned in it — see .product-frame in globals.css — so its left
+        edge sits on the page gutter with everything else, and the leftover
+        widens the channel between the two columns instead of floating the
+        picture in the middle of nothing.
       */}
+      {/* `product-page-top`, NOT the shared `rhythm-commerce-top`, and not that
+          class with a `lg:pt-0` beside it — that combination was tried here and
+          silently did nothing, because rhythm-commerce-top is unlayered and
+          Tailwind utilities are not. The 80px stayed and the photograph paid for
+          it. See the note on .product-page-top in globals.css.
+
+          It matters more on this page than anywhere else: the gallery frame is
+          a square capped by the window height, so every pixel above the grid
+          comes straight off the picture. At 5rem the image was 732px on a 1080
+          screen; at 1.5rem it is about 786. */}
       <div
-        className={`container-page grid items-start gap-10 rhythm-commerce-top lg:grid-cols-[1.15fr_1fr] lg:gap-16 xl:gap-24 ${STICKY_BAR_SPACER}`}
+        className={`container-page product-page-top grid items-start gap-10 lg:grid-cols-2 lg:gap-16 xl:gap-24 ${STICKY_BAR_SPACER}`}
       >
         <ProductGallery
           images={product.images}
@@ -107,7 +168,10 @@ export default async function ProductDetailPage({
                   alt={product.name}
                   fill
                   preload
-                  sizes="(max-width: 1024px) 100vw, 55vw"
+                  // Narrower than the old 55vw: the gallery column was pulled
+                  // in to meet the square frame, so this slot is about 42vw
+                  // rather than 55. Must match product-gallery.tsx.
+                  sizes="(max-width: 1024px) 100vw, 42vw"
                   className="object-cover"
                 />
               </ViewTransition>
@@ -120,48 +184,99 @@ export default async function ProductDetailPage({
             reachable from any point in a six-image stack.
 
             top-[7.5rem] clears both header bands (32 + 72) plus a little air. */}
-        <div className="lg:sticky lg:top-[7.5rem]">
-          {/* Breadcrumb doubles as the category link — the page previously had
-              no route back into the catalogue except the header nav. */}
-          <nav aria-label="Breadcrumb">
-            <ol className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-              <li>
-                <Link href="/products" className="transition-colors hover:text-foreground">
-                  All jewellery
-                </Link>
-              </li>
-              <li aria-hidden>/</li>
-              <li>
-                <Link
-                  href={`/category/${product.category.slug}`}
-                  // nav-back: a breadcrumb always moves up the hierarchy.
-                  transitionTypes={["nav-back"]}
-                  className="transition-colors hover:text-foreground"
-                >
-                  {product.category.name}
-                </Link>
-              </li>
-            </ol>
-          </nav>
+        {/* A little more air than the gallery gets, so the breadcrumb is not
+            level with the top edge of the photograph. Padding rather than a
+            margin: this is the sticky element, and a margin would offset where
+            it pins. */}
+        <div className="lg:sticky lg:top-[7.5rem] lg:pt-4">
+          {/* Top line of the rail: where you are on the left, what you can do
+              with this page on the right.
 
-          {/* The name dominates. The Bestseller and Featured badges that used
-              to sit between it and the price are gone — a badge on the page you
-              are already on tells a shopper nothing they can act on, and they
-              were the last two decorative pills on the storefront. */}
-          <h1 className="text-h1 mt-4">{product.name}</h1>
+              Save and share belong together and belong up here. Both are
+              secondary to buying, so neither should sit in the CTA stack
+              competing with it at the same width — but both are things a
+              shopper reaches for while still looking at the photograph, which
+              is the top of the page. */}
+          <div className="flex items-start justify-between gap-4">
+            {/* Breadcrumb doubles as the category link — the page previously had
+                no route back into the catalogue except the header nav. */}
+            <nav aria-label="Breadcrumb" className="min-w-0">
+              <ol className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                <li>
+                  <Link href="/products" className="transition-colors hover:text-foreground">
+                    All jewellery
+                  </Link>
+                </li>
+                <li aria-hidden>/</li>
+                <li>
+                  <Link
+                    href={`/category/${product.category.slug}`}
+                    // nav-back: a breadcrumb always moves up the hierarchy.
+                    transitionTypes={["nav-back"]}
+                    className="transition-colors hover:text-foreground"
+                  >
+                    {product.category.name}
+                  </Link>
+                </li>
+              </ol>
+            </nav>
 
-          {/* 14px, regular, muted — one step quieter than the product name.
-              This was 20/24px semibold, which made the number the loudest thing
-              in the column and read as a price tag rather than a price. */}
-          <p className="mt-3 flex items-baseline gap-2.5 text-sm">
-            <span className="text-foreground">{formatINR(product.price.toString())}</span>
+            {/* `-mt-2 -mr-2` pulls the buttons' padding back out to the rail's
+                edge, so the glyphs align with the column rather than sitting
+                inset from it by their own hit area.
+
+                No `initialInWishlist` here, deliberately: this heart is in the
+                static shell, and giving it a server-known value would put a
+                per-shopper read in front of the whole page. It reads the shared
+                client store, exactly as every listing card does. */}
+            <div className="-mr-2 -mt-2 flex shrink-0 items-center gap-1">
+              <WishlistButton
+                productId={product.id}
+                surface="plain"
+                className={PRODUCT_ACTION_ICON_CLASS}
+              />
+              <ShareButton
+                url={`/products/${product.slug}`}
+                title={product.name}
+                className={PRODUCT_ACTION_ICON_CLASS}
+              />
+            </div>
+          </div>
+
+          {/* ── Price above the name ────────────────────────────────────────
+              The order here was name → price, with the price at 14px regular so
+              it sat one step quieter than the name. That is the same assumption
+              the listing card used to make, and it is wrong for the same reason:
+              this catalogue sells into a market where the price is the first
+              question, not the last.
+
+              The size moved with the position. Fourteen-point grey above a
+              36-point name is not a lead — the eye still lands on the name, and
+              all the reorder would have bought is a caption floating above a
+              heading. 24px carries the line. Weight is what holds it back from
+              reading as a discount sticker: medium, not the semibold this page
+              once had at a smaller size.
+
+              `incl. of all taxes` stays on the line rather than below it: it is
+              a qualifier on the number, and Indian shoppers read an unqualified
+              figure as the one before delivery and GST. */}
+          <p className="mt-4 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+            <span className="text-2xl font-medium text-foreground">
+              {formatINR(product.price.toString())}
+            </span>
             {product.compareAtPrice && (
-              <span className="text-muted-foreground line-through">
+              <span className="text-base text-muted-foreground line-through">
                 {formatINR(product.compareAtPrice.toString())}
               </span>
             )}
             <span className="text-xs text-muted-foreground">incl. of all taxes</span>
           </p>
+
+          {/* The Bestseller and Featured badges that used to sit beside this are
+              gone — a badge on the page you are already on tells a shopper
+              nothing they can act on, and they were the last two decorative
+              pills on the storefront. */}
+          <h1 className="text-h1 mt-2">{product.name}</h1>
 
           {product.shortDescription && (
             <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
@@ -282,14 +397,35 @@ async function ProductCta({ productId, stock }: { productId: string; stock: numb
 
   return (
     <>
-      {/* Desktop: stacked full-width blocks rather than a wrapping row. Buy now
-          first — it is the action most shoppers who have decided will take —
-          then the basket, then save. Only the first is filled; three solid
-          blocks in a row give no reading of which one is the point. */}
-      <div className="mt-8 hidden flex-col gap-3 md:flex">
-        <BuyNowButton {...shared} />
-        <AddToCartButton {...shared} />
-        <WishlistButton productId={productId} initialInWishlist={inWishlist} />
+      {/* Desktop: one row, not two stacked blocks. Buy now leads — it is the
+          action most shoppers who have decided will take — and it is the only
+          filled one, so the hierarchy survives the two sitting side by side.
+
+          Stacked and full-width they were two 52px bars running the whole width
+          of the rail, which is a form's worth of furniture for two words each.
+          `max-w-xl` caps the pair at 576px so they stay a control rather than a
+          band across the page; the reference this design follows sets its single
+          button at about 310px.
+
+          `items-start` because Add to cart can grow a line of helper text
+          underneath itself ("You've added all we have available") and the row
+          must not stretch Buy now to match it.
+
+          Each button is wrapped rather than given `flex-1` directly: both render
+          their own `w-full` internals, and Add to cart's outer element is the
+          div that carries that helper text.
+
+          Save used to be a third block here. It is a heart at the top of the
+          rail now: an outlined button the same width as Add to cart invited a
+          shopper to weigh saving against buying, and saving does not deserve
+          that much of the decision. */}
+      <div className="mt-8 hidden items-start gap-3 md:flex lg:max-w-xl">
+        <div className="flex-1">
+          <BuyNowButton {...shared} />
+        </div>
+        <div className="flex-1">
+          <AddToCartButton {...shared} />
+        </div>
       </div>
 
       {/* Mobile: the same controls, pinned to the bottom of the viewport.
@@ -300,12 +436,19 @@ async function ProductCta({ productId, stock }: { productId: string; stock: numb
           The buttons share one client store, so both copies stay in step; only
           one is ever visible. */}
       <StickyActionBar>
-        {/* The bordered box gives the icon-only wishlist a visible edge. Its own
-            styling assumes it is floating over a product photo, where the
-            translucent fill is the affordance; on a solid bar it would read as
-            a bare glyph. */}
+        {/* `plain` plus a bordered box: the overlay styling assumes it is
+            floating over a product photo, where the translucent fill is the
+            affordance. On a solid bar the border is what gives it an edge.
+
+            This heart stays even though the rail now has one, because the whole
+            point of the bar is that it is reachable from anywhere on a page
+            that is mostly photography — the rail's heart is four screens up. */}
         <span className="flex size-11 shrink-0 items-center justify-center border">
-          <WishlistButton productId={productId} initialInWishlist={inWishlist} iconOnly />
+          <WishlistButton
+            productId={productId}
+            initialInWishlist={inWishlist}
+            surface="plain"
+          />
         </span>
         {/* `compact` on Add to cart: the full version carries helper text under
             it, which would make the bar two lines tall. */}
@@ -323,10 +466,9 @@ async function ProductCta({ productId, stock }: { productId: string; stock: numb
 /** Matches the real CTA stack's height so the rail doesn't shift as it resolves. */
 function ProductCtaSkeleton() {
   return (
-    <div className="mt-8 hidden flex-col gap-3 md:flex">
-      <Skeleton className="h-[52px] w-full" />
-      <Skeleton className="h-[52px] w-full" />
-      <Skeleton className="h-[52px] w-full" />
+    <div className="mt-8 hidden gap-3 md:flex lg:max-w-xl">
+      <Skeleton className="h-[52px] flex-1" />
+      <Skeleton className="h-[52px] flex-1" />
     </div>
   );
 }

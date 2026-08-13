@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { prisma } from "@/server/db";
+import { withBlurPlaceholders } from "@/server/media/blur";
 
 export type ProductListItem = {
   id: string;
@@ -26,6 +27,18 @@ export type ProductListItem = {
    * when no size is supplied — roughly two thirds of this catalogue.
    */
   requiresSize: boolean;
+  /**
+   * Blurred preview of `images[0]`, inlined as a data URI, for next/image's
+   * `placeholder="blur"`.
+   *
+   * Optional and attached late, by `withBlurPlaceholders` in
+   * src/server/media/blur.ts — a producer that does not bother simply renders a
+   * plain tile. It is NOT resolved inside ProductCard, and cannot be: the card
+   * is imported by product-grid.tsx, which is a client component, so the card
+   * is in the browser bundle on listing pages and has no way to reach the
+   * server. The value has to arrive as data.
+   */
+  blurDataUrl?: string;
 };
 
 export async function searchProducts(params: {
@@ -137,7 +150,12 @@ export async function searchProducts(params: {
     ),
   ]);
 
-  return { items: rows, total: Number(countRows[0]?.count ?? 0) };
+  // Blurred previews last, on the page of rows we are actually returning —
+  // never inside the SQL, and never for the count query.
+  return {
+    items: await withBlurPlaceholders(rows),
+    total: Number(countRows[0]?.count ?? 0),
+  };
 }
 
 export const getProductBySlug = cache(async function getProductBySlug(slug: string) {
@@ -172,7 +190,7 @@ export async function getProductsByTag(tag: string, take = 12): Promise<ProductL
     take: Math.min(60, Math.max(1, Math.trunc(take) || 12)),
   });
 
-  return products.map(toProductListItem);
+  return withBlurPlaceholders(products.map(toProductListItem));
 }
 
 /** Tags are stored lower-cased on write (see server/products/admin.ts). */
