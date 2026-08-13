@@ -81,7 +81,10 @@ async function AuthedCart({ userId }: { userId: string }) {
                   {item.size && (
                     <p className="mt-1 text-xs text-muted-foreground">Size {item.size}</p>
                   )}
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  {/* Foreground and a step up from the name, not 14px grey. A
+                      price set quieter than the product it belongs to is the
+                      wrong way round in a cart. Matches guest-cart-view.tsx. */}
+                  <p className="mt-2 text-base font-semibold text-foreground">
                     {formatINR(item.product.price.toString())}
                   </p>
                   {/* No count — see src/lib/stock-label.ts. */}

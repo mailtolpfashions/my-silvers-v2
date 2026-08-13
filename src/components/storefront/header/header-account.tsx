@@ -37,20 +37,27 @@ export async function HeaderAccount() {
           against a plain `[&_svg]` at (0,1,1) — so a descendant override loses
           and the glyph silently stays 16px however large the button gets. The
           :not() is the escape hatch: give the svg its own size- class. */}
-      {/* Shown at every width: hamburger · wordmark · search · account ·
-          wishlist · cart. Six targets fit inside 375px once the icons are 40px
-          and the wordmark is constrained — the reason this was briefly
-          desktop-only was an unrelated bug where the mobile mark rendered at
-          its intrinsic 192px and pushed the whole cluster off screen. The
-          drawer keeps its own "Your account" row as the redundant route. */}
+      {/* ── Account: desktop only ────────────────────────────────────────────
+          Below lg the drawer already carries a "Your account" row, and the
+          hamburger that opens it sits four targets to the left of this one. Two
+          routes to the same page inside one 375px band is not a convenience —
+          it spends a tap target on something the shopper can already reach.
+
+          It did once render at every width, and the header-account skeleton
+          reserves space to match, so the two must move together or the header
+          shifts on a phone as this island resolves. See
+          header-account-skeleton.tsx.
+
+          `inline-flex` rather than `block` on the lg side: Button's own display
+          is inline-flex, and `lg:block` would break the glyph's centring. */}
       {session?.user ? (
-        <Button asChild variant="ghost" size="icon" className="size-10 rounded-none md:size-11" aria-label="Your account">
+        <Button asChild variant="ghost" size="icon" className="hidden size-10 rounded-none md:size-11 lg:inline-flex" aria-label="Your account">
           <Link href="/account">
             <User className="size-5" />
           </Link>
         </Button>
       ) : (
-        <Button asChild variant="ghost" size="icon" className="size-10 rounded-none md:size-11" aria-label="Sign in">
+        <Button asChild variant="ghost" size="icon" className="hidden size-10 rounded-none md:size-11 lg:inline-flex" aria-label="Sign in">
           <Link href="/login">
             <User className="size-5" />
           </Link>

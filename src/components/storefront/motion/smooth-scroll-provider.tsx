@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { ReactLenis, useLenis } from "lenis/react";
 import type { LenisOptions } from "lenis";
 import "lenis/dist/lenis.css";
@@ -37,6 +38,12 @@ import "lenis/dist/lenis.css";
  * watched rather than read once, so changing the OS setting or resizing across
  * the breakpoint takes effect without a reload — and returning `null` genuinely
  * tears the instance down rather than leaving a dormant one attached.
+ *
+ * ── Owning the scroll means owning navigation too ────────────────────────────
+ * Because Lenis drives the real scroll position, it also has to be told when a
+ * navigation happens — Next's own scroll reset does not survive contact with
+ * it. See LenisNavigationReset at the foot of this file. Anything added here
+ * that caches a scroll offset carries the same obligation.
  */
 
 /**
@@ -85,8 +92,84 @@ export function SmoothScrollProvider() {
           from anywhere in the app rather than only inside a provider subtree. */}
       <ReactLenis root options={LENIS_OPTIONS} />
       <LenisResizeGuard />
+      {/* usePathname needs a boundary under cacheComponents on any route with a
+          dynamic param — /products/[slug], /blog/[slug], /category/[slug] are
+          most of the storefront. The component renders null, so the hole this
+          opens is empty and the rest of the route stays static. */}
+      <Suspense fallback={null}>
+        <LenisNavigationReset />
+      </Suspense>
     </>
   );
+}
+
+/**
+ * Puts the page back at the top when the shopper navigates.
+ *
+ * ⚠️  Without this, every client-side navigation lands mid-page. Clicking a
+ * product from halfway down the homepage opened the product page already
+ * scrolled past the photograph; the same held for checkout, the footer's policy
+ * pages, and every other link on the storefront.
+ *
+ * Next DOES reset the scroll on navigation — it calls window.scrollTo(0, 0)
+ * itself. The reset does not survive, because Lenis owns the scroll position:
+ * it keeps its own `animatedScroll`/`targetScroll` and writes them back to the
+ * window on the next animation frame, so Next's reset is overwritten a frame
+ * after it happens. Telling the window is not enough; Lenis has to be told.
+ *
+ * This is why the bug is desktop-only, and that is the quickest way to confirm
+ * it is this and not something else: below 1024px, or with reduced motion on,
+ * the provider never attaches Lenis and navigation already lands at the top.
+ *
+ * ── Two navigations it deliberately keeps its hands off ──────────────────────
+ * A link carrying a #hash asked for a position that is not the top, and the
+ * `anchors: true` option above already eases Lenis to it.
+ *
+ * Back and forward are the browser restoring where the shopper was, on purpose.
+ * Forcing those to the top would be a worse bug than the one being fixed, so a
+ * popstate marks the next pathname change as a history traversal and this sits
+ * it out. (Whether Lenis's cached position also goes stale on back/forward is a
+ * separate question and not one this component answers — it only guarantees it
+ * does not make it worse.)
+ */
+function LenisNavigationReset() {
+  const pathname = usePathname();
+  const lenis = useLenis();
+  const traversedHistory = useRef(false);
+  const navigated = useRef(false);
+
+  useEffect(() => {
+    const onPopState = () => {
+      traversedHistory.current = true;
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (!lenis) return;
+
+    // First run is mount, not a navigation. Reloading a page the browser has a
+    // remembered offset for would otherwise be yanked to the top.
+    if (!navigated.current) {
+      navigated.current = true;
+      return;
+    }
+
+    if (traversedHistory.current) {
+      traversedHistory.current = false;
+      return;
+    }
+
+    if (window.location.hash) return;
+
+    // immediate: no smooth ride up a page the shopper has just left. force: the
+    // scroll may be stopped or locked — by an open dialog, or the filter drawer
+    // — and a navigation still has to land at the top.
+    lenis.scrollTo(0, { immediate: true, force: true });
+  }, [pathname, lenis]);
+
+  return null;
 }
 
 /**

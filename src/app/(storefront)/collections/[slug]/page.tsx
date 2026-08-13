@@ -14,6 +14,7 @@ import { EditorialLink } from "@/components/storefront/editorial-link";
 import { CollectionSort } from "@/components/storefront/collection-sort";
 import { StickyBarSpacer } from "@/components/storefront/sticky-action-bar";
 import { ItemListJsonLd, BreadcrumbJsonLd } from "@/components/storefront/structured-data";
+import { RevealSection } from "@/components/storefront/reveal-section";
 import { CollectionPageSkeleton } from "./skeleton";
 import type { ProductListItem } from "@/server/products/search";
 
@@ -150,15 +151,18 @@ async function CollectionBody({
             </Suspense>
           </div>
 
-          <div className={`mt-8 ${PRODUCT_GRID_CLASS}`}>
-            {products.map((product) => (
+          {/* The revealed element IS the grid — see the note in
+              category/[slug]/page.tsx for why it is not a wrapper. */}
+          <RevealSection as="div" stagger className={`mt-8 ${PRODUCT_GRID_CLASS}`}>
+            {products.map((product, i) => (
               <ProductCard
                 key={product.id}
                 product={product}
                 morphName={productMorphName(product.id)}
+                eager={i < 4}
               />
             ))}
-          </div>
+          </RevealSection>
           <StickyBarSpacer />
         </section>
       ) : (

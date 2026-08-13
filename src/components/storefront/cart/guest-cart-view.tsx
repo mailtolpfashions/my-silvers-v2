@@ -110,7 +110,10 @@ export function GuestCartView() {
                 {item.size && (
                   <p className="mt-1 text-xs text-muted-foreground">Size {item.size}</p>
                 )}
-                <p className="mt-2 text-sm text-muted-foreground">{formatINR(product.price)}</p>
+                {/* Matches the signed-in cart's row — see cart/page.tsx. */}
+                <p className="mt-2 text-base font-semibold text-foreground">
+                  {formatINR(product.price)}
+                </p>
                 {/* No count, matching src/lib/stock-label.ts and the signed-in
                     cart — this row said "Only 2 left" while every other surface
                     on the site deliberately refuses to state a number. */}

@@ -1,5 +1,6 @@
-import { ViewTransition } from "react";
+import { Suspense, ViewTransition } from "react";
 import { SiteHeader } from "@/components/storefront/site-header";
+import { NavigationLoader } from "@/components/storefront/navigation-loader";
 import { SiteFooter } from "@/components/storefront/site-footer";
 import { UserStateHydrator } from "@/components/storefront/user-state-hydrator";
 import { SiteJsonLd } from "@/components/storefront/structured-data";
@@ -36,6 +37,17 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
           it reads no runtime data — no usePathname — so it does not make every
           storefront route blocking, and /blog/[slug] stays fully static. */}
       <SmoothScrollProvider />
+
+      {/* The branded indicator for a navigation that is taking a moment.
+          Renders nothing until one does — see navigation-loader.tsx.
+
+          Suspense because it reads usePathname and useSearchParams, both of
+          which need a boundary under cacheComponents on any route with a
+          dynamic param. It renders null at rest, so the hole is empty and no
+          storefront route loses its static shell over it. */}
+      <Suspense fallback={null}>
+        <NavigationLoader />
+      </Suspense>
 
 
       {/* ── Atmosphere ──────────────────────────────────────────────────────

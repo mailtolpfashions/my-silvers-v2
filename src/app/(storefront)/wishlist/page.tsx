@@ -2,14 +2,21 @@ import { redirect } from "next/navigation";
 import { auth } from "@/server/auth/auth";
 import { getWishlistProducts } from "@/server/cart";
 import { toProductListItem } from "@/server/products/search";
+import { withBlurPlaceholders } from "@/server/media/blur";
 import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
 import { EditorialLink } from "@/components/storefront/editorial-link";
+import { RevealSection } from "@/components/storefront/reveal-section";
 
 export default async function WishlistPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login?redirect=/wishlist");
 
-  const products = await getWishlistProducts(session.user.id);
+  // Mapped and given their blurred previews here rather than inline in the
+  // grid: this page builds its own list items instead of going through
+  // searchProducts, so it has to ask for the placeholders itself.
+  const products = await withBlurPlaceholders(
+    (await getWishlistProducts(session.user.id)).map(toProductListItem),
+  );
 
   return (
     <div className="container-page rhythm-commerce">
@@ -40,15 +47,16 @@ export default async function WishlistPage() {
         // The same card as every other grid on the site, so a saved piece looks
         // exactly as it did where the shopper saved it — including its
         // add-to-cart control.
-        <div className={PRODUCT_GRID_CLASS}>
-          {products.map((product) => (
+        <RevealSection as="div" stagger className={PRODUCT_GRID_CLASS}>
+          {products.map((product, i) => (
             <ProductCard
               key={product.id}
               morphName={productMorphName(product.id)}
-              product={toProductListItem(product)}
+              product={product}
+              eager={i < 4}
             />
           ))}
-        </div>
+        </RevealSection>
       )}
     </div>
   );

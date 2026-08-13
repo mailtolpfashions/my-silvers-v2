@@ -26,7 +26,7 @@ export function CartSummary({ subtotalPaise }: { subtotalPaise: number }) {
           carts both use this component — one place, both flows. */}
       <StickyActionBar>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-medium leading-tight">
+          <p className="truncate text-lg font-semibold leading-tight">
             {formatINRPaise(totalPaise)}
           </p>
           <p className="text-xs text-muted-foreground">
@@ -55,7 +55,11 @@ export function CartSummary({ subtotalPaise }: { subtotalPaise: number }) {
               Add {formatINRPaise(remainingForFree)} more for free shipping.
             </p>
           )}
-          <div className="flex justify-between border-t pt-3 font-medium">
+          {/* The breakdown rows stay at 14px — they are arithmetic. Only the
+              total steps up, because it is the one number in this block a
+              shopper is actually deciding on. Bumping every row would make the
+              summary louder without making the total lead. */}
+          <div className="flex items-baseline justify-between border-t pt-3 text-base font-semibold">
             <dt>Total</dt>
             <dd>{formatINRPaise(totalPaise)}</dd>
           </div>

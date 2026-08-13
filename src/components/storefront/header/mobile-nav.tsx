@@ -163,33 +163,39 @@ export function MobileNav({
             })}
           </ul>
 
-          {/* The utility links that live in the desktop top band, plus the
-              account — the header drops its account icon below md (five targets
-              is the limit at 375px), so this is the route to it on a phone. */}
-          {utilityLinks.length > 0 && (
-            <ul className="px-5 py-4">
-              <li>
+          {/* Account, then the utility links that live in the desktop top band.
+              ⚠️  "Your account" is OUTSIDE the utilityLinks guard, and must
+              stay outside it. The header has no account glyph below lg — see
+              header-account.tsx — so this row is the ONLY route to the account
+              on a phone. It used to sit inside the guard, which meant an empty
+              or unpublished utility-links list in the CMS silently removed a
+              shopper's way into their own orders. Content should never be able
+              to delete navigation.
+
+              /account redirects a guest to /login?redirect=/account, so the one
+              row serves both signed-in and signed-out. */}
+          <ul className="px-5 py-4">
+            <li>
+              <Link
+                href="/account"
+                onClick={close}
+                className="flex min-h-[2.75rem] items-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Your account
+              </Link>
+            </li>
+            {utilityLinks.map((link) => (
+              <li key={link.href}>
                 <Link
-                  href="/account"
+                  href={link.href}
                   onClick={close}
                   className="flex min-h-[2.75rem] items-center text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  Your account
+                  {link.label}
                 </Link>
               </li>
-              {utilityLinks.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    onClick={close}
-                    className="flex min-h-[2.75rem] items-center text-sm text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+            ))}
+          </ul>
         </nav>
 
         {WHATSAPP_NUMBER && (

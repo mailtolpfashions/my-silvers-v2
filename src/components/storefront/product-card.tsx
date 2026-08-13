@@ -78,6 +78,7 @@ export function ProductCard({
   product,
   showActions = true,
   morphName,
+  eager = false,
 }: {
   product: ProductListItem;
   /** Set false to render a plain, non-interactive card. */
@@ -92,6 +93,35 @@ export function ProductCard({
    * `productMorphName(product.id)`; the homepage dedupes first.
    */
   morphName?: string;
+  /**
+   * Load this tile's photograph immediately instead of lazily.
+   *
+   * ⚠️  Set it on the first row of every listing. next/image defaults to lazy,
+   * and this card had no way to opt out — so the row a shopper was already
+   * looking at on arrival waited for an intersection callback before it began
+   * downloading. That is a large part of why the catalogue felt slow to render.
+   *
+   * ── `eager`, NOT `preload` — they are different props ───────────────────────
+   * CollectionCard and EditorialTile take a `preload` prop and describe it as
+   * "above-the-fold tiles only", which reads like this. It is not the same
+   * thing, and next/image's own docs are explicit: `preload` ONLY inserts a
+   * `<link rel="preload">` into <head>, and "in most cases you should use
+   * loading='eager' or fetchPriority='high' instead". It leaves the <img> at
+   * `loading="lazy"`.
+   *
+   * On a streamed page it does even less than that. A <link> has to reach
+   * <head>, and under Cache Components most of this storefront renders after
+   * the head has flushed — the product page's own LCP image carries `preload`
+   * and emits no link tag at all.
+   *
+   * So this prop is named for what it does. Do not "align" it with the others;
+   * align the others with it.
+   *
+   * First row only. Marking a 120-product catalogue eager removes lazy loading
+   * from the whole thing and floods the connection — the same problem pointed
+   * the other way.
+   */
+  eager?: boolean;
 }) {
   const image = product.images[0];
   // Second angle, revealed on hover. Pure CSS crossfade so the card stays a
@@ -118,6 +148,18 @@ export function ProductCard({
                 src={image}
                 alt={product.name}
                 fill
+                loading={eager ? "eager" : "lazy"}
+                // Only the tiles we are asking for early get the priority hint;
+                // handing it to every image is the same as handing it to none.
+                fetchPriority={eager ? "high" : undefined}
+                // A blurred preview instead of a flat grey box while the
+                // photograph downloads — the difference a fast scroll actually
+                // feels. Conditional because the data URI is best-effort: no
+                // Cloudinary source, or a CDN blip, and it is simply absent.
+                // `placeholder="blur"` without a blurDataURL throws.
+                {...(product.blurDataUrl
+                  ? { placeholder: "blur" as const, blurDataURL: product.blurDataUrl }
+                  : {})}
                 // A crossfade to the second angle, and nothing else. No scale,
                 // no lift, no shadow — the picture should not react to the
                 // cursor, it should simply show you more.
@@ -168,34 +210,42 @@ export function ProductCard({
             belongs on a grid — unlike add-to-cart, which does not. */}
         {showActions && (
           <div className="absolute right-2 top-2 z-10 transition-opacity duration-200 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-within:opacity-100">
-            <WishlistButton productId={product.id} iconOnly />
+            <WishlistButton productId={product.id} />
           </div>
         )}
       </div>
 
       <div className="flex flex-1 flex-col px-1 pt-4 sm:px-2">
-        {/* The range, then the piece. It reads as a catalogue entry rather than
-            a search result, and the category is the nearest thing this
-            catalogue has to a maker's name. */}
-        <p className="text-xs text-muted-foreground">{product.categoryName}</p>
+        {/* ── The price leads, and the category line is gone ──────────────────
+            This block used to read category → name → price, with the price set
+            quietly at regular weight on the theory that a number shown softly
+            beside a large photograph reads as confidence.
 
-        <h3 className={`${CARD_TITLE_CLASS} mt-1 text-foreground`}>
-          <Link href={href} className="decoration-black/60 underline-offset-4 hover:underline">
-            {product.name}
-          </Link>
-        </h3>
+            That is a European department-store assumption and this catalogue
+            does not sell into one. In the Indian market the price is the first
+            thing a shopper wants from a tile, so it is now the first thing the
+            tile says — and it carries the extra weight, because position alone
+            does not lead when the line under it is longer and darker.
 
-        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          {/* 14px, regular weight. A price set quietly beside a large
-              photograph reads as confidence; the same number at 16px bold
-              reads as a discount sticker. */}
-          <span className="text-sm text-foreground">{formatINR(price)}</span>
+            The category went with it. "Pendants" above a pendant, on a page the
+            shopper reached by tapping Pendants, spent the tile's most valuable
+            line saying nothing — and it was pushing the price down to third. */}
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          {/* 16px semibold — one step up from the 14px name below it, so the
+              number leads the tile on size as well as on position. */}
+          <span className="text-base font-semibold text-foreground">{formatINR(price)}</span>
           {compareAt && compareAt > price && (
-            <span className="text-xs text-muted-foreground line-through">
+            <span className="text-sm text-muted-foreground line-through">
               {formatINR(compareAt)}
             </span>
           )}
         </div>
+
+        <h3 className={`${CARD_TITLE_CLASS} mt-1.5 text-foreground`}>
+          <Link href={href} className="decoration-black/60 underline-offset-4 hover:underline">
+            {product.name}
+          </Link>
+        </h3>
 
         {/* Only when it says something. "In stock" on every tile is noise; a
             piece with one left is information. Still never a count — see

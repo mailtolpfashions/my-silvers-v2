@@ -76,7 +76,7 @@ export function ProductGallery({
 
   if (images.length === 0 && !videoUrl) {
     return (
-      <div className="flex aspect-[4/5] items-center justify-center bg-muted text-sm text-muted-foreground">
+      <div className="product-frame flex items-center justify-center bg-muted text-sm text-muted-foreground">
         No image available
       </div>
     );
@@ -111,7 +111,13 @@ export function ProductGallery({
                   alt={i === 0 ? alt : ""}
                   fill
                   loading={i === 0 ? undefined : "lazy"}
-                  sizes="(max-width: 1024px) 100vw, 55vw"
+                  // 100vw below lg — the frame is full-bleed on a phone, and a
+                  // smaller hint there loads a soft source for the largest
+                  // image on the page.
+                  sizes="(max-width: 1024px) 100vw, 42vw"
+                  // cover: the frame is square and sized to the picture, so
+                  // this fills it edge to edge and no `bg-muted` shows through.
+                  // See the .product-frame note in globals.css.
                   className="object-cover"
                 />
               )}
@@ -120,7 +126,7 @@ export function ProductGallery({
         ))}
 
         {videoUrl && (
-          <div className="relative aspect-[4/5] overflow-hidden bg-muted">
+          <div className="product-frame relative overflow-hidden bg-muted">
             <ProductVideo videoUrl={videoUrl} poster={images[0]} />
           </div>
         )}

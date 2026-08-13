@@ -9,6 +9,7 @@ import { ProductFilters } from "@/components/storefront/product-filters";
 import { PageHeader } from "@/components/storefront/page-header";
 import { StickyBarSpacer } from "@/components/storefront/sticky-action-bar";
 import { ItemListJsonLd, BreadcrumbJsonLd } from "@/components/storefront/structured-data";
+import { RevealSection } from "@/components/storefront/reveal-section";
 
 export async function generateMetadata({
   params,
@@ -96,15 +97,21 @@ export default async function CategoryPage({
             </p>
           </div>
         ) : (
-          <div className={`mt-8 ${PRODUCT_GRID_CLASS}`}>
-            {items.map((product) => (
+          // `as="div"` and the grid classes passed straight through: the
+          // revealed element IS the grid, rather than a wrapper around it that
+          // would break `grid-template-columns` for the tiles inside.
+          <RevealSection as="div" stagger className={`mt-8 ${PRODUCT_GRID_CLASS}`}>
+            {items.map((product, i) => (
               <ProductCard
                 key={product.id}
                 product={product}
                 morphName={productMorphName(product.id)}
+                // The row already on screen when the page opens — see the
+                // `eager` note in product-card.tsx.
+                eager={i < 4}
               />
             ))}
-          </div>
+          </RevealSection>
         )}
 
         {/* Room for the pinned filter bar, or it covers the last row. */}

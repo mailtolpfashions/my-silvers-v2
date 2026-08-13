@@ -3,6 +3,7 @@ import { EditorialTile } from "@/components/storefront/editorial-tile";
 import { PageHeader } from "@/components/storefront/page-header";
 import { EditorialLink } from "@/components/storefront/editorial-link";
 import { BreadcrumbJsonLd } from "@/components/storefront/structured-data";
+import { RevealSection } from "@/components/storefront/reveal-section";
 
 export const metadata = { title: "Journal" };
 
@@ -39,7 +40,7 @@ export default async function BlogListPage() {
             </div>
           </div>
         ) : (
-          <div className="grid gap-x-10 gap-y-14 sm:grid-cols-2">
+          <RevealSection as="div" stagger className="grid gap-x-10 gap-y-14 sm:grid-cols-2">
             {posts.map((post, i) => {
               const d = post.data as {
                 title?: string;
@@ -63,7 +64,7 @@ export default async function BlogListPage() {
                 />
               );
             })}
-          </div>
+          </RevealSection>
         )}
       </div>
     </div>
