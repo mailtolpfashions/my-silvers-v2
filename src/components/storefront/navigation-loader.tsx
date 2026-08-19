@@ -58,7 +58,6 @@ export function NavigationLoader() {
   const [seenKey, setSeenKey] = useState(routeKey);
 
   const showTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const giveUpTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   /**
    * The navigation landed — take the loader down.
@@ -80,21 +79,43 @@ export function NavigationLoader() {
   }
 
   /**
-   * Disarm the timers the landed navigation left behind.
+   * Disarm a show-timer the landed navigation left behind.
    *
    * Separate from the render-time reset above only because refs cannot be read
    * during render. It has to exist: a navigation that commits in 100ms would
-   * otherwise still have a show-timer due at 180ms, which would raise the
-   * loader over a page that had already arrived and leave it there until the
-   * give-up timer.
+   * otherwise still have a show-timer due at 180ms, which would raise the chip
+   * over a page that had already arrived.
    *
    * No setState here, which is what keeps it on the right side of the
    * set-state-in-effect rule — this effect only talks to the timer API.
    */
   useEffect(() => {
     clearTimeout(showTimer.current);
-    clearTimeout(giveUpTimer.current);
   }, [routeKey]);
+
+  /**
+   * The dead-man's switch: once the chip is UP, it comes down.
+   *
+   * ⚠️  Keyed on `pending`, not armed at click time, and that distinction is
+   * the whole point. The give-up timer used to be started in the click handler
+   * alongside the show-timer — which meant the effect above, cancelling stale
+   * timers on a URL change, cancelled the safety net too. Any navigation whose
+   * URL updated while the chip was already showing disarmed the only thing
+   * left that could hide it, and the chip sat there indefinitely. Reported at
+   * 60+ seconds; there was no upper bound at all.
+   *
+   * Tied to the state it guards, nothing else can reach it. The effect only
+   * re-runs when `pending` actually flips, so repeated arming cannot extend a
+   * showing either.
+   *
+   * setState in a CALLBACK, not in the effect body — the project's
+   * react-hooks/set-state-in-effect rule permits this and rejects the other.
+   */
+  useEffect(() => {
+    if (!pending) return;
+    const fuse = setTimeout(() => setPending(false), GIVE_UP_AFTER_MS);
+    return () => clearTimeout(fuse);
+  }, [pending]);
 
   useEffect(() => {
     function onClick(event: MouseEvent) {
@@ -129,9 +150,7 @@ export function NavigationLoader() {
       }
 
       clearTimeout(showTimer.current);
-      clearTimeout(giveUpTimer.current);
       showTimer.current = setTimeout(() => setPending(true), SHOW_AFTER_MS);
-      giveUpTimer.current = setTimeout(() => setPending(false), GIVE_UP_AFTER_MS);
     }
 
     // Capture phase, so a handler that calls stopPropagation on the way up
@@ -140,7 +159,6 @@ export function NavigationLoader() {
     return () => {
       document.removeEventListener("click", onClick, true);
       clearTimeout(showTimer.current);
-      clearTimeout(giveUpTimer.current);
     };
   }, []);
 
