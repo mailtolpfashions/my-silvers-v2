@@ -185,8 +185,18 @@ export function NavigationLoader() {
        *
        * z-[60] clears the header (40) and Radix overlays (50), so a dialog
        * linking onward cannot paint over its own loader.
+       *
+       * ── Bottom-LEFT, and every other side is spoken for ──────────────────
+       * It sat under the header first, which on a full-bleed hero dropped a
+       * white box over the middle of the photograph — the one place on the
+       * site guaranteed to be someone's face.
+       *
+       * Bottom-right is the Toaster. Bottom-centre is the mobile sticky action
+       * bar on product and cart pages. That leaves bottom-left, and the raised
+       * `bottom-28` below sm is what clears that bar on phones:
+       * STICKY_BAR_SPACER reserves 7rem for it, so this sits just above.
        */
-      className="pointer-events-none fixed inset-x-0 top-20 z-[60] flex justify-center lg:top-28"
+      className="pointer-events-none fixed bottom-28 left-4 z-[60] sm:bottom-6 sm:left-6"
     >
       <span className="flex items-center justify-center border bg-background/95 px-4 py-2.5 shadow-sm backdrop-blur-sm">
         <BrandLoader size={26} />
