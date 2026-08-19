@@ -1,10 +1,13 @@
-import Link from "next/link";
 import {
   getDashboardStats,
   getDashboardTrends,
   getRevenueByDay,
   getRecentOrders,
 } from "@/server/admin/stats";
+import { Suspense } from "react";
+import { getAttentionItems, getAbandonedCartSummary } from "@/server/admin/attention";
+import { AttentionBlock, AttentionLink } from "@/components/admin/attention-block";
+import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/admin/stat-card";
 import { RevenueChart } from "@/components/admin/revenue-chart";
 import { OrderStatusBadges } from "@/components/storefront/orders/order-detail";
@@ -19,6 +22,8 @@ export default async function AdminDashboardPage() {
     getRevenueByDay(),
     getRecentOrders(),
   ]);
+
+  const attention = await getAttentionItems();
 
   /**
    * The totals are lifetime; the trend beneath each is the last 30 days against
@@ -42,23 +47,26 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        title="Dashboard"
-        actions={
-          stats.pendingReturns > 0 ? (
-            // The one thing on this page that needs acting on, so it sits with
-            // the actions rather than among the read-only figures below. Uses
-            // the admin surface's warning pair rather than a one-off amber.
-            <Link
-              href="/admin/orders?status=return_requested"
-              className="state-pill"
-              data-state="warning"
-            >
-              {stats.pendingReturns} return request{stats.pendingReturns === 1 ? "" : "s"} pending
-            </Link>
-          ) : undefined
-        }
-      />
+      {/* The returns pill that used to live in `actions` is gone: it was the
+          only actionable thing the dashboard knew about, and it is now one row
+          of the attention block below rather than a second place to see the
+          same number. */}
+      <PageHeader title="Dashboard" />
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium text-muted-foreground">Needs attention</h2>
+        <AttentionBlock
+          items={attention}
+          cartSlot={
+            /* Its own boundary: deciding whether a cart is abandoned cannot be
+               a COUNT, so it is by far the slowest query on this page. Behind
+               Suspense the other six rows paint immediately. */
+            <Suspense fallback={<Skeleton className="h-9 w-44" />}>
+              <AbandonedCartRow />
+            </Suspense>
+          }
+        />
+      </section>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {cards.map((card) => (
@@ -111,5 +119,22 @@ export default async function AdminDashboardPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * Abandoned carts, streamed on its own.
+ *
+ * Renders nothing when there are none — an all-clear is the absence of a row,
+ * not a row saying zero.
+ */
+async function AbandonedCartRow() {
+  const { count, value } = await getAbandonedCartSummary();
+  if (count === 0) return null;
+  return (
+    <AttentionLink
+      href="/admin/carts"
+      label={`${count} abandoned cart${count === 1 ? "" : "s"} — ${formatINR(value)}`}
+    />
   );
 }

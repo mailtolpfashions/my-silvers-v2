@@ -1,35 +1,80 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 /**
  * Which month the finance page is showing.
  *
- * A native month input rather than two selects: it is one control, it validates
- * itself, and it is the only date field on this screen that a partner will use
- * repeatedly.
+ * ── Two shortcuts and a picker, in that order ────────────────────────────────
+ * "This month" and "last month" are the two selections anyone makes almost
+ * every time — one to see where the month is going, one to settle up. Both
+ * required opening a date picker and reading a calendar. They are links now,
+ * and the picker stays for the rarer case of looking further back.
+ *
+ * The shortcuts are computed on the CLIENT, from the browser's clock. That is
+ * correct here rather than sloppy: the server's idea of "this month" is its own
+ * timezone, and a partner in India opening this on the 1st should get their
+ * month, not the host's.
  *
  * Pushes to a `?m=YYYY-MM` search param rather than holding state, so a month
- * can be linked to and sent to the other partners — which is the whole point of
- * a figure people argue about.
+ * can be linked and sent to the other partners — which is the whole point of a
+ * figure people compare notes on.
  */
+function monthParam(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export function MonthPicker({ year, monthIndex }: { year: number; monthIndex: number }) {
   const router = useRouter();
   const value = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
 
+  const now = new Date();
+  const thisMonth = monthParam(now);
+  const lastMonth = monthParam(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+
   return (
-    <label className="flex items-center gap-2 text-sm">
-      <span className="text-muted-foreground">Month</span>
-      <input
-        type="month"
-        value={value}
-        onChange={(e) => {
-          // An empty value means the field was cleared; leave the page where it
-          // is rather than navigating to an unparseable param.
-          if (e.target.value) router.push(`/admin/finance?m=${e.target.value}`);
-        }}
-        className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-      />
-    </label>
+    <div className="flex flex-wrap items-center gap-2">
+      <Shortcut target={thisMonth} current={value} label="This month" />
+      <Shortcut target={lastMonth} current={value} label="Last month" />
+
+      <label className="flex items-center gap-2 text-sm">
+        <span className="sr-only">Month</span>
+        <input
+          type="month"
+          value={value}
+          onChange={(e) => {
+            // An empty value means the field was cleared; stay where we are
+            // rather than navigating to an unparseable param.
+            if (e.target.value) router.push(`/admin/finance?m=${e.target.value}`);
+          }}
+          className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+        />
+      </label>
+    </div>
+  );
+}
+
+/** A link, not a button: each shortcut is a real URL worth sending to someone. */
+function Shortcut({
+  target,
+  current,
+  label,
+}: {
+  target: string;
+  current: string;
+  label: string;
+}) {
+  const active = target === current;
+  return (
+    <Link
+      href={`/admin/finance?m=${target}`}
+      aria-current={active ? "page" : undefined}
+      className={`inline-flex h-9 items-center rounded-md border px-3 text-sm transition-colors ${
+        active ? "border-foreground bg-foreground text-background" : "hover:bg-muted"
+      }`}
+    >
+      {label}
+    </Link>
   );
 }

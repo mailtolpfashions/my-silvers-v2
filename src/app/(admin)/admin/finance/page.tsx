@@ -13,6 +13,15 @@ import {
 import { formatINR } from "@/lib/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { ExpenseManager } from "@/components/admin/finance/expense-manager";
 import { InvestorManager } from "@/components/admin/finance/investor-manager";
 import { MonthPicker } from "@/components/admin/finance/month-picker";
@@ -135,55 +144,55 @@ export default async function AdminFinancePage({
 
             <Card>
               <CardContent className="overflow-x-auto p-0">
-                <table className="w-full text-sm">
-                  <thead className="border-b text-left text-xs text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-3 font-medium">Partner</th>
-                      <th className="px-4 py-3 font-medium">Invested</th>
-                      <th className="px-4 py-3 font-medium">Of all capital</th>
-                      <th className="px-4 py-3 font-medium">Profit share</th>
-                      <th className="px-4 py-3 text-right font-medium">{monthLabel}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Partner</TableHead>
+                      <TableHead>Invested</TableHead>
+                      <TableHead>Of all capital</TableHead>
+                      <TableHead>Profit share</TableHead>
+                      <TableHead className="text-right">{monthLabel}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {split.investors.map((investor) => (
-                      <tr key={investor.id} className="border-b last:border-0">
-                        <td className="px-4 py-3">
+                      <TableRow key={investor.id}>
+                        <TableCell>
                           <span className={investor.isActive ? "" : "text-muted-foreground"}>
                             {investor.name}
                           </span>
                           {!investor.isActive && (
                             <span className="ml-2 text-xs text-muted-foreground">(inactive)</span>
                           )}
-                        </td>
-                        <td className="px-4 py-3">{formatINR(investor.contributed)}</td>
+                        </TableCell>
+                        <TableCell>{formatINR(investor.contributed)}</TableCell>
                         {/* Shown beside the profit share precisely so the two can
                             be compared — they differ on purpose when a stake
                             reflects effort rather than cash. */}
-                        <td className="px-4 py-3 text-muted-foreground">
+                        <TableCell className="text-muted-foreground">
                           {investor.contributedShare.toFixed(1)}%
-                        </td>
-                        <td className="px-4 py-3">{investor.profitShare.toFixed(2)}%</td>
-                        <td className="px-4 py-3 text-right font-medium">
+                        </TableCell>
+                        <TableCell>{investor.profitShare.toFixed(2)}%</TableCell>
+                        <TableCell className="text-right font-medium">
                           {investor.isActive ? formatINR(investor.periodProfit) : "—"}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                  <tfoot className="border-t bg-muted/40">
-                    <tr>
-                      <td className="px-4 py-3 font-medium">Total</td>
-                      <td className="px-4 py-3 font-medium">
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow>
+                      <TableCell className="font-medium">Total</TableCell>
+                      <TableCell className="font-medium">
                         {formatINR(split.totalContributed)}
-                      </td>
-                      <td />
-                      <td className="px-4 py-3 font-medium">{split.sharesTotal.toFixed(2)}%</td>
-                      <td className="px-4 py-3 text-right font-medium">
+                      </TableCell>
+                      <TableCell />
+                      <TableCell className="font-medium">{split.sharesTotal.toFixed(2)}%</TableCell>
+                      <TableCell className="text-right font-medium">
                         {formatINR(split.netProfit)}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+                      </TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
               </CardContent>
             </Card>
           </>

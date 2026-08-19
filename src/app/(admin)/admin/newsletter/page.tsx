@@ -3,6 +3,14 @@ import { prisma } from "@/server/db";
 import { requireRole } from "@/server/auth/require-role";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { CopyButton } from "@/components/admin/copy-button";
 import { AdminPagination } from "@/components/admin/admin-pagination";
 
@@ -109,33 +117,33 @@ export default async function AdminNewsletterPage({
       ) : (
         <Card>
           <CardContent className="overflow-x-auto p-0">
-            <table className="w-full text-sm">
-              <thead className="border-b text-left text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Email</th>
-                  <th className="px-4 py-3 font-medium">Subscribed</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Subscribed</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {subscribers.map((subscriber) => (
-                  <tr key={subscriber.id} className="border-b last:border-0">
-                    <td className="px-4 py-3">
+                  <TableRow key={subscriber.id}>
+                    <TableCell>
                       <a
                         href={`mailto:${subscriber.email}`}
                         className="underline-offset-4 hover:underline"
                       >
                         {subscriber.email}
                       </a>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
                       {subscriber.subscribedAt.toLocaleDateString("en-IN", {
                         day: "numeric",
                         month: "short",
                         year: "numeric",
                       })}
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell>
                       {subscriber.active ? (
                         <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-900">
                           Active
@@ -143,11 +151,11 @@ export default async function AdminNewsletterPage({
                       ) : (
                         <span className="rounded bg-muted px-2 py-0.5 text-xs">Unsubscribed</span>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       )}

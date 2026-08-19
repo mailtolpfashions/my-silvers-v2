@@ -3,7 +3,17 @@ import { listPayments, paymentCounts, type PaymentFilter } from "@/server/admin/
 import { formatINR } from "@/lib/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { CopyButton } from "@/components/admin/copy-button";
+import { FilterTabs } from "@/components/admin/filter-tabs";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 
 const FILTERS: Array<{ key: PaymentFilter; label: string }> = [
   { key: "all", label: "All" },
@@ -62,24 +72,11 @@ export default async function AdminPaymentsPage({
         <Figure label="Failed" value={String(counts.failed)} hint="never captured" />
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => {
-          const count = counts[f.key === "all" ? "all" : f.key];
-          const active = f.key === filter;
-          return (
-            <Link
-              key={f.key}
-              href={href({ filter: f.key, page: undefined })}
-              className={`inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors ${
-                active ? "border-foreground bg-foreground text-background" : "hover:bg-muted"
-              }`}
-            >
-              {f.label}
-              <span className={active ? "opacity-70" : "text-muted-foreground"}>{count}</span>
-            </Link>
-          );
-        })}
-      </div>
+      <FilterTabs
+        tabs={FILTERS.map((f) => ({ ...f, count: counts[f.key] }))}
+        current={filter}
+        hrefFor={(key) => href({ filter: key, page: undefined })}
+      />
 
       {rows.length === 0 ? (
         <Card>
@@ -90,22 +87,22 @@ export default async function AdminPaymentsPage({
       ) : (
         <Card>
           <CardContent className="overflow-x-auto p-0">
-            <table className="w-full text-sm">
-              <thead className="border-b text-left text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Order</th>
-                  <th className="px-4 py-3 font-medium">Customer</th>
-                  <th className="px-4 py-3 font-medium">Method</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Razorpay payment</th>
-                  <th className="px-4 py-3 font-medium">Refund</th>
-                  <th className="px-4 py-3 text-right font-medium">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Method</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Razorpay payment</TableHead>
+                  <TableHead>Refund</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {rows.map((row) => (
-                  <tr key={row.id} className="border-b last:border-0">
-                    <td className="px-4 py-3">
+                  <TableRow key={row.id}>
+                    <TableCell>
                       <Link
                         href={`/admin/orders/${row.id}`}
                         className="font-medium underline-offset-4 hover:underline"
@@ -119,20 +116,20 @@ export default async function AdminPaymentsPage({
                           year: "numeric",
                         })}
                       </span>
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell>
                       {row.user.name ?? "—"}
                       <span className="block text-xs text-muted-foreground">{row.user.email}</span>
-                    </td>
-                    <td className="px-4 py-3 uppercase">{row.paymentMethod}</td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="uppercase">{row.paymentMethod}</TableCell>
+                    <TableCell>
                       <span
                         className={`rounded px-2 py-0.5 text-xs ${PAYMENT_TONE[row.paymentStatus] ?? "bg-muted"}`}
                       >
                         {row.paymentStatus}
                       </span>
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell>
                       {row.razorpayPaymentId ? (
                         // Copyable, because the only reason to look at this
                         // string is to paste it into the Razorpay dashboard.
@@ -143,8 +140,8 @@ export default async function AdminPaymentsPage({
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell>
                       {row.refundStatus === "idle" ? (
                         <span className="text-muted-foreground">—</span>
                       ) : (
@@ -160,37 +157,25 @@ export default async function AdminPaymentsPage({
                           )}
                         </span>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium">
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
                       {formatINR(row.totalAmount.toString())}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       )}
 
-      {pages > 1 && (
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            Page {page} of {pages} — {total} orders
-          </span>
-          <div className="flex gap-2">
-            {page > 1 && (
-              <Link href={href({ page: String(page - 1) })} className="rounded-md border px-3 py-1.5 hover:bg-muted">
-                Previous
-              </Link>
-            )}
-            {page < pages && (
-              <Link href={href({ page: String(page + 1) })} className="rounded-md border px-3 py-1.5 hover:bg-muted">
-                Next
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
+      <AdminPagination
+        page={page}
+        totalPages={pages}
+        total={total}
+        label={total === 1 ? "order" : "orders"}
+        hrefFor={(next) => href({ page: String(next) })}
+      />
     </div>
   );
 }

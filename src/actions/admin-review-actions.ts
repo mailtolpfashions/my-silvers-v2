@@ -66,3 +66,35 @@ export async function deleteReviewAction(id: string): Promise<ReviewActionResult
   invalidate(review.product.slug);
   return { ok: true };
 }
+
+/**
+ * Show or hide many reviews at once.
+ *
+ * ⚠️  Bulk HIDE and SHOW only — there is deliberately no bulk delete. Hiding is
+ * reversible, so getting a selection wrong costs a second click; deleting is
+ * not, and it also frees each of those customers to write a fresh review. A
+ * mis-selected bulk delete would be unrecoverable and would invite replacement
+ * reviews from people who had already had their say. Delete stays one at a
+ * time, behind its own confirmation.
+ *
+ * `updateMany` rather than a loop: one statement, and the whole selection moves
+ * or none of it does.
+ */
+export async function bulkSetReviewPublishedAction(
+  ids: string[],
+  isPublished: boolean,
+): Promise<ReviewActionResult> {
+  await requireRole("admin");
+
+  if (ids.length === 0) return { ok: false, error: "Nothing selected." };
+  // A ceiling, because the ids arrive from the browser. Well past any real
+  // selection, low enough that a malformed request cannot ask for the world.
+  if (ids.length > 200) return { ok: false, error: "Too many at once — select fewer." };
+
+  await prisma.review.updateMany({ where: { id: { in: ids } }, data: { isPublished } });
+
+  // No product slug to revalidate: a bulk change can span dozens of products,
+  // so the tags do the work and the storefront picks it all up.
+  invalidate();
+  return { ok: true };
+}

@@ -5,6 +5,7 @@ import { listAbandonedCarts } from "@/server/admin/carts";
 import { formatINR } from "@/lib/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
+import { AdminSearch } from "@/components/admin/admin-search";
 
 /** How long ago, in words a person would use. */
 function ago(date: Date): string {
@@ -21,8 +22,13 @@ function ago(date: Date): string {
  * The contact details are the point of the screen — the whole reason to look at
  * an abandoned cart is to send someone a message about it.
  */
-export default async function AdminCartsPage() {
-  const carts = await listAbandonedCarts();
+export default async function AdminCartsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
+  const carts = await listAbandonedCarts(q);
   const total = carts.reduce((sum, c) => sum + c.value, 0);
 
   return (
@@ -42,10 +48,18 @@ export default async function AdminCartsPage() {
         unknown amount.
       </div>
 
+      <AdminSearch
+        action="/admin/carts"
+        placeholder="Search by name, email or phone"
+        value={q}
+      />
+
       {carts.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No abandoned carts. Every signed-in basket is either fresh or already ordered.
+            {q
+              ? `No abandoned cart matches “${q}”.`
+              : "No abandoned carts. Every signed-in basket is either fresh or already ordered."}
           </CardContent>
         </Card>
       ) : (

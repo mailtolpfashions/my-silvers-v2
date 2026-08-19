@@ -53,13 +53,29 @@ export type AbandonedCart = {
   orderCount: number;
 };
 
-export async function listAbandonedCarts(): Promise<AbandonedCart[]> {
+export async function listAbandonedCarts(q?: string): Promise<AbandonedCart[]> {
   await requireRole("admin");
 
   const cutoff = new Date(Date.now() - STALE_AFTER_HOURS * 60 * 60 * 1000);
+  const search = q?.trim();
 
   const carts = await prisma.cart.findMany({
-    where: { items: { some: {} } },
+    where: {
+      items: { some: {} },
+      // Matched against the SHOPPER, not the products in the basket: the reason
+      // to search this screen is to find the person you are about to message.
+      ...(search
+        ? {
+            user: {
+              OR: [
+                { name: { contains: search, mode: "insensitive" as const } },
+                { email: { contains: search, mode: "insensitive" as const } },
+                { phone: { contains: search } },
+              ],
+            },
+          }
+        : {}),
+    },
     // Oldest carts first: activity lives on the items, so the cart's own
     // creation date is the closest proxy the database can sort on. The value
     // sort at the end of this function fixes the presentation order.
