@@ -25,11 +25,19 @@ export default async function AdminInventoryPage() {
       where: { isActive: true, stock: { gt: 0, lte: LOW_STOCK_AT } },
       orderBy: { stock: "asc" },
       select: { id: true, name: true, slug: true, sku: true, stock: true, price: true, images: true },
+      // Bounded: a catalogue where hundreds are simultaneously out of stock is
+      // a supply problem, not a list to scroll. 200 is past the point where the
+      // page stops being a to-do and starts being a report.
+      take: 200,
     }),
     prisma.product.findMany({
       where: { isActive: true, stock: 0 },
       orderBy: { name: "asc" },
       select: { id: true, name: true, slug: true, sku: true, stock: true, price: true, images: true },
+      // Bounded: a catalogue where hundreds are simultaneously out of stock is
+      // a supply problem, not a list to scroll. 200 is past the point where the
+      // page stops being a to-do and starts being a report.
+      take: 200,
     }),
     /**
      * Sized pieces where a SIZE is out but the product total is not.
@@ -42,6 +50,7 @@ export default async function AdminInventoryPage() {
       where: { stock: 0, product: { isActive: true, stock: { gt: 0 } } },
       orderBy: [{ product: { name: "asc" } }, { size: "asc" }],
       select: { id: true, size: true, product: { select: { id: true, name: true, slug: true, sku: true } } },
+      take: 200,
     }),
   ]);
 

@@ -25,6 +25,20 @@ import { requireRole } from "@/server/auth/require-role";
 /** Ignore anything touched more recently than this; it is still being shopped. */
 const STALE_AFTER_HOURS = 4;
 
+/**
+ * Ceiling on how many carts are examined.
+ *
+ * ⚠️  The abandoned/not-abandoned test needs each cart's items and the owner's
+ * last order, so it cannot be expressed as a WHERE clause and has to run in
+ * memory. That means this cannot be paginated the usual way, and the cap is
+ * what stops it loading the entire cart table with every line item attached
+ * once the shop has real traffic.
+ *
+ * If it is ever actually being hit, the fix is a scheduled job that marks carts
+ * abandoned — not a bigger number here.
+ */
+const MAX_CARTS_SCANNED = 500;
+
 export type AbandonedCart = {
   cartId: string;
   userId: string;
@@ -46,6 +60,11 @@ export async function listAbandonedCarts(): Promise<AbandonedCart[]> {
 
   const carts = await prisma.cart.findMany({
     where: { items: { some: {} } },
+    // Oldest carts first: activity lives on the items, so the cart's own
+    // creation date is the closest proxy the database can sort on. The value
+    // sort at the end of this function fixes the presentation order.
+    orderBy: { createdAt: "asc" },
+    take: MAX_CARTS_SCANNED,
     include: {
       user: {
         select: {

@@ -13,9 +13,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomerSearch } from "@/components/admin/customer-search";
 import { SortableHeader } from "@/components/admin/sortable-header";
 import { PageHeader } from "@/components/layout/page-header";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { EmptyState } from "@/components/layout/empty-state";
 
-type SearchParams = Promise<{ q?: string; sort?: string; dir?: string }>;
+type SearchParams = Promise<{ q?: string; sort?: string; dir?: string; page?: string }>;
 
 /**
  * Sortable columns, as an allowlist — the key comes from the query string and
@@ -31,6 +32,9 @@ const CUSTOMER_SORTS = {
   orders: (dir: "asc" | "desc") => ({ orders: { _count: dir } }),
   joined: (dir: "asc" | "desc") => ({ createdAt: dir }),
 } as const;
+
+/** Rows per page. Matches Orders, so paging feels the same across the panel. */
+const CUSTOMER_PAGE_SIZE = 25;
 
 type CustomerSortKey = keyof typeof CUSTOMER_SORTS;
 
@@ -50,6 +54,7 @@ export default async function AdminCustomersPage({
   // glances at.
   const currentSort: CustomerSortKey = isCustomerSortKey(params.sort) ? params.sort : "joined";
   const currentDir: "asc" | "desc" = params.dir === "asc" ? "asc" : "desc";
+  const page = Number(params.page) > 0 ? Number(params.page) : 1;
 
   const where = {
     role: "customer" as const,
@@ -64,7 +69,7 @@ export default async function AdminCustomersPage({
       : {}),
   };
 
-  const [customers, totalCustomers] = await Promise.all([
+  const [customers, totalCustomers, matchingCustomers] = await Promise.all([
     prisma.user.findMany({
       where,
       include: {
@@ -72,10 +77,20 @@ export default async function AdminCustomersPage({
         _count: { select: { orders: true } },
       },
       orderBy: CUSTOMER_SORTS[currentSort](currentDir),
-      take: 100,
+      // Was a bare `take: 100` with no pagination and no count, so customer 101
+      // did not exist as far as this screen was concerned and nothing said so.
+      // Silent truncation is worse than a slow page.
+      skip: (page - 1) * CUSTOMER_PAGE_SIZE,
+      take: CUSTOMER_PAGE_SIZE,
     }),
+    // Unfiltered: the stat card above answers "how many customers are there",
+    // which must not move when someone types in the search box.
     prisma.user.count({ where: { role: "customer" } }),
+    // Filtered: what the pager is counting through.
+    prisma.user.count({ where }),
   ]);
+
+  const totalPages = Math.max(1, Math.ceil(matchingCustomers / CUSTOMER_PAGE_SIZE));
 
   return (
     <div className="space-y-6">
@@ -176,6 +191,22 @@ export default async function AdminCustomersPage({
           </TableBody>
         </Table>
       </div>
+
+      <AdminPagination
+        page={page}
+        totalPages={totalPages}
+        total={matchingCustomers}
+        label={matchingCustomers === 1 ? "customer" : "customers"}
+        hrefFor={(next) => {
+          const search = new URLSearchParams();
+          if (q) search.set("q", q);
+          if (params.sort) search.set("sort", params.sort);
+          if (params.dir) search.set("dir", params.dir);
+          if (next > 1) search.set("page", String(next));
+          const qs = search.toString();
+          return qs ? `/admin/customers?${qs}` : "/admin/customers";
+        }}
+      />
     </div>
   );
 }
