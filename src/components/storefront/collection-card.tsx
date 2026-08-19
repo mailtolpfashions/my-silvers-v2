@@ -17,13 +17,13 @@ import type { CollectionSummary } from "@/server/cms/collections";
 export function CollectionCard({
   collection,
   fillHeight = false,
-  preload = false,
+  eager = false,
 }: {
   collection: CollectionSummary;
   /** Forwarded to the tile — see EditorialTile. Set inside a .fit-viewport. */
   fillHeight?: boolean;
-  /** Set on above-the-fold tiles only — see next/image `preload`. */
-  preload?: boolean;
+  /** Forwarded to the tile. Above-the-fold tiles only — see EditorialTile. */
+  eager?: boolean;
 }) {
   return (
     <EditorialTile
@@ -34,7 +34,7 @@ export function CollectionCard({
       description={collection.description}
       linkLabel="Explore the collection"
       fillHeight={fillHeight}
-      preload={preload}
+      eager={eager}
       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
     />
   );

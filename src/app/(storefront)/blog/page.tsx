@@ -59,7 +59,7 @@ export default async function BlogListPage() {
                   linkLabel="Read more"
                   ratio="landscape"
                   headingLevel="h2"
-                  preload={i < 2}
+                  eager={i < 2}
                   sizes="(max-width: 640px) 100vw, 50vw"
                 />
               );

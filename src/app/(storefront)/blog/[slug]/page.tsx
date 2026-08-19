@@ -94,7 +94,8 @@ async function BlogPostBody({ params }: { params: Params }) {
               fill
               sizes="(max-width: 768px) 100vw, 42rem"
               className="object-cover"
-              preload
+              loading="eager"
+              fetchPriority="high"
             />
           </div>
         )}

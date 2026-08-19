@@ -55,7 +55,10 @@ export function PageHeader({
       alt={imageAlt}
       fill
       // Above the fold on every listing page, so it carries the LCP.
-      preload
+      // eager rather than preload — preload only emits a <link> in <head>,
+      // which a streamed page has usually already flushed. See product-card.tsx.
+      loading="eager"
+      fetchPriority="high"
       className="object-cover object-center"
       sizes="100vw"
     />

@@ -50,7 +50,7 @@ export default async function CollectionsPage() {
               className="mt-10 grid gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-3"
             >
               {collections.map((collection, i) => (
-                <CollectionCard key={collection.id} collection={collection} preload={i < 3} />
+                <CollectionCard key={collection.id} collection={collection} eager={i < 3} />
               ))}
             </RevealSection>
           </>

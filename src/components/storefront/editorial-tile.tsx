@@ -31,7 +31,7 @@ export function EditorialTile({
   linkLabel,
   ratio = "portrait",
   fillHeight = false,
-  preload = false,
+  eager = false,
   sizes = "(max-width: 640px) 100vw, 50vw",
   headingLevel: Heading = "h3",
 }: {
@@ -55,8 +55,15 @@ export function EditorialTile({
    * there the section is free to be as tall as it likes.
    */
   fillHeight?: boolean;
-  /** Next 16 renamed `priority` to `preload`; above-the-fold tiles only. */
-  preload?: boolean;
+  /**
+   * Load this tile's image immediately. Above-the-fold tiles only.
+   *
+   * ⚠️ NOT next/image's `preload`, which this used to be. That prop only
+   * injects a `<link>` into `<head>` and leaves the img `loading="lazy"` — and
+   * on a streamed page the head has usually flushed, so it emitted nothing at
+   * all. See the `eager` note in product-card.tsx.
+   */
+  eager?: boolean;
   sizes?: string;
   headingLevel?: "h2" | "h3";
 }) {
@@ -78,7 +85,8 @@ export function EditorialTile({
             src={image}
             alt=""
             fill
-            preload={preload}
+            loading={eager ? "eager" : "lazy"}
+            fetchPriority={eager ? "high" : undefined}
             sizes={sizes}
             className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
           />

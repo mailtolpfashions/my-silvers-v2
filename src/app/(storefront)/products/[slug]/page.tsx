@@ -160,14 +160,15 @@ export default async function ProductDetailPage({
               // The receiving end of the card → product-page morph. The name
               // must match what the listing card used; see productMorphName.
               <ViewTransition name={productMorphName(product.id)} share="morph">
-                {/* The LCP element of this page — preloaded, and given real
+                {/* The LCP element of this page — eager, and given real
                     `sizes` so the browser doesn't download a full-width source
                     for a half-width slot. */}
                 <Image
                   src={image}
                   alt={product.name}
                   fill
-                  preload
+                  loading="eager"
+                  fetchPriority="high"
                   // Narrower than the old 55vw: the gallery column was pulled
                   // in to meet the square frame, so this slot is about 42vw
                   // rather than 55. Must match product-gallery.tsx.

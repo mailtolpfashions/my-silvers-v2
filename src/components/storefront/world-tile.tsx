@@ -36,7 +36,7 @@ export function WorldTile({
   item,
   fillHeight = false,
   className = "",
-  preload = false,
+  eager = false,
 }: {
   item: { image: string; label: string; href?: string };
   /**
@@ -59,8 +59,15 @@ export function WorldTile({
    * four now — it has no seam left to offset — and the stagger went with it.
    */
   fillHeight?: boolean;
-  /** Next 16 renamed `priority` to `preload`; above-the-fold tiles only. */
-  preload?: boolean;
+  /**
+   * Load this tile's image immediately. Above-the-fold tiles only.
+   *
+   * ⚠️ NOT next/image's `preload`, which this used to be. That prop only
+   * injects a `<link>` into `<head>` and leaves the img `loading="lazy"` — and
+   * on a streamed page the head has usually flushed, so it emitted nothing at
+   * all. See the `eager` note in product-card.tsx.
+   */
+  eager?: boolean;
 }) {
   const frame = (
     <>
@@ -71,7 +78,8 @@ export function WorldTile({
         // here would have a screen reader announce the world twice.
         alt=""
         fill
-        preload={preload}
+        loading={eager ? "eager" : "lazy"}
+        fetchPriority={eager ? "high" : undefined}
         // A quarter of the page in the four-up row, half at tablet widths where
         // it drops to two columns, the whole of it once stacked.
         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"

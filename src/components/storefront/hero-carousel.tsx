@@ -335,8 +335,12 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                         className="object-cover object-center"
                         // Only the first panel is above the fold. The rest are
                         // off-screen until asked for.
-                        preload={i === 0}
-                        loading={i === 0 ? undefined : "lazy"}
+                        // eager + high, NOT preload. next-image preload only
+                        // injects a <link> into <head> and leaves the img lazy;
+                        // `undefined` here resolved to lazy too, so the homepage
+                        // LCP was lazy-loading itself. See product-card.tsx.
+                        loading={i === 0 ? "eager" : "lazy"}
+                        fetchPriority={i === 0 ? "high" : undefined}
                         sizes="100vw"
                       />
                     </picture>
