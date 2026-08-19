@@ -39,6 +39,8 @@ export async function getTopReviews(take = 6): Promise<TopReview[]> {
       // them off the homepage regardless.
       isVerifiedPurchase: true,
       // A delisted product would send the shopper to a dead end.
+      // Hidden by a moderator — see Review.isPublished.
+      isPublished: true,
       product: { isActive: true },
     },
     // Best first, so the per-product de-dupe below keeps each product's best

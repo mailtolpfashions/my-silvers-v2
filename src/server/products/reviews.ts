@@ -11,13 +11,15 @@ export class ReviewNotPermittedError extends Error {
 export async function getProductReviews(productId: string) {
   const [reviews, stats] = await Promise.all([
     prisma.review.findMany({
-      where: { productId },
+      // isPublished on BOTH reads, not just the list: a hidden review that
+      // still moves the star average is only half hidden.
+      where: { productId, isPublished: true },
       include: { user: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       take: 50,
     }),
     prisma.review.aggregate({
-      where: { productId },
+      where: { productId, isPublished: true },
       _avg: { rating: true },
       _count: true,
     }),

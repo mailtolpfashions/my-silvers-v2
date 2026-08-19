@@ -91,6 +91,10 @@ model User {
   cart      Cart?
   wishlist  Wishlist?
   reviews   Review[]
+  /// Expenses this account entered. See the Books section at the foot of
+  /// this file — the relation is SetNull, so removing a staff account leaves
+  /// the ledger intact and simply forgets who typed it in.
+  expenses  Expense[]
 
   accounts Account[]
   sessions Session[]
@@ -116,12 +120,12 @@ model Address {
   state        String
   pincode      String
   isDefault    Boolean @default(false)
-
-  @@index([userId])
   // Single-default-per-user invariant is enforced via a partial unique index,
   // added in a raw-SQL migration (Prisma can't express partial unique indexes
   // declaratively): CREATE UNIQUE INDEX one_default_address_per_user
   // ON "Address"("userId") WHERE "isDefault" = true;
+
+  @@index([userId])
 }
 
 model Account {
@@ -199,43 +203,49 @@ model Category {
 }
 
 model Product {
-  id                String      @id @default(cuid())
-  name              String
-  slug              String      @unique
-  description       String?
-  shortDescription  String?
-  price             Decimal     @db.Decimal(10, 2)
-  compareAtPrice    Decimal?    @db.Decimal(10, 2)
-  images            String[] // Cloudinary URLs only — validated in server layer
-  videoUrl          String?
-  category          Category    @relation(fields: [categoryId], references: [id])
-  categoryId        String
-  weight            Decimal?    @db.Decimal(10, 3)
-  purity            String      @default("925 Sterling Silver")
-  dimensions        String?
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  description      String?
+  shortDescription String?
+  price            Decimal  @db.Decimal(10, 2)
+  compareAtPrice   Decimal? @db.Decimal(10, 2)
+  /// What this piece cost US — the purchase price from the supplier.
+  ///
+  /// Nullable because the catalogue predates it: a product with no cost is
+  /// simply excluded from margin figures rather than counted as free, and the
+  /// finance screens say how many are missing. Never show this to a shopper.
+  costPrice        Decimal? @db.Decimal(10, 2)
+  images           String[] // Cloudinary URLs only — validated in server layer
+  videoUrl         String?
+  category         Category @relation(fields: [categoryId], references: [id])
+  categoryId       String
+  weight           Decimal? @db.Decimal(10, 3)
+  purity           String   @default("925 Sterling Silver")
+  dimensions       String?
   /// The sizes offered, in display order. The authoritative per-size stock
   /// lives on ProductVariant — this array is the ordering and the label set.
-  sizes             String[]
-  material          String?
+  sizes            String[]
+  material         String?
   /// Total across every size, maintained in the same transaction that writes
   /// ProductVariant.stock. Denormalised on purpose: every listing, the search
   /// query, homepage sections and the scarcity labels filter on it, and making
   /// them all aggregate variants would be a far larger and riskier change.
   /// Never write this directly for a sized product — use src/server/products/stock.ts.
-  stock             Int         @default(0)
-  sku               String      @unique
-  isFeatured        Boolean     @default(false)
-  isBestseller      Boolean     @default(false)
-  isActive          Boolean     @default(true) // soft delete
-  tags              String[]
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  stock            Int      @default(0)
+  sku              String   @unique
+  isFeatured       Boolean  @default(false)
+  isBestseller     Boolean  @default(false)
+  isActive         Boolean  @default(true) // soft delete
+  tags             String[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   orderItems   OrderItem[]
   reviews      Review[]
   cartItems    CartItem[]
   variants     ProductVariant[]
-  wishlistedIn Wishlist[]  @relation("WishlistProducts")
+  wishlistedIn Wishlist[]       @relation("WishlistProducts")
 
   // Full-text search column — a GENERATED ALWAYS ... STORED tsvector plus a GIN
   // index, created by raw SQL in the init migration because Prisma can't
@@ -261,10 +271,11 @@ model Product {
 // ─── Cart / Wishlist / Reviews ─────────────────────────────────────────────
 
 model Cart {
-  id     String     @id @default(cuid())
-  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String     @unique
-  items  CartItem[]
+  id        String     @id @default(cuid())
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String     @unique
+  items     CartItem[]
+  createdAt DateTime   @default(now())
 }
 
 model CartItem {
@@ -280,6 +291,16 @@ model CartItem {
   /// here would let the same unsized product be added as unlimited separate
   /// lines.
   size      String  @default("")
+
+  /// Cart activity, and the only clock this feature has.
+  ///
+  /// ⚠️  On the ITEM, not the Cart. Prisma's `@updatedAt` fires when the row
+  /// it sits on is written, and adding a line never touches the Cart row — so
+  /// a timestamp up there would say a cart was last active the day it was
+  /// created and never move again. "Last activity" is max(updatedAt) across a
+  /// cart's items; see server/admin/carts.ts.
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   /// Keyed by size as well as product, so ring size 7 and size 9 are two lines
   /// rather than one overwriting the other.
@@ -303,10 +324,23 @@ model Review {
   title              String?
   comment            String?
   isVerifiedPurchase Boolean  @default(false) // computed server-side only — never client-supplied
+  /// Whether shoppers can see it.
+  ///
+  /// Defaults to TRUE: reviews go live as they are written, and moderation is
+  /// after the fact. That is a deliberate choice over holding every review for
+  /// approval — a queue nobody empties is how a shop ends up with three
+  /// reviews. Flip the default here if that ever stops being true.
+  ///
+  /// ⚠️  Every storefront read must filter on this. It is enforced in
+  /// server/products/reviews.ts and server/reviews/top-reviews.ts, including
+  /// the rating AGGREGATE — a hidden review that still moves the star average
+  /// is only half hidden.
+  isPublished        Boolean  @default(true)
   createdAt          DateTime @default(now())
 
   @@unique([userId, productId])
   @@index([productId, createdAt(sort: Desc)])
+  @@index([isPublished, createdAt(sort: Desc)])
 }
 
 model NewsletterSubscriber {
@@ -378,6 +412,12 @@ model OrderItem {
   name      String // snapshot
   image     String? // snapshot
   price     Decimal  @db.Decimal(10, 2) // snapshot
+  /// Snapshot of Product.costPrice at the moment of sale.
+  ///
+  /// ⚠️  Load-bearing for the finance reports. Reading cost off the live
+  /// Product instead would mean re-pricing your stock next year silently
+  /// rewrites last year's profit. Same reasoning as `price` above.
+  costPrice Decimal? @db.Decimal(10, 2) // snapshot
   quantity  Int
   weight    Decimal? @db.Decimal(10, 3) // snapshot
   /// Snapshot of the chosen size. Empty for unsized pieces. This is what
@@ -463,4 +503,94 @@ model MediaAsset {
   createdAt    DateTime @default(now())
 
   @@index([folder])
+}
+
+// ─── Books ──────────────────────────────────────────────────────────────────
+//
+// The partners' view of the business: what went out, what came in, who put the
+// money in, and who is owed what share of the result.
+//
+// ⚠️  This is a LEDGER, not accounting software. It answers "what did we make
+// this month and what is my share of it" for a handful of people who know each
+// other. It is not double-entry, it does not do tax, and it must never be
+// described to anyone as though it does.
+//
+// Admin role only, everywhere. See the guard in src/server/admin/finance.ts.
+
+enum ExpenseCategory {
+  stock // buying inventory outside the per-product cost price
+  packaging
+  shipping
+  marketing
+  salaries
+  platform // hosting, Cloudinary, Razorpay fees, domains
+  other
+}
+
+/// Money spent that is NOT the cost of a specific product.
+///
+/// Per-piece purchase cost lives on Product.costPrice and reaches the reports
+/// through OrderItem — recording it here as well would count it twice. The
+/// `stock` category is for inventory bought in bulk that was never attributed
+/// to individual pieces.
+model Expense {
+  id           String          @id @default(cuid())
+  /// When the money was actually spent, which is not always when it was
+  /// entered. Every report groups on this, never on createdAt.
+  spentAt      DateTime
+  amount       Decimal         @db.Decimal(10, 2)
+  category     ExpenseCategory @default(other)
+  note         String?
+  /// Who entered it. SetNull rather than Cascade — deleting a staff account
+  /// must never delete the books.
+  recordedBy   User?           @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+  recordedById String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([spentAt])
+  @@index([category, spentAt])
+}
+
+/// A partner in the business.
+///
+/// Deliberately NOT a User. An investor may never log in, and a member of staff
+/// with an admin account is not automatically an investor. Linking the two
+/// would mean deleting a login deletes someone's stake.
+model Investor {
+  id          String       @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  /// Share of profit, as a percentage, set by hand.
+  ///
+  /// ⚠️  Deliberately NOT derived from contributions. Stakes here reflect
+  /// effort as well as cash, so the two drift apart on purpose — the finance
+  /// screen shows both side by side and flags when the shares do not total 100.
+  /// Do not "fix" this by computing it; that decision was made explicitly.
+  profitShare Decimal      @default(0) @db.Decimal(5, 2)
+  /// Left the business. Kept rather than deleted so historical reports still
+  /// balance — a period they were part of must not silently re-split.
+  isActive    Boolean      @default(true)
+  note        String?
+  investments Investment[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([isActive])
+}
+
+/// One capital contribution. The ledger of who put in what, and when.
+model Investment {
+  id         String   @id @default(cuid())
+  investor   Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  investorId String
+  amount     Decimal  @db.Decimal(10, 2)
+  /// When the money arrived. Reports group on this, never on createdAt.
+  investedAt DateTime
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@index([investorId, investedAt])
+  @@index([investedAt])
 }

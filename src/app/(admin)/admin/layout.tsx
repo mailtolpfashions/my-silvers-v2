@@ -17,6 +17,7 @@ const ADMIN_NAV: NavGroup[] = [
     items: [
       { href: "/admin/products", label: "Products", icon: "products" },
       { href: "/admin/categories", label: "Categories", icon: "categories" },
+      { href: "/admin/inventory", label: "Inventory", icon: "inventory" },
     ],
   },
   {
@@ -24,6 +25,21 @@ const ADMIN_NAV: NavGroup[] = [
     items: [
       { href: "/admin/orders", label: "Orders", icon: "orders" },
       { href: "/admin/customers", label: "Customers", icon: "customers" },
+      { href: "/admin/reviews", label: "Reviews", icon: "reviews" },
+      { href: "/admin/carts", label: "Abandoned carts", icon: "carts" },
+      { href: "/admin/payments", label: "Payments", icon: "payments" },
+    ],
+  },
+  {
+    // The partners' books. Everything under /admin already requires the admin
+    // role (see AdminGate below), so there is no extra gate on the group — but
+    // the readers in server/admin/finance.ts re-check anyway, because these are
+    // the most sensitive figures in the application and a page is not the only
+    // way to reach them.
+    label: "Books",
+    items: [
+      { href: "/admin/finance", label: "Finance", icon: "finance" },
+      { href: "/admin/newsletter", label: "Newsletter", icon: "newsletter" },
     ],
   },
 ];
