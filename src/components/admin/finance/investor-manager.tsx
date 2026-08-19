@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -59,6 +59,15 @@ export function InvestorManager({
 }) {
   const [isPending, startTransition] = useTransition();
   const [draft, setDraft] = useState({ name: "", email: "", phone: "", profitShare: "" });
+  /**
+   * Which contribution is awaiting confirmation.
+   *
+   * ⚠️  Deleting one changes the capital totals every past period was split
+   * against. It fired on the first click until now — while deleting a REVIEW,
+   * which changes nothing financial, had a full explanatory confirmation. The
+   * guard was on the wrong action.
+   */
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
   const [contribution, setContribution] = useState({
     investorId: investors[0]?.id ?? "",
     amount: "",
@@ -270,7 +279,8 @@ export function InvestorManager({
                   </thead>
                   <tbody>
                     {investments.map((entry) => (
-                      <tr key={entry.id} className="border-b last:border-0">
+                      <Fragment key={entry.id}>
+                        <tr className="border-b last:border-0">
                         <td className="py-2">
                           {new Date(entry.investedAt).toLocaleDateString("en-IN", {
                             day: "numeric",
@@ -287,15 +297,48 @@ export function InvestorManager({
                             size="icon"
                             aria-label={`Remove ${entry.investorName}'s contribution of ${formatINR(entry.amount)}`}
                             disabled={isPending}
-                            onClick={() =>
-                              run(() => deleteInvestmentAction(entry.id), "Contribution removed.")
-                            }
+                            onClick={() => setConfirmingDelete(entry.id)}
                             className="size-8"
                           >
                             <Trash2 className="size-4" />
                           </Button>
                         </td>
                       </tr>
+                        {confirmingDelete === entry.id && (
+                          <tr className="border-b bg-muted/40 last:border-0">
+                            <td colSpan={5} className="px-1 py-3">
+                              <p className="text-sm">
+                                Delete {entry.investorName}&apos;s contribution of{" "}
+                                <strong>{formatINR(entry.amount)}</strong>? Their share of all
+                                capital changes, and so does every past period this was counted in.
+                              </p>
+                              <div className="mt-3 flex gap-2">
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  disabled={isPending}
+                                  onClick={() => {
+                                    run(
+                                      () => deleteInvestmentAction(entry.id),
+                                      "Contribution removed.",
+                                    );
+                                    setConfirmingDelete(null);
+                                  }}
+                                >
+                                  Delete
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setConfirmingDelete(null)}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>
@@ -329,6 +372,13 @@ function InvestorRowEditor({
   const [name, setName] = useState(investor.name);
   const [share, setShare] = useState(String(investor.profitShare));
   const [isActive, setIsActive] = useState(investor.isActive);
+  /**
+   * Two-step, even though the server already refuses to delete a partner who
+   * has contributions — it returns "mark them inactive instead". This covers
+   * the case the server allows: someone added by mistake who never put anything
+   * in. Low stakes, but it is still a person's record and one stray click.
+   */
+  const [confirming, setConfirming] = useState(false);
 
   const dirty =
     name !== investor.name ||
@@ -386,11 +436,36 @@ function InvestorRowEditor({
             size="icon"
             aria-label={`Remove ${investor.name}`}
             disabled={disabled}
-            onClick={onDelete}
+            onClick={() => setConfirming(true)}
             className="size-8"
           >
             <Trash2 className="size-4" />
           </Button>
+          {confirming && (
+            <span className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Remove?</span>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={disabled}
+                onClick={() => {
+                  onDelete();
+                  setConfirming(false);
+                }}
+                className="h-7"
+              >
+                Yes
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirming(false)}
+                className="h-7"
+              >
+                No
+              </Button>
+            </span>
+          )}
         </div>
       </td>
     </tr>
