@@ -48,6 +48,13 @@ const POOL = {
 /**
  * The client, and the adapter, cached together across HMR.
  *
+ * ⚠️  RESTART THE DEV SERVER AFTER `prisma generate`. The cached instance is
+ * built from the generated client as it was when the process started, and
+ * nothing invalidates it — Fast Refresh reloads the module but `globalThis`
+ * keeps the old object. The symptom is a delegate for a brand new model coming
+ * back `undefined` ("Cannot read properties of undefined (reading 'aggregate')")
+ * while `tsc` is perfectly happy, because tsc reads the new types off disk.
+ *
  * Both, deliberately. The adapter used to be constructed at module scope on
  * every evaluation, so each Fast Refresh built a fresh `pg.Pool` while the
  * cached client kept the original — harmless in isolation, since pools are

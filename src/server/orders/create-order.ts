@@ -45,6 +45,16 @@ type ResolvedItem = {
   pricePaise: number;
   quantity: number;
   weight: string | null;
+  /**
+   * What the piece cost US, snapshotted at the moment of sale.
+   *
+   * ⚠️  Every margin figure in /admin/finance reads THIS, not the live
+   * Product.costPrice. Reading it live would mean re-pricing stock next year
+   * silently rewrites last year's profit — the same reason `price` above is
+   * a snapshot. Null for pieces sold before costs were recorded; those lines
+   * are excluded from margin rather than counted as free.
+   */
+  costPricePaise: number | null;
   /** Snapshotted onto the OrderItem — this is what fulfilment picks. */
   size: string;
 };
@@ -145,6 +155,7 @@ async function resolveItems(
       pricePaise: toPaise(p.price),
       quantity: line.quantity,
       weight: p.weight?.toString() ?? null,
+      costPricePaise: p.costPrice === null ? null : toPaise(p.costPrice),
       size: p.sizes.length > 0 ? line.size : "",
     };
   });
@@ -252,6 +263,8 @@ export async function createOrder(input: {
               price: paiseToRupeeString(i.pricePaise),
               quantity: i.quantity,
               weight: i.weight,
+              costPrice:
+                i.costPricePaise === null ? null : paiseToRupeeString(i.costPricePaise),
               size: i.size,
             })),
           },

@@ -25,6 +25,8 @@ export type ProductInput = {
   shortDescription?: string;
   price: number;
   compareAtPrice?: number | null;
+  /// What we paid. Admin-only — never selected into a storefront query.
+  costPrice?: number | null;
   images: string[];
   videoUrl?: string | null;
   categoryId: string;
@@ -112,6 +114,7 @@ export async function createProduct(input: ProductInput) {
       ...columns,
       slug,
       compareAtPrice: input.compareAtPrice ?? null,
+      costPrice: input.costPrice ?? null,
       videoUrl: input.videoUrl || null,
       weight: input.weight ?? null,
       purity: input.purity || "925 Sterling Silver",
@@ -149,6 +152,7 @@ export async function updateProduct(id: string, input: ProductInput) {
       data: {
         ...columns,
         compareAtPrice: input.compareAtPrice ?? null,
+        costPrice: input.costPrice ?? null,
         videoUrl: input.videoUrl || null,
         weight: input.weight ?? null,
         tags: input.tags.map((t) => t.toLowerCase()),
@@ -257,6 +261,7 @@ export const CSV_TEMPLATE_HEADERS = [
   "shortDescription",
   "price",
   "compareAtPrice",
+  "costPrice",
   "category",
   "weight",
   "purity",
@@ -322,6 +327,9 @@ export async function bulkImportProducts(rows: CsvRow[]): Promise<{
       const stock = Number(row.stock ?? 0);
       const weight = row.weight ? Number(row.weight) : null;
       const compareAtPrice = row.compareAtPrice ? Number(row.compareAtPrice) : null;
+      // Optional, like compareAtPrice: an import that omits the column leaves
+      // existing costs alone rather than blanking them.
+      const costPrice = row.costPrice ? Number(row.costPrice) : null;
       const categoryKey = (row.category ?? "").trim().toLowerCase();
 
       if (!name) throw new Error("name is required");
@@ -345,6 +353,7 @@ export async function bulkImportProducts(rows: CsvRow[]): Promise<{
         shortDescription: (row.shortDescription ?? "").trim() || undefined,
         price,
         compareAtPrice,
+        costPrice,
         images: parseList(row.images),
         categoryId,
         weight,

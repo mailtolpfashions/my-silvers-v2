@@ -29,6 +29,7 @@ export type ProductFormValues = {
   shortDescription: string;
   price: string;
   compareAtPrice: string;
+  costPrice: string;
   images: string[];
   videoUrl: string | null;
   categoryId: string;
@@ -52,6 +53,7 @@ export const EMPTY_PRODUCT_FORM: ProductFormValues = {
   shortDescription: "",
   price: "",
   compareAtPrice: "",
+  costPrice: "",
   images: [],
   videoUrl: null,
   categoryId: "",
@@ -118,6 +120,7 @@ export function ProductForm({
         shortDescription: form.shortDescription,
         price: Number(form.price),
         compareAtPrice: form.compareAtPrice ? Number(form.compareAtPrice) : null,
+        costPrice: form.costPrice ? Number(form.costPrice) : null,
         images: form.images,
         videoUrl: form.videoUrl,
         categoryId: form.categoryId,
@@ -210,6 +213,11 @@ export function ProductForm({
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         {textField("price", "Price (₹)", { type: "number", min: 0, step: "0.01", required: true })}
         {textField("compareAtPrice", "Compare-at price (₹)", { type: "number", min: 0, step: "0.01" })}
+        {/* What WE paid. Admin-only and never rendered on the storefront — it
+            is what every margin figure in /admin/finance is computed from, and
+            a product left blank is excluded from those figures rather than
+            counted as free. */}
+        {textField("costPrice", "Cost price (₹)", { type: "number", min: 0, step: "0.01" })}
         {form.sizeStock.length > 0 ? (
           <div className="space-y-1.5">
             <Label>Stock</Label>

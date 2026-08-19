@@ -19,6 +19,7 @@ const productSchema = z.object({
   shortDescription: z.string().trim().max(500).optional().or(z.literal("")),
   price: z.number().min(0),
   compareAtPrice: z.number().min(0).nullable().optional(),
+  costPrice: z.number().min(0).nullable().optional(),
   images: z.array(z.string().url()).max(6),
   videoUrl: z.string().url().nullable().optional().or(z.literal("")),
   categoryId: z.string().min(1),
@@ -56,6 +57,7 @@ function toInput(data: z.infer<typeof productSchema>) {
     material: data.material || undefined,
     videoUrl: data.videoUrl || null,
     compareAtPrice: data.compareAtPrice ?? null,
+    costPrice: data.costPrice ?? null,
     weight: data.weight ?? null,
   };
 }
