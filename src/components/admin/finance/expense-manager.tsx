@@ -5,6 +5,15 @@ import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatINR } from "@/lib/format";
@@ -147,31 +156,31 @@ export function ExpenseManager({
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b text-left text-xs text-muted-foreground">
-                <tr>
-                  <th className="py-2 font-medium">Date</th>
-                  <th className="py-2 font-medium">Category</th>
-                  <th className="py-2 font-medium">Note</th>
-                  <th className="py-2 font-medium">Entered by</th>
-                  <th className="py-2 text-right font-medium">Amount</th>
-                  <th className="py-2" />
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Note</TableHead>
+                  <TableHead>Entered by</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {expenses.map((expense) => (
-                  <tr key={expense.id} className="border-b last:border-0">
-                    <td className="py-2">
+                  <TableRow key={expense.id}>
+                    <TableCell>
                       {new Date(expense.spentAt).toLocaleDateString("en-IN", {
                         day: "numeric",
                         month: "short",
                       })}
-                    </td>
-                    <td className="py-2 capitalize">{expense.category}</td>
-                    <td className="py-2 text-muted-foreground">{expense.note ?? "—"}</td>
-                    <td className="py-2 text-muted-foreground">{expense.recordedBy ?? "—"}</td>
-                    <td className="py-2 text-right">{formatINR(expense.amount)}</td>
-                    <td className="py-2 text-right">
+                    </TableCell>
+                    <TableCell className="capitalize">{expense.category}</TableCell>
+                    <TableCell className="text-muted-foreground">{expense.note ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{expense.recordedBy ?? "—"}</TableCell>
+                    <TableCell className="text-right">{formatINR(expense.amount)}</TableCell>
+                    <TableCell className="text-right">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -182,20 +191,20 @@ export function ExpenseManager({
                       >
                         <Trash2 className="size-4" />
                       </Button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-              <tfoot className="border-t">
-                <tr>
-                  <td colSpan={4} className="py-2 font-medium">
+              </TableBody>
+              <TableFooter>
+                <TableRow>
+                  <TableCell colSpan={4} className="font-medium">
                     Total
-                  </td>
-                  <td className="py-2 text-right font-medium">{formatINR(total)}</td>
-                  <td />
-                </tr>
-              </tfoot>
-            </table>
+                  </TableCell>
+                  <TableCell className="text-right font-medium">{formatINR(total)}</TableCell>
+                  <TableCell />
+                </TableRow>
+              </TableFooter>
+            </Table>
           </div>
         )}
       </CardContent>

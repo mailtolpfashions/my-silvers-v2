@@ -7,7 +7,11 @@ import { toast } from "sonner";
 import { Eye, EyeOff, Star, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { deleteReviewAction, setReviewPublishedAction } from "@/actions/admin-review-actions";
+import {
+  bulkSetReviewPublishedAction,
+  deleteReviewAction,
+  setReviewPublishedAction,
+} from "@/actions/admin-review-actions";
 
 export type AdminReview = {
   id: string;
@@ -36,6 +40,37 @@ export type AdminReview = {
 export function ReviewTable({ reviews }: { reviews: AdminReview[] }) {
   const [isPending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState<string | null>(null);
+  /**
+   * Selected ids, for moderating a run of spam in one go — the case where bulk
+   * selection actually earns itself rather than being furniture.
+   */
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const allSelected = reviews.length > 0 && selected.size === reviews.length;
+
+  function toggleSelected(id: string) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function bulk(isPublished: boolean) {
+    const ids = [...selected];
+    startTransition(async () => {
+      const result = await bulkSetReviewPublishedAction(ids, isPublished);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setSelected(new Set());
+      toast.success(
+        `${ids.length} review${ids.length === 1 ? "" : "s"} ${isPublished ? "shown" : "hidden"}.`,
+      );
+    });
+  }
 
   function toggle(review: AdminReview) {
     startTransition(async () => {
@@ -56,9 +91,50 @@ export function ReviewTable({ reviews }: { reviews: AdminReview[] }) {
 
   return (
     <div className="space-y-3">
+      {/* Select-all and the bulk bar share a row, and the bar only appears once
+          something is selected — an always-present toolbar of disabled buttons
+          is noise on the 95% of visits that moderate nothing. */}
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            onChange={(e) =>
+              setSelected(e.target.checked ? new Set(reviews.map((r) => r.id)) : new Set())
+            }
+            aria-label="Select every review on this page"
+            className="size-4"
+          />
+          Select all on this page
+        </label>
+
+        {selected.size > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm">{selected.size} selected</span>
+            <Button variant="outline" size="sm" disabled={isPending} onClick={() => bulk(false)}>
+              Hide
+            </Button>
+            <Button variant="outline" size="sm" disabled={isPending} onClick={() => bulk(true)}>
+              Show
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+              Clear
+            </Button>
+          </div>
+        )}
+      </div>
+
       {reviews.map((review) => (
         <Card key={review.id} className={review.isPublished ? "" : "border-dashed opacity-75"}>
           <CardContent className="flex flex-col gap-4 p-4 sm:flex-row">
+            <input
+              type="checkbox"
+              checked={selected.has(review.id)}
+              onChange={() => toggleSelected(review.id)}
+              aria-label={`Select ${review.customerName}'s review of ${review.productName}`}
+              className="mt-1 size-4 shrink-0"
+            />
+
             <div className="relative size-16 shrink-0 overflow-hidden bg-muted">
               {review.productImage && (
                 <Image

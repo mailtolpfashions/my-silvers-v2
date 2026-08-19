@@ -1,8 +1,9 @@
-import Link from "next/link";
 import { listReviews, reviewCounts, type ReviewFilter } from "@/server/admin/reviews";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { ReviewTable } from "@/components/admin/review-table";
+import { FilterTabs } from "@/components/admin/filter-tabs";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 
 const FILTERS: Array<{ key: ReviewFilter; label: string }> = [
   { key: "all", label: "All" },
@@ -50,30 +51,22 @@ export default async function AdminReviewsPage({
         description="Everything shoppers have written. Hiding is reversible; deleting lets the customer write a new one."
       />
 
-      <div className="flex flex-wrap items-center gap-2">
-        {FILTERS.map((f) => {
-          const count =
-            f.key === "all"
-              ? counts.all
-              : f.key === "published"
-                ? counts.published
-                : f.key === "hidden"
-                  ? counts.hidden
-                  : counts.unverified;
-          const active = f.key === filter;
-          return (
-            <Link
-              key={f.key}
-              href={query({ filter: f.key, page: undefined })}
-              className={`inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors ${
-                active ? "border-foreground bg-foreground text-background" : "hover:bg-muted"
-              }`}
-            >
-              {f.label}
-              <span className={active ? "opacity-70" : "text-muted-foreground"}>{count}</span>
-            </Link>
-          );
-        })}
+      <div className="flex flex-wrap items-center gap-3">
+        <FilterTabs
+          tabs={FILTERS.map((f) => ({
+            ...f,
+            count:
+              f.key === "all"
+                ? counts.all
+                : f.key === "published"
+                  ? counts.published
+                  : f.key === "hidden"
+                    ? counts.hidden
+                    : counts.unverified,
+          }))}
+          current={filter}
+          hrefFor={(key) => query({ filter: key, page: undefined })}
+        />
 
         {/* GET form, so a search is a linkable URL rather than client state. */}
         <form className="ml-auto flex gap-2" action="/admin/reviews">
@@ -111,25 +104,13 @@ export default async function AdminReviewsPage({
         />
       )}
 
-      {pages > 1 && (
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            Page {page} of {pages} — {total} reviews
-          </span>
-          <div className="flex gap-2">
-            {page > 1 && (
-              <Link href={query({ page: String(page - 1) })} className="rounded-md border px-3 py-1.5 hover:bg-muted">
-                Previous
-              </Link>
-            )}
-            {page < pages && (
-              <Link href={query({ page: String(page + 1) })} className="rounded-md border px-3 py-1.5 hover:bg-muted">
-                Next
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
+      <AdminPagination
+        page={page}
+        totalPages={pages}
+        total={total}
+        label={total === 1 ? "review" : "reviews"}
+        hrefFor={(next) => query({ page: String(next) })}
+      />
     </div>
   );
 }

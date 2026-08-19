@@ -5,6 +5,15 @@ import { requireRole } from "@/server/auth/require-role";
 import { formatINR } from "@/lib/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
+import { AdminSearch } from "@/components/admin/admin-search";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 /**
  * What needs restocking.
@@ -17,12 +26,29 @@ import { Card, CardContent } from "@/components/ui/card";
  */
 const LOW_STOCK_AT = 5;
 
-export default async function AdminInventoryPage() {
+export default async function AdminInventoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   await requireRole("admin");
+
+  const { q } = await searchParams;
+  const search = q?.trim();
+  // Name or SKU. Someone arriving here is either reading a shelf label or a
+  // supplier's order form, and those are the two strings they will have.
+  const matches = search
+    ? {
+        OR: [
+          { name: { contains: search, mode: "insensitive" as const } },
+          { sku: { contains: search, mode: "insensitive" as const } },
+        ],
+      }
+    : {};
 
   const [low, out, sized] = await Promise.all([
     prisma.product.findMany({
-      where: { isActive: true, stock: { gt: 0, lte: LOW_STOCK_AT } },
+      where: { isActive: true, stock: { gt: 0, lte: LOW_STOCK_AT }, ...matches },
       orderBy: { stock: "asc" },
       select: { id: true, name: true, slug: true, sku: true, stock: true, price: true, images: true },
       // Bounded: a catalogue where hundreds are simultaneously out of stock is
@@ -31,7 +57,7 @@ export default async function AdminInventoryPage() {
       take: 200,
     }),
     prisma.product.findMany({
-      where: { isActive: true, stock: 0 },
+      where: { isActive: true, stock: 0, ...matches },
       orderBy: { name: "asc" },
       select: { id: true, name: true, slug: true, sku: true, stock: true, price: true, images: true },
       // Bounded: a catalogue where hundreds are simultaneously out of stock is
@@ -47,7 +73,7 @@ export default async function AdminInventoryPage() {
      * healthy while the size most people want cannot be bought.
      */
     prisma.productVariant.findMany({
-      where: { stock: 0, product: { isActive: true, stock: { gt: 0 } } },
+      where: { stock: 0, product: { isActive: true, stock: { gt: 0 }, ...matches } },
       orderBy: [{ product: { name: "asc" } }, { size: "asc" }],
       select: { id: true, size: true, product: { select: { id: true, name: true, slug: true, sku: true } } },
       take: 200,
@@ -60,6 +86,8 @@ export default async function AdminInventoryPage() {
         title="Inventory"
         description={`Pieces that are out of stock, or down to ${LOW_STOCK_AT} or fewer.`}
       />
+
+      <AdminSearch action="/admin/inventory" placeholder="Search by name or SKU" value={q} />
 
       <Section
         title="Out of stock"
@@ -138,19 +166,19 @@ function Section({
       ) : (
         <Card>
           <CardContent className="overflow-x-auto p-0">
-            <table className="w-full text-sm">
-              <thead className="border-b text-left text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Piece</th>
-                  <th className="px-4 py-3 font-medium">SKU</th>
-                  <th className="px-4 py-3 font-medium">Price</th>
-                  <th className="px-4 py-3 text-right font-medium">In stock</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Piece</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead className="text-right">In stock</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {products.map((product) => (
-                  <tr key={product.id} className="border-b last:border-0">
-                    <td className="px-4 py-3">
+                  <TableRow key={product.id}>
+                    <TableCell>
                       <Link
                         href={`/admin/products/${product.id}`}
                         className="flex items-center gap-3 underline-offset-4 hover:underline"
@@ -162,14 +190,14 @@ function Section({
                         </span>
                         {product.name}
                       </Link>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{product.sku}</td>
-                    <td className="px-4 py-3">{formatINR(product.price.toString())}</td>
-                    <td className={`px-4 py-3 text-right font-medium ${tone}`}>{product.stock}</td>
-                  </tr>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{product.sku}</TableCell>
+                    <TableCell>{formatINR(product.price.toString())}</TableCell>
+                    <TableCell className={`text-right font-medium ${tone}`}>{product.stock}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       )}

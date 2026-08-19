@@ -5,6 +5,14 @@ import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatINR } from "@/lib/format";
@@ -150,18 +158,18 @@ export function InvestorManager({
       {investors.length > 0 && (
         <Card>
           <CardContent className="overflow-x-auto p-0">
-            <table className="w-full text-sm">
-              <thead className="border-b text-left text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Partner</th>
-                  <th className="px-4 py-3 font-medium">Contact</th>
-                  <th className="px-4 py-3 font-medium">Invested</th>
-                  <th className="px-4 py-3 font-medium">Share (%)</th>
-                  <th className="px-4 py-3 font-medium">Active</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Partner</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Invested</TableHead>
+                  <TableHead>Share (%)</TableHead>
+                  <TableHead>Active</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {investors.map((investor) => (
                   <InvestorRowEditor
                     key={investor.id}
@@ -186,8 +194,8 @@ export function InvestorManager({
                     }
                   />
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       )}
@@ -267,31 +275,31 @@ export function InvestorManager({
 
             {investments.length > 0 && (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="border-b text-left text-xs text-muted-foreground">
-                    <tr>
-                      <th className="py-2 font-medium">Date</th>
-                      <th className="py-2 font-medium">Partner</th>
-                      <th className="py-2 font-medium">Note</th>
-                      <th className="py-2 text-right font-medium">Amount</th>
-                      <th className="py-2" />
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Partner</TableHead>
+                      <TableHead>Note</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {investments.map((entry) => (
                       <Fragment key={entry.id}>
-                        <tr className="border-b last:border-0">
-                        <td className="py-2">
+                        <TableRow>
+                        <TableCell>
                           {new Date(entry.investedAt).toLocaleDateString("en-IN", {
                             day: "numeric",
                             month: "short",
                             year: "numeric",
                           })}
-                        </td>
-                        <td className="py-2">{entry.investorName}</td>
-                        <td className="py-2 text-muted-foreground">{entry.note ?? "—"}</td>
-                        <td className="py-2 text-right">{formatINR(entry.amount)}</td>
-                        <td className="py-2 text-right">
+                        </TableCell>
+                        <TableCell>{entry.investorName}</TableCell>
+                        <TableCell className="text-muted-foreground">{entry.note ?? "—"}</TableCell>
+                        <TableCell className="text-right">{formatINR(entry.amount)}</TableCell>
+                        <TableCell className="text-right">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -302,11 +310,11 @@ export function InvestorManager({
                           >
                             <Trash2 className="size-4" />
                           </Button>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                         {confirmingDelete === entry.id && (
-                          <tr className="border-b bg-muted/40 last:border-0">
-                            <td colSpan={5} className="px-1 py-3">
+                          <TableRow className="bg-muted/40">
+                            <TableCell colSpan={5}>
                               <p className="text-sm">
                                 Delete {entry.investorName}&apos;s contribution of{" "}
                                 <strong>{formatINR(entry.amount)}</strong>? Their share of all
@@ -335,13 +343,13 @@ export function InvestorManager({
                                   Cancel
                                 </Button>
                               </div>
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         )}
                       </Fragment>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>
@@ -386,18 +394,18 @@ function InvestorRowEditor({
     isActive !== investor.isActive;
 
   return (
-    <tr className="border-b last:border-0">
-      <td className="px-4 py-2">
+    <TableRow>
+      <TableCell>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="h-8 w-40"
           aria-label={`Name for ${investor.name}`}
         />
-      </td>
-      <td className="px-4 py-2 text-muted-foreground">{investor.email ?? investor.phone ?? "—"}</td>
-      <td className="px-4 py-2">{formatINR(investor.contributed)}</td>
-      <td className="px-4 py-2">
+      </TableCell>
+      <TableCell className="text-muted-foreground">{investor.email ?? investor.phone ?? "—"}</TableCell>
+      <TableCell>{formatINR(investor.contributed)}</TableCell>
+      <TableCell>
         <Input
           type="number"
           min={0}
@@ -408,8 +416,8 @@ function InvestorRowEditor({
           className="h-8 w-24"
           aria-label={`Profit share for ${investor.name}`}
         />
-      </td>
-      <td className="px-4 py-2">
+      </TableCell>
+      <TableCell>
         <input
           type="checkbox"
           checked={isActive}
@@ -417,8 +425,8 @@ function InvestorRowEditor({
           aria-label={`${investor.name} is an active partner`}
           className="size-4"
         />
-      </td>
-      <td className="px-4 py-2">
+      </TableCell>
+      <TableCell>
         <div className="flex justify-end gap-1">
           {dirty && (
             <Button
@@ -467,7 +475,7 @@ function InvestorRowEditor({
             </span>
           )}
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
