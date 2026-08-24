@@ -8,6 +8,7 @@ import { getProductBySlug } from "@/server/products/search";
 import { isInWishlist, getCartQuantityFor } from "@/server/cart";
 import { stockLabel, isScarce } from "@/lib/stock-label";
 import { formatINR } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { ogImage } from "@/lib/og-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
@@ -38,6 +39,18 @@ import { isPagePublished } from "@/components/storefront/header/nav-model";
  * decoration rather than controls.
  */
 const PRODUCT_ACTION_ICON_CLASS = "size-11 text-muted-foreground [&_svg]:size-6";
+
+/**
+ * ⚠️  The `[&_svg]:size-6` above does nothing, and has never done anything.
+ *
+ * The button base carries `[&_svg:not([class*='size-'])]:size-4`, and that
+ * `:not()` makes it more specific than a bare `[&_svg]:size-*` — so every icon
+ * styled this way has been rendering at the 16px default while the class
+ * claimed 24px. It is left in place only because removing it changes nothing;
+ * the sizing that actually applies now lives on the icons themselves.
+ * ShareButton sets its own glyph size for exactly this reason.
+ */
+const PRODUCT_SHARE_ICON_CLASS = "size-11 text-muted-foreground";
 
 export async function generateMetadata({
   params,
@@ -231,15 +244,23 @@ export default async function ProductDetailPage({
                 per-shopper read in front of the whole page. It reads the shared
                 client store, exactly as every listing card does. */}
             <div className="-mr-2 -mt-2 flex shrink-0 items-center gap-1">
+              {/* Desktop only. Below md the sticky action bar carries its own
+                  heart, and two wishlist buttons on one phone screen is a
+                  question rather than a convenience — the shopper cannot tell
+                  whether they do the same thing.
+
+                  Hidden rather than removed, because the bar itself is
+                  `md:hidden`: delete this and the desktop layout has no way to
+                  save a product at all. */}
               <WishlistButton
                 productId={product.id}
                 surface="plain"
-                className={PRODUCT_ACTION_ICON_CLASS}
+                className={cn(PRODUCT_ACTION_ICON_CLASS, "hidden md:inline-flex")}
               />
               <ShareButton
                 url={`/products/${product.slug}`}
                 title={product.name}
-                className={PRODUCT_ACTION_ICON_CLASS}
+                className={PRODUCT_SHARE_ICON_CLASS}
               />
             </div>
           </div>
@@ -441,9 +462,10 @@ async function ProductCta({ productId, stock }: { productId: string; stock: numb
             floating over a product photo, where the translucent fill is the
             affordance. On a solid bar the border is what gives it an edge.
 
-            This heart stays even though the rail now has one, because the whole
-            point of the bar is that it is reachable from anywhere on a page
-            that is mostly photography — the rail's heart is four screens up. */}
+            On a phone this is now the ONLY heart — the rail's copy is
+            `hidden md:inline-flex`. It is the right one to keep: the bar is
+            reachable from anywhere on a page that is mostly photography, where
+            the rail sits four screens up. */}
         <span className="flex size-11 shrink-0 items-center justify-center border">
           <WishlistButton
             productId={productId}

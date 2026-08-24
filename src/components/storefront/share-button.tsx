@@ -22,6 +22,23 @@ import { Button } from "@/components/ui/button";
 /** Square and chromeless, to sit beside the wishlist heart. */
 const SHAPE = "size-9 rounded-none";
 
+/**
+ * The glyph size, set on the SVG itself rather than through the button.
+ *
+ * ⚠️  A caller passing `[&_svg]:size-6` does nothing here, and that is not
+ * obvious. The button base carries
+ * `[&_svg:not([class*='size-'])]:size-4`, whose `:not()` makes it MORE specific
+ * than a plain `[&_svg]:size-*` — so the base 16px wins and the override is
+ * silently ignored. The product page had asked for 24px this way for months
+ * and been served 16px.
+ *
+ * Putting a `size-` class on the icon flips that: the `:not()` stops matching,
+ * the base rule drops out, and this applies. 24px is deliberately a step above
+ * the heart's optical weight, because `Forward` carries much more empty space
+ * inside its viewBox than `Heart` does and reads smaller at a matched size.
+ */
+const GLYPH = "size-6";
+
 export function ShareButton({
   url,
   title,
@@ -78,7 +95,7 @@ export function ShareButton({
       onClick={handleClick}
       aria-label={`Share ${title}`}
     >
-      {copied ? <Check /> : <Forward />}
+      {copied ? <Check className={GLYPH} /> : <Forward className={GLYPH} />}
     </Button>
   );
 }

@@ -17,7 +17,24 @@ loadEnv();
  * Set E2E_BASE_URL to point the suite at a deployed preview instead; the local
  * server is then not started at all.
  */
-const baseURL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:3000";
+/**
+ * 3100, not 3000 — deliberately off the dev server's port.
+ *
+ * ⚠️  This is not a preference. `reuseExistingServer` will happily adopt
+ * whatever is already listening, and a `next dev` left open in an editor is
+ * NOT what this suite is meant to run against: dev builds carry 'unsafe-eval'
+ * in the CSP, ship unminified bundles four times the size, and never receive
+ * the webServer `env` below. The result was twelve failures that looked like
+ * real regressions and were nothing of the sort — a budget assertion reading
+ * 4,606kB against a 1,200kB limit, and a webhook refusing a correctly signed
+ * payload because the test secret was never set.
+ *
+ * Giving the suite its own port means a dev server can stay open beside it and
+ * the two never meet.
+ */
+const TEST_PORT = 3100;
+
+const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${TEST_PORT}`;
 const usingLocalServer = !process.env.E2E_BASE_URL;
 
 /**
@@ -68,7 +85,7 @@ export default defineConfig({
 
   ...(usingLocalServer && {
     webServer: {
-      command: "npm run start",
+      command: `npm run start -- --port ${TEST_PORT}`,
       url: baseURL,
       // Never reuse in CI; locally, reuse whatever is already running so the
       // suite does not rebuild between runs.
