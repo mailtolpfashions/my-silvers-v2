@@ -39,11 +39,29 @@ export function WishlistButton({
    * "plain" sits on the page's own background and needs no chrome at all.
    */
   surface = "overlay",
+  /**
+   * The heart's own size class.
+   *
+   * ⚠️  It has to go on the ICON, and a caller cannot do it from `className`.
+   * The button base carries `[&_svg:not([class*='size-'])]:size-4`, and that
+   * `:not()` outranks a plain `[&_svg]:size-*` on specificity — so a parent
+   * asking for a bigger glyph is silently ignored and the heart renders at
+   * 16px. The product page had been asking for 24px this way and getting 16.
+   *
+   * Putting a `size-` class on the icon is what flips it: the `:not()` stops
+   * matching and the base rule drops out.
+   *
+   * `size-4` by default, which is exactly what every caller was already
+   * getting — this makes the existing size explicit rather than accidental, so
+   * nothing moves anywhere unless a caller asks it to.
+   */
+  iconSize = "size-4",
   className,
 }: {
   productId: string;
   initialInWishlist?: boolean;
   surface?: "overlay" | "plain";
+  iconSize?: string;
   className?: string;
 }) {
   const state = useSyncExternalStore(
@@ -95,7 +113,9 @@ export function WishlistButton({
       aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
       aria-pressed={inWishlist}
     >
-      <Heart className={inWishlist ? "fill-destructive text-destructive" : ""} />
+      <Heart
+        className={cn(iconSize, inWishlist && "fill-destructive text-destructive")}
+      />
     </Button>
   );
 }

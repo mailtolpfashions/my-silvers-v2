@@ -306,6 +306,11 @@ async function ProductDetailContent({ params }: { params: Promise<{ slug: string
               <WishlistButton
                 productId={product.id}
                 surface="plain"
+                // 24px, matching the share arrow beside it. Passed as the icon's
+                // own size because the `[&_svg]:size-6` in the class below has
+                // never worked — see the note on it, and on WishlistButton's
+                // `iconSize`.
+                iconSize="size-6"
                 className={cn(PRODUCT_ACTION_ICON_CLASS, "hidden md:inline-flex")}
               />
               <ShareButton
