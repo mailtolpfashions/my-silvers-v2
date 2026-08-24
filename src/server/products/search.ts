@@ -1,4 +1,3 @@
-import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import { prisma } from "@/server/db";
 import { withBlurPlaceholders } from "@/server/media/blur";
@@ -158,12 +157,61 @@ export async function searchProducts(params: {
   };
 }
 
-export const getProductBySlug = cache(async function getProductBySlug(slug: string) {
-  return prisma.product.findFirst({
+/**
+ * One product, by slug, for the product page and its metadata.
+ *
+ * ── Why `"use cache"` and not React's `cache()` ──────────────────────────────
+ * ⚠️  It was `cache()` from react, and under Cache Components that is not the
+ * same thing at all. `cache()` dedupes calls WITHIN one request; it does not
+ * make the read a cached data access, so Next still refused to prerender a
+ * shell for /products/[slug] and reported:
+ *
+ *   Route "/products/[slug]": Next.js encountered uncached data during
+ *   prerendering or a navigation.
+ *
+ * It surfaced from `generateMetadata`, which is the half that cannot be fixed
+ * by streaming — a `<Suspense>` boundary has nowhere to go in a function that
+ * returns a Metadata object. Caching is the only remedy that applies, and it
+ * is legitimate here: a product keyed by slug is the same for every shopper.
+ *
+ * ── Decimals become strings, and that is load-bearing ────────────────────────
+ * A cached function's return value has to survive serialization, and Prisma
+ * hands back `Decimal` class instances for price, compareAtPrice, costPrice
+ * and weight. Those do not survive it. They are converted here, which is also
+ * why this returns a mapped object rather than the raw row.
+ *
+ * Nothing downstream had to change: the two components that take the whole
+ * product type these fields structurally as `{ toString(): string }`, which a
+ * string satisfies, and `.toString()` on a string is a no-op.
+ *
+ * ── Staleness ────────────────────────────────────────────────────────────────
+ * Tagged `products`, which every admin product and category action already
+ * invalidates via updateTag, and which fulfilment revalidates when stock moves.
+ * The per-slug tag is there for a future narrower invalidation. Within the
+ * window, a shopper can see a stock count that is a little behind — the same
+ * trade every cached listing on this site already makes, and safe because
+ * stock is enforced by a conditional UPDATE at order time, not by what the page
+ * displayed.
+ */
+export async function getProductBySlug(slug: string) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("products", `products:slug:${slug}`);
+
+  const product = await prisma.product.findFirst({
     where: { slug, isActive: true },
     include: { category: true, variants: true },
   });
-});
+  if (!product) return null;
+
+  return {
+    ...product,
+    price: product.price.toString(),
+    compareAtPrice: product.compareAtPrice?.toString() ?? null,
+    costPrice: product.costPrice?.toString() ?? null,
+    weight: product.weight?.toString() ?? null,
+  };
+}
 
 /**
  * Products belonging to a collection.
