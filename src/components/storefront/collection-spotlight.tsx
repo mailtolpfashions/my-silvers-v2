@@ -228,19 +228,28 @@ export function CollectionSpotlight({ items }: { items: SpotlightItem[] }) {
               className="w-[86%] shrink-0 snap-center sm:w-[70%] lg:h-full lg:w-[50%]"
             >
               <article className="flex flex-col lg:h-full">
-                {/* The banner is the card's link target. 16:9 below lg, where the
-                    section is free to be as tall as it likes — that is the shape
-                    a collection's heroImage is authored at. From lg it takes
-                    whatever height the card has left instead.
+                {/* The banner is the card's link target.
+                    Portrait on a phone, 16:9 from sm, and from lg whatever
+                    height the card has left.
 
-                    `min-h-0` is what allows that shrinking: a flex item defaults
-                    to min-height:auto and would refuse to go below the image's
-                    intrinsic height, pushing the section back past the fold. */}
+                    ⚠️  The phone case is not the same shape for a reason. A
+                    card is 86% of the viewport there, so a 16:9 banner on a
+                    390px screen is about 188px tall — and the three thumbnails
+                    below are 22% of the card each, pulled up over its lower
+                    edge, which on a band that short covers most of the
+                    photograph. The banner stopped being a picture and became a
+                    strip behind some squares. 4:5 gives it back roughly twice
+                    the height, which is also the portrait crop the rest of the
+                    site's tiles use.
+
+                    `min-h-0` is what allows the lg case to shrink: a flex item
+                    defaults to min-height:auto and would refuse to go below the
+                    image's intrinsic height, pushing the section past the fold. */}
                 <Link
                   href={`/collections/${item.slug}`}
                   transitionTypes={["nav-forward"]}
                   tabIndex={isClone ? -1 : undefined}
-                  className="group relative block aspect-[16/9] overflow-hidden bg-muted lg:aspect-auto lg:min-h-0 lg:flex-1"
+                  className="group relative block aspect-[4/5] overflow-hidden bg-muted sm:aspect-[16/9] lg:aspect-auto lg:min-h-0 lg:flex-1"
                 >
                   <Image
                     src={item.banner}
