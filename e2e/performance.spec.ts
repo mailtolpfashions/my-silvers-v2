@@ -220,3 +220,51 @@ test.describe("hero video delivery", () => {
     }
   });
 });
+
+test.describe("search suggestions under pressure", () => {
+  /**
+   * Regression cover for F-12 (audit Phase 5, Aug 2026).
+   *
+   * Measured against the demo deployment: this route returned 500s from 60
+   * concurrent requests and was failing 53% of them at 100, while /products
+   * absorbed 220 concurrent without a single error. Each request holds two
+   * pooled connections at once against a pool of five per instance — on the one
+   * endpoint that fires while someone is typing.
+   */
+  test("is cacheable by the shared edge cache", async ({ request }) => {
+    const response = await request.get("/api/search/suggestions?q=silver");
+    expect(response.status()).toBe(200);
+
+    // s-maxage is what lets Vercel's edge answer the repeats. Losing it puts
+    // every keystroke back on the connection pool.
+    const cacheControl = response.headers()["cache-control"] ?? "";
+    expect(cacheControl, "suggestions are no longer edge-cacheable").toContain("s-maxage");
+    expect(cacheControl).toContain("public");
+  });
+
+  test("answers a burst of concurrent requests without a single 500", async ({ request }) => {
+    // Well past the point the deployed version started failing. Locally there
+    // is no CDN in front, so this exercises the origin and the pool directly —
+    // which is the harsher test of the two.
+    const terms = ["sil", "silv", "silver", "ring", "earr", "neck", "brac", "ankl"];
+    const responses = await Promise.all(
+      Array.from({ length: 80 }, (_, i) =>
+        request.get(`/api/search/suggestions?q=${terms[i % terms.length]}`)
+      )
+    );
+
+    const serverErrors = responses.filter((r) => r.status() >= 500);
+    expect(
+      serverErrors.length,
+      `${serverErrors.length}/80 suggestion requests returned 5xx`
+    ).toBe(0);
+
+    // And every one is still valid JSON of the right shape — degrading to an
+    // empty list is acceptable, degrading to a broken body is not.
+    for (const r of responses.slice(0, 10)) {
+      const body = await r.json();
+      expect(Array.isArray(body.products)).toBe(true);
+      expect(Array.isArray(body.categories)).toBe(true);
+    }
+  });
+});
