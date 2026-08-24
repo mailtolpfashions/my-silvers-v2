@@ -1,4 +1,5 @@
 import { EditorialTile } from "@/components/storefront/editorial-tile";
+import { MobileSwipeRail } from "@/components/storefront/mobile-swipe-rail";
 import { RevealSection } from "@/components/storefront/reveal-section";
 import { SectionHeading } from "@/components/storefront/section-heading";
 
@@ -40,7 +41,13 @@ export function EditorialPair({
           effect and it was given up knowingly: it was also the reason a single
           homepage showed four different column gaps. Uniformity across every
           tiled section was worth more than this one block's tightness. */}
-      <div className="grid grid-gutter fit-grow sm:grid-cols-2">
+      {/* A swipeable rail on a phone, the same grid from sm up.
+          Stacked, this block is two full-height photographs to scroll past
+          before the next heading — and because each tile carries its caption
+          and link BELOW the picture, the second one is entirely out of sight
+          while reading the first. Side by side on a thumb, the pair reads as a
+          pair again, which is the whole point of the composition. */}
+      <MobileSwipeRail className="grid grid-gutter fit-grow sm:grid-cols-2">
         {items.map((item, i) => (
           <EditorialTile
             key={i}
@@ -51,10 +58,13 @@ export function EditorialPair({
             title={item.caption}
             linkLabel={item.linkLabel}
             fillHeight
-            sizes="(max-width: 640px) 100vw, 50vw"
+            // The rail shows a tile at ~82vw rather than the full width the
+            // stacked layout took, so the browser must be told — left at
+            // 100vw it downloads a phone-width image for a smaller box.
+            sizes="(max-width: 640px) 82vw, 50vw"
           />
         ))}
-      </div>
+      </MobileSwipeRail>
     </RevealSection>
   );
 }

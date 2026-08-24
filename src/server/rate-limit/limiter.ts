@@ -26,11 +26,18 @@ let warned = false;
 function getRedis(): Redis | null {
   if (!isConfigured()) {
     if (!warned) {
-      console.warn(
-        process.env.NODE_ENV === "production"
-          ? "[rate-limit] Upstash not configured in PRODUCTION — rate-limited routes will be REFUSED until UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are set."
-          : "[rate-limit] Upstash not configured — rate limiting is DISABLED (non-production)."
-      );
+      // Three states, not two: production refuses, production-with-the-opt-out
+      // allows, and everything else allows. Saying "will be REFUSED" when
+      // RATE_LIMIT_FAIL_OPEN is set sends whoever reads the log looking for a
+      // problem that is not there — which is exactly what it did during the
+      // audit's own test runs.
+      const state =
+        process.env.NODE_ENV !== "production"
+          ? "rate limiting is DISABLED (non-production)."
+          : failOpenOptOut()
+            ? "rate limiting is DISABLED — RATE_LIMIT_FAIL_OPEN is set. Never set that on the live shop."
+            : "rate-limited routes will be REFUSED until UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are set.";
+      console.warn(`[rate-limit] Upstash not configured — ${state}`);
       warned = true;
     }
     return null;

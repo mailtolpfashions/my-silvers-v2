@@ -10,6 +10,7 @@ import { EditorialPair } from "@/components/storefront/editorial-pair";
 import { EditorialLink } from "@/components/storefront/editorial-link";
 import { SectionHeading } from "@/components/storefront/section-heading";
 import { WorldTile } from "@/components/storefront/world-tile";
+import { MobileSwipeRail } from "@/components/storefront/mobile-swipe-rail";
 import { CollectionSpotlight } from "@/components/storefront/collection-spotlight";
 import type { HomepageSection as Section } from "@/server/products/homepage-sections";
 
@@ -646,11 +647,18 @@ export function HomepageSection({
           ))}
         </div>
       ) : (
-        <div className="grid grid-gutter fit-grow sm:grid-cols-2 lg:grid-cols-3">
+        /* A rail on a phone. Three collection tiles stacked is the same
+           problem as the world tiles: a lot of scrolling to discover the
+           count. Wider tiles here than the default, because a collection
+           tile carries its name across the picture and wants the room. */
+        <MobileSwipeRail
+          className="grid grid-gutter fit-grow sm:grid-cols-2 lg:grid-cols-3"
+          basis="86%"
+        >
           {section.items.map((collection) => (
             <CollectionCard key={collection.id} collection={collection} fillHeight />
           ))}
-        </div>
+        </MobileSwipeRail>
       )}
 
       {/* Below the grid, not beside the heading. A centred heading has no right

@@ -85,7 +85,19 @@ export default defineConfig({
 
   ...(usingLocalServer && {
     webServer: {
-      command: `npm run start -- --port ${TEST_PORT}`,
+      /**
+       * `next` directly, not `npm run start`.
+       *
+       * ⚠️  npm spawns the real server as a GRANDCHILD of itself. Playwright
+       * signals the process it started — the npm wrapper — and on Windows the
+       * `next start` underneath survives it, holding the port. The next run
+       * then starts a second server, and the two take turns being killed:
+       * the symptom was ERR_CONNECTION_REFUSED scattered across both projects
+       * mid-run, with two boot lines in the log where there should be one.
+       *
+       * One process, one thing to kill.
+       */
+      command: `npx next start --port ${TEST_PORT}`,
       url: baseURL,
       // Never reuse in CI; locally, reuse whatever is already running so the
       // suite does not rebuild between runs.
@@ -104,6 +116,25 @@ export default defineConfig({
          * and can never follow a real deployment.
          */
         RATE_LIMIT_FAIL_OPEN: "1",
+
+        /**
+         * The server has to be told where it lives.
+         *
+         * ⚠️  `proxy.ts` builds its login redirect from `req.nextUrl.origin`,
+         * and under NextAuth's `auth()` wrapper that origin comes from
+         * AUTH_URL — NOT from the incoming request. With `.env`'s
+         * `http://localhost:3000` still in effect, every gated route on this
+         * server answered `307 → http://localhost:3000/login`, a port with
+         * nothing behind it, and the browser reported ERR_CONNECTION_REFUSED
+         * against the original URL. Twenty-eight tests failed, all of them
+         * exactly the routes in the proxy matcher, while curl saw a perfectly
+         * good 307 because it was not following it.
+         *
+         * It only ever passed before because the suite ran on 3000 and the
+         * stale redirect happened to land back on itself.
+         */
+        AUTH_URL: baseURL,
+        APP_BASE_URL: baseURL,
 
         /**
          * A known webhook secret, so the suite can sign payloads the way
