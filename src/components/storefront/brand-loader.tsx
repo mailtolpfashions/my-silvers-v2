@@ -31,8 +31,29 @@ export function BrandLoader({
         aria-hidden
         width={192}
         height={192}
-        // Not `preload` — this is chrome, and it must never compete with a
-        // product photograph for the connection.
+        /**
+         * Deliberately NOT `preload`, and it costs nothing to skip.
+         *
+         * The worry is real in principle: the navigation loader appears
+         * precisely BECAUSE the connection is slow, so a logo that needs its
+         * own round trip would leave a large empty panel at the exact moment
+         * the shopper needs to be told something is happening.
+         *
+         * It does not arise here. `width`/`height` match the header's mobile
+         * mark exactly, so next/image resolves both to the same optimized URL —
+         * verified as `…&w=384&q=75` for both — and the header has already
+         * fetched it before any navigation can start. The loader's copy is a
+         * cache hit.
+         *
+         * ⚠️  That parity is load-bearing. Change the width or add `sizes`
+         * here and next/image will pick a different URL, this becomes a cold
+         * fetch on a slow connection, and the panel shows empty. If this ever
+         * needs a different size, preload it.
+         *
+         * (Chrome must also not compete with a product photograph for the
+         * connection, which is the original reason — still true, now backed by
+         * the parity above rather than by hope.)
+         */
         className="brand-loader-pulse h-auto object-contain"
         style={{ width: size }}
       />

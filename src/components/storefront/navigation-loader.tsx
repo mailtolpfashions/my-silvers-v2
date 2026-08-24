@@ -30,20 +30,31 @@ import { BrandLoader } from "@/components/storefront/brand-loader";
  * Most routes here are prefetched and commit in well under this, and a loader
  * that flashes for 80ms is worse than no loader — it reads as the page
  * flinching. Only navigations slow enough to feel slow get an indicator.
+ *
+ * Raised from 180ms when the indicator became a full-screen scrim. A small
+ * chip appearing briefly in a corner is easy to miss; the whole page blurring
+ * and unblurring is not, so the bar for showing anything at all is higher now.
  */
-const SHOW_AFTER_MS = 180;
+const SHOW_AFTER_MS = 260;
 
 /**
  * Backstop for a navigation that never lands and never changes the URL — a
  * failed request, a 500, or a route that redirects to the page it was already
  * on. Without it the indicator would sit there until the next click.
  *
- * Six seconds rather than ten: past about this point the shopper has stopped
- * reading the indicator as "working" and started reading it as "broken", and
- * whatever they do next is better served by a page with nothing on it than by
- * a page still claiming to be busy.
+ * Past about this point the shopper has stopped reading the indicator as
+ * "working" and started reading it as "broken", and whatever they do next is
+ * better served by a page with nothing on it than by a page still claiming to
+ * be busy.
+ *
+ * ⚠️  Cut from 6s to 3.5s when the indicator became a full-screen scrim, and
+ * the two numbers are not independent. Six seconds of a small chip in a corner
+ * is a curiosity; six seconds of the entire shop sat behind a blur is an
+ * outage. The scrim is far more expensive to be wrong about, so it gets less
+ * rope. If this ever goes back to a corner chip, put the six seconds back with
+ * it.
  */
-const GIVE_UP_AFTER_MS = 6_000;
+const GIVE_UP_AFTER_MS = 3_500;
 
 export function NavigationLoader() {
   const pathname = usePathname();
@@ -167,39 +178,55 @@ export function NavigationLoader() {
   return (
     <div
       /**
-       * A small chip under the header — NOT a full-screen scrim.
+       * A centred mark over a blurred page.
        *
-       * ⚠️  This was `fixed inset-0` with `bg-background/70 backdrop-blur`, and
-       * that was wrong in a way only a failure shows. A navigation that never
-       * lands never changes the URL, so nothing takes the indicator down but
-       * the give-up timer — and for those seconds a full-bleed wash made the
-       * entire shop look dead rather than busy. A stuck chip is a small
-       * artefact in a corner; a stuck scrim is an outage.
+       * ── This was a corner chip, and the reason it was is still true ──────
+       * ⚠️  Read this before touching the timers above. A navigation that
+       * never lands never changes the URL, so nothing takes the indicator
+       * down but the give-up timer — and a full-bleed wash for that whole
+       * window makes the shop look dead rather than busy. A stuck chip is an
+       * artefact in a corner; a stuck scrim is an outage. The failure case is
+       * not exotic either: any 500, any dropped connection, any route that
+       * redirects to the page it was already on.
        *
-       * The failure case is not rare, either: any 500, any dropped connection,
-       * any route that redirects to the page it was already on.
+       * The scrim is back by request, so the risk is bounded elsewhere rather
+       * than avoided — GIVE_UP_AFTER_MS is down to 3.5s and SHOW_AFTER_MS up
+       * to 260ms, so it appears less often and can never linger as long. Those
+       * two numbers are the price of this one; do not raise them without
+       * putting the chip back.
        *
-       * pointer-events-none because this is an indicator, not a modal — a
-       * shopper who thinks better of the click keeps the header, the back
-       * button and every link beneath it.
+       * ── pointer-events-none, and it matters MORE here ────────────────────
+       * An indicator, not a modal. If it does get stuck, every link, the
+       * header and the back button underneath are still live — the shopper is
+       * looking through a blur, not trapped behind it. This is the escape
+       * hatch that makes a full-screen overlay defensible at all.
+       *
+       * ── backdrop-blur is the expensive part ──────────────────────────────
+       * A full-viewport backdrop-filter is one of the heavier things a mobile
+       * GPU can be asked for, and it is asked for at exactly the moment the
+       * main thread is already busy committing a navigation. `backdrop-blur-sm`
+       * rather than a heavier radius is deliberate: the cost scales with the
+       * radius, and the job here is to push the page back, not to erase it.
+       *
+       * ── The fade is not decoration ───────────────────────────────────────
+       * Mounting a full-screen blur instantly reads as a flash. 200ms in takes
+       * that edge off; tw-animate-css's `animate-in fade-in` honours
+       * prefers-reduced-motion on its own, and the mark inside stops pulsing
+       * under it too (see .brand-loader-pulse).
        *
        * z-[60] clears the header (40) and Radix overlays (50), so a dialog
        * linking onward cannot paint over its own loader.
-       *
-       * ── Bottom-LEFT, and every other side is spoken for ──────────────────
-       * It sat under the header first, which on a full-bleed hero dropped a
-       * white box over the middle of the photograph — the one place on the
-       * site guaranteed to be someone's face.
-       *
-       * Bottom-right is the Toaster. Bottom-centre is the mobile sticky action
-       * bar on product and cart pages. That leaves bottom-left, and the raised
-       * `bottom-28` below sm is what clears that bar on phones:
-       * STICKY_BAR_SPACER reserves 7rem for it, so this sits just above.
        */
-      className="pointer-events-none fixed bottom-28 left-4 z-[60] sm:bottom-6 sm:left-6"
+      className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-center bg-background/60 backdrop-blur-sm animate-in fade-in duration-200"
     >
-      <span className="flex items-center justify-center border bg-background/95 px-4 py-2.5 shadow-sm backdrop-blur-sm">
-        <BrandLoader size={26} />
+      {/* ⚠️  The mark needs something solid behind it. It is a pale logo, it
+          pulses down to 0.35 opacity, and the scrim is 60% white over a page
+          that is already near-white — centred on the blur alone it was very
+          nearly invisible, which is a loading indicator that does not indicate.
+          The bordered panel is what the old corner chip used, and it is doing
+          the same job here: giving the mark an edge to sit against. */}
+      <span className="flex items-center justify-center border bg-background px-7 py-6 shadow-sm">
+        <BrandLoader size={56} />
       </span>
     </div>
   );
