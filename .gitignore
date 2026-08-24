@@ -51,3 +51,6 @@ prisma/backup-homepage-*.json
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Stray output dir from a mis-escaped screenshot path. Never a real target.
+/$OUT/
