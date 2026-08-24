@@ -25,9 +25,33 @@ function monthParam(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export function MonthPicker({ year, monthIndex }: { year: number; monthIndex: number }) {
+export function MonthPicker({
+  year,
+  monthIndex,
+  sort,
+  dir,
+}: {
+  year: number;
+  monthIndex: number;
+  /**
+   * The partner table's sort state, carried through every month change.
+   *
+   * Without it, changing month silently resets the table to its default order
+   * while the person is looking at the figures rather than at the header.
+   */
+  sort?: string;
+  dir?: string;
+}) {
   const router = useRouter();
   const value = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
+
+  /** `/admin/finance?m=…`, with the chosen sort preserved. */
+  const hrefFor = (month: string) => {
+    const query = new URLSearchParams({ m: month });
+    if (sort) query.set("sort", sort);
+    if (dir) query.set("dir", dir);
+    return `/admin/finance?${query.toString()}`;
+  };
 
   const now = new Date();
   const thisMonth = monthParam(now);
@@ -35,8 +59,8 @@ export function MonthPicker({ year, monthIndex }: { year: number; monthIndex: nu
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Shortcut target={thisMonth} current={value} label="This month" />
-      <Shortcut target={lastMonth} current={value} label="Last month" />
+      <Shortcut target={thisMonth} current={value} label="This month" hrefFor={hrefFor} />
+      <Shortcut target={lastMonth} current={value} label="Last month" hrefFor={hrefFor} />
 
       <label className="flex items-center gap-2 text-sm">
         <span className="sr-only">Month</span>
@@ -46,7 +70,7 @@ export function MonthPicker({ year, monthIndex }: { year: number; monthIndex: nu
           onChange={(e) => {
             // An empty value means the field was cleared; stay where we are
             // rather than navigating to an unparseable param.
-            if (e.target.value) router.push(`/admin/finance?m=${e.target.value}`);
+            if (e.target.value) router.push(hrefFor(e.target.value));
           }}
           className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
         />
@@ -60,15 +84,17 @@ function Shortcut({
   target,
   current,
   label,
+  hrefFor,
 }: {
   target: string;
   current: string;
   label: string;
+  hrefFor: (month: string) => string;
 }) {
   const active = target === current;
   return (
     <Link
-      href={`/admin/finance?m=${target}`}
+      href={hrefFor(target)}
       aria-current={active ? "page" : undefined}
       className={`inline-flex h-9 items-center rounded-md border px-3 text-sm transition-colors ${
         active ? "border-foreground bg-foreground text-background" : "hover:bg-muted"

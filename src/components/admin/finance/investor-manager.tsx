@@ -22,6 +22,8 @@ import {
   deleteInvestorAction,
   saveInvestorAction,
 } from "@/actions/admin-finance-actions";
+import { SortableHeaderButton } from "@/components/admin/sortable-header-button";
+import { useTableSort, type SortValue } from "@/components/admin/use-table-sort";
 
 export type InvestorEntry = {
   id: string;
@@ -41,6 +43,30 @@ export type InvestmentEntry = {
   amount: number;
   investedAt: string;
   note: string | null;
+};
+
+/**
+ * How each sortable column reads its value. Module-level so the identity is
+ * stable across renders — see the note on EXPENSE_COLUMNS in expense-manager.
+ *
+ * The two tables sort independently: they are different lists about different
+ * things, and one hook each is what keeps them that way.
+ */
+const INVESTOR_COLUMNS: Record<string, (row: InvestorEntry) => SortValue> = {
+  partner: (i) => i.name,
+  // The contact cell shows email with phone beneath; email is what it leads
+  // with, so email is what the column sorts on.
+  contact: (i) => i.email,
+  invested: (i) => i.contributed,
+  share: (i) => i.profitShare,
+  active: (i) => i.isActive,
+};
+
+const INVESTMENT_COLUMNS: Record<string, (row: InvestmentEntry) => SortValue> = {
+  date: (e) => Date.parse(e.investedAt),
+  partner: (e) => e.investorName,
+  note: (e) => e.note,
+  amount: (e) => e.amount,
 };
 
 /**
@@ -81,6 +107,20 @@ export function InvestorManager({
     amount: "",
     investedAt: new Date().toISOString().slice(0, 10),
     note: "",
+  });
+
+  // Partners alphabetically; contributions newest first — a ledger is read
+  // most-recent-first, a roster is read by name.
+  const investorSort = useTableSort({
+    rows: investors,
+    columns: INVESTOR_COLUMNS,
+    initialColumn: "partner",
+  });
+  const investmentSort = useTableSort({
+    rows: investments,
+    columns: INVESTMENT_COLUMNS,
+    initialColumn: "date",
+    initialDir: "desc",
   });
 
   function run(work: () => Promise<{ ok: boolean; error?: string }>, success: string) {
@@ -161,16 +201,30 @@ export function InvestorManager({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Partner</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Invested</TableHead>
-                  <TableHead>Share (%)</TableHead>
-                  <TableHead>Active</TableHead>
+                  {(
+                    [
+                      ["partner", "Partner"],
+                      ["contact", "Contact"],
+                      ["invested", "Invested"],
+                      ["share", "Share (%)"],
+                      ["active", "Active"],
+                    ] as const
+                  ).map(([column, label]) => (
+                    <SortableHeaderButton
+                      key={column}
+                      column={column}
+                      label={label}
+                      currentSort={investorSort.sort}
+                      currentDir={investorSort.dir}
+                      onToggle={investorSort.toggle}
+                    />
+                  ))}
+                  {/* Row actions — no data, nothing to sort. */}
                   <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {investors.map((investor) => (
+                {investorSort.rows.map((investor) => (
                   <InvestorRowEditor
                     key={investor.id}
                     investor={investor}
@@ -278,15 +332,30 @@ export function InvestorManager({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Partner</TableHead>
-                      <TableHead>Note</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      {(
+                        [
+                          ["date", "Date", ""],
+                          ["partner", "Partner", ""],
+                          ["note", "Note", ""],
+                          ["amount", "Amount", "text-right"],
+                        ] as const
+                      ).map(([column, label, className]) => (
+                        <SortableHeaderButton
+                          key={column}
+                          column={column}
+                          label={label}
+                          currentSort={investmentSort.sort}
+                          currentDir={investmentSort.dir}
+                          onToggle={investmentSort.toggle}
+                          className={className}
+                        />
+                      ))}
+                      {/* Row actions — no data, nothing to sort. */}
                       <TableHead />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {investments.map((entry) => (
+                    {investmentSort.rows.map((entry) => (
                       <Fragment key={entry.id}>
                         <TableRow>
                         <TableCell>

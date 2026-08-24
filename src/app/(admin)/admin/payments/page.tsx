@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { listPayments, paymentCounts, type PaymentFilter } from "@/server/admin/payments";
+import {
+  listPayments,
+  paymentCounts,
+  isPaymentSortKey,
+  type PaymentFilter,
+  type PaymentSortKey,
+} from "@/server/admin/payments";
 import { formatINR } from "@/lib/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +20,7 @@ import {
 import { CopyButton } from "@/components/admin/copy-button";
 import { FilterTabs } from "@/components/admin/filter-tabs";
 import { AdminPagination } from "@/components/admin/admin-pagination";
+import { SortableHeader } from "@/components/admin/sortable-header";
 
 const FILTERS: Array<{ key: PaymentFilter; label: string }> = [
   { key: "all", label: "All" },
@@ -36,21 +43,33 @@ const PAYMENT_TONE: Record<string, string> = {
 export default async function AdminPaymentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string; page?: string }>;
+  searchParams: Promise<{ filter?: string; page?: string; sort?: string; dir?: string }>;
 }) {
   const sp = await searchParams;
   const filter = (FILTERS.find((f) => f.key === sp.filter)?.key ?? "all") as PaymentFilter;
   const page = Number(sp.page) > 0 ? Number(sp.page) : 1;
 
+  // Newest first by default — this screen is read as a feed of what just
+  // happened to the money, so the default has to stay date-descending.
+  const currentSort: PaymentSortKey = isPaymentSortKey(sp.sort) ? sp.sort : "order";
+  const currentDir: "asc" | "desc" = sp.dir === "asc" ? "asc" : "desc";
+
   const [{ rows, total, pageSize }, counts] = await Promise.all([
-    listPayments({ filter, page }),
+    listPayments({ filter, page, sort: currentSort, dir: currentDir }),
     paymentCounts(),
   ]);
 
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const href = (patch: Record<string, string | undefined>) => {
     const params = new URLSearchParams();
-    const merged = { filter, page: String(page), ...patch };
+    // sort/dir ride along so paging and switching tabs keep the chosen order.
+    const merged = {
+      filter,
+      page: String(page),
+      sort: sp.sort,
+      dir: sp.dir,
+      ...patch,
+    };
     for (const [k, v] of Object.entries(merged)) {
       if (v && v !== "all" && !(k === "page" && v === "1")) params.set(k, v);
     }
@@ -90,13 +109,44 @@ export default async function AdminPaymentsPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Order</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Method</TableHead>
-                  <TableHead>Status</TableHead>
+                  {(
+                    [
+                      ["order", "Order"],
+                      ["customer", "Customer"],
+                      ["method", "Method"],
+                      ["status", "Status"],
+                    ] as const
+                  ).map(([column, label]) => (
+                    <SortableHeader
+                      key={column}
+                      basePath="/admin/payments"
+                      column={column}
+                      label={label}
+                      currentSort={currentSort}
+                      currentDir={currentDir}
+                      params={sp}
+                    />
+                  ))}
+                  {/* Not sortable — an opaque gateway reference groups nothing
+                      a person is scanning for. See PAYMENT_SORTS. */}
                   <TableHead>Razorpay payment</TableHead>
-                  <TableHead>Refund</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
+                  <SortableHeader
+                    basePath="/admin/payments"
+                    column="refund"
+                    label="Refund"
+                    currentSort={currentSort}
+                    currentDir={currentDir}
+                    params={sp}
+                  />
+                  <SortableHeader
+                    basePath="/admin/payments"
+                    column="amount"
+                    label="Amount"
+                    currentSort={currentSort}
+                    currentDir={currentDir}
+                    params={sp}
+                    className="text-right"
+                  />
                 </TableRow>
               </TableHeader>
               <TableBody>

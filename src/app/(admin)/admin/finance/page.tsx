@@ -18,13 +18,41 @@ import {
   TableBody,
   TableCell,
   TableFooter,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { ExpenseManager } from "@/components/admin/finance/expense-manager";
 import { InvestorManager } from "@/components/admin/finance/investor-manager";
 import { MonthPicker } from "@/components/admin/finance/month-picker";
+import { SortableHeader } from "@/components/admin/sortable-header";
+import { sortRows, type SortValue } from "@/lib/sort-rows";
+
+/**
+ * How each column of the partner split reads its value.
+ *
+ * Sorted in memory rather than in the database because the rows are COMPUTED —
+ * `periodProfit` and `contributedShare` are derived from the month's figures
+ * and the share percentages, and neither exists as a column to order by.
+ */
+const SPLIT_COLUMNS: Record<string, (row: SplitRow) => SortValue> = {
+  partner: (i) => i.name,
+  invested: (i) => i.contributed,
+  capital: (i) => i.contributedShare,
+  share: (i) => i.profitShare,
+  // Inactive partners show "—" rather than a figure, so they have no value to
+  // rank and fall to the bottom either way — see sortRows.
+  period: (i) => (i.isActive ? i.periodProfit : null),
+};
+
+type SplitRow = {
+  id: string;
+  name: string;
+  isActive: boolean;
+  contributed: number;
+  contributedShare: number;
+  profitShare: number;
+  periodProfit: number;
+};
 
 /**
  * The partners' books, one calendar month at a time.
@@ -45,12 +73,13 @@ import { MonthPicker } from "@/components/admin/finance/month-picker";
 export default async function AdminFinancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ m?: string }>;
+  searchParams: Promise<{ m?: string; sort?: string; dir?: string }>;
 }) {
   const session = await auth();
   if (session?.user?.role !== "admin") redirect("/admin");
 
-  const { m } = await searchParams;
+  const sp = await searchParams;
+  const { m } = sp;
   const now = new Date();
   // `YYYY-MM`, falling back to the current month for anything unparseable.
   const parsed = /^(\d{4})-(\d{2})$/.exec(m ?? "");
@@ -69,12 +98,19 @@ export default async function AdminFinancePage({
 
   const monthLabel = period.from.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
 
+  // Partners read by name unless asked otherwise — a roster, not a ranking.
+  const currentSort = sp.sort && sp.sort in SPLIT_COLUMNS ? sp.sort : "partner";
+  const currentDir: "asc" | "desc" = sp.dir === "desc" ? "desc" : "asc";
+  const splitRows = sortRows(split.investors, SPLIT_COLUMNS[currentSort], currentDir);
+
   return (
     <div className="space-y-8">
       <PageHeader
         title="Finance"
         description="Revenue, costs and each partner's share, by month. A ledger for the people running this — not books of account."
-        actions={<MonthPicker year={year} monthIndex={monthIndex} />}
+        actions={
+          <MonthPicker year={year} monthIndex={monthIndex} sort={sp.sort} dir={sp.dir} />
+        }
       />
 
       {/* ── The caveat comes FIRST ──────────────────────────────────────────
@@ -147,15 +183,30 @@ export default async function AdminFinancePage({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Partner</TableHead>
-                      <TableHead>Invested</TableHead>
-                      <TableHead>Of all capital</TableHead>
-                      <TableHead>Profit share</TableHead>
-                      <TableHead className="text-right">{monthLabel}</TableHead>
+                      {(
+                        [
+                          ["partner", "Partner", ""],
+                          ["invested", "Invested", ""],
+                          ["capital", "Of all capital", ""],
+                          ["share", "Profit share", ""],
+                          ["period", monthLabel, "text-right"],
+                        ] as const
+                      ).map(([column, label, className]) => (
+                        <SortableHeader
+                          key={column}
+                          basePath="/admin/finance"
+                          column={column}
+                          label={label}
+                          currentSort={currentSort}
+                          currentDir={currentDir}
+                          params={sp}
+                          className={className}
+                        />
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {split.investors.map((investor) => (
+                    {splitRows.map((investor) => (
                       <TableRow key={investor.id}>
                         <TableCell>
                           <span className={investor.isActive ? "" : "text-muted-foreground"}>

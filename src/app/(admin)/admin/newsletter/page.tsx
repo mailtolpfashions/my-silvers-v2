@@ -7,12 +7,12 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { CopyButton } from "@/components/admin/copy-button";
 import { AdminPagination } from "@/components/admin/admin-pagination";
+import { SortableHeader } from "@/components/admin/sortable-header";
 
 /**
  * Newsletter subscribers.
@@ -25,16 +25,40 @@ import { AdminPagination } from "@/components/admin/admin-pagination";
  */
 const PAGE_SIZE = 50;
 
+/**
+ * Sortable columns, as an allowlist — the key comes from the query string and
+ * must never reach orderBy directly. See the note in server/products/admin.ts.
+ */
+const SUBSCRIBER_SORTS = {
+  email: (dir: "asc" | "desc") => ({ email: dir }),
+  subscribed: (dir: "asc" | "desc") => ({ subscribedAt: dir }),
+  status: (dir: "asc" | "desc") => ({ active: dir }),
+} as const;
+
+type SubscriberSortKey = keyof typeof SUBSCRIBER_SORTS;
+
+function isSubscriberSortKey(value: unknown): value is SubscriberSortKey {
+  return typeof value === "string" && value in SUBSCRIBER_SORTS;
+}
+
 export default async function AdminNewsletterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; sort?: string; dir?: string }>;
 }) {
   await requireRole("admin");
 
-  const { q, page: rawPage } = await searchParams;
+  const params = await searchParams;
+  const { q, page: rawPage } = params;
   const page = Number(rawPage) > 0 ? Number(rawPage) : 1;
   const search = q?.trim();
+
+  // Newest first by default — who signed up recently is the question this
+  // screen is usually opened to answer.
+  const currentSort: SubscriberSortKey = isSubscriberSortKey(params.sort)
+    ? params.sort
+    : "subscribed";
+  const currentDir: "asc" | "desc" = params.dir === "asc" ? "asc" : "desc";
 
   const where = search
     ? { email: { contains: search, mode: "insensitive" as const } }
@@ -43,7 +67,7 @@ export default async function AdminNewsletterPage({
   const [subscribers, matching, activeRows] = await Promise.all([
     prisma.newsletterSubscriber.findMany({
       where,
-      orderBy: { subscribedAt: "desc" },
+      orderBy: SUBSCRIBER_SORTS[currentSort](currentDir),
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       select: { id: true, email: true, subscribedAt: true, active: true },
@@ -71,10 +95,16 @@ export default async function AdminNewsletterPage({
   const activeEmails = activeRows.map((s) => s.email).join(", ");
 
   const hrefFor = (next: number) => {
-    const params = new URLSearchParams();
-    if (search) params.set("q", search);
-    if (next > 1) params.set("page", String(next));
-    const qs = params.toString();
+    // Named `search` rather than `params` to leave the searchParams object of
+    // that name above visible — the sort headers read it.
+    const query = new URLSearchParams();
+    if (search) query.set("q", search);
+    // Paging must not silently drop the sort, or page 2 comes back in a
+    // different order from page 1.
+    if (params.sort) query.set("sort", params.sort);
+    if (params.dir) query.set("dir", params.dir);
+    if (next > 1) query.set("page", String(next));
+    const qs = query.toString();
     return qs ? `/admin/newsletter?${qs}` : "/admin/newsletter";
   };
 
@@ -120,9 +150,23 @@ export default async function AdminNewsletterPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Subscribed</TableHead>
-                  <TableHead>Status</TableHead>
+                  {(
+                    [
+                      ["email", "Email"],
+                      ["subscribed", "Subscribed"],
+                      ["status", "Status"],
+                    ] as const
+                  ).map(([column, label]) => (
+                    <SortableHeader
+                      key={column}
+                      basePath="/admin/newsletter"
+                      column={column}
+                      label={label}
+                      currentSort={currentSort}
+                      currentDir={currentDir}
+                      params={params}
+                    />
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>

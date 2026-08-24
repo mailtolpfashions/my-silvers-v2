@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { listEntries, getSingletonEntry, CmsError } from "@/server/cms/entries";
+import {
+  listEntries,
+  getSingletonEntry,
+  isEntrySortKey,
+  CmsError,
+  type EntrySortKey,
+} from "@/server/cms/entries";
+import { SortableHeader } from "@/components/admin/sortable-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
@@ -14,7 +21,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-type SearchParams = Promise<{ status?: string; q?: string; page?: string }>;
+type SearchParams = Promise<{
+  status?: string;
+  q?: string;
+  page?: string;
+  sort?: string;
+  dir?: string;
+}>;
 
 export default async function ContentListPage({
   params,
@@ -26,6 +39,11 @@ export default async function ContentListPage({
   const { type: typeName } = await params;
   const sp = await searchParams;
 
+  // Most recently touched first — an editor returns to what they were last
+  // working on far more often than they browse the list alphabetically.
+  const currentSort: EntrySortKey = isEntrySortKey(sp.sort) ? sp.sort : "updated";
+  const currentDir: "asc" | "desc" = sp.dir === "asc" ? "asc" : "desc";
+
   let result;
   try {
     result = await listEntries({
@@ -33,12 +51,24 @@ export default async function ContentListPage({
       status: sp.status as "draft" | "published" | "archived" | undefined,
       q: sp.q,
       page: sp.page ? Number(sp.page) || 1 : 1,
+      sort: currentSort,
+      dir: currentDir,
     });
   } catch (err) {
     if (err instanceof CmsError) notFound();
     throw err;
   }
   const { type, entries, total } = result;
+
+  const statusHref = (status?: string) => {
+    const query = new URLSearchParams();
+    if (status) query.set("status", status);
+    if (sp.q) query.set("q", sp.q);
+    if (sp.sort) query.set("sort", sp.sort);
+    if (sp.dir) query.set("dir", sp.dir);
+    const qs = query.toString();
+    return qs ? `?${qs}` : "?";
+  };
 
   // Singletons get a single edit card, not a table.
   if (type.isSingleton) {
@@ -99,7 +129,9 @@ export default async function ContentListPage({
         ].map(([value, label]) => (
           <Link
             key={label}
-            href={value ? `?status=${value}` : "?"}
+            // Sort rides along, so switching status does not silently reorder
+            // the list back to the default.
+            href={statusHref(value)}
             className={`rounded-md px-3 py-1.5 ${
               sp.status === value || (!sp.status && !value)
                 ? "bg-muted font-medium"
@@ -116,9 +148,26 @@ export default async function ContentListPage({
         <Table>
           <TableHeader>
             <TableRow>
+              {/* Not sortable — the title is inside the `data` JSON blob and
+                  Prisma cannot order by a JSON path. See ENTRY_SORTS. */}
               <TableHead>Title</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Updated</TableHead>
+              {(
+                [
+                  ["status", "Status"],
+                  ["updated", "Updated"],
+                ] as const
+              ).map(([column, label]) => (
+                <SortableHeader
+                  key={column}
+                  basePath={`/cms/content/${typeName}`}
+                  column={column}
+                  label={label}
+                  currentSort={currentSort}
+                  currentDir={currentDir}
+                  params={sp}
+                />
+              ))}
+              {/* Not sortable — it holds buttons, not data. */}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>

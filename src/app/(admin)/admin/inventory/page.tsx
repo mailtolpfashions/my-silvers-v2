@@ -6,11 +6,11 @@ import { formatINR } from "@/lib/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { AdminSearch } from "@/components/admin/admin-search";
+import { SortableHeader } from "@/components/admin/sortable-header";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
@@ -26,15 +26,56 @@ import {
  */
 const LOW_STOCK_AT = 5;
 
+/**
+ * Sortable columns for both stock tables, as an allowlist — the key comes from
+ * the query string and must never reach orderBy directly. See the note in
+ * server/products/admin.ts.
+ */
+const STOCK_SORTS = {
+  piece: (dir: "asc" | "desc") => ({ name: dir }),
+  sku: (dir: "asc" | "desc") => ({ sku: dir }),
+  price: (dir: "asc" | "desc") => ({ price: dir }),
+  stock: (dir: "asc" | "desc") => ({ stock: dir }),
+} as const;
+
+type StockSortKey = keyof typeof STOCK_SORTS;
+
+function isStockSortKey(value: unknown): value is StockSortKey {
+  return typeof value === "string" && value in STOCK_SORTS;
+}
+
+/**
+ * ⚠️  The two tables sort INDEPENDENTLY, so each owns its own pair of query
+ * params. A single shared `sort` would mean clicking a header in "Out of stock"
+ * silently reorders "Low stock" further down the page, where the person cannot
+ * see it happen.
+ */
+type InventorySearchParams = {
+  q?: string;
+  outSort?: string;
+  outDir?: string;
+  lowSort?: string;
+  lowDir?: string;
+};
+
 export default async function AdminInventoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<InventorySearchParams>;
 }) {
   await requireRole("admin");
 
-  const { q } = await searchParams;
+  const params = await searchParams;
+  const { q } = params;
   const search = q?.trim();
+
+  // Out of stock reads alphabetically by default — every row's stock is 0, so
+  // there is nothing to rank by and a name is what you scan for.
+  const outSort: StockSortKey = isStockSortKey(params.outSort) ? params.outSort : "piece";
+  const outDir: "asc" | "desc" = params.outDir === "desc" ? "desc" : "asc";
+  // Low stock leads with the lowest count — that is the to-do order.
+  const lowSort: StockSortKey = isStockSortKey(params.lowSort) ? params.lowSort : "stock";
+  const lowDir: "asc" | "desc" = params.lowDir === "desc" ? "desc" : "asc";
   // Name or SKU. Someone arriving here is either reading a shelf label or a
   // supplier's order form, and those are the two strings they will have.
   const matches = search
@@ -49,7 +90,7 @@ export default async function AdminInventoryPage({
   const [low, out, sized] = await Promise.all([
     prisma.product.findMany({
       where: { isActive: true, stock: { gt: 0, lte: LOW_STOCK_AT }, ...matches },
-      orderBy: { stock: "asc" },
+      orderBy: STOCK_SORTS[lowSort](lowDir),
       select: { id: true, name: true, slug: true, sku: true, stock: true, price: true, images: true },
       // Bounded: a catalogue where hundreds are simultaneously out of stock is
       // a supply problem, not a list to scroll. 200 is past the point where the
@@ -58,7 +99,7 @@ export default async function AdminInventoryPage({
     }),
     prisma.product.findMany({
       where: { isActive: true, stock: 0, ...matches },
-      orderBy: { name: "asc" },
+      orderBy: STOCK_SORTS[outSort](outDir),
       select: { id: true, name: true, slug: true, sku: true, stock: true, price: true, images: true },
       // Bounded: a catalogue where hundreds are simultaneously out of stock is
       // a supply problem, not a list to scroll. 200 is past the point where the
@@ -94,12 +135,22 @@ export default async function AdminInventoryPage({
         empty="Nothing is out of stock."
         products={out}
         tone="text-destructive"
+        sortKey="outSort"
+        dirKey="outDir"
+        currentSort={outSort}
+        currentDir={outDir}
+        params={params}
       />
 
       <Section
         title={`Low stock (${LOW_STOCK_AT} or fewer)`}
         empty="Nothing is running low."
         products={low}
+        sortKey="lowSort"
+        dirKey="lowDir"
+        currentSort={lowSort}
+        currentDir={lowDir}
+        params={params}
       />
 
       <section className="space-y-3">
@@ -140,6 +191,11 @@ function Section({
   empty,
   products,
   tone = "",
+  sortKey,
+  dirKey,
+  currentSort,
+  currentDir,
+  params,
 }: {
   title: string;
   empty: string;
@@ -153,6 +209,12 @@ function Section({
     images: string[];
   }>;
   tone?: string;
+  /** This table's own query-param names — see InventorySearchParams. */
+  sortKey: string;
+  dirKey: string;
+  currentSort: StockSortKey;
+  currentDir: "asc" | "desc";
+  params: InventorySearchParams;
 }) {
   return (
     <section className="space-y-3">
@@ -169,10 +231,27 @@ function Section({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Piece</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead className="text-right">In stock</TableHead>
+                  {(
+                    [
+                      ["piece", "Piece", ""],
+                      ["sku", "SKU", ""],
+                      ["price", "Price", ""],
+                      ["stock", "In stock", "text-right"],
+                    ] as const
+                  ).map(([column, label, className]) => (
+                    <SortableHeader
+                      key={column}
+                      basePath="/admin/inventory"
+                      column={column}
+                      label={label}
+                      currentSort={currentSort}
+                      currentDir={currentDir}
+                      params={params}
+                      sortKey={sortKey}
+                      dirKey={dirKey}
+                      className={className}
+                    />
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>

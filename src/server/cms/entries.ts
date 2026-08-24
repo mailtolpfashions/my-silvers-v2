@@ -205,11 +205,37 @@ export async function restoreVersion(entryId: string, versionId: string, userId:
 
 // ─── Editorial queries ──────────────────────────────────────────────────────
 
+/**
+ * Sortable columns for the entry list, as an allowlist — the key arrives from
+ * the query string and must never reach orderBy directly.
+ *
+ * ⚠️  Title is deliberately absent. It lives inside the `data` JSON blob (see
+ * entryTitle), and Prisma cannot order by a JSON path — so the only honest
+ * options were to sort by `slug` while labelling the column "Title", which
+ * misorders visibly the moment the two diverge ("The Gifting Guide" →
+ * "gifting-guide-silver"), or to sort the twenty rows of the current page in
+ * the browser, which is not sorting the list at all. Both are worse than the
+ * column simply not offering it. Ordering by title needs a real column.
+ */
+export const ENTRY_SORTS = {
+  slug: (dir: "asc" | "desc") => ({ slug: dir }),
+  status: (dir: "asc" | "desc") => ({ status: dir }),
+  updated: (dir: "asc" | "desc") => ({ updatedAt: dir }),
+} as const;
+
+export type EntrySortKey = keyof typeof ENTRY_SORTS;
+
+export function isEntrySortKey(value: unknown): value is EntrySortKey {
+  return typeof value === "string" && value in ENTRY_SORTS;
+}
+
 export async function listEntries(params: {
   typeName: string;
   status?: "draft" | "published" | "archived";
   q?: string;
   page?: number;
+  sort?: EntrySortKey;
+  dir?: "asc" | "desc";
 }) {
   const type = await getContentType(params.typeName);
   const page = Math.max(1, params.page ?? 1);
@@ -224,7 +250,7 @@ export async function listEntries(params: {
   const [entries, total] = await Promise.all([
     prisma.contentEntry.findMany({
       where,
-      orderBy: { updatedAt: "desc" },
+      orderBy: ENTRY_SORTS[params.sort ?? "updated"](params.dir ?? "desc"),
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),

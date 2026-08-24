@@ -18,6 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatINR } from "@/lib/format";
 import { deleteExpenseAction, saveExpenseAction } from "@/actions/admin-finance-actions";
+import { SortableHeaderButton } from "@/components/admin/sortable-header-button";
+import { useTableSort, type SortValue } from "@/components/admin/use-table-sort";
 
 const CATEGORIES = [
   "stock",
@@ -36,6 +38,24 @@ export type ExpenseRow = {
   category: string;
   note: string | null;
   recordedBy: string | null;
+};
+
+/**
+ * How each sortable column reads its value.
+ *
+ * Module-level so the object identity is stable — useTableSort memoises on it,
+ * and rebuilding it inside the component would re-sort on every render.
+ *
+ * The date is parsed to a timestamp rather than compared as a string: the value
+ * arrives as an ISO string here, but "compares correctly as text" is a property
+ * of that exact format, not something the column should depend on.
+ */
+const EXPENSE_COLUMNS: Record<string, (row: ExpenseRow) => SortValue> = {
+  date: (e) => Date.parse(e.spentAt),
+  category: (e) => e.category,
+  note: (e) => e.note,
+  recordedBy: (e) => e.recordedBy,
+  amount: (e) => e.amount,
 };
 
 /**
@@ -91,6 +111,22 @@ export function ExpenseManager({
     });
   }
 
+  // Newest first, matching the order the server sends and the order a batch of
+  // receipts is entered in.
+  const {
+    rows: sortedExpenses,
+    sort,
+    dir,
+    toggle,
+  } = useTableSort({
+    rows: expenses,
+    columns: EXPENSE_COLUMNS,
+    initialColumn: "date",
+    initialDir: "desc",
+  });
+
+  // From the prop, not the sorted copy — reordering rows must not be able to
+  // change the total, and reading the source array is what guarantees that.
   const total = expenses.reduce((sum, e) => sum + e.amount, 0);
 
   return (
@@ -159,16 +195,31 @@ export function ExpenseManager({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Note</TableHead>
-                  <TableHead>Entered by</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
+                  {(
+                    [
+                      ["date", "Date", ""],
+                      ["category", "Category", ""],
+                      ["note", "Note", ""],
+                      ["recordedBy", "Entered by", ""],
+                      ["amount", "Amount", "text-right"],
+                    ] as const
+                  ).map(([column, label, className]) => (
+                    <SortableHeaderButton
+                      key={column}
+                      column={column}
+                      label={label}
+                      currentSort={sort}
+                      currentDir={dir}
+                      onToggle={toggle}
+                      className={className}
+                    />
+                  ))}
+                  {/* The delete button's column — no data, nothing to sort. */}
                   <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {expenses.map((expense) => (
+                {sortedExpenses.map((expense) => (
                   <TableRow key={expense.id}>
                     <TableCell>
                       {new Date(expense.spentAt).toLocaleDateString("en-IN", {

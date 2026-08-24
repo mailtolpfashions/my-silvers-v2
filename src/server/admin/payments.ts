@@ -16,6 +16,31 @@ export type PaymentFilter = "all" | "paid" | "pending" | "failed" | "refunds" | 
 
 export const PAYMENT_PAGE_SIZE = 40;
 
+/**
+ * Sortable columns, as an allowlist — the key arrives from the query string and
+ * must never reach orderBy directly. See the note in server/products/admin.ts.
+ *
+ * The Razorpay payment ID is absent on purpose: it is an opaque gateway
+ * reference, so ordering by it groups nothing a person is looking for. Sorting
+ * by `refund` orders on refund STATUS rather than amount — the question that
+ * column is scanned for is "which of these went back", not "how much".
+ */
+export const PAYMENT_SORTS = {
+  order: (dir: SortDir) => ({ createdAt: dir }),
+  customer: (dir: SortDir) => ({ user: { name: dir } }),
+  method: (dir: SortDir) => ({ paymentMethod: dir }),
+  status: (dir: SortDir) => ({ paymentStatus: dir }),
+  refund: (dir: SortDir) => ({ refundStatus: dir }),
+  amount: (dir: SortDir) => ({ totalAmount: dir }),
+} as const;
+
+type SortDir = "asc" | "desc";
+export type PaymentSortKey = keyof typeof PAYMENT_SORTS;
+
+export function isPaymentSortKey(value: unknown): value is PaymentSortKey {
+  return typeof value === "string" && value in PAYMENT_SORTS;
+}
+
 function whereFor(filter: PaymentFilter) {
   switch (filter) {
     case "paid":
@@ -45,9 +70,13 @@ function whereFor(filter: PaymentFilter) {
 export async function listPayments({
   filter = "all",
   page = 1,
+  sort = "order",
+  dir = "desc",
 }: {
   filter?: PaymentFilter;
   page?: number;
+  sort?: PaymentSortKey;
+  dir?: SortDir;
 }) {
   await requireRole("admin");
   const where = whereFor(filter);
@@ -56,7 +85,7 @@ export async function listPayments({
   const [rows, total] = await Promise.all([
     prisma.order.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: PAYMENT_SORTS[sort](dir),
       skip,
       take: PAYMENT_PAGE_SIZE,
       select: {
