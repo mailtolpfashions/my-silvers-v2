@@ -137,6 +137,28 @@ export default defineConfig({
         APP_BASE_URL: baseURL,
 
         /**
+         * ⚠️  Blanked so the suite CANNOT talk to Shiprocket.
+         *
+         * Shiprocket has no sandbox — those credentials are the live account —
+         * and it LOCKS the account after repeated failed logins, a lock that
+         * defeats the correct password afterwards. The checkout page runs a
+         * pincode serviceability lookup, so every run of this suite was
+         * attempting a real login; with a wrong password in .env that meant
+         * each run spent attempts, and it re-locked the account during the
+         * audit's own testing.
+         *
+         * `login()` checks for missing credentials and throws BEFORE any fetch,
+         * so empty strings mean no request leaves the machine. The storefront
+         * degrades to "serviceability unavailable", which is the behaviour a
+         * shopper sees during a Shiprocket outage anyway — worth exercising.
+         *
+         * To test the integration for real, run against a deployment with
+         * proper credentials rather than turning this back on.
+         */
+        SHIPROCKET_EMAIL: "",
+        SHIPROCKET_PASSWORD: "",
+
+        /**
          * A known webhook secret, so the suite can sign payloads the way
          * Razorpay would and assert that a FORGED one is refused. Without it
          * the signature path is untestable — the repo's own .env carries a
