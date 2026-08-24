@@ -47,14 +47,28 @@ const SHOW_AFTER_MS = 260;
  * better served by a page with nothing on it than by a page still claiming to
  * be busy.
  *
- * ⚠️  Cut from 6s to 3.5s when the indicator became a full-screen scrim, and
- * the two numbers are not independent. Six seconds of a small chip in a corner
- * is a curiosity; six seconds of the entire shop sat behind a blur is an
- * outage. The scrim is far more expensive to be wrong about, so it gets less
- * rope. If this ever goes back to a corner chip, put the six seconds back with
- * it.
+ * Six seconds is safe again because the scrim no longer lasts that long — see
+ * SCRIM_MS. What sits here after the first second and a half is a corner chip,
+ * and six seconds of a chip is a curiosity rather than an outage.
  */
-const GIVE_UP_AFTER_MS = 3_500;
+const GIVE_UP_AFTER_MS = 6_000;
+
+/**
+ * How long the full-screen scrim holds before it degrades to a corner chip.
+ *
+ * This is the answer to the scrim's one real hazard. A navigation that never
+ * lands never changes the URL, so the indicator stays until the give-up timer
+ * — and a full-bleed wash held for that whole window makes the shop look dead
+ * rather than busy. Rather than choosing between "no scrim" and "an outage",
+ * the scrim is simply time-boxed: it covers the common case, where a slow
+ * navigation lands within a second or so, and then gets out of the way.
+ *
+ * Past this point the shopper is looking at a page they can read, with a small
+ * chip in the corner still saying something is happening. That is a far better
+ * thing to be wrong about, which is also why GIVE_UP_AFTER_MS could go back to
+ * six seconds: the chip is cheap to leave up, the scrim is not.
+ */
+const SCRIM_MS = 1_400;
 
 export function NavigationLoader() {
   const pathname = usePathname();
@@ -66,6 +80,14 @@ export function NavigationLoader() {
   const routeKey = search ? `${pathname}?${search}` : pathname;
 
   const [pending, setPending] = useState(false);
+  /**
+   * The scrim's time-box has elapsed and this navigation is still in flight.
+   *
+   * Separate from `pending` because it is a different question: `pending` is
+   * "is something happening", `degraded` is "has it been happening long enough
+   * that covering the page is no longer the honest thing to do".
+   */
+  const [degraded, setDegraded] = useState(false);
   const [seenKey, setSeenKey] = useState(routeKey);
 
   const showTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -87,6 +109,8 @@ export function NavigationLoader() {
   if (seenKey !== routeKey) {
     setSeenKey(routeKey);
     if (pending) setPending(false);
+    // Or the next slow navigation would start already degraded.
+    if (degraded) setDegraded(false);
   }
 
   /**
@@ -128,6 +152,20 @@ export function NavigationLoader() {
     return () => clearTimeout(fuse);
   }, [pending]);
 
+  /**
+   * The scrim's own fuse: after SCRIM_MS the overlay steps down to a chip.
+   *
+   * Keyed on `pending` for the same reason as the give-up timer above — tied
+   * to the state it governs, so a URL change cannot cancel it out from under
+   * itself. It fires at most once per showing, because `degraded` only ever
+   * goes true here and is reset on the next navigation.
+   */
+  useEffect(() => {
+    if (!pending) return;
+    const fuse = setTimeout(() => setDegraded(true), SCRIM_MS);
+    return () => clearTimeout(fuse);
+  }, [pending]);
+
   useEffect(() => {
     function onClick(event: MouseEvent) {
       // Something already handled it, or it is not a plain left click. The
@@ -161,7 +199,15 @@ export function NavigationLoader() {
       }
 
       clearTimeout(showTimer.current);
-      showTimer.current = setTimeout(() => setPending(true), SHOW_AFTER_MS);
+      showTimer.current = setTimeout(() => {
+        // Both, together. A previous navigation that ran out its give-up timer
+        // without the URL ever changing leaves `degraded` true and `pending`
+        // false — the render-time reset above only fires on a route change, so
+        // it would not have cleared it. Without this the next slow navigation
+        // opens as a corner chip and never shows the scrim at all.
+        setDegraded(false);
+        setPending(true);
+      }, SHOW_AFTER_MS);
     }
 
     // Capture phase, so a handler that calls stopPropagation on the way up
@@ -174,6 +220,33 @@ export function NavigationLoader() {
   }, []);
 
   if (!pending) return null;
+
+  /**
+   * The failure shape: a chip in the bottom-left, no scrim.
+   *
+   * Reached once SCRIM_MS has passed and the navigation still has not landed —
+   * which, past a second and a half, usually means it is not going to. The
+   * page underneath becomes readable again and the shopper keeps every link,
+   * the header and the back button, while a small mark still says the click
+   * was heard.
+   *
+   * ── Bottom-LEFT, and every other side is spoken for ────────────────────
+   * Under the header dropped a white box over the middle of a full-bleed
+   * hero — the one place guaranteed to be someone's face. Bottom-right is the
+   * Toaster. Bottom-centre is the mobile sticky action bar on product and cart
+   * pages. That leaves bottom-left, and the raised `bottom-28` below sm is
+   * what clears that bar on phones: STICKY_BAR_SPACER reserves 7rem for it, so
+   * this sits just above.
+   */
+  if (degraded) {
+    return (
+      <div className="pointer-events-none fixed bottom-28 left-4 z-[60] animate-in fade-in duration-200 sm:bottom-6 sm:left-6">
+        <span className="flex items-center justify-center border bg-background/95 px-4 py-2.5 shadow-sm backdrop-blur-sm">
+          <BrandLoader size={26} />
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -189,11 +262,11 @@ export function NavigationLoader() {
        * not exotic either: any 500, any dropped connection, any route that
        * redirects to the page it was already on.
        *
-       * The scrim is back by request, so the risk is bounded elsewhere rather
-       * than avoided — GIVE_UP_AFTER_MS is down to 3.5s and SHOW_AFTER_MS up
-       * to 260ms, so it appears less often and can never linger as long. Those
-       * two numbers are the price of this one; do not raise them without
-       * putting the chip back.
+       * That hazard is now answered directly rather than traded against: the
+       * scrim is time-boxed to SCRIM_MS and steps down to the corner chip
+       * above if the navigation has not landed. So the wash covers the common
+       * case — a slow route that arrives within a second or so — and a
+       * navigation that never arrives is never sat behind one.
        *
        * ── pointer-events-none, and it matters MORE here ────────────────────
        * An indicator, not a modal. If it does get stuck, every link, the
