@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { auth } from "@/server/auth/auth";
@@ -11,15 +12,17 @@ import { CartSummary } from "@/components/storefront/cart/cart-summary";
 import { CartRowControls } from "@/components/storefront/cart/cart-row-controls";
 import { GuestCartView } from "@/components/storefront/cart/guest-cart-view";
 import { STICKY_BAR_SPACER } from "@/components/storefront/sticky-action-bar";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default async function CartPage() {
-  const session = await auth();
-  // Both carts quote a shipping charge, so both need the current rates. Read
-  // once here rather than in each branch — it is a cached lookup either way,
-  // but one call keeps the two carts quoting the same number by construction.
-  const { shippingChargePaise, freeShippingThresholdPaise } = await getStoreSettings();
-  const rates: ShippingRates = { shippingChargePaise, freeShippingThresholdPaise };
-
+/**
+ * The heading prerenders; which cart to show does not.
+ *
+ * `auth()` decides between the signed-in cart and the guest one, and reading it
+ * in the page body made the whole route uncached under cacheComponents — so
+ * even the title waited on the session. Behind a boundary, the shell paints at
+ * once and the cart fills in.
+ */
+export default function CartPage() {
   return (
     // Transactional rhythm — 32/40/56. A cart is a single task, and the
     // editorial 160px used elsewhere on the site would just be scrolling
@@ -29,11 +32,38 @@ export default async function CartPage() {
     // The spacer stops the sticky checkout bar covering the last cart row.
     <div className={`container-checkout rhythm-transactional ${STICKY_BAR_SPACER}`}>
       <h1 className="mb-8 text-h1">Your cart</h1>
-      {session?.user?.id ? (
-        <AuthedCart userId={session.user.id} rates={rates} />
-      ) : (
-        <GuestCartView rates={rates} />
-      )}
+      <Suspense fallback={<CartSkeleton />}>
+        <CartBody />
+      </Suspense>
+    </div>
+  );
+}
+
+async function CartBody() {
+  const session = await auth();
+  // Both carts quote a shipping charge, so both need the current rates. Read
+  // once here rather than in each branch — it is a cached lookup either way,
+  // but one call keeps the two carts quoting the same number by construction.
+  const { shippingChargePaise, freeShippingThresholdPaise } = await getStoreSettings();
+  const rates: ShippingRates = { shippingChargePaise, freeShippingThresholdPaise };
+
+  return session?.user?.id ? (
+    <AuthedCart userId={session.user.id} rates={rates} />
+  ) : (
+    <GuestCartView rates={rates} />
+  );
+}
+
+/** Two rows and a summary column — the cart's usual shape. */
+function CartSkeleton() {
+  return (
+    <div className="grid gap-10 lg:grid-cols-[1fr_20rem] lg:gap-16">
+      <div className="space-y-6">
+        {Array.from({ length: 2 }, (_, i) => (
+          <Skeleton key={i} className="h-32 w-full" />
+        ))}
+      </div>
+      <Skeleton className="h-64 w-full" />
     </div>
   );
 }
