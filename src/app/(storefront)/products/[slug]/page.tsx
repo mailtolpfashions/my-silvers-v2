@@ -90,11 +90,62 @@ export async function generateMetadata({
   };
 }
 
-export default async function ProductDetailPage({
+/**
+ * ⚠️  The page body does not touch `params`, and that is the whole point.
+ *
+ * Caching getProductBySlug fixed the first half of this — Next stopped
+ * complaining about uncached DATA. What was left is `params` itself, which is
+ * runtime data on a dynamic route:
+ *
+ *   Route "/products/[slug]": Next.js encountered runtime data during
+ *   prerendering or a navigation. `cookies()`, `headers()`, `params`, or
+ *   `searchParams` accessed outside of <Suspense> …
+ *
+ * Awaiting it here meant Next could not build a fallback shell for slugs it
+ * has not seen, so every one of those was a blocking navigation. Behind a
+ * boundary, the shell is prerendered once and reused for every product; only
+ * the part that actually depends on which product streams.
+ *
+ * `instant = false` is the other way out and it is the wrong one: it silences
+ * the warning and keeps the blocking behaviour.
+ */
+export default function ProductDetailPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  return (
+    <Suspense fallback={<ProductDetailSkeleton />}>
+      <ProductDetailContent params={params} />
+    </Suspense>
+  );
+}
+
+/**
+ * The gallery column and the detail rail, at roughly the size they resolve to.
+ *
+ * Worth matching: this is what a shopper looks at while the product arrives,
+ * and a skeleton of the wrong shape moves the page under them when it lands.
+ */
+function ProductDetailSkeleton() {
+  return (
+    <div className="container-page rhythm-commerce">
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_26rem] lg:gap-16">
+        <Skeleton className="aspect-[4/5] w-full" />
+        <div className="space-y-5">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-9 w-3/4" />
+          <Skeleton className="h-6 w-32" />
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-11 w-full" />
+          <Skeleton className="h-11 w-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+async function ProductDetailContent({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
 
