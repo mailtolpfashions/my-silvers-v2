@@ -109,6 +109,53 @@ test.describe("role revocation takes effect immediately", () => {
     await expect(page, "a deleted admin still reached /admin").toHaveURL(/\/login/);
   });
 
+  /**
+   * The endpoints that hand over DATA rather than a page.
+   *
+   * The first pass at fixing F-01 covered the page gates and requireRole(), and
+   * missed these: the CSV exports, the Cloudinary signer and the CMS routes all
+   * read `session.user.role` directly, so a revoked admin could still pull the
+   * entire customer list — names, emails, phone numbers — for as long as their
+   * session lasted. Bulk exfiltration outlasting revocation is worse than page
+   * access outlasting it, so it gets its own test.
+   */
+  test("a demoted admin cannot pull the CSV exports", async ({ page }) => {
+    const email = newEmail();
+    const user = await createTestUser({ email, password: PASSWORD, role: "admin" });
+
+    const EXPORTS = [
+      "/api/admin/export/customers",
+      "/api/admin/export/orders",
+      "/api/admin/export/products",
+    ];
+
+    try {
+      await signIn(page, email);
+
+      // Baseline: they work while the role stands, so a 403 afterwards means
+      // revocation and not a broken route.
+      for (const path of EXPORTS) {
+        const ok = await page.request.get(path);
+        expect(ok.status(), `${path} was not reachable by a real admin`).toBe(200);
+      }
+
+      await setUserRole(user.id, "customer");
+
+      for (const path of EXPORTS) {
+        const denied = await page.request.get(path);
+        expect(denied.status(), `${path} still served a demoted admin`).toBe(403);
+      }
+
+      // The Cloudinary signer too — a signature is an upload to your account.
+      const signed = await page.request.post("/api/uploads/sign", {
+        data: { folder: "mysilvers/products" },
+      });
+      expect(signed.status(), "a demoted admin could still sign uploads").toBe(403);
+    } finally {
+      await deleteUser(user.id).catch(() => {});
+    }
+  });
+
   test("an editor cannot reach the admin area at all", async ({ page }) => {
     const email = newEmail();
     const user = await createTestUser({ email, password: PASSWORD, role: "editor" });

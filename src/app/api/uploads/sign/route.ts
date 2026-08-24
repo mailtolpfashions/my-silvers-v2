@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
-import { auth } from "@/server/auth/auth";
+import { getCurrentRole } from "@/server/auth/require-role";
 
 /**
  * Cloudinary signed-upload signatures. The browser uploads file bytes
@@ -11,8 +11,10 @@ import { auth } from "@/server/auth/auth";
 const ALLOWED_FOLDERS = new Set(["mysilvers/products", "mysilvers/categories", "mysilvers/cms"]);
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  const role = session?.user?.role;
+  // From the database, not the token: session.user.role is written once at
+  // sign-in and never refreshed, so a revoked editor would keep this open for
+  // as long as their session lasted. See require-role.ts.
+  const role = await getCurrentRole();
   if (role !== "admin" && role !== "editor") {
     return new Response("Forbidden", { status: 403 });
   }

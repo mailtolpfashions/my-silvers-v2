@@ -1,4 +1,4 @@
-import { auth } from "@/server/auth/auth";
+import { getCurrentRole } from "@/server/auth/require-role";
 import { resolveHomepageSections } from "@/server/products/homepage-sections";
 import type { EntryData } from "@/server/cms/types";
 
@@ -18,8 +18,10 @@ export async function POST(req: Request) {
   // Preview resolves unpublished draft content; same gate as the Studio itself.
   // An explicit 403 rather than requireRole(), which throws and would surface
   // as a 500 — matching the other CMS route handlers.
-  const session = await auth();
-  const role = session?.user?.role;
+  // From the database, not the token: session.user.role is written once at
+  // sign-in and never refreshed, so a revoked editor would keep this open for
+  // as long as their session lasted. See require-role.ts.
+  const role = await getCurrentRole();
   if (role !== "admin" && role !== "editor") {
     return new Response("Forbidden", { status: 403 });
   }

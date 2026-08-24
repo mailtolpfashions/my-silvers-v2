@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@/server/auth/auth";
+import { getCurrentRole } from "@/server/auth/require-role";
 import {
   costCoverage,
   expensesByCategory,
@@ -75,8 +75,10 @@ export default async function AdminFinancePage({
 }: {
   searchParams: Promise<{ m?: string; sort?: string; dir?: string }>;
 }) {
-  const session = await auth();
-  if (session?.user?.role !== "admin") redirect("/admin");
+  // getCurrentRole(), not the token: these are the most sensitive figures in
+  // the application, and a role revoked an hour ago must close this page now
+  // rather than whenever the session happens to expire. See require-role.ts.
+  if ((await getCurrentRole()) !== "admin") redirect("/admin");
 
   const sp = await searchParams;
   const { m } = sp;

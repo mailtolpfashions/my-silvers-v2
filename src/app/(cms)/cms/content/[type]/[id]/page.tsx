@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { auth } from "@/server/auth/auth";
+import { getCurrentRole } from "@/server/auth/require-role";
 import { getContentType, getEntryForEdit, CmsError } from "@/server/cms/entries";
 import { parseFields, type EntryData } from "@/server/cms/types";
 import { EntryEditor } from "@/components/cms/entry-editor";
@@ -11,8 +11,9 @@ export default async function EntryEditorPage({
   params: Promise<{ type: string; id: string }>;
 }) {
   const { type: typeName, id } = await params;
-  const session = await auth();
-  const isAdmin = session?.user?.role === "admin";
+  // From the database, not the token — isAdmin gates the destructive controls
+  // (unpublish, delete, restore). See require-role.ts.
+  const isAdmin = (await getCurrentRole()) === "admin";
 
   let type;
   try {

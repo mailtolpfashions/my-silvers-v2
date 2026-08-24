@@ -1,11 +1,13 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/server/db";
-import { auth } from "@/server/auth/auth";
+import { getCurrentRole } from "@/server/auth/require-role";
 import { toCsv, csvResponse } from "@/server/admin/csv";
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (session?.user?.role !== "admin") return new Response("Forbidden", { status: 403 });
+  // getCurrentRole(), not session.user.role: the token carries the role from
+  // sign-in and never refreshes it, so a revoked admin could still pull a full
+  // CSV of this data for as long as their session lasted. See require-role.ts.
+  if ((await getCurrentRole()) !== "admin") return new Response("Forbidden", { status: 403 });
 
   /**
    * `?ids=a,b,c` exports just those rows — the products table's bulk bar sends
