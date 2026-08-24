@@ -6,6 +6,7 @@ import Image from "next/image";
 import { ArrowRight, ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { useSwipe } from "@/lib/use-swipe";
 import { usePointerPause } from "@/lib/use-pointer-pause";
+import { heroVideoUrl, heroVideoPosterUrl } from "@/lib/cloudinary-video";
 
 export type HeroSlide = {
   id: string;
@@ -299,8 +300,27 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
               >
                 {slide.media &&
                   (isVideo(slide.media) ? (
+                    /**
+                     * F-11 (audit, Aug 2026): this used `slide.media`
+                     * verbatim, which is whatever Cloudinary returned at
+                     * upload — and that meant a 12.8 MB original autoplaying
+                     * on the homepage for every visitor, against about 1.4 MB
+                     * for the entire rest of the page. See cloudinary-video.ts.
+                     *
+                     * `preload` is deliberately NOT "none" the way the product
+                     * gallery's video is: that one waits for a shopper to ask,
+                     * this one is the hero and has to be moving. What changed
+                     * is the size of what is fetched, plus a poster so the
+                     * frame is painted before a single byte of video lands.
+                     *
+                     * Only the ACTIVE slide preloads. A three-slide hero was
+                     * otherwise three simultaneous video downloads, of which
+                     * two were behind the one being watched.
+                     */
                     <video
-                      src={slide.media}
+                      src={heroVideoUrl(slide.media)}
+                      poster={heroVideoPosterUrl(slide.media)}
+                      preload={isActive ? "auto" : "none"}
                       autoPlay
                       muted
                       loop
@@ -383,13 +403,34 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                         heading directly, and a direct rule beats an inherited
                         one whatever the layer order — so the headline came out
                         near-black on the scrim. */}
-                    <h1 className="text-display font-heading text-white">
-                      {slide.headline.split("\n").map((line, li) => (
-                        <span key={li} className="block">
-                          {line}
-                        </span>
-                      ))}
-                    </h1>
+                    {/* F-08 (audit, Aug 2026): every slide used to render an
+                        <h1>, so a three-slide hero gave the homepage three
+                        top-level headings. Someone navigating by heading heard
+                        three competing page titles, and it split the SEO
+                        signal.
+
+                        The first slide keeps the h1 — it is the primary hero
+                        message and the one search engines see in the
+                        prerendered shell — and the rest are h2. Deliberately
+                        NOT a hardcoded or visually-hidden page title: the
+                        homepage is CMS-driven, and the heading has to stay
+                        whatever the editor wrote.
+
+                        Rendered through one variable so the two cannot drift
+                        apart visually; `text-display` is doing all the sizing
+                        either way. */}
+                    {(() => {
+                      const Heading = i === 0 ? "h1" : "h2";
+                      return (
+                        <Heading className="text-display font-heading text-white">
+                          {slide.headline.split("\n").map((line, li) => (
+                            <span key={li} className="block">
+                              {line}
+                            </span>
+                          ))}
+                        </Heading>
+                      );
+                    })()}
 
                     {slide.subline && (
                       <p className="mt-3 max-w-md text-sm text-white/80">{slide.subline}</p>

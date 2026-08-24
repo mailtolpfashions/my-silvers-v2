@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { searchProducts, getActiveCategories } from "@/server/products/search";
@@ -11,6 +12,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StickyBarSpacer } from "@/components/storefront/sticky-action-bar";
 import { PRODUCT_PAGE_SIZE } from "@/lib/product-page-size";
 import { ItemListJsonLd, BreadcrumbJsonLd } from "@/components/storefront/structured-data";
+
+/**
+ * F-10 (audit, Aug 2026): this page had no metadata of its own, so the whole
+ * catalogue inherited the root layout's title and shipped as a duplicate of the
+ * homepage — "MY Silvers | Luxury 925 Sterling Silver Jewellery" on both. Two
+ * pages competing on one title is a wasted result for the most commercially
+ * important listing on the site.
+ *
+ * Static rather than generateMetadata, deliberately. This route is also the
+ * search results page, and a title built from `q` would need searchParams —
+ * which would opt the whole route out of the prerendered shell to personalise a
+ * string no crawler indexes anyway. The listing is what search should find; the
+ * results view is for someone already here.
+ */
+export const metadata: Metadata = {
+  title: "All jewellery",
+  description:
+    "Every piece in the MY Silvers catalogue — hallmarked 925 sterling silver rings, earrings, necklaces, bracelets and anklets, made to be worn every day.",
+};
 
 type SearchParams = Promise<{
   q?: string;

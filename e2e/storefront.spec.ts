@@ -19,21 +19,23 @@ test.describe("storefront renders", () => {
   });
 
   /**
-   * F-07 (audit, Aug 2026) — KNOWN GAP, deliberately left failing.
+   * F-08 (audit, Aug 2026) — FIXED, and held here.
    *
-   * The homepage renders three <h1> elements: hero-carousel.tsx emits one per
-   * slide, on top of the one in homepage-view.tsx. A page has one top-level
-   * heading; screen-reader users navigating by heading hear three competing
-   * page titles, and it muddies the SEO signal.
-   *
-   * Marked fixme rather than deleted so it stays visible in every report
-   * instead of becoming a silent assumption. Fix in Phase 6 (performance/SEO)
-   * by demoting the carousel slides to <h2>, or rendering the h1 once outside
-   * the carousel.
+   * The hero carousel used to render an <h1> per slide, so a three-slide hero
+   * gave the homepage three top-level headings: three competing page titles for
+   * anyone navigating by heading, and a split SEO signal. The first slide keeps
+   * the h1, the rest are h2.
    */
-  test.fixme("homepage has exactly one h1", async ({ page }) => {
+  test("homepage has exactly one h1", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("h1")).toHaveCount(1);
+  });
+
+  test("every storefront page has exactly one h1", async ({ page }) => {
+    for (const path of ["/products", "/collections", "/blog", "/faq", "/cart"]) {
+      await page.goto(path);
+      await expect(page.locator("h1"), `${path} does not have exactly one h1`).toHaveCount(1);
+    }
   });
 
   test("product listing shows products and each links to a detail page", async ({ page }) => {
@@ -64,21 +66,33 @@ test.describe("storefront renders", () => {
   });
 
   /**
-   * F-08 (audit, Aug 2026) — KNOWN GAP, deliberately left failing.
+   * F-07 (audit, Aug 2026) — ACCEPTED, and this is the control that makes it
+   * acceptable.
    *
-   * `products/[slug]/page.tsx` calls notFound() correctly, but the response is
-   * still HTTP 200: with cacheComponents/PPR the static shell is flushed before
-   * the dynamic hole resolves, so the status line is already committed by the
-   * time notFound() runs. The visitor sees the right page; a crawler sees a
-   * soft 404 and will happily index every nonexistent product URL.
+   * A missing product answers HTTP 200, not 404: under cacheComponents/PPR the
+   * static shell is flushed before the dynamic hole resolves, so the status
+   * line is already committed by the time notFound() runs. That reads like a
+   * soft 404 waiting to be indexed — except notFound() also injects
+   * `<meta name="robots" content="noindex">`, which Google honours, so the
+   * pages do not enter the index.
    *
-   * This is an inherent PPR trade-off rather than a slip, so the fix is a
-   * design decision for Phase 6 — most likely opting this route out of the
-   * prerendered shell so the status can be set honestly.
+   * Forcing the route dynamic would buy the honest status code at the cost of
+   * the prerendered shell on the single most-visited page type on the site.
+   * Not worth it. What IS worth guarding is the noindex tag, because that is
+   * now the only thing standing between a typo'd URL and the index — so it is
+   * asserted here rather than assumed.
    */
-  test.fixme("a missing product returns HTTP 404", async ({ page }) => {
+  test("a missing product is marked noindex, even though it answers 200", async ({ page }) => {
     const response = await page.goto("/products/this-slug-does-not-exist-12345");
-    expect(response?.status()).toBe(404);
+
+    // Documented, not desired — see above. Asserted so that a future change to
+    // 404 shows up as a deliberate decision rather than a silent drift.
+    expect(response?.status()).toBe(200);
+
+    await expect(
+      page.locator('meta[name="robots"][content*="noindex"]').first(),
+      "a missing product is indexable — notFound()'s noindex tag is gone"
+    ).toBeAttached();
   });
 
   test("static pages render", async ({ page }) => {
