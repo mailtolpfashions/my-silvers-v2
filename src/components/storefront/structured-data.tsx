@@ -264,3 +264,41 @@ export function BreadcrumbJsonLd({
     />
   );
 }
+
+/**
+ * FAQPage, emitted only from /faq.
+ *
+ * ⚠️  Deliberately NOT emitted from product pages, even though they render a
+ * subset of the same questions. Google requires FAQ markup to describe the page
+ * it sits on, a product page already emits Product, and the same Q&A repeated
+ * across 120 URLs is duplicate structured data — which is a manual-action risk
+ * rather than extra coverage.
+ *
+ * `acceptedAnswer.text` takes the answer's HTML: the FAQPage spec allows a
+ * limited set of tags there, and the CMS rich text is sanitized on write and
+ * again on render. Emitting stripped plain text instead would drop the links in
+ * answers that point at the returns and shipping pages.
+ */
+export function FaqJsonLd({
+  items,
+}: {
+  items: Array<{ question: string; answer: string }>;
+}) {
+  // No questions means no markup at all. An empty mainEntity is a FAQPage claim
+  // about a page with no FAQ on it.
+  if (items.length === 0) return null;
+
+  return (
+    <JsonLd
+      data={{
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: items.map((item) => ({
+          "@type": "Question",
+          name: item.question,
+          acceptedAnswer: { "@type": "Answer", text: item.answer },
+        })),
+      }}
+    />
+  );
+}

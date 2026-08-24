@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { getPublishedEntry } from "@/server/cms/entries";
+import { getFaqItems } from "@/server/cms/faq";
 import { Expandable } from "@/components/storefront/expandable";
 import { RichText } from "@/components/storefront/cms/rich-text";
 import { ContentGap } from "@/components/storefront/content-gap";
@@ -35,12 +37,25 @@ export async function ProductInfoSections({
     sku: string;
   };
 }) {
-  const entry = await getPublishedEntry("product-info");
+  const [entry, faqItems] = await Promise.all([
+    getPublishedEntry("product-info"),
+    getFaqItems(),
+  ]);
   const data = (entry?.data ?? {}) as {
     materials?: string;
     care?: string;
     shippingReturns?: string;
   };
+
+  /**
+   * Only the questions an editor flagged for product pages.
+   *
+   * The whole FAQ would be wrong here: a shopper on a product page is deciding
+   * about THIS piece, and burying "how do I track my order" under it pushes the
+   * sizing and hallmark answers they actually need out of view. The flag lives
+   * on each question in the CMS — see the `faq` type in prisma/seed.ts.
+   */
+  const productFaqs = faqItems.filter((item) => item.showOnProductPage);
 
   const specs: Array<[string, string]> = [
     ["Purity", product.purity],
@@ -100,6 +115,34 @@ export async function ProductInfoSections({
           detail="UNRESOLVED: the homepage trust bar says 15-day returns; the old product page said 7-day. Neither is asserted anywhere now. Confirm the real policy with the business before writing this."
           where="CMS → Product information → Shipping & returns"
         />
+      )}
+
+      {/* Last row on purpose. The rows above answer "what is this piece"; the
+          FAQ answers "what about buying it", which is the question that comes
+          after. No ContentGap when empty — an unflagged FAQ is a deliberate
+          editorial choice, not missing content, and the /faq page already
+          reports when nothing at all is written. */}
+      {productFaqs.length > 0 && (
+        <Expandable title="Common questions">
+          <dl className="space-y-5">
+            {productFaqs.map((item) => (
+              <div key={item.question}>
+                <dt className="font-medium text-foreground">{item.question}</dt>
+                <dd className="mt-1">
+                  <RichText html={item.answer} className="prose-sm" />
+                </dd>
+              </div>
+            ))}
+          </dl>
+          {/* No FAQPage JSON-LD here — see the note on FaqJsonLd. This link is
+              what connects the subset to the full list. */}
+          <Link
+            href="/faq"
+            className="mt-5 inline-block text-sm text-foreground underline underline-offset-4"
+          >
+            All questions
+          </Link>
+        </Expandable>
       )}
     </div>
   );

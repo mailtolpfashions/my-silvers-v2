@@ -20,7 +20,7 @@ const BASE = "https://www.mysilvers.in";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   "use cache";
   cacheLife("hours");
-  cacheTag("products", "categories", "cms:blog", "cms:page", "cms:collection");
+  cacheTag("products", "categories", "cms:blog", "cms:page", "cms:collection", "cms:faq");
 
   const [products, categories, posts, pages, collections] = await Promise.all([
     prisma.product.findMany({
@@ -43,6 +43,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/products`, changeFrequency: "daily", priority: 0.9 },
     { url: `${BASE}/collections`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE}/blog`, changeFrequency: "weekly", priority: 0.6 },
+    // Listed even before it is authored: the URL is stable and linked from
+    // every page's footer, and a support page is worth crawling.
+    { url: `${BASE}/faq`, changeFrequency: "monthly", priority: 0.5 },
   ];
 
   return [

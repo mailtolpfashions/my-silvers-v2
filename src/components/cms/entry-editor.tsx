@@ -241,7 +241,13 @@ export function EntryEditor({
 
   return (
     <div className={showPreview ? "grid gap-6 xl:grid-cols-2" : ""}>
-      <div className="space-y-6">
+      {/* ⚠️  max-w-3xl, matching the admin product form.
+          The column was unconstrained, and <main> is full-bleed, so on a 1920px
+          monitor a single-line "Question" input rendered 1,591px wide — a form
+          control eight times longer than anything typed into it, which is what
+          made these screens read as empty space with a stripe of content. In
+          preview mode the grid already halves the column and this does nothing. */}
+      <div className="max-w-3xl space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{typeLabel}</h1>

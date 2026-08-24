@@ -32,6 +32,24 @@ export type FieldDefinition = {
   /** Sub-fields for array/object types — enables recursive nesting. */
   of?: FieldDefinition[];
   /**
+   * Array types only: which sub-field to show as a row's title when collapsed.
+   *
+   * Array rows collapse by default, so the editor is a scannable list rather
+   * than every item's full form stacked — see ArrayField. That list is only
+   * usable if each row says what it holds, and only the schema knows which
+   * sub-field is the item's name.
+   *
+   * Falls back to the first text/textarea sub-field, so an array that does not
+   * set this still gets a meaningful title rather than "Item #4".
+   */
+  summaryField?: string;
+  /**
+   * Array types only: a second sub-field shown as a small badge on the
+   * collapsed row. For a grouped list, the group — it is what tells you the
+   * row is filed in the wrong place without opening it.
+   */
+  summaryBadgeField?: string;
+  /**
    * Show this field only when a sibling field holds one of these values.
    *
    * Homepage sections share one field list across seven section types, so a

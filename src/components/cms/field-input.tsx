@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Plus, Trash2, ChevronUp, ChevronDown, ImageIcon } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -90,6 +90,96 @@ function ImageField({
   );
 }
 
+/**
+ * Splits a field label into its name and its explanation.
+ *
+ * Labels in this CMS carry their own help text after an em dash — "Hero slides
+ * — order here is the order they rotate in". Rendered whole, in the Label's
+ * weight, that is a sentence of bold type over every input and a large part of
+ * why these forms read as walls of text. The head becomes the label; the tail
+ * becomes one line of muted help beneath it.
+ */
+function splitLabel(label: string): { title: string; hint?: string } {
+  // [\s\S] rather than `.` with the `s` flag — the tsconfig target predates it.
+  const match = label.match(/^([\s\S]*?)\s+[—–-]\s+([\s\S]*)$/);
+  if (!match) return { title: label };
+  return { title: match[1].trim(), hint: match[2].trim() };
+}
+
+/**
+ * A short singular noun for an array's counts and its Add button.
+ *
+ * Derived from the label's NAME half only, so "Homepage sections — order here
+ * is the order on the page" gives "homepage section" rather than repeating the
+ * whole sentence on the button and again in the count.
+ */
+function shortNoun(label: string): string {
+  const base = splitLabel(label).title.toLowerCase().trim();
+  // Only the regular plural, and only at the end. Nothing here is irregular,
+  // and a general inflector would be a lot of machinery for six labels.
+  return base.endsWith("ies")
+    ? `${base.slice(0, -3)}y`
+    : base.endsWith("s") && !base.endsWith("ss")
+      ? base.slice(0, -1)
+      : base;
+}
+
+/** Rich text arrives as HTML; a collapsed row wants the words, not the markup. */
+function toPlainText(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * The one-line title for a collapsed row.
+ *
+ * Prefers the schema's `summaryField`, then the first text-ish sub-field —
+ * which for every array in this CMS is the item's name or heading. An item with
+ * nothing typed yet has no title to show, so it says so rather than rendering
+ * an empty row that looks broken.
+ */
+function itemSummary(
+  field: FieldDefinition,
+  item: Record<string, unknown>,
+  subFields: FieldDefinition[]
+): { title: string; empty: boolean } {
+  const named = field.summaryField
+    ? subFields.find((sub) => sub.name === field.summaryField)
+    : undefined;
+  const fallback = subFields.find(
+    (sub) => sub.type === "text" || sub.type === "textarea" || sub.type === "richtext"
+  );
+  const source = named ?? fallback;
+
+  const text = source ? toPlainText(item[source.name]) : "";
+  if (!text) return { title: "Empty — nothing typed yet", empty: true };
+  // Long enough to identify the row, short enough to stay on one line.
+  return { title: text.length > 90 ? `${text.slice(0, 90)}…` : text, empty: false };
+}
+
+/**
+ * A repeating list of items.
+ *
+ * ── Rows collapse, and that is the whole design ──────────────────────────────
+ * Every item used to render its full form, always. For the FAQ that meant
+ * twelve questions each carrying a rich-text editor and its toolbar: 5,783px of
+ * scrolling — 5.4 screens — and twelve TipTap instances mounted at once, to
+ * find one question. Collapsed rows turn that into a list you can see at once,
+ * and only opened items pay for an editor.
+ *
+ * Independent toggles rather than an accordion: comparing two answers, or
+ * pasting from one row into another, both need two rows open. Nothing forces
+ * the previous one shut.
+ *
+ * ⚠️  Open state is keyed by INDEX, so it must be remapped whenever the indices
+ * move — see move() and remove(). Without that, deleting row 2 leaves row 3's
+ * form open under row 2's title, which reads as the wrong data being edited.
+ */
 function ArrayField({
   field,
   value,
@@ -103,6 +193,19 @@ function ArrayField({
     ? (value as Array<Record<string, unknown>>)
     : [];
   const subFields = field.of ?? [];
+  const singular = shortNoun(field.label);
+  const plural = singular.endsWith("s") ? singular : `${singular}s`;
+
+  const [open, setOpen] = useState<Set<number>>(() => new Set());
+
+  function toggle(index: number) {
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }
 
   function updateItem(index: number, itemValue: Record<string, unknown>) {
     const next = [...items];
@@ -115,57 +218,171 @@ function ArrayField({
     const [item] = next.splice(index, 1);
     next.splice(index + dir, 0, item);
     onChange(next);
+
+    // The two rows swap places, so their open flags swap with them.
+    const target = index + dir;
+    setOpen((prev) => {
+      const set = new Set(prev);
+      const had = prev.has(index);
+      const other = prev.has(target);
+      if (other) set.add(index);
+      else set.delete(index);
+      if (had) set.add(target);
+      else set.delete(target);
+      return set;
+    });
   }
 
+  function remove(index: number) {
+    onChange(items.filter((_, j) => j !== index));
+    // Everything after the removed row shifts down one.
+    setOpen((prev) => {
+      const set = new Set<number>();
+      for (const i of prev) {
+        if (i < index) set.add(i);
+        else if (i > index) set.add(i - 1);
+      }
+      return set;
+    });
+  }
+
+  function add() {
+    onChange([...items, {}]);
+    // A new row is empty, so there is nothing to read in its collapsed title —
+    // it opens straight away, ready to type into.
+    setOpen((prev) => new Set(prev).add(items.length));
+  }
+
+  const addButton = (
+    <Button type="button" variant="outline" size="sm" onClick={add}>
+      <Plus className="h-4 w-4" /> Add {singular}
+    </Button>
+  );
+
   return (
-    <div className="space-y-3">
-      {items.map((item, i) => (
-        <div key={i} className="rounded-md border p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">
-              {field.label} #{i + 1}
-            </span>
-            <div className="flex gap-1">
-              <Button
-                type="button" variant="ghost" size="icon" className="h-6 w-6"
-                disabled={i === 0} onClick={() => move(i, -1)} aria-label="Move up"
-              >
-                <ChevronUp className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                type="button" variant="ghost" size="icon" className="h-6 w-6"
-                disabled={i === items.length - 1} onClick={() => move(i, 1)} aria-label="Move down"
-              >
-                <ChevronDown className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                type="button" variant="ghost" size="icon" className="h-6 w-6"
-                onClick={() => onChange(items.filter((_, j) => j !== i))} aria-label="Remove item"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-          <div className="space-y-3">
-            {subFields.filter((sub) => isFieldVisible(sub, item)).map((sub) => (
-              <FieldInput
-                key={sub.name}
-                field={sub}
-                value={item[sub.name]}
-                onChange={(v) => updateItem(i, { ...item, [sub.name]: v })}
-              />
-            ))}
-          </div>
+    <div className="space-y-2">
+      {/* Count and controls above the list: with rows collapsed the list can be
+          long, and "add" belonged only at the bottom — a scroll to the end for
+          every new item. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs text-muted-foreground">
+          {items.length} {items.length === 1 ? singular : plural}
+        </span>
+        <div className="flex items-center gap-1">
+          {open.size > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setOpen(new Set())}
+            >
+              Collapse all
+            </Button>
+          )}
+          {addButton}
         </div>
-      ))}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => onChange([...items, {}])}
-      >
-        <Plus className="h-4 w-4" /> Add {field.label.toLowerCase()}
-      </Button>
+      </div>
+
+      <div className="divide-y rounded-md border">
+        {items.length === 0 && (
+          <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+            Nothing here yet.
+          </p>
+        )}
+
+        {items.map((item, i) => {
+          const isOpen = open.has(i);
+          const { title, empty } = itemSummary(field, item, subFields);
+          const badge = field.summaryBadgeField
+            ? toPlainText(item[field.summaryBadgeField])
+            : "";
+
+          return (
+            <div key={i}>
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                {/* The whole title is the toggle, not a small chevron — a 44px
+                    row with a 14px hit target is a row you miss. */}
+                <button
+                  type="button"
+                  onClick={() => toggle(i)}
+                  aria-expanded={isOpen}
+                  // Stable hook for tests: `button[aria-expanded]` alone also
+                  // matches the mobile nav trigger and every other disclosure
+                  // on the page.
+                  data-array-row={i}
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-1 text-left hover:bg-muted/60"
+                >
+                  <ChevronRight
+                    className={`size-4 shrink-0 text-muted-foreground transition-transform ${
+                      isOpen ? "rotate-90" : ""
+                    }`}
+                    aria-hidden
+                  />
+                  <span className="w-6 shrink-0 text-xs tabular-nums text-muted-foreground">
+                    {i + 1}
+                  </span>
+                  <span
+                    className={`truncate text-sm ${
+                      empty ? "italic text-muted-foreground" : "font-medium"
+                    }`}
+                  >
+                    {title}
+                  </span>
+                  {badge && (
+                    <span className="ml-auto hidden shrink-0 rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground sm:inline">
+                      {badge}
+                    </span>
+                  )}
+                </button>
+
+                <div className="flex shrink-0 gap-0.5">
+                  <Button
+                    type="button" variant="ghost" size="icon" className="h-7 w-7"
+                    disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Move ${singular} ${i + 1} up`}
+                  >
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button" variant="ghost" size="icon" className="h-7 w-7"
+                    disabled={i === items.length - 1} onClick={() => move(i, 1)} aria-label={`Move ${singular} ${i + 1} down`}
+                  >
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button" variant="ghost" size="icon" className="h-7 w-7"
+                    onClick={() => remove(i)} aria-label={`Remove ${singular} ${i + 1}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Unmounted when closed, not hidden — a mounted TipTap instance
+                  costs the same whether or not anyone can see it, and mounting
+                  twelve is what made this screen slow. */}
+              {isOpen && (
+                <div className="space-y-3 border-t bg-muted/20 px-3 py-3">
+                  {subFields
+                    .filter((sub) => isFieldVisible(sub, item))
+                    .map((sub) => (
+                      <FieldInput
+                        key={sub.name}
+                        field={sub}
+                        value={item[sub.name]}
+                        onChange={(v) => updateItem(i, { ...item, [sub.name]: v })}
+                      />
+                    ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Also at the bottom: after editing the last item, that is where the
+          cursor already is. */}
+      {items.length > 0 && addButton}
     </div>
   );
 }
@@ -296,12 +513,19 @@ export function FieldInput({
     }
   })();
 
+  const { title, hint } = splitLabel(field.label);
+
   return (
     <div className="space-y-1.5">
-      <Label className="flex items-center gap-1">
-        {field.label}
-        {field.required && <span className="text-destructive">*</span>}
-      </Label>
+      <div className="space-y-0.5">
+        <Label className="flex items-center gap-1">
+          {title}
+          {field.required && <span className="text-destructive">*</span>}
+        </Label>
+        {/* The explanation half of the label, set as help text rather than as
+            more bold type — see splitLabel. */}
+        {hint && <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>}
+      </div>
       {control}
     </div>
   );

@@ -9,6 +9,9 @@ import { toHeroSlides } from "@/server/cms/hero-slides";
 import { HomepageSection } from "@/components/storefront/homepage-section";
 import type { HomepageSection as Section } from "@/server/products/homepage-sections";
 import type { EntryData } from "@/server/cms/types";
+// Pure helpers — no Prisma, no next/*, so the preview shares the exact grouping
+// the /faq page uses. See the note on FaqPreview.
+import { parseFaqItems, groupFaqItems } from "@/lib/faq";
 
 /**
  * Live-preview render target, loaded in an iframe beside the entry editor.
@@ -140,27 +143,48 @@ function HomepagePreview({ data }: { data: EntryData }) {
     <>
       {/* Slides come straight off the draft, so the hero updates as you type. */}
       <HomepageView data={data} heroSlides={heroSlides} />
-      {resolved?.sections.map((section) => (
-        <HomepageSection
-          key={section.key}
-          section={section}
-          revealDepth={revealDepths.get(section.key)}
-          // The real feed is an async server component and can't render here;
-          // the placeholder keeps the section's position in the page visible.
-          instagramSlot={
-            section.kind === "instagram" ? (
-              <div className="container-page py-16 text-center text-sm text-muted-foreground">
-                Instagram feed — renders live on the published page.
-              </div>
-            ) : undefined
-          }
-        />
-      ))}
-      {resolved === null && (
-        <p className="py-10 text-center text-xs text-muted-foreground">Resolving sections…</p>
-      )}
-      {/* Matches the real page: after the sections, not under the hero. */}
-      <CustomerReviewsPreviewNote />
+
+      {/*
+        ⚠️  MUST mirror (storefront)/page.tsx: everything below the hero goes in
+        ONE .page-over-hero wrapper, as a direct sibling of the hero.
+
+        Below 1024px .hero-curtain becomes `position: sticky`, and the only
+        thing that covers it is the `.hero-curtain ~ .page-over-hero` rule in
+        globals.css — an opaque sheet at z-index 1. The sections cannot provide
+        that themselves: each is a .reveal-section starting at `opacity: 0`, and
+        opacity applies to an element's own background too.
+
+        This pane had the hero and the sections as bare siblings with no
+        wrapper, so the rule never matched. Media queries inside an iframe
+        resolve against the IFRAME's width, and the preview pane is well under
+        1024px even on a wide monitor — so the preview always took the sticky
+        path and always showed the hero through every section, while the real
+        page at the same window width did not. Exactly the symptom the
+        globals.css note predicts.
+      */}
+      <div className="page-over-hero">
+        {resolved?.sections.map((section) => (
+          <HomepageSection
+            key={section.key}
+            section={section}
+            revealDepth={revealDepths.get(section.key)}
+            // The real feed is an async server component and can't render here;
+            // the placeholder keeps the section's position in the page visible.
+            instagramSlot={
+              section.kind === "instagram" ? (
+                <div className="container-page py-16 text-center text-sm text-muted-foreground">
+                  Instagram feed — renders live on the published page.
+                </div>
+              ) : undefined
+            }
+          />
+        ))}
+        {resolved === null && (
+          <p className="py-10 text-center text-xs text-muted-foreground">Resolving sections…</p>
+        )}
+        {/* Matches the real page: after the sections, not under the hero. */}
+        <CustomerReviewsPreviewNote />
+      </div>
     </>
   );
 }
@@ -302,9 +326,114 @@ function TypePreview({ type, data }: { type: string; data: EntryData }) {
       );
     }
 
+    case "faq":
+      return <FaqPreview data={data} />;
+
+    case "product-info":
+      return <ProductInfoPreview data={data} />;
+
     default:
       return <GenericPreview data={data} />;
   }
+}
+
+/**
+ * The FAQ, grouped exactly as /faq groups it.
+ *
+ * Reuses parseFaqItems and groupFaqItems rather than re-deriving the grouping —
+ * they are deliberately free of Prisma and next/* imports so this client
+ * component can share them, which is what keeps the preview honest. A grouping
+ * rule reimplemented here would drift from the page it claims to preview.
+ *
+ * Rows render OPEN, unlike the storefront's collapsed accordion: an editor is
+ * checking the answers they just typed, and a preview that hides all of them
+ * behind twelve clicks shows nothing worth looking at.
+ */
+function FaqPreview({ data }: { data: EntryData }) {
+  const items = parseFaqItems(data.items);
+  if (items.length === 0) {
+    return <PreviewEmpty message="Add a question with both a question and an answer to preview the FAQ." />;
+  }
+
+  const sections = groupFaqItems(items);
+  const intro = str(data.intro);
+
+  return (
+    <div className="container-prose py-10">
+      <h1 className="text-h1">Frequently asked questions</h1>
+      {intro && <p className="text-lead mt-4 border-b pb-6 text-muted-foreground">{intro}</p>}
+
+      <div className="mt-10 space-y-12">
+        {sections.map((section) => (
+          <section key={section.group}>
+            <h2 className="label-eyebrow mb-1">{section.group}</h2>
+            <div className="border-t">
+              {section.items.map((item) => (
+                <div key={item.question} className="border-b py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <h3 className="text-sm font-medium">{item.question}</h3>
+                    {/* The flag is invisible on /faq itself, so the preview is
+                        the only place an editor can check it without opening
+                        a product page. */}
+                    {item.showOnProductPage && (
+                      <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                        also on product pages
+                      </span>
+                    )}
+                  </div>
+                  <DraftHtml html={item.answer} />
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The three shared blocks that appear under every product's actions.
+ *
+ * Drawn as the storefront's expandable rows, open — same reason as the FAQ
+ * above. "Details & measurements" is absent because it is per-product and comes
+ * from the Product row, not from this entry; showing an empty one here would
+ * suggest it is editable in the CMS.
+ */
+function ProductInfoPreview({ data }: { data: EntryData }) {
+  const rows: Array<[string, string | undefined]> = [
+    ["Materials & hallmarking", str(data.materials)],
+    ["Care", str(data.care)],
+    ["Shipping & returns", str(data.shippingReturns)],
+  ];
+  const written = rows.filter(([, html]) => html);
+
+  if (written.length === 0) {
+    return <PreviewEmpty message="Write one of these sections to preview it." />;
+  }
+
+  return (
+    <div className="container-prose py-10">
+      <p className="label-eyebrow mb-5">Shown on every product page</p>
+      <div className="border-t">
+        {rows.map(([title, html]) => (
+          <div key={title} className="border-b py-4">
+            <h3 className="text-sm font-medium">{title}</h3>
+            {html ? (
+              <DraftHtml html={html} />
+            ) : (
+              // Named rather than skipped: an editor needs to see which of the
+              // three is still empty, because the storefront renders nothing
+              // at all for an unwritten one.
+              <p className="mt-2 text-sm italic text-muted-foreground">
+                Not written yet — nothing renders for shoppers.
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /**
