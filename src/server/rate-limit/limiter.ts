@@ -8,8 +8,10 @@ import { headers } from "next/headers";
  * fragmented per instance. Tiers mirror the old site's
  * by-endpoint-sensitivity philosophy.
  *
- * Degrades to a no-op (with one boot-time warning) when Upstash env vars are
- * absent/placeholders, so local dev works without Redis.
+ * When the Upstash env vars are absent or still placeholders, behaviour splits
+ * by environment: outside production it degrades to a no-op (one boot-time
+ * warning) so local dev works without Redis; in production it fails closed.
+ * See the note on checkRateLimit for why the two differ.
  */
 
 function isConfigured(): boolean {
@@ -24,7 +26,11 @@ let warned = false;
 function getRedis(): Redis | null {
   if (!isConfigured()) {
     if (!warned) {
-      console.warn("[rate-limit] Upstash not configured — rate limiting is DISABLED.");
+      console.warn(
+        process.env.NODE_ENV === "production"
+          ? "[rate-limit] Upstash not configured in PRODUCTION — rate-limited routes will be REFUSED until UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are set."
+          : "[rate-limit] Upstash not configured — rate limiting is DISABLED (non-production)."
+      );
       warned = true;
     }
     return null;
@@ -71,6 +77,23 @@ export const TIERS = {
   review: { tokens: 5, window: "15 m", prefix: "rl:review" },
 } as const satisfies Record<string, Tier>;
 
+/**
+ * The one way to run a production build without rate limiting.
+ *
+ * The asymmetry is the point: FORGETTING to configure Upstash fails closed,
+ * while running without it requires setting this variable on purpose. An
+ * omission can never silently unprotect the shop; only a deliberate act can,
+ * and that act is greppable and named for what it does.
+ *
+ * It exists because `next start` sets NODE_ENV=production, so the e2e suite —
+ * which must run against a production build to test the headers and the static
+ * shell — would otherwise be locked out of its own login page. Set it for local
+ * and CI test runs. Never set it on the live shop.
+ */
+function failOpenOptOut(): boolean {
+  return process.env.RATE_LIMIT_FAIL_OPEN === "1";
+}
+
 const limiters = new Map<string, Ratelimit>();
 
 function getLimiter(tier: Tier): Ratelimit | null {
@@ -93,15 +116,45 @@ export async function getClientIp(): Promise<string> {
   return h.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 }
 
-/** Returns true when the request is allowed. */
+/**
+ * Returns true when the request is allowed.
+ *
+ * Two failure modes, deliberately treated as opposites:
+ *
+ *  1. NOT CONFIGURED — no Upstash URL/token, or a placeholder left in place.
+ *     In production this now fails CLOSED. It used to return true with nothing
+ *     but a console.warn, which meant a single typo'd environment variable
+ *     silently disabled all eleven tiers — auth, payment verify, guest order,
+ *     webhooks — on a live shop, with no signal that anything was wrong.
+ *     A misconfigured deploy should break loudly and immediately (login and
+ *     checkout start refusing, Sentry fires) rather than quietly serve an
+ *     unprotected site. Outside production it still allows, so local dev and
+ *     preview builds work without Redis.
+ *
+ *  2. REDIS OUTAGE — configured correctly, but the call threw. This still
+ *     fails OPEN. The distinction is that #1 is our mistake and is fixed in
+ *     minutes by setting a variable, whereas #2 is a third party being down
+ *     and must not take checkout with it. It is reported rather than logged so
+ *     the degraded window is visible instead of silent.
+ */
 export async function checkRateLimit(tierName: keyof typeof TIERS, key: string): Promise<boolean> {
   const limiter = getLimiter(TIERS[tierName]);
-  if (!limiter) return true; // unconfigured — allow
+
+  if (!limiter) {
+    if (process.env.NODE_ENV === "production" && !failOpenOptOut()) {
+      console.error(
+        `[rate-limit] DENYING ${tierName}: Upstash is not configured in production. ` +
+          "Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN."
+      );
+      return false;
+    }
+    return true; // dev/preview, or an explicit opt-out — see note above
+  }
+
   try {
     const { success } = await limiter.limit(key);
     return success;
   } catch (err) {
-    // A Redis outage must never take checkout down with it.
     console.error("[rate-limit] check failed — allowing request", err);
     return true;
   }

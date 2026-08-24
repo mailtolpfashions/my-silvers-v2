@@ -42,6 +42,20 @@ export default auth((req) => {
     }
   }
 
+  // The CMS live-preview target. It renders draft HTML unsanitized, which is
+  // safe on its own terms — the draft only ever arrives by same-origin
+  // postMessage from the editor, never from the database, so the exposure is
+  // self-XSS. It is gated anyway because an unauthenticated route that renders
+  // arbitrary HTML is a liability worth closing while it costs one line, and
+  // because a preview pane is an authoring tool regardless of its blast radius.
+  if (pathname.startsWith("/preview")) {
+    if (!role || (role !== "admin" && role !== "editor")) {
+      const loginUrl = new URL("/login", req.nextUrl.origin);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   if (pathname.startsWith("/account") && !req.auth) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
     loginUrl.searchParams.set("redirect", pathname);
@@ -52,5 +66,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/admin/:path*", "/cms/:path*", "/account/:path*"],
+  matcher: ["/admin/:path*", "/cms/:path*", "/preview/:path*", "/account/:path*"],
 };

@@ -45,3 +45,9 @@ next-env.d.ts
 
 # Local CMS snapshots written by prisma/author-homepage-redesign.ts
 prisma/backup-homepage-*.json
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

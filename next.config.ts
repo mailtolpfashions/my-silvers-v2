@@ -17,7 +17,87 @@ import { withSentryConfig } from "@sentry/nextjs";
 const allowPlaceholderImages =
   process.env.ALLOW_PLACEHOLDER_IMAGES === "1" || process.env.NODE_ENV !== "production";
 
+/**
+ * Content Security Policy.
+ *
+ * ⚠️  Deliberately NOT nonce-based. Next's own guidance generates a per-request
+ * nonce in the proxy, and states plainly that doing so "must use dynamic
+ * rendering" — which would opt every page out of the static shell that
+ * `cacheComponents` exists to produce. On a shop whose cheapest traffic by far
+ * is anonymous browsing off a prerendered shell, buying a stricter script
+ * policy with the entire PPR architecture is the wrong trade.
+ *
+ * So this is a static policy shipped as a header, and the cost is explicit:
+ * `script-src` needs 'unsafe-inline' because Next emits inline bootstrap and
+ * flight-data scripts with no nonce to mark them with. That is materially
+ * weaker than a nonce policy against injected script — it is bought back with
+ * `object-src 'none'`, `base-uri 'self'`, `form-action 'self'` and a locked
+ * `frame-ancestors`, which close the escalation routes an XSS would reach for.
+ *
+ * Rolled out as Report-Only first (see the header key below). Watch the browser
+ * console on checkout, the CMS editor and the media library — those are the
+ * three places that load third-party origins — then switch the key to
+ * `Content-Security-Policy` to enforce.
+ */
+const isDev = process.env.NODE_ENV !== "production";
+
+const CSP = [
+  "default-src 'self'",
+  // 'unsafe-inline': see the note above. 'unsafe-eval' is dev-only — React uses
+  // eval to rebuild server error stacks in the browser; production needs neither.
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://checkout.razorpay.com`,
+  // Tailwind ships a stylesheet, but Next still injects inline <style> during
+  // streaming, and next/font writes inline @font-face blocks.
+  "style-src 'self' 'unsafe-inline'",
+  // blob: and data: are needed by next/image and the Cloudinary upload widget's
+  // client-side preview before bytes leave the browser.
+  "img-src 'self' data: blob: https://res.cloudinary.com https://*.cdninstagram.com https://*.fbcdn.net https://placehold.co",
+  // next/font/google self-hosts at build time, so no external font origin here.
+  "font-src 'self' data:",
+  // Razorpay's checkout posts telemetry to lumberjack; Cloudinary receives the
+  // direct browser upload; Sentry receives errors from instrumentation-client.
+  "connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://api.cloudinary.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io",
+  // Razorpay Checkout.js mounts its payment UI in an iframe on our page.
+  "frame-src https://api.razorpay.com https://checkout.razorpay.com",
+  "media-src 'self' https://res.cloudinary.com",
+  "worker-src 'self' blob:",
+  // Nothing on this site should ever be framed — the clickjacking gate, and the
+  // modern replacement for X-Frame-Options (both are sent; old browsers read
+  // only the latter).
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "upgrade-insecure-requests",
+].join("; ");
+
+const SECURITY_HEADERS = [
+  // Report-Only while the policy is validated against the real third parties.
+  // Rename to "Content-Security-Policy" to enforce.
+  { key: "Content-Security-Policy-Report-Only", value: CSP },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), payment=(self), interest-cohort=()",
+  },
+  // Two years, subdomains included, and preload-eligible. Only ever sent over
+  // HTTPS by the browser's own rules, so it is inert on localhost.
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains; preload",
+  },
+];
+
 const nextConfig: NextConfig = {
+  // Drops the "X-Powered-By: Next.js" fingerprint from every response.
+  poweredByHeader: false,
+
+  async headers() {
+    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+  },
+
   // Partial Prerendering: a static shell served from the edge, with per-shopper
   // holes streamed in. In Next 16 this flag is the only route to PPR —
   // experimental.ppr was removed. Top-level, not under `experimental`.
@@ -83,11 +163,13 @@ const nextConfig: NextConfig = {
     // pull far more than they use. lucide-react is deliberately NOT listed —
     // Next optimizes it by default already.
     optimizePackageImports: ["radix-ui", "@tiptap/react", "@tiptap/starter-kit"],
-
-    // Enables React's <ViewTransition>, used for the product card → product
-    // page morph. Browser-driven, so it costs nothing in the client bundle.
-    viewTransition: true,
   },
+
+  // NOTE: `experimental.viewTransition` used to live here, enabling React's
+  // <ViewTransition> for the product card → product page morph. Next 16.3
+  // removed the flag because the feature graduated — view transitions now work
+  // in the App Router with no configuration at all. The morph still works; the
+  // key is gone, and setting it is a type error.
 };
 
 // Sourcemap upload only runs when SENTRY_AUTH_TOKEN is a real value, so local
@@ -97,7 +179,9 @@ const sentryEnabled =
 
 export default withSentryConfig(nextConfig, {
   silent: !sentryEnabled,
-  disableLogger: true,
+  // Was `disableLogger: true`, which the SDK now warns is deprecated. Same
+  // effect — Sentry's debug logging is tree-shaken out of the client bundle.
+  webpack: { treeshake: { removeDebugLogging: true } },
   telemetry: false,
   sourcemaps: { disable: !sentryEnabled },
 });

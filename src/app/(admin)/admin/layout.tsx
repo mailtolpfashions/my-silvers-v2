@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/server/auth/auth";
+import { getCurrentRole } from "@/server/auth/require-role";
 import { DashboardShell, type NavGroup } from "@/components/layout/dashboard-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -67,8 +68,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 async function AdminGate({ children }: { children: React.ReactNode }) {
   // Defense in depth — proxy.ts already gates /admin optimistically, this is
   // the authoritative server-side check.
-  const session = await auth();
-  if (session?.user?.role !== "admin") {
+  //
+  // The role comes from getCurrentRole() rather than session.user.role: the
+  // session's copy is written once at sign-in and never refreshed, so a
+  // demoted admin would keep rendering this shell until their token expired.
+  // See the note in require-role.ts.
+  const [session, role] = await Promise.all([auth(), getCurrentRole()]);
+  if (!session?.user || role !== "admin") {
     redirect("/login?redirect=/admin");
   }
 

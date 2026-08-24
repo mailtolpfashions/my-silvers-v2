@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/server/auth/auth";
+import { getCurrentRole } from "@/server/auth/require-role";
 import { prisma } from "@/server/db";
 import { DashboardShell, type NavGroup } from "@/components/layout/dashboard-shell";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,9 +37,11 @@ export default function CmsLayout({ children }: { children: React.ReactNode }) {
 }
 
 async function CmsGate({ children }: { children: React.ReactNode }) {
-  const session = await auth();
-  const role = session?.user?.role;
-  if (!role || (role !== "admin" && role !== "editor")) {
+  // Role from the database, not from session.user.role — the token's copy is
+  // written once at sign-in, so a revoked editor would keep rendering this
+  // shell until it expired. See the note in require-role.ts.
+  const [session, role] = await Promise.all([auth(), getCurrentRole()]);
+  if (!session?.user || !role || (role !== "admin" && role !== "editor")) {
     redirect("/login?redirect=/cms");
   }
 
