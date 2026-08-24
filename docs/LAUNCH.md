@@ -321,3 +321,55 @@ rates as fact and the shopper count as the right order of magnitude.
 - `/api/search/suggestions` used to be the first thing to break — 500s from 60
   concurrent. It is edge-cached now. If you ever remove those cache headers,
   this is what comes back.
+
+---
+
+## 10. Function region — the largest single performance lever
+
+`vercel.json` pins functions to **`bom1` (Mumbai)** to sit beside Supabase's
+`ap-south-1`. Keep the two in the same region; nothing else on this list moves
+the needle as far.
+
+Measured before the pin (audit, Aug 2026). Functions were running in `iad1`
+(Washington DC) while the database was in Mumbai, so every query crossed the
+planet and came back:
+
+| Request | Deployed (`iad1`) | Local (63ms RTT) |
+| --- | --- | --- |
+| Search suggestions, cache miss | **~500 ms** | ~65 ms |
+| Same, cold function | ~3.0 s | — |
+| Same, edge cache hit | ~130 ms | — |
+
+A page making four sequential queries was spending roughly two seconds doing
+nothing but waiting for the network. The static shell hid most of it — PPR
+serves that from the edge in ~28ms — but everything personal, and every cache
+miss, paid it in full.
+
+**Check it after any deploy.** The response header says where the function ran:
+
+```bash
+curl -sI https://www.mysilvers.in/ | grep -i x-vercel-id
+# X-Vercel-Id: bom1::iad1::…
+#              ^edge  ^function region — this one must be bom1
+```
+
+Two caveats:
+
+- Region pinning for a single region works on Hobby; multiple regions need a
+  paid plan. If a deploy ignores this, check the plan before assuming the
+  config is wrong.
+- If the database ever moves, this moves with it. A `bom1` function against a
+  US database is exactly the problem above, in reverse.
+
+### Judge speed on a production build, never `next dev`
+
+Measured on one machine, same database, warm:
+
+| Page | `next dev` | `next build && next start` |
+| --- | --- | --- |
+| `/` | 347 ms | **4 ms** |
+| `/products` | 183 ms | **4 ms** |
+| `/collections` | 124 ms | **4 ms** |
+
+Dev compiles routes on demand and skips the production cache entirely. It is
+30–85× slower here and says nothing about what ships.
