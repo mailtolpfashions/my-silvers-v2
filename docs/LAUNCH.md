@@ -271,6 +271,53 @@ Watch, in this order of usefulness:
    daily sweep will catch them, but a pattern means the webhook is not firing.
 3. **`[rate-limit]` lines in the Vercel logs.** "Upstash not configured in
    PRODUCTION" means the shop is refusing logins right now.
-4. **Supabase connection count.** The app pools at 5 per instance; the ceiling
-   is the first thing that will bind under real traffic, and it has not been
-   load-tested yet (audit Phase 5, pending a preview URL).
+4. **Supabase connection count.** This is the ceiling, and it has now been
+   measured — see below.
+
+---
+
+## 9. What it will actually take
+
+Measured against the demo deployment (audit Phase 5, Aug 2026) with
+`scripts/loadtest.ts`. Re-run it after the catalogue grows or the plan changes:
+
+```bash
+npx tsx scripts/loadtest.ts https://www.mysilvers.in
+```
+
+> GET only — it never signs in, orders, or writes. Safe against production,
+> though it will make the site slower while it runs.
+
+**The ceiling is the pooler, at 200 client connections.** Pushed hard enough,
+Postgres says so itself: `(EMAXCONN) max client connections reached, limit: 200`.
+The stack is app instances → pgbouncer (200 client slots) → Postgres
+(`max_connections = 60`). At `max: 5` per instance that is roughly **40
+concurrent serverless instances**.
+
+Raising it is a Supabase plan change, not a code change. Do not raise the pool
+size in `db.ts` to compensate — a larger pool takes more slots from the same
+budget for no extra throughput.
+
+**What held:**
+
+| Concurrent requests | Homepage (PPR shell) | `/products` (db) |
+| --- | --- | --- |
+| 40 | 1,010ms p95, 0 errors | 4,224ms p95, 0 errors |
+| 220 | — | 0 errors |
+
+`/products` absorbed 220 concurrent requests without a single failure. Rising
+p95 against a flat error rate is queueing, which is the polite failure mode.
+
+**Roughly**, a browsing shopper makes one request every 5–10 seconds, so 40 in
+flight is on the order of **200–400 people browsing at once**. That last step is
+arithmetic on top of the measurement, not a second measurement — treat the error
+rates as fact and the shopper count as the right order of magnitude.
+
+**Two operational notes:**
+
+- A load-test run holds those 200 slots for a few minutes afterwards, and
+  `next build` needs its own connections. A build started immediately after a
+  run fails with the same `EMAXCONN`. Wait a few minutes.
+- `/api/search/suggestions` used to be the first thing to break — 500s from 60
+  concurrent. It is edge-cached now. If you ever remove those cache headers,
+  this is what comes back.
