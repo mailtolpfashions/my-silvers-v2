@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/server/auth/auth";
@@ -6,10 +7,45 @@ import { OrderDetail } from "@/components/storefront/orders/order-detail";
 import { getReviewableItems } from "@/server/reviews/reviewable-items";
 import { CancelOrderButton } from "@/components/storefront/orders/cancel-order-button";
 import { RequestReturnButton } from "@/components/storefront/orders/request-return-button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const CANCELLABLE = ["placed", "confirmed", "processing"] as const;
 
-export default async function AccountOrderDetailPage({
+/**
+ * ⚠️  The page body is deliberately EMPTY of data access.
+ *
+ * With `cacheComponents` on, an uncached read outside a `<Suspense>` boundary
+ * is an error, not a preference: Next refuses to prerender a shell for the
+ * route and the navigation becomes blocking. This page used to `await auth()`
+ * on its first line, which meant nothing could be sent until the session, the
+ * order and the reviewable items had all resolved — a measured 9.2s on a cold
+ * request, with a blank screen for the whole of it.
+ *
+ * `auth()` reads cookies and the order is per-shopper, so neither `"use cache"`
+ * nor `instant = false` is the right answer — the first is impossible and the
+ * second only silences the warning while keeping the blocking behaviour.
+ * Streaming is the fix: the shell paints immediately and the per-shopper part
+ * arrives when it can.
+ *
+ * Same shape as the admin layout's AdminGate, and for the same reason.
+ */
+export default function AccountOrderDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ placed?: string }>;
+}) {
+  return (
+    <div className="container-checkout rhythm-transactional">
+      <Suspense fallback={<OrderDetailSkeleton />}>
+        <OrderDetailContent params={params} searchParams={searchParams} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function OrderDetailContent({
   params,
   searchParams,
 }: {
@@ -37,7 +73,7 @@ export default async function AccountOrderDetailPage({
     (order.paymentStatus === "paid" || order.paymentMethod === "cod");
 
   return (
-    <div className="container-checkout rhythm-transactional">
+    <>
       {placed && (
         <p className="mb-6 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800">
           Thank you! Your order has been placed successfully.
@@ -59,6 +95,22 @@ export default async function AccountOrderDetailPage({
           )}
         </div>
       )}
+    </>
+  );
+}
+
+/** Roughly the geometry of a resolved order, so nothing jumps when it lands. */
+function OrderDetailSkeleton() {
+  return (
+    <div className="space-y-6">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-24 w-full" />
+      <div className="space-y-4">
+        {Array.from({ length: 3 }, (_, i) => (
+          <Skeleton key={i} className="h-20 w-full" />
+        ))}
+      </div>
+      <Skeleton className="h-32 w-full" />
     </div>
   );
 }

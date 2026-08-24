@@ -191,8 +191,19 @@ export function OrderDetail({
           {order.items.map((item) => (
             <div key={item.id} className="flex items-center gap-4">
               <div className="relative h-20 w-16 shrink-0 overflow-hidden bg-muted">
+                {/* The box is a fixed 64px (w-16) at every breakpoint, so
+                    `sizes` is a constant. Without it, `fill` makes next/image
+                    assume the image could be viewport-wide and serve a
+                    full-size variant for a thumbnail — which is what the
+                    "missing sizes prop" warning is about. */}
                 {item.image && (
-                  <Image src={item.image} alt={item.name} fill className="object-cover" />
+                  <Image
+                    src={item.image}
+                    alt={item.name}
+                    fill
+                    sizes="64px"
+                    className="object-cover"
+                  />
                 )}
               </div>
               <div className="min-w-0 flex-1">
