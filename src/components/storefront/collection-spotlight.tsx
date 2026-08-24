@@ -245,20 +245,27 @@ export function CollectionSpotlight({ items }: { items: SpotlightItem[] }) {
                     `min-h-0` is what allows the lg case to shrink: a flex item
                     defaults to min-height:auto and would refuse to go below the
                     image's intrinsic height, pushing the section past the fold. */}
-                <Link
-                  href={`/collections/${item.slug}`}
-                  transitionTypes={["nav-forward"]}
-                  tabIndex={isClone ? -1 : undefined}
-                  className="group relative block aspect-[4/5] overflow-hidden bg-muted sm:aspect-[16/9] lg:aspect-auto lg:min-h-0 lg:flex-1"
-                >
-                  <Image
-                    src={item.banner}
-                    alt={item.title}
-                    fill
-                    sizes="(max-width: 640px) 86vw, (max-width: 1024px) 70vw, 50vw"
-                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
-                  />
-                </Link>
+                {/* ⚠️  This wrapper exists only to be a positioning context for
+                    the thumbnails on a phone, where they sit ON the banner
+                    rather than under it. It therefore has to carry the lg flex
+                    behaviour that used to live on the <Link>: the article is a
+                    flex column and this div, not the link, is now its child, so
+                    `flex-1` has to grow the wrapper and the link fills it. */}
+                <div className="relative lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+                  <Link
+                    href={`/collections/${item.slug}`}
+                    transitionTypes={["nav-forward"]}
+                    tabIndex={isClone ? -1 : undefined}
+                    className="group relative block aspect-[4/5] overflow-hidden bg-muted sm:aspect-[16/9] lg:aspect-auto lg:min-h-0 lg:flex-1"
+                  >
+                    <Image
+                      src={item.banner}
+                      alt={item.title}
+                      fill
+                      sizes="(max-width: 640px) 86vw, (max-width: 1024px) 70vw, 50vw"
+                      className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
+                    />
+                  </Link>
 
                 {/* The pieces, hanging off the banner's lower edge and centred on
                     it. Centred rather than left-aligned because the row is a
@@ -271,27 +278,65 @@ export function CollectionSpotlight({ items }: { items: SpotlightItem[] }) {
 
                     Rendered only when the collection resolved some products — a
                     card with none is its banner, not a banner with a gap. */}
-                {item.products.length > 0 && (
-                  <div className="relative z-10 -mt-[9%] flex justify-center gap-3 px-[6%]">
-                    {item.products.map((product) => (
-                      <Link
-                        key={product.id}
-                        href={`/products/${product.slug}`}
-                        transitionTypes={["nav-forward"]}
-                        tabIndex={isClone ? -1 : undefined}
-                        className="relative aspect-square w-[22%] overflow-hidden bg-background shadow-[0_1px_12px_rgba(0,0,0,0.10)]"
-                      >
-                        <Image
-                          src={product.image}
-                          alt={product.name}
-                          fill
-                          sizes="(max-width: 640px) 20vw, 15vw"
-                          className="object-cover"
-                        />
-                      </Link>
-                    ))}
-                  </div>
-                )}
+                  {/* One element, two arrangements — never two copies. These
+                      are real links to real products; rendering a phone set and
+                      a desktop set would put every one in the document twice.
+
+                      ── Phone: a column down the banner's right edge ──────────
+                      Absolutely placed inside the wrapper above and centred
+                      vertically, so the pieces read as a filmstrip laid over the
+                      photograph. Under the banner they had to share one line,
+                      which on a 327px card meant 63px squares — too small to
+                      show a piece of jewellery, which was the complaint. Down
+                      the side they are limited by the banner's HEIGHT instead,
+                      so they get half as much again.
+
+                      ── sm and up: unchanged ─────────────────────────────────
+                      Back into flow as the centred row hanging off the lower
+                      edge. `sm:static` is what releases the absolute placement;
+                      the inset and translate are undone alongside it or they
+                      would still apply to a static box. */}
+                  {item.products.length > 0 && (
+                    <div
+                      className={
+                        // The WIDTH lives on this box, not the tiles: absolutely
+                        // positioned with only `right`, it would otherwise shrink
+                        // to fit and a percentage width on the children would
+                        // have nothing definite to resolve against.
+                        //
+                        // A fixed gap rather than a percentage: a column gap in
+                        // percent resolves against the container's HEIGHT, which
+                        // here is the whole banner, and three tiles would be
+                        // flung apart.
+                        "absolute inset-y-0 right-[5%] z-10 flex w-[30%] flex-col justify-center gap-2 " +
+                        "sm:static sm:w-auto sm:-mt-[9%] sm:flex-row sm:justify-center sm:gap-3 sm:px-[6%]"
+                      }
+                    >
+                      {item.products.map((product) => (
+                        <Link
+                          key={product.id}
+                          href={`/products/${product.slug}`}
+                          transitionTypes={["nav-forward"]}
+                          tabIndex={isClone ? -1 : undefined}
+                          // Full width of the column on a phone; back to a share
+                          // of the card once the row is horizontal again.
+                          // The heavier shadow is only for the phone case, where
+                          // a tile sits ON the photograph and needs to lift off
+                          // it rather than off the page.
+                          className="relative aspect-square w-full shrink-0 overflow-hidden bg-background shadow-[0_1px_12px_rgba(0,0,0,0.18)] sm:w-[22%] sm:shadow-[0_1px_12px_rgba(0,0,0,0.10)]"
+                        >
+                          <Image
+                            src={product.image}
+                            alt={product.name}
+                            fill
+                            sizes="(max-width: 640px) 26vw, 15vw"
+                            className="object-cover"
+                          />
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>{/* /positioning wrapper */}
 
                 <h3 className="mt-5 text-h3 font-medium">
                   <Link
