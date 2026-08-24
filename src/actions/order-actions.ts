@@ -13,6 +13,7 @@ import {
   RATE_LIMIT_MESSAGE,
 } from "@/server/rate-limit/limiter";
 import { phoneSchema } from "@/lib/validation/account";
+import { getStoreSettings } from "@/server/settings/store-settings";
 
 const addressSchema = z.object({
   fullName: z.string().trim().min(2).max(100),
@@ -30,6 +31,9 @@ const addressSchema = z.object({
 
 const placeOrderSchema = z.object({
   address: addressSchema,
+  // Both methods stay valid SHAPES here. Whether "cod" is actually offered is
+  // a store setting, checked below — not a schema concern, because the enum
+  // must also keep parsing for as long as COD orders exist in the database.
   paymentMethod: z.enum(["razorpay", "cod"]),
   notes: z.string().trim().max(500).optional().or(z.literal("")),
   idempotencyKey: z.string().uuid(),
@@ -65,6 +69,19 @@ export async function placeOrderAction(input: unknown): Promise<PlaceOrderResult
     ? await checkRateLimit("order", userId)
     : await checkRateLimit("guestOrder", await getClientIp());
   if (!allowed) return { ok: false, error: RATE_LIMIT_MESSAGE };
+
+  // ── Store settings gate ──
+  //
+  // The checkout form already hides a disabled payment method, but hiding a
+  // radio is presentation, not enforcement: this action is a public endpoint
+  // and accepts whatever is posted to it. createOrder re-checks as well.
+  const settings = await getStoreSettings();
+  if (data.paymentMethod === "cod" && !settings.codEnabled) {
+    return { ok: false, error: "Cash on delivery isn't available right now. Please pay online." };
+  }
+  if (!userId && !settings.guestCheckoutEnabled) {
+    return { ok: false, error: "Please sign in to place your order." };
+  }
 
   if (!userId && !data.guestEmail) {
     return { ok: false, error: "Email is required for guest checkout." };

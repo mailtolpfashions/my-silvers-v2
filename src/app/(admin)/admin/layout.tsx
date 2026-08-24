@@ -42,6 +42,13 @@ const ADMIN_NAV: NavGroup[] = [
       { href: "/admin/newsletter", label: "Newsletter", icon: "newsletter" },
     ],
   },
+  {
+    // Last, and on its own. These are switches that change how the shop
+    // behaves — COD, guest checkout, shipping rates — not a place you visit
+    // during the day's work, so it sits below the things you do.
+    label: "Store",
+    items: [{ href: "/admin/settings", label: "Settings", icon: "settings" }],
+  },
 ];
 
 /**

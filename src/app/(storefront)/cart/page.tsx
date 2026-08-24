@@ -3,7 +3,8 @@ import Image from "next/image";
 import { auth } from "@/server/auth/auth";
 import { getCartWithProducts } from "@/server/cart";
 import { CartRecommendations } from "@/components/storefront/cart/cart-recommendations";
-import { toPaise, MAX_ITEM_QUANTITY } from "@/server/orders/money";
+import { toPaise, MAX_ITEM_QUANTITY, type ShippingRates } from "@/server/orders/money";
+import { getStoreSettings } from "@/server/settings/store-settings";
 import { formatINR } from "@/lib/format";
 import { EmptyCart } from "@/components/storefront/cart/empty-cart";
 import { CartSummary } from "@/components/storefront/cart/cart-summary";
@@ -13,6 +14,11 @@ import { STICKY_BAR_SPACER } from "@/components/storefront/sticky-action-bar";
 
 export default async function CartPage() {
   const session = await auth();
+  // Both carts quote a shipping charge, so both need the current rates. Read
+  // once here rather than in each branch — it is a cached lookup either way,
+  // but one call keeps the two carts quoting the same number by construction.
+  const { shippingChargePaise, freeShippingThresholdPaise } = await getStoreSettings();
+  const rates: ShippingRates = { shippingChargePaise, freeShippingThresholdPaise };
 
   return (
     // Transactional rhythm — 32/40/56. A cart is a single task, and the
@@ -23,12 +29,16 @@ export default async function CartPage() {
     // The spacer stops the sticky checkout bar covering the last cart row.
     <div className={`container-checkout rhythm-transactional ${STICKY_BAR_SPACER}`}>
       <h1 className="mb-8 text-h1">Your cart</h1>
-      {session?.user?.id ? <AuthedCart userId={session.user.id} /> : <GuestCartView />}
+      {session?.user?.id ? (
+        <AuthedCart userId={session.user.id} rates={rates} />
+      ) : (
+        <GuestCartView rates={rates} />
+      )}
     </div>
   );
 }
 
-async function AuthedCart({ userId }: { userId: string }) {
+async function AuthedCart({ userId, rates }: { userId: string; rates: ShippingRates }) {
   const cart = await getCartWithProducts(userId);
   const rows = (cart?.items ?? []).filter((i) => i.product.isActive);
 
@@ -110,7 +120,7 @@ async function AuthedCart({ userId }: { userId: string }) {
         {/* Sticky from lg: on a wide screen the summary would otherwise sit at
             the top of a column while the shopper reads the bottom of the list. */}
         <div className="lg:sticky lg:top-[7.5rem]">
-          <CartSummary subtotalPaise={subtotalPaise} />
+          <CartSummary subtotalPaise={subtotalPaise} rates={rates} />
         </div>
       </div>
 

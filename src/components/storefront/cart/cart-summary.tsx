@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { StickyActionBar } from "@/components/storefront/sticky-action-bar";
 import { formatINRPaise } from "@/lib/format";
-import { FREE_SHIPPING_THRESHOLD_PAISE, shippingChargePaise } from "@/server/orders/money";
+import { shippingChargePaise, type ShippingRates } from "@/server/orders/money";
 
 /**
  * The order summary.
@@ -12,10 +12,19 @@ import { FREE_SHIPPING_THRESHOLD_PAISE, shippingChargePaise } from "@/server/ord
  * panel sitting beside a hairline-ruled cart list. It is now a ruled block:
  * same information, same arithmetic, no container.
  */
-export function CartSummary({ subtotalPaise }: { subtotalPaise: number }) {
-  const shippingPaise = shippingChargePaise(subtotalPaise);
+export function CartSummary({
+  subtotalPaise,
+  // Rates arrive as a prop because they are admin-editable settings and this
+  // component renders inside the client-side guest cart as well as the server
+  // cart — see the note on ShippingRates in server/orders/money.ts.
+  rates,
+}: {
+  subtotalPaise: number;
+  rates: ShippingRates;
+}) {
+  const shippingPaise = shippingChargePaise(subtotalPaise, rates);
   const totalPaise = subtotalPaise + shippingPaise;
-  const remainingForFree = FREE_SHIPPING_THRESHOLD_PAISE - subtotalPaise;
+  const remainingForFree = rates.freeShippingThresholdPaise - subtotalPaise;
 
   return (
     <>

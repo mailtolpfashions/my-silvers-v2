@@ -30,6 +30,13 @@ const nextConfig: NextConfig = {
   cacheLife: {
     announcement: { stale: 60, revalidate: 300, expire: 3600 },
     scheduled: { stale: 60, revalidate: 600, expire: 3600 },
+
+    // Store settings (COD on/off, guest checkout, shipping rates). Short
+    // despite changing rarely, because what it gates is money and payment
+    // availability: the admin save calls updateTag, so this window only
+    // governs a row edited outside the app — and 60s is how long a shop would
+    // then keep quoting the old shipping charge.
+    settings: { stale: 30, revalidate: 60, expire: 300 },
   },
 
   images: {

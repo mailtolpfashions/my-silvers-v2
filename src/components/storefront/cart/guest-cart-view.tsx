@@ -15,7 +15,7 @@ import {
 } from "@/lib/guest-cart";
 import { formatINR } from "@/lib/format";
 import { EmptyCart } from "@/components/storefront/cart/empty-cart";
-import { MAX_ITEM_QUANTITY } from "@/server/orders/money";
+import { MAX_ITEM_QUANTITY, type ShippingRates } from "@/server/orders/money";
 
 type Summary = {
   id: string;
@@ -26,7 +26,7 @@ type Summary = {
   stock: number;
 };
 
-export function GuestCartView() {
+export function GuestCartView({ rates }: { rates: ShippingRates }) {
   const items = useSyncExternalStore(
     subscribeGuestCart,
     getGuestCartSnapshot,
@@ -160,7 +160,7 @@ export function GuestCartView() {
         ))}
       </ul>
       <div className="lg:sticky lg:top-[7.5rem]">
-        <CartSummary subtotalPaise={subtotalPaise} />
+        <CartSummary subtotalPaise={subtotalPaise} rates={rates} />
         <p className="mt-3 text-center text-xs text-muted-foreground">
           <Link href="/login?redirect=/cart" className="underline">
             Sign in

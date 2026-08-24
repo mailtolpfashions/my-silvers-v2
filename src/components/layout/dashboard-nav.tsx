@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Boxes,
   FileText,
+  HelpCircle,
   Home,
   Image as ImageIcon,
   LayoutDashboard,
@@ -18,6 +19,7 @@ import {
   Mails,
   Package,
   Receipt,
+  Settings,
   Tags,
   Users,
   type LucideIcon,
@@ -43,12 +45,16 @@ const ICONS: Record<string, LucideIcon> = {
   payments: CreditCard,
   inventory: Boxes,
   newsletter: Mails,
+  settings: Settings,
   media: ImageIcon,
   homepage: Home,
   page: FileText,
   blog: Newspaper,
   collection: Layers,
   announcement: Megaphone,
+  // Keyed by the CONTENT TYPE'S NAME, not its `icon` field — the CMS layout
+  // passes `icon: type.name`. See the note there.
+  faq: HelpCircle,
   banner: ImageIcon,
   heroSlide: ImageIcon,
 };

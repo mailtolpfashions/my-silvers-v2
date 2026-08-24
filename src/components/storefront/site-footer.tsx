@@ -1,6 +1,8 @@
-import { cacheLife } from "next/cache";
+import { Fragment } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import Link from "next/link";
 import { NewsletterForm } from "@/components/storefront/newsletter-form";
+import { getStoreSettings, STORE_SETTINGS_TAG } from "@/server/settings/store-settings";
 
 /**
  * Reading the clock is non-deterministic, so it can't happen freely inside a
@@ -11,6 +13,50 @@ async function CopyrightYear() {
   "use cache";
   cacheLife("days");
   return <>{new Date().getFullYear()}</>;
+}
+
+/**
+ * The trust line: hallmark, what you can pay with, where it is made.
+ *
+ * Its own component because it reads the store settings, and the footer should
+ * stay a plain synchronous render. The read is cached, so this does not make
+ * the footer dynamic — the shell still prerenders.
+ *
+ * ⚠️  "Cash on delivery" is a PROMISE to the shopper. It appeared here
+ * unconditionally while the checkout had already stopped offering it, which is
+ * the footer advertising a payment method that no longer exists. If another
+ * method is ever gated behind a setting, it belongs in this list too.
+ */
+async function PaymentMethods() {
+  "use cache";
+  cacheLife("settings");
+  cacheTag(STORE_SETTINGS_TAG);
+
+  const { codEnabled } = await getStoreSettings();
+
+  const items = [
+    "BIS hallmarked 925 silver",
+    "UPI, cards & netbanking",
+    ...(codEnabled ? ["Cash on delivery"] : []),
+    "Made in India",
+  ];
+
+  return (
+    <ul className="flex flex-wrap items-center gap-x-5 gap-y-2">
+      {items.map((item, i) => (
+        // Separators stay real list items, as they were — the interpunct is a
+        // sibling of the entries it divides, not a child of one of them.
+        <Fragment key={item}>
+          {i > 0 && (
+            <li aria-hidden className="text-white/25">
+              ·
+            </li>
+          )}
+          <li>{item}</li>
+        </Fragment>
+      ))}
+    </ul>
+  );
 }
 
 /**
@@ -39,6 +85,7 @@ const FOOTER_LINKS: Record<string, { label: string; href: string }[]> = {
     { label: "Pendants", href: "/category/pendants" },
   ],
   "Customer care": [
+    { label: "FAQ", href: "/faq" },
     { label: "Track your order", href: "/account/orders" },
     { label: "Shipping & delivery", href: "/p/shipping" },
     { label: "Returns & exchanges", href: "/p/returns" },
@@ -134,21 +181,13 @@ export function SiteFooter() {
             Mastercard and UPI logos would mean shipping third-party trademarks
             as assets, and the accepted set is decided by the Razorpay account
             rather than by this component — a hardcoded row of logos would go
-            stale silently. These three are what the checkout actually offers:
-            Razorpay (cards, UPI, netbanking, wallets) and cash on delivery. */}
+            stale silently. Cash on delivery is listed only when it is actually
+            offered; see PaymentMethods below. */}
         <div className="mt-14 flex flex-col gap-6 border-t border-white/10 pt-8 text-xs text-white/60 sm:flex-row sm:items-center sm:justify-between">
           <p>
             © <CopyrightYear /> MY Silvers. All rights reserved.
           </p>
-          <ul className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <li>BIS hallmarked 925 silver</li>
-            <li aria-hidden className="text-white/25">·</li>
-            <li>UPI, cards &amp; netbanking</li>
-            <li aria-hidden className="text-white/25">·</li>
-            <li>Cash on delivery</li>
-            <li aria-hidden className="text-white/25">·</li>
-            <li>Made in India</li>
-          </ul>
+          <PaymentMethods />
         </div>
       </div>
     </footer>

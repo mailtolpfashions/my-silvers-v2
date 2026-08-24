@@ -11,6 +11,7 @@ import {
   MAX_ITEM_QUANTITY,
 } from "@/server/orders/money";
 import { createRazorpayOrder } from "@/server/payments/razorpay";
+import { getStoreSettings } from "@/server/settings/store-settings";
 import { sendOrderConfirmationEmail } from "@/server/email/resend";
 
 export class OrderError extends Error {
@@ -20,7 +21,9 @@ export class OrderError extends Error {
       | "PRODUCT_UNAVAILABLE"
       | "INSUFFICIENT_STOCK"
       | "GUEST_EMAIL_REQUIRED"
-      | "PAYMENT_GATEWAY_ERROR",
+      | "PAYMENT_GATEWAY_ERROR"
+      | "PAYMENT_METHOD_UNAVAILABLE"
+      | "GUEST_CHECKOUT_DISABLED",
     message: string
   ) {
     super(message);
@@ -180,6 +183,26 @@ export async function createOrder(input: {
   notes?: string;
   idempotencyKey?: string;
 }): Promise<CreateOrderResult> {
+  // ── Store settings gate ──
+  //
+  // Re-checked here even though placeOrderAction already rejected a disabled
+  // method, because this function is the only thing that actually creates an
+  // order and it is reachable from more than one caller. A switch enforced only
+  // in the action is a switch that the next entry point forgets.
+  const settings = await getStoreSettings();
+  if (input.paymentMethod === "cod" && !settings.codEnabled) {
+    throw new OrderError(
+      "PAYMENT_METHOD_UNAVAILABLE",
+      "Cash on delivery isn't available right now. Please pay online."
+    );
+  }
+  if (!input.userId && !settings.guestCheckoutEnabled) {
+    throw new OrderError(
+      "GUEST_CHECKOUT_DISABLED",
+      "Please sign in to place your order."
+    );
+  }
+
   // ── Resolve the purchasing user ──
   let userId = input.userId;
   let email: string;
@@ -210,7 +233,8 @@ export async function createOrder(input: {
 
   // ── Totals in integer paise ──
   const subtotalPaise = items.reduce((sum, i) => sum + i.pricePaise * i.quantity, 0);
-  const shippingPaise = shippingChargePaise(subtotalPaise);
+  // Charged from the settings read above, not from whatever the client showed.
+  const shippingPaise = shippingChargePaise(subtotalPaise, settings);
   const totalPaise = subtotalPaise + shippingPaise;
 
   // ── Razorpay order first (external call — never inside the DB transaction).

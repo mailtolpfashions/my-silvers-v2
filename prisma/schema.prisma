@@ -594,3 +594,28 @@ model Investment {
   @@index([investorId, investedAt])
   @@index([investedAt])
 }
+
+// ─── Store settings ───────────────────────────────────────────────────────
+
+/// Operational switches the shop owner can flip without a deploy: whether COD
+/// is offered, whether guests may check out, what shipping costs.
+///
+/// Deliberately NOT the CMS. ContentEntry carries draft/publish/versioning
+/// semantics, and a payment method that only actually turns off once someone
+/// remembers to press "Publish" is the wrong shape for a switch. These take
+/// effect on write.
+///
+/// Key/value rather than a one-row table with a column per setting, so adding
+/// the next switch is an INSERT and not a migration. The shape of `value` for
+/// each key — and the default used when the row is absent — lives in
+/// src/server/settings/store-settings.ts, which is the only thing that should
+/// read this table.
+///
+/// ⚠️  A missing row means "use the default", never "off by accident". A fresh
+/// production database therefore starts with COD disabled and guest checkout
+/// enabled without needing to be seeded.
+model StoreSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}

@@ -1,7 +1,9 @@
+import { redirect } from "next/navigation";
 import { auth } from "@/server/auth/auth";
 import { prisma } from "@/server/db";
 import { getCartWithProducts } from "@/server/cart";
-import { toPaise } from "@/server/orders/money";
+import { toPaise, type ShippingRates } from "@/server/orders/money";
+import { getStoreSettings } from "@/server/settings/store-settings";
 import { STICKY_BAR_SPACER } from "@/components/storefront/sticky-action-bar";
 import {
   CheckoutForm,
@@ -12,6 +14,20 @@ import {
 export default async function CheckoutPage() {
   const session = await auth();
   const isAuthed = !!session?.user?.id;
+  const settings = await getStoreSettings();
+
+  // Guest checkout switched off: send them to sign in rather than render a form
+  // whose submit is guaranteed to be rejected. The CART is deliberately left
+  // alone — a shopper should be asked to sign in when they try to buy, not when
+  // they try to add.
+  if (!isAuthed && !settings.guestCheckoutEnabled) {
+    redirect("/login?redirect=/checkout");
+  }
+
+  const rates: ShippingRates = {
+    shippingChargePaise: settings.shippingChargePaise,
+    freeShippingThresholdPaise: settings.freeShippingThresholdPaise,
+  };
 
   let initialLines: CheckoutLine[] | null = null;
   let savedAddresses: SavedAddress[] = [];
@@ -57,6 +73,8 @@ export default async function CheckoutPage() {
         userName={session?.user?.name ?? undefined}
         initialLines={initialLines}
         savedAddresses={savedAddresses}
+        rates={rates}
+        codEnabled={settings.codEnabled}
       />
     </div>
   );

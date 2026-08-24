@@ -16,7 +16,7 @@ import {
 import { StickyActionBar } from "@/components/storefront/sticky-action-bar";
 import { readGuestCart, clearGuestCart } from "@/lib/guest-cart";
 import { formatINRPaise } from "@/lib/format";
-import { shippingChargePaise } from "@/server/orders/money";
+import { shippingChargePaise, type ShippingRates } from "@/server/orders/money";
 import { INDIAN_STATES, MAX_ADDRESSES } from "@/lib/validation/account";
 import { saveCheckoutAddressAction } from "@/actions/account-actions";
 import { checkPincodeAction, type PincodeCheck } from "@/actions/shipping-actions";
@@ -63,6 +63,8 @@ export function CheckoutForm({
   userName,
   initialLines,
   savedAddresses = [],
+  rates,
+  codEnabled,
 }: {
   isAuthed: boolean;
   userEmail?: string;
@@ -71,6 +73,16 @@ export function CheckoutForm({
   initialLines: CheckoutLine[] | null;
   /** The signed-in customer's address book; empty for guests. */
   savedAddresses?: SavedAddress[];
+  /** Admin-editable shipping rates — see ShippingRates in server/orders/money.ts. */
+  rates: ShippingRates;
+  /**
+   * Whether to offer cash on delivery.
+   *
+   * ⚠️  Presentation only. Hiding the radio does not stop a crafted POST, so
+   * placeOrderAction and createOrder both re-check the same setting. Do not
+   * treat this prop as the enforcement point.
+   */
+  codEnabled: boolean;
 }) {
   const router = useRouter();
   const [lines, setLines] = useState<CheckoutLine[] | null>(initialLines);
@@ -121,7 +133,13 @@ export function CheckoutForm({
   });
 
   const { pincode: formPincode, paymentMethod } = form;
-  const wantCod = paymentMethod === "cod";
+  /**
+   * `codEnabled` wins over the form state, so the flag turning off mid-session
+   * cannot leave a stale "cod" selection driving the serviceability lookup, the
+   * submit payload or the button label. There is no effect resetting the form —
+   * one derived value is enough, and it cannot get out of step.
+   */
+  const wantCod = codEnabled && paymentMethod === "cod";
   const pincodeComplete = /^\d{6}$/.test(formPincode);
 
   /** The stored answer, but only if it answers the question currently on screen. */
@@ -212,7 +230,7 @@ export function CheckoutForm({
   }
 
   const subtotalPaise = lines.reduce((s, l) => s + l.pricePaise * l.quantity, 0);
-  const shippingPaise = shippingChargePaise(subtotalPaise);
+  const shippingPaise = shippingChargePaise(subtotalPaise, rates);
   const totalPaise = subtotalPaise + shippingPaise;
 
   function successUrl(orderId: string, token: string | null) {
@@ -283,7 +301,7 @@ export function CheckoutForm({
           state: form.state,
           pincode: form.pincode,
         },
-        paymentMethod: form.paymentMethod,
+        paymentMethod: wantCod ? "cod" : "razorpay",
         notes: form.notes,
         idempotencyKey,
         guestEmail: isAuthed ? undefined : form.email,
@@ -498,7 +516,7 @@ export function CheckoutForm({
                 )}
                 {!checkingPincode && pincodeCheck?.status === "unserviceable" && (
                   <p className="text-xs text-destructive">
-                    {form.paymentMethod === "cod"
+                    {wantCod
                       ? "Cash on delivery isn't available for this pincode. Try paying online, or use a different address."
                       : "We can't deliver to this pincode yet. Please try a different address."}
                   </p>
@@ -519,26 +537,33 @@ export function CheckoutForm({
             )}
           </fieldset>
 
-          <fieldset className="space-y-2">
-            <legend className="label-eyebrow mb-1">Payment method</legend>
-            {(
-              [
-                ["razorpay", "Pay online (UPI / Card / Netbanking)"],
-                ["cod", "Cash on delivery"],
-              ] as const
-            ).map(([value, label]) => (
-              <label key={value} className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value={value}
-                  checked={form.paymentMethod === value}
-                  onChange={() => setForm((f) => ({ ...f, paymentMethod: value }))}
-                />
-                {label}
-              </label>
-            ))}
-          </fieldset>
+          {/* With COD switched off there is exactly one way to pay, and a
+              radio group of one is a question with no answer to give — it reads
+              as though something else was meant to be there. The whole fieldset
+              goes; the button below already says "Pay ₹x", which is the only
+              thing the single remaining method needed to communicate. */}
+          {codEnabled && (
+            <fieldset className="space-y-2">
+              <legend className="label-eyebrow mb-1">Payment method</legend>
+              {(
+                [
+                  ["razorpay", "Pay online (UPI / Card / Netbanking)"],
+                  ["cod", "Cash on delivery"],
+                ] as const
+              ).map(([value, label]) => (
+                <label key={value} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value={value}
+                    checked={form.paymentMethod === value}
+                    onChange={() => setForm((f) => ({ ...f, paymentMethod: value }))}
+                  />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="notes">Order notes (optional)</Label>
@@ -561,7 +586,7 @@ export function CheckoutForm({
           >
             {submitting
               ? "Placing order…"
-              : form.paymentMethod === "cod"
+              : wantCod
                 ? `Place order — ${formatINRPaise(totalPaise)}`
                 : `Pay ${formatINRPaise(totalPaise)}`}
           </Button>
@@ -589,7 +614,7 @@ export function CheckoutForm({
             >
               {submitting
                 ? "Placing…"
-                : form.paymentMethod === "cod"
+                : wantCod
                   ? "Place order"
                   : "Pay now"}
             </Button>

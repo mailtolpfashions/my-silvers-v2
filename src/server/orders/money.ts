@@ -12,8 +12,25 @@ export function paiseToRupeeString(paise: number): string {
   return (paise / 100).toFixed(2);
 }
 
-export const FREE_SHIPPING_THRESHOLD_PAISE = 999 * 100;
-export const SHIPPING_CHARGE_PAISE = 49 * 100;
+/**
+ * What shipping costs, and where it stops costing anything.
+ *
+ * Passed in rather than read here because these are admin-editable settings
+ * (see server/settings/store-settings.ts) and this module is imported by client
+ * components — the cart summary and the checkout form both do this arithmetic
+ * to show a total before the server ever sees the order. Importing the settings
+ * reader here would drag Prisma into the client bundle, so the rates travel as
+ * a plain object from whichever server component is already fetching them.
+ *
+ * ⚠️  The figure shown to the shopper is not the binding one. create-order.ts
+ * recomputes the charge server-side from the settings at the moment of sale and
+ * snapshots the result onto the order.
+ */
+export type ShippingRates = {
+  shippingChargePaise: number;
+  freeShippingThresholdPaise: number;
+};
+
 /**
  * Per-item cap in a single order. Low for jewellery: pieces are often unique
  * or near-unique, a genuine customer rarely wants more than a matching pair,
@@ -22,6 +39,6 @@ export const SHIPPING_CHARGE_PAISE = 49 * 100;
  */
 export const MAX_ITEM_QUANTITY = 3;
 
-export function shippingChargePaise(subtotalPaise: number): number {
-  return subtotalPaise >= FREE_SHIPPING_THRESHOLD_PAISE ? 0 : SHIPPING_CHARGE_PAISE;
+export function shippingChargePaise(subtotalPaise: number, rates: ShippingRates): number {
+  return subtotalPaise >= rates.freeShippingThresholdPaise ? 0 : rates.shippingChargePaise;
 }
