@@ -1,11 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import {
-  createTestUser,
-  setUserRole,
-  deleteUser,
-  deleteTestUsersByPrefix,
-  closeDb,
-} from "./helpers/db";
+import { createTestUser, setUserRole, deleteUser } from "./helpers/db";
 
 /**
  * Regression cover for F-01 (audit, Aug 2026) — the most important test here.
@@ -133,9 +127,4 @@ test.describe("role revocation takes effect immediately", () => {
       await deleteUser(user.id).catch(() => {});
     }
   });
-});
-
-test.afterAll(async () => {
-  await deleteTestUsersByPrefix(EMAIL_PREFIX).catch(() => {});
-  await closeDb();
 });

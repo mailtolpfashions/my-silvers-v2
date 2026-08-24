@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { getInStockProduct } from "./helpers/db";
 
 /**
  * Storefront smoke cover — the shopping path a customer actually walks, kept
@@ -39,7 +40,12 @@ test.describe("storefront renders", () => {
     await page.goto("/products");
     await expect(page.locator("h1")).toBeVisible();
 
-    const productLinks = page.locator('a[href^="/products/"], a[href^="/p/"]');
+    // Scoped to <main>, and to /products/ only. `/p/` is the CMS page route,
+    // not a product — the footer's "Silver care" link (/p/care-guide) matched
+    // the looser selector and `.first()` picked it, so this passed on desktop
+    // while asserting nothing about products. On mobile that footer link is
+    // hidden, which is what exposed it.
+    const productLinks = page.locator('main a[href^="/products/"]');
     await expect(productLinks.first()).toBeVisible({ timeout: 15_000 });
 
     const href = await productLinks.first().getAttribute("href");
@@ -86,22 +92,26 @@ test.describe("storefront renders", () => {
 
 test.describe("guest cart", () => {
   test("holds an item across a reload", async ({ page }) => {
-    await page.goto("/products");
+    // A specific product with stock and no variants, rather than whatever sits
+    // first on the listing. A product with sizes keeps "Add to cart" disabled
+    // until one is chosen, so the generic path timed out on the click — and
+    // before the selector was tightened it followed a CMS link instead and
+    // skipped itself, which is worse: a test that never ran and never said so.
+    const product = await getInStockProduct();
+    test.skip(!product, "no in-stock, single-variant product in this database");
 
-    const productLinks = page.locator('a[href^="/products/"], a[href^="/p/"]');
-    await expect(productLinks.first()).toBeVisible({ timeout: 15_000 });
-    await productLinks.first().click();
+    await page.goto(`/products/${product!.slug}`);
 
     // `visible=true` matters: the product page carries both an inline CTA and a
     // sticky mobile bar, and which one is hidden depends on the viewport.
     const addToCart = page
       .getByRole("button", { name: /add to (cart|bag)/i })
-      .locator("visible=true");
+      .locator("visible=true")
+      .first();
 
-    if ((await addToCart.count()) === 0) {
-      test.skip(true, "no in-stock product on the first listing page");
-    }
-    await addToCart.first().click();
+    await expect(addToCart).toBeVisible({ timeout: 20_000 });
+    await expect(addToCart, "add to cart never became clickable").toBeEnabled({ timeout: 20_000 });
+    await addToCart.click();
 
     await page.goto("/cart");
     // The cart must not read as empty after an add.

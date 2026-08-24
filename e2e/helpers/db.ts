@@ -74,3 +74,93 @@ export async function deleteUser(id: string): Promise<void> {
 export async function deleteTestUsersByPrefix(prefix: string): Promise<void> {
   await getPool().query(`DELETE FROM "User" WHERE "email" LIKE $1`, [`${prefix}%`]);
 }
+
+/**
+ * The order a test just placed, with the figures the SERVER computed.
+ *
+ * Read straight from the table rather than scraped off the confirmation page,
+ * because the point of the assertion is what was persisted — the client is
+ * exactly the party whose arithmetic is not trusted.
+ */
+export async function getLatestOrderForUser(userId: string): Promise<{
+  orderNumber: string;
+  subtotal: string;
+  shippingCharge: string;
+  totalAmount: string;
+  paymentMethod: string;
+  paymentStatus: string;
+} | null> {
+  const { rows } = await getPool().query(
+    `SELECT "orderNumber", "subtotal", "shippingCharge", "totalAmount",
+            "paymentMethod"::text, "paymentStatus"::text
+       FROM "Order"
+      WHERE "userId" = $1
+      ORDER BY "createdAt" DESC
+      LIMIT 1`,
+    [userId]
+  );
+  return rows[0] ?? null;
+}
+
+/** Deletes an order and its items, so a placed test order leaves no residue. */
+export async function deleteOrdersForUser(userId: string): Promise<void> {
+  await getPool().query(
+    `DELETE FROM "OrderItem" WHERE "orderId" IN (SELECT "id" FROM "Order" WHERE "userId" = $1)`,
+    [userId]
+  );
+  await getPool().query(`DELETE FROM "Order" WHERE "userId" = $1`, [userId]);
+}
+
+/** An in-stock product, for building a cart that can actually be checked out. */
+export async function getInStockProduct(): Promise<{
+  slug: string;
+  price: string;
+  name: string;
+} | null> {
+  const { rows } = await getPool().query(
+    `SELECT p."slug", p."price"::text, p."name"
+       FROM "Product" p
+      WHERE p."stock" > 0
+        AND p."isActive" = true
+        AND NOT EXISTS (SELECT 1 FROM "ProductVariant" v WHERE v."productId" = p."id")
+      ORDER BY p."price" ASC
+      LIMIT 1`
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * An order's line items, each paired with the product's CURRENT catalogue price.
+ *
+ * The pairing is the point: it lets a test assert that the price the server
+ * snapshotted into the order is the price in the Product table, and not
+ * something that arrived from the browser.
+ */
+export async function getOrderItemsWithCatalogPrice(orderNumber: string): Promise<
+  Array<{ name: string; quantity: number; itemPrice: string; catalogPrice: string | null }>
+> {
+  const { rows } = await getPool().query(
+    `SELECT oi."name",
+            oi."quantity",
+            oi."price"::text  AS "itemPrice",
+            p."price"::text   AS "catalogPrice"
+       FROM "OrderItem" oi
+       JOIN "Order" o  ON o."id" = oi."orderId"
+       LEFT JOIN "Product" p ON p."id" = oi."productId"
+      WHERE o."orderNumber" = $1`,
+    [orderNumber]
+  );
+  return rows;
+}
+
+/**
+ * Puts the store settings back to the values coded as defaults.
+ *
+ * Deleting the row would be simpler, but the storefront caches settings reads
+ * for up to 60s and only the admin save action invalidates that tag — so a
+ * direct delete leaves the app quoting whatever a test last set. This is the
+ * crash net; the happy path restores through the admin form.
+ */
+export async function resetStoreSettings(): Promise<void> {
+  await getPool().query(`DELETE FROM "StoreSetting" WHERE "key" = 'store'`);
+}
