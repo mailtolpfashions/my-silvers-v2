@@ -14,9 +14,11 @@ import { CartButton } from "@/components/storefront/cart-button";
  * auth() call inside this boundary.
  */
 export async function HeaderAccount() {
+  // Cookie-only under the JWT strategy — no database, so this cannot be the
+  // thing that fails. See auth.config.ts.
   const session = await auth();
   const role = session?.user?.role;
-  const cartCount = session?.user?.id ? await getCartItemCount(session.user.id) : 0;
+  const cartCount = session?.user?.id ? await safeCartItemCount(session.user.id) : 0;
 
   return (
     <>
@@ -73,4 +75,31 @@ export async function HeaderAccount() {
       <CartButton isAuthed={!!session?.user} initialCount={cartCount} />
     </>
   );
+}
+
+/**
+ * The badge number, or zero if the database will not answer.
+ *
+ * ⚠️  This was a bare `await getCartItemCount(...)`, and an unreachable
+ * database therefore threw out of the component — taking the sign-in link, the
+ * wishlist and the cart button off the header with it. The whole right-hand
+ * side of the navigation simply vanished, which reads as a broken site rather
+ * than a slow one.
+ *
+ * The count is the least important thing rendered here. It is a number ON a
+ * button whose job is to be clickable, and the cart page itself is perfectly
+ * reachable without it — so it must never be able to remove the button.
+ *
+ * Zero rather than a retry: CartButton hydrates the real figure client-side
+ * from the shared user-state store (see user-state-hydrator.tsx), so a shopper
+ * whose badge briefly reads empty gets the true count a moment later without
+ * this holding the header up to wait for it.
+ */
+async function safeCartItemCount(userId: string): Promise<number> {
+  try {
+    return await getCartItemCount(userId);
+  } catch (err) {
+    console.error("header cart count failed — rendering the header without it", err);
+    return 0;
+  }
 }
