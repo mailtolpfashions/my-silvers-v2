@@ -59,8 +59,30 @@ export async function CustomerReviews() {
         {/* Stated once here rather than badged on every card — every review in
             the system now comes from a delivered order, so a per-card badge
             would mark 100% of them and signal nothing. */}
-        <p className="mt-3 flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
-          <BadgeCheck className="size-4 text-black" aria-hidden />
+        {/**
+         * ⚠️  The tick is INLINE, inside the sentence — not a flex sibling of
+         * it. This was `flex items-center justify-center gap-1.5`, which looks
+         * correct on a desktop and breaks on a phone.
+         *
+         * The reason it breaks is worth knowing, because the markup gives no
+         * hint of it. A bare text node inside a flex container becomes an
+         * anonymous flex item. While the sentence fits on one line the icon and
+         * the text centre together and all is well. As soon as it is too narrow
+         * — which is every phone — the text wraps, the pair grows to the full
+         * width of the row, and `justify-center` then has nothing left to
+         * centre. The tick ends up marooned against the left edge, vertically
+         * centred beside a three-line paragraph it no longer appears to belong
+         * to.
+         *
+         * As an inline element it simply flows with the words, so it stays
+         * attached to "Every" at any width. `align-[-0.2em]` sits it on the
+         * text's optical centre; `align-middle` rides slightly high.
+         *
+         * max-w-md matches the preview stand-in in customer-reviews-note.tsx
+         * and keeps the measure readable on a wide screen.
+         */}
+        <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
+          <BadgeCheck className="mr-1.5 inline size-4 align-[-0.2em] text-black" aria-hidden />
           Every review is from a verified buyer. Tap one to see the piece.
         </p>
       </div>
