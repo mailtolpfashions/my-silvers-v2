@@ -269,14 +269,36 @@ export function CheckoutForm({
         contact: normaliseContact(form.phone),
       },
       handler: async (resp) => {
+        /**
+         * Timing the gap a shopper actually feels: Razorpay closing its window,
+         * and the order page appearing.
+         *
+         * The server's own [fulfill] line (server/orders/fulfill-timing.ts)
+         * measures the work inside the action. It cannot see two things that
+         * happen out here and can easily be the larger half: the round trip to
+         * the Server Action, and the navigation itself — which in `next dev`
+         * includes compiling the destination route on demand, frequently
+         * seconds, and does not exist in production.
+         *
+         * Read both numbers together. `verify` much larger than the server's
+         * `total` means the network or the action round trip; `navigate` large
+         * with a small `verify` means the destination page.
+         */
+        const began = performance.now();
         const result = await verifyPaymentAction({
           razorpayOrderId: resp.razorpay_order_id,
           razorpayPaymentId: resp.razorpay_payment_id,
           razorpaySignature: resp.razorpay_signature,
         });
+        const verified = performance.now();
+        console.info(`[checkout] verify=${Math.round(verified - began)}ms`);
+
         if (result.ok) {
           if (!isAuthed) clearGuestCart();
           router.push(successUrl(payment.orderId, payment.confirmationToken));
+          // router.push resolves when the transition is committed, so this
+          // measures the wait for the order page rather than just the call.
+          console.info(`[checkout] navigate=${Math.round(performance.now() - verified)}ms`);
         } else {
           setError(result.error);
         }

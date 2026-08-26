@@ -5,6 +5,7 @@ import { toPaise } from "@/server/orders/money";
 import { fetchPaymentDetails } from "@/server/payments/razorpay";
 import { verifyCheckoutSignature } from "@/server/payments/verify-signature";
 import { sendOrderConfirmationEmail } from "@/server/email/resend";
+import { startFulfillTimer } from "@/server/orders/fulfill-timing";
 
 export class PaymentError extends Error {
   constructor(
@@ -43,6 +44,9 @@ export async function fulfillOrder(input: {
   razorpaySignature?: string;
   source: "webhook" | "client";
 }): Promise<FulfillResult> {
+  // See server/orders/fulfill-timing.ts for why this is instrumented at all.
+  const timer = startFulfillTimer(input.source);
+
   if (input.source === "client") {
     if (
       !input.razorpaySignature ||
@@ -55,17 +59,23 @@ export async function fulfillOrder(input: {
       throw new PaymentError("BAD_SIGNATURE", "Payment signature verification failed.");
     }
   }
+  timer.step("signature");
 
   const order = await prisma.order.findFirst({
     where: { razorpayOrderId: input.razorpayOrderId, paymentMethod: "razorpay" },
     include: { items: true },
   });
+  timer.step("lookup");
   if (!order) throw new PaymentError("ORDER_NOT_FOUND", "No order found for this payment.");
-  if (order.paymentStatus === "paid") return { alreadyHandled: true, order };
+  if (order.paymentStatus === "paid") {
+    timer.done(order.orderNumber, "already-paid");
+    return { alreadyHandled: true, order };
+  }
 
   // Cross-check what Razorpay actually captured against our own order —
   // client-supplied ids/amounts are never trusted on their own.
   const payment = await fetchPaymentDetails(input.razorpayPaymentId);
+  timer.step("razorpay-fetch");
   if (payment.order_id !== input.razorpayOrderId) {
     throw new PaymentError("MISMATCHED_ORDER", "Payment does not belong to this order.");
   }
@@ -81,11 +91,13 @@ export async function fulfillOrder(input: {
     where: { razorpayOrderId: input.razorpayOrderId, paymentStatus: "pending" },
     data: { paymentStatus: "paying" },
   });
+  timer.step("claim");
   if (claim.count === 0) {
     // The other path already claimed (or resolved) this order — back off.
     const current = await prisma.order.findFirst({
       where: { razorpayOrderId: input.razorpayOrderId },
     });
+    timer.done(current?.orderNumber ?? "unknown", "lost-claim");
     return { alreadyHandled: true, order: current };
   }
 
@@ -106,6 +118,7 @@ export async function fulfillOrder(input: {
         },
       });
     });
+    timer.step("transaction");
 
     // Post-commit side effects — best-effort, never fail the fulfillment.
     try {
@@ -113,6 +126,7 @@ export async function fulfillOrder(input: {
     } catch (err) {
       console.error("cart clear failed after payment", order.orderNumber, err);
     }
+    timer.step("cart-clear");
     try {
       const user = await prisma.user.findUnique({ where: { id: order.userId } });
       if (user) {
@@ -125,7 +139,9 @@ export async function fulfillOrder(input: {
     } catch (err) {
       console.error("order-confirmation email failed", order.orderNumber, err);
     }
+    timer.step("email");
 
+    timer.done(order.orderNumber, "fulfilled");
     return { alreadyHandled: false, order: updated };
   } catch (err) {
     // Payment was captured but fulfillment failed (e.g. stock sold out in the
