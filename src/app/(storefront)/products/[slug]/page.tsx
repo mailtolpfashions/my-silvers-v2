@@ -21,6 +21,7 @@ import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/
 import { getSimilarProducts, getAlsoLikeProducts } from "@/server/products/recommendations";
 import { RecordProductView, RecentlyViewed } from "@/components/storefront/recently-viewed";
 import { ProductGallery } from "@/components/storefront/product-gallery";
+import { ProductAssurances } from "@/components/storefront/product-assurances";
 import {
   ProductInfoSections,
   ProductInfoSectionsSkeleton,
@@ -479,6 +480,15 @@ async function ProductCta({ productId, stock }: { productId: string; stock: numb
 
   const shared = { productId, stock, isAuthed: !!userId, cartQuantity };
 
+  // Resolved here rather than threaded down from the page: this component is
+  // already async, and isPagePublished is cached under `cms:page`, so asking
+  // again costs nothing and keeps the assurances beside the buttons they belong
+  // to. Never link into a 404 — an unpublished policy page simply drops its row.
+  const [returnsPublished, shippingPublished] = await Promise.all([
+    isPagePublished("returns"),
+    isPagePublished("shipping"),
+  ]);
+
   return (
     <>
       {/* Desktop: one row, not two stacked blocks. Buy now leads — it is the
@@ -510,6 +520,17 @@ async function ProductCta({ productId, stock }: { productId: string; stock: numb
         <div className="flex-1">
           <AddToCartButton {...shared} />
         </div>
+      </div>
+
+      {/* Directly under the buttons, and only on the desktop rail — on a phone
+          the buttons live in the sticky bar, so a strip pinned under the rail
+          copy would sit nowhere near the control it reassures. See
+          product-assurances.tsx for why it states no numbers. */}
+      <div className="hidden md:block">
+        <ProductAssurances
+          returnsHref={returnsPublished ? "/p/returns" : undefined}
+          shippingHref={shippingPublished ? "/p/shipping" : undefined}
+        />
       </div>
 
       {/* Mobile: the same controls, pinned to the bottom of the viewport.
