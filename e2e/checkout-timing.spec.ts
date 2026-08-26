@@ -60,6 +60,64 @@ async function withAdmin(browser: Browser, fn: (page: Page) => Promise<void>) {
   }
 }
 
+/**
+ * Fills the checkout with a COD order and returns the submit button, ready.
+ *
+ * ── Why the retry loop ──────────────────────────────────────────────────────
+ * ⚠️  Turning COD on in the admin does not make it available at checkout on the
+ * very next request. Store settings are read through `"use cache"` under the
+ * `settings` profile (stale 30s), and the admin save invalidates the tag — but
+ * a render already in flight, or a payload cached a moment earlier, can still
+ * come back without the COD option.
+ *
+ * Without this loop the failure is silent and confusing rather than absent: the
+ * COD radio is missing, `wantCod` stays false, so pressing the button places a
+ * RAZORPAY order and opens Razorpay's window. Nothing navigates, and the test
+ * dies forty seconds later on "the order number never appeared" — pointing at
+ * the order page, which was never the problem. That is exactly how this suite
+ * failed intermittently when first written.
+ *
+ * So: reload until COD is really on offer, then assert the button agrees before
+ * anything is clicked.
+ */
+async function fillCodCheckout(page: Page) {
+  const codRadio = page.locator('input[name="paymentMethod"][value="cod"]');
+
+  await expect(async () => {
+    await page.goto("/checkout");
+    await expect(page.locator("#fullName")).toBeVisible({ timeout: 20_000 });
+    await expect(codRadio).toBeAttached({ timeout: 2_000 });
+  }, "cash on delivery never appeared at checkout after being enabled").toPass({
+    timeout: 60_000,
+    intervals: [1_000, 2_000, 3_000],
+  });
+
+  await page.locator("#fullName").fill(ADDRESS.fullName);
+  await page.locator("#phone").fill(ADDRESS.phone);
+  await page.locator("#addressLine1").fill(ADDRESS.addressLine1);
+  await page.locator("#city").fill(ADDRESS.city);
+  await page.locator("#state").selectOption(ADDRESS.state);
+  await page.locator("#pincode").fill(ADDRESS.pincode);
+  await codRadio.check();
+
+  // The pincode lookup is debounced at 450ms and the button label depends on
+  // the payment method; let both settle so the click is not racing them.
+  await page.waitForTimeout(1500);
+
+  /**
+   * The label is the proof that COD actually took. "Pay ₹…" here means the form
+   * still believes it is a card order, and clicking would open Razorpay instead
+   * of placing anything — better to say so now than to time out later.
+   */
+  const submit = page.getByRole("button", { name: /place order/i }).first();
+  await expect(
+    submit,
+    "the submit button did not offer to place a COD order — checkout still thinks this is a card payment"
+  ).toBeEnabled({ timeout: 15_000 });
+
+  return submit;
+}
+
 async function setCod(page: Page, on: boolean) {
   await page.goto("/admin/settings");
   const toggle = page.locator("#codEnabled");
@@ -99,28 +157,9 @@ test.describe("checkout → order page timing", () => {
       // The add is a Server Action; the cart badge is what confirms it landed.
       await page.waitForTimeout(1500);
 
-      await page.goto("/checkout");
-      await expect(page.locator("#fullName")).toBeVisible({ timeout: 20_000 });
-
-      // ── Fill it in ────────────────────────────────────────────────────────
-      await page.locator("#fullName").fill(ADDRESS.fullName);
-      await page.locator("#phone").fill(ADDRESS.phone);
-      await page.locator("#addressLine1").fill(ADDRESS.addressLine1);
-      await page.locator("#city").fill(ADDRESS.city);
-      await page.locator("#state").selectOption(ADDRESS.state);
-      await page.locator("#pincode").fill(ADDRESS.pincode);
-
-      await page.locator('input[name="paymentMethod"][value="cod"]').check();
-      // The pincode lookup is debounced at 450ms and the button label depends on
-      // the payment method; let both settle so the click is not racing them.
-      await page.waitForTimeout(1500);
+      const submit = await fillCodCheckout(page);
 
       // ── The measurement ───────────────────────────────────────────────────
-      const submit = page
-        .getByRole("button", { name: /place order|pay ₹/i })
-        .first();
-      await expect(submit).toBeEnabled({ timeout: 10_000 });
-
       const began = Date.now();
       await submit.click();
       // The order NUMBER on screen is the honest finish line: the URL changes
@@ -200,20 +239,16 @@ test.describe("checkout → order page timing", () => {
       await page.getByRole("button", { name: /add to (cart|bag)/i }).first().click();
       await page.waitForTimeout(1500);
 
-      await page.goto("/checkout");
-      await expect(page.locator("#fullName")).toBeVisible({ timeout: 20_000 });
+      const submit = await fillCodCheckout(page);
 
-      await page.locator("#fullName").fill(ADDRESS.fullName);
-      await page.locator("#phone").fill(ADDRESS.phone);
-      await page.locator("#addressLine1").fill(ADDRESS.addressLine1);
-      await page.locator("#city").fill(ADDRESS.city);
-      await page.locator("#state").selectOption(ADDRESS.state);
-      await page.locator("#pincode").fill(ADDRESS.pincode);
-      await page.locator('input[name="paymentMethod"][value="cod"]').check();
-      await page.waitForTimeout(1500);
-
-      // Hold the Server Action open. Server Actions POST back to the page's own
-      // URL, so matching on method is enough to catch it and nothing else.
+      /**
+       * Hold the Server Action open. Server Actions POST back to the page's own
+       * URL, so matching on method is enough to catch it and nothing else.
+       *
+       * Registered AFTER fillCodCheckout, deliberately: that helper reloads
+       * /checkout until COD appears, and delaying those loads would make its
+       * retry budget meaningless.
+       */
       await page.route("**/checkout", async (route) => {
         if (route.request().method() === "POST") {
           await new Promise((resolve) => setTimeout(resolve, 4000));
@@ -221,7 +256,7 @@ test.describe("checkout → order page timing", () => {
         await route.continue();
       });
 
-      await page.getByRole("button", { name: /place order|pay ₹/i }).first().click();
+      await submit.click();
 
       await expect(
         page.getByText(/placing your order/i),

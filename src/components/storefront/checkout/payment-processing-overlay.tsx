@@ -7,14 +7,27 @@ import { Spinner } from "@/components/ui/spinner";
 /** What the shopper is waiting on. Drives the wording, nothing else. */
 export type PaymentStage = "placing" | "verifying";
 
+/**
+ * Short on purpose, and not only for wrapping.
+ *
+ * The description sits in a 24rem column under `text-wrap: balance`, which
+ * equalises LINE LENGTHS and knows nothing about grammar — so a long sentence
+ * gets split wherever the lengths come out even, which is how "We're" ended up
+ * stranded at the end of a line away from "confirming". Fewer words is the only
+ * reliable fix; CSS cannot be told to keep a pronoun with its verb.
+ *
+ * It is also better copy for the situation. This is read by someone who has
+ * just been charged and wants one thing confirmed. A sentence they can take in
+ * at a glance does that; a paragraph does not get read at all.
+ */
 const COPY: Record<PaymentStage, { title: string; description: string }> = {
   placing: {
     title: "Placing your order",
-    description: "Just a moment — we're setting up your order.",
+    description: "One moment.",
   },
   verifying: {
     title: "Confirming your payment",
-    description: "Your payment went through. We're confirming it and opening your order.",
+    description: "Payment received. Opening your order.",
   },
 };
 
