@@ -520,14 +520,37 @@ export function HomepageSection({
   }
 
   if (section.kind === "usp") {
+    /**
+     * Two shapes, chosen by whether the editor gave it a heading.
+     *
+     * ── Why it is worth having both ─────────────────────────────────────────
+     * This is the shop's trust bar, and where it sits changes what it should
+     * be. Titled and low on the page it is a section — "Why 925" — that a
+     * shopper reads once they are interested. Untitled and directly under the
+     * hero it is a strip, which is where Indian retail puts it and what it is
+     * doing there: settling hallmarking, returns and delivery before anyone
+     * has scrolled, because those three questions are what stop a first
+     * purchase.
+     *
+     * One section type serving both means the position in the CMS decides the
+     * job, and nobody has to add a second content type to move it.
+     *
+     * ⚠️  Editorial rhythm is ~160px of vertical space. Directly under a hero
+     * that reads as a gap rather than a section, so the untitled form drops to
+     * the transactional rhythm and loses the heading block entirely.
+     */
+    const asStrip = !section.title && !section.eyebrow && !section.subtitle;
+
     return (
-      // No tinted band and no enclosing border. A filled strip with four
-      // icon cards in it is the "trust badges" pattern every template ships,
-      // and it announced these claims as marketing. They carry further set
-      // quietly on the page, separated by hairlines, with the icon small and
-      // the type at body size.
+      // No tinted band and no enclosing border, in either shape. A filled strip
+      // with four icon cards in it is the "trust badges" pattern every template
+      // ships, and it announced these claims as marketing. They carry further
+      // set quietly on the page, separated by hairlines, with the icon small
+      // and the type at body size.
       <RevealSection className="border-t">
-        <div className="container-page rhythm-editorial">
+        <div
+          className={`container-page ${asStrip ? "rhythm-transactional" : "rhythm-editorial"}`}
+        >
           <SectionHeading
             title={section.title}
             eyebrow={section.eyebrow}
@@ -537,10 +560,14 @@ export function HomepageSection({
             {section.items.map((item, i) => (
               <li
                 key={i}
-                className="flex flex-col items-start gap-2 border-t py-6 lg:border-t-0 lg:py-0"
+                className={`flex flex-col items-start gap-2 border-t lg:border-t-0 ${
+                  asStrip ? "py-4 lg:py-0" : "py-6 lg:py-0"
+                }`}
               >
-                {/* Same resolver as the trust bar: a Lucide name or an emoji. */}
-                <CmsIcon name={item.icon} className="size-5 text-black" />
+                {/* Same resolver as the trust bar: a Lucide name or an emoji.
+                    Oxide rather than black — this is the accent's job, marking
+                    the row a shopper should actually read. */}
+                <CmsIcon name={item.icon} className="size-5 text-[var(--oxide)]" />
                 {item.title && <p className="text-sm font-medium text-foreground">{item.title}</p>}
                 {item.text && (
                   <p className="text-sm leading-relaxed text-muted-foreground">{item.text}</p>
