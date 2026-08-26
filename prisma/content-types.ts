@@ -405,6 +405,64 @@ export const systemContentTypes = [
         label: "Shipping & returns — delivery times and the returns window",
         type: "richtext",
       },
+      /**
+       * The short assurances that sit beside the buy button — the three or four
+       * things a shopper wants settled before spending on silver.
+       *
+       * ⚠️  Authored rather than coded, and that is the whole point. This was
+       * briefly hardcoded, and it could not state the one thing shoppers most
+       * want to know, because the codebase carries a standing note:
+       *
+       *     UNRESOLVED: the homepage trust bar says 15-day returns; the old
+       *     product page said 7-day. Neither is asserted anywhere now.
+       *
+       * A returns window is a promise the business has to honour, and it is not
+       * a developer's to invent. Here the owner types the real one, changes it
+       * the day it changes, and never needs a deploy to do either.
+       *
+       * Nothing is seeded. The strip renders only when rows exist, so an
+       * unauthored shop simply shows the buy buttons — see
+       * components/storefront/product-assurances.tsx.
+       */
+      {
+        name: "assurances",
+        label: "Assurances — the short list beside the Add to cart button",
+        type: "array",
+        summaryField: "label",
+        summaryBadgeField: "icon",
+        of: [
+          {
+            name: "label",
+            label: "Assurance",
+            type: "text",
+            required: true,
+            placeholder: "925 BIS hallmarked",
+          },
+          {
+            name: "detail",
+            label: "Detail — the qualifying half, kept short",
+            type: "text",
+            placeholder: "Assayed sterling, stamped on every piece",
+          },
+          {
+            /**
+             * A fixed set, not a free text field. An icon name typed by hand is
+             * a broken icon the day it is misspelled, and the storefront maps
+             * these to specific glyphs — see product-assurances.tsx.
+             */
+            name: "icon",
+            label: "Icon",
+            type: "select",
+            options: ["hallmark", "returns", "shipping", "payment", "support"],
+          },
+          {
+            name: "href",
+            label: "Link (optional) — e.g. /p/returns",
+            type: "text",
+            placeholder: "/p/returns",
+          },
+        ],
+      },
     ],
   },
   {

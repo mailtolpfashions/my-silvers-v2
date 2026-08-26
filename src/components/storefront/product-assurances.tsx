@@ -1,79 +1,97 @@
 import Link from "next/link";
-import { BadgeCheck, RotateCcw, Truck } from "lucide-react";
+import { BadgeCheck, RotateCcw, Truck, ShieldCheck, Headset } from "lucide-react";
+import { getPublishedEntry } from "@/server/cms/entries";
 
 /**
- * The three things a shopper wants settled before spending ₹4,000 on silver.
+ * The three or four things a shopper wants settled before spending on silver,
+ * sitting directly under the buy button.
  *
- * ── Why this sits directly under the buy buttons ────────────────────────────
+ * ── Why it is beside the button ─────────────────────────────────────────────
  * It is the highest-converting element on an Indian product page and the site
- * had none of it. A shopper deciding between this shop and a marketplace is
- * weighing exactly three risks — is it real silver, what if it does not suit
- * me, and when does it arrive — and every competitor answers all three within
- * a thumb's reach of the buy button. Answering them four screens down in an
- * accordion is answering them after the decision.
+ * had none of it. Someone choosing between this shop and a marketplace weighs
+ * exactly three risks — is it real silver, what if it does not suit me, when
+ * does it arrive — and every competitor answers all three within a thumb's
+ * reach of the buy control. This page answered them four screens down inside an
+ * accordion, which is answering them after the decision.
  *
- * ── ⚠️  It states no numbers, and that is deliberate ────────────────────────
- * There is a standing note in product-info-sections.tsx:
+ * ── ⚠️  Authored in the CMS, never here ─────────────────────────────────────
+ * The first version of this component hardcoded its rows, and could not state
+ * the one fact shoppers most want, because the codebase carries a standing
+ * note in product-info-sections.tsx:
  *
  *     UNRESOLVED: the homepage trust bar says 15-day returns; the old product
- *     page said 7-day. Neither is asserted anywhere now. Confirm the real
- *     policy with the business before writing this.
+ *     page said 7-day. Neither is asserted anywhere now.
  *
- * So this does not say "7-day returns" or "free shipping over ₹999". It names
- * the assurance and links to the page that holds the real terms. A wrong number
- * here is a promise the shop has to honour, and the last two versions of this
- * page contradicted each other.
+ * A returns window is a promise the business has to honour. It is not a
+ * developer's to invent, and a shop should not need a deploy to change it. So
+ * the rows live on the `product-info` singleton beside the materials and care
+ * blocks that already appear on every product page — one entry, edited once,
+ * applying to the whole catalogue.
  *
- * Replace the links with stated terms the day the business confirms them — that
- * is a strictly better version of this component, not a different one.
- *
- * The hallmark line is the exception: 925 sterling is a fact about the metal,
- * asserted in the site's own metadata, and stamped on the piece itself.
+ * Nothing is seeded. With no rows authored this renders nothing at all, which
+ * is the correct empty state: no strip is better than a strip of placeholders.
  */
-export function ProductAssurances({
-  returnsHref,
-  shippingHref,
-}: {
-  /** Omitted when the policy page is unpublished — never link into a 404. */
-  returnsHref?: string;
-  shippingHref?: string;
-}) {
+
+/** The glyphs an editor can choose from — see the `icon` options on the type. */
+const ICONS = {
+  hallmark: BadgeCheck,
+  returns: RotateCcw,
+  shipping: Truck,
+  payment: ShieldCheck,
+  support: Headset,
+} as const;
+
+type IconName = keyof typeof ICONS;
+
+type AssuranceRow = {
+  label?: string;
+  detail?: string;
+  icon?: string;
+  href?: string;
+};
+
+export async function ProductAssurances() {
+  const entry = await getPublishedEntry("product-info");
+  const rows = (entry?.data as { assurances?: AssuranceRow[] } | undefined)?.assurances ?? [];
+
+  // A row with no label has nothing to say; an editor mid-edit should not put a
+  // blank line on the storefront.
+  const assurances = rows.filter((row) => row.label?.trim());
+  if (assurances.length === 0) return null;
+
   return (
     <ul className="mt-6 grid gap-px border-y bg-border lg:max-w-xl">
-      <Assurance icon={<BadgeCheck className="size-4" aria-hidden />}>
-        <span className="font-medium text-foreground">925 BIS hallmarked</span> — assayed
-        sterling, stamped on the piece
-      </Assurance>
+      {assurances.map((row, i) => {
+        const Icon = ICONS[row.icon as IconName] ?? BadgeCheck;
+        const label = row.label!.trim();
+        const detail = row.detail?.trim();
 
-      {returnsHref && (
-        <Assurance icon={<RotateCcw className="size-4" aria-hidden />}>
-          <Link href={returnsHref} className="font-medium text-foreground underline-offset-4 hover:underline">
-            Returns &amp; exchanges
-          </Link>{" "}
-          — read the terms before you buy
-        </Assurance>
-      )}
-
-      {shippingHref && (
-        <Assurance icon={<Truck className="size-4" aria-hidden />}>
-          <Link href={shippingHref} className="font-medium text-foreground underline-offset-4 hover:underline">
-            Shipping &amp; delivery
-          </Link>{" "}
-          — charges and timelines across India
-        </Assurance>
-      )}
+        return (
+          <li
+            key={`${label}-${i}`}
+            className="flex items-start gap-3 bg-background py-3 text-sm text-muted-foreground"
+          >
+            {/* Oxide: the accent's job is marking what is worth reading, and on
+                this page that is exactly these rows. */}
+            <span className="mt-0.5 shrink-0 text-[var(--oxide)]">
+              <Icon className="size-4" aria-hidden />
+            </span>
+            <span className="text-pretty">
+              {row.href ? (
+                <Link
+                  href={row.href}
+                  className="font-medium text-foreground underline-offset-4 hover:underline"
+                >
+                  {label}
+                </Link>
+              ) : (
+                <span className="font-medium text-foreground">{label}</span>
+              )}
+              {detail && <> — {detail}</>}
+            </span>
+          </li>
+        );
+      })}
     </ul>
-  );
-}
-
-/** One row. Hairline-separated by the parent's gap-px over a border fill. */
-function Assurance({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <li className="flex items-start gap-3 bg-background py-3 text-sm text-muted-foreground">
-      {/* Oxide, because this is the accent's job: the one colour on the page
-          that means "this is worth reading". */}
-      <span className="mt-0.5 shrink-0 text-[var(--oxide)]">{icon}</span>
-      <span className="text-pretty">{children}</span>
-    </li>
   );
 }
