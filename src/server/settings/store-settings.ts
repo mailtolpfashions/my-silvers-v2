@@ -110,19 +110,43 @@ function parse(raw: unknown): StoreSettings {
  * throwing. A settings lookup failing is not a reason for the cart page to be
  * a 500 — the worst case is that the shop briefly behaves as a freshly
  * installed one, which is a state it is designed to work in.
+ *
+ * "Briefly" is doing real work in that sentence, and used not to be true — see
+ * readStoreSettings for why the catch has to sit out here, outside the cache.
  */
 export async function getStoreSettings(): Promise<StoreSettings> {
-  "use cache";
-  cacheLife("settings");
-  cacheTag(STORE_SETTINGS_TAG);
-
   try {
-    const row = await prisma.storeSetting.findUnique({ where: { key: SETTINGS_KEY } });
-    return parse(row?.value);
+    return await readStoreSettings();
   } catch (err) {
     console.error("getStoreSettings failed — falling back to defaults", err);
     return STORE_SETTING_DEFAULTS;
   }
+}
+
+/**
+ * The cached read. Throws rather than falling back, and that is the point.
+ *
+ * ⚠️  The try/catch used to live INSIDE this function, above the `"use cache"`
+ * boundary's return — which meant the fallback was a successful return value
+ * and got CACHED. One unreachable database, for one instant, pinned the whole
+ * shop to a freshly-installed configuration for the length of the cache
+ * window: ₹49 shipping instead of the configured charge, and cash on delivery
+ * showing as unavailable. Nothing was broken and nothing was logged twice; the
+ * shop just quietly quoted the wrong price to everyone for the next minute.
+ *
+ * Split, a failure is a rejected promise, which `"use cache"` does not store.
+ * The very next request tries the database again, and only a real answer is
+ * ever cached. The fallback still exists — a settings lookup failing is not a
+ * reason for the cart to be a 500 — but it is now per-request rather than
+ * something that sticks.
+ */
+async function readStoreSettings(): Promise<StoreSettings> {
+  "use cache";
+  cacheLife("settings");
+  cacheTag(STORE_SETTINGS_TAG);
+
+  const row = await prisma.storeSetting.findUnique({ where: { key: SETTINGS_KEY } });
+  return parse(row?.value);
 }
 
 /**
