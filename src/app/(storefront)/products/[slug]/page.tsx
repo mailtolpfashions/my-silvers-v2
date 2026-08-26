@@ -7,7 +7,7 @@ import { auth } from "@/server/auth/auth";
 import { getProductBySlug } from "@/server/products/search";
 import { isInWishlist, getCartQuantityFor } from "@/server/cart";
 import { stockLabel, isScarce } from "@/lib/stock-label";
-import { formatINR } from "@/lib/format";
+import { formatINR, savingLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ogImage } from "@/lib/og-image";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -157,6 +157,8 @@ async function ProductDetailContent({ params }: { params: Promise<{ slug: string
   // Cached under the `cms:page` tag, so this costs nothing per request and
   // starts resolving the moment an editor publishes the page.
   const sizeGuideHref = (await isPagePublished("size-guide")) ? "/p/size-guide" : undefined;
+
+  const saving = savingLabel(product.price.toString(), product.compareAtPrice?.toString());
 
   return (
     <>
@@ -356,6 +358,17 @@ async function ProductDetailContent({ params }: { params: Promise<{ slug: string
             )}
             <span className="text-xs text-muted-foreground">incl. of all taxes</span>
           </p>
+
+          {/* The saving, stated rather than implied.
+
+              `.saving` is oxide text at 12px, NOT a filled badge — a
+              black-filled percentage pill is a discount sticker, and the
+              product card rejects one for that reason. This says the same
+              thing in the register the rest of the page is written in.
+
+              Renders nothing at all when there is no genuine saving; see
+              savingLabel. */}
+          {saving && <p className="saving mt-1">{saving}</p>}
 
           {/* The Bestseller and Featured badges that used to sit beside this are
               gone — a badge on the page you are already on tells a shopper

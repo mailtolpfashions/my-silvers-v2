@@ -13,6 +13,46 @@ export function formatINRPaise(paise: number): string {
 }
 
 /**
+ * "Save ₹1,000 (20%)", or null when there is nothing honest to claim.
+ *
+ * A struck-through compare-at price shows a shopper that the price came down
+ * and leaves them to work out by how much. Every Indian storefront states it
+ * instead, because a saving the shopper has to calculate is a saving most of
+ * them do not. Both figures are given: the percentage carries a small piece,
+ * the rupees carry an expensive one, and which lands harder depends on the
+ * price.
+ *
+ * ── When it says nothing ─────────────────────────────────────────────────────
+ * Null on a missing compare-at price, and null when compare-at is at or BELOW
+ * the price. That second guard is not theoretical: compare-at is a free-text
+ * admin field, so one transposed digit would otherwise print "Save ₹-500".
+ *
+ * Also null below one percent. A ₹5 saving on a ₹5,000 piece is arithmetically
+ * a saving and reads as a rounding error — claiming it makes the shop look like
+ * it is counting coins, and a "(0%)" beside it looks broken.
+ *
+ * Integer paise throughout, like the order maths, so the figure a shopper is
+ * shown is computed the same way as the one they are charged.
+ */
+export function savingLabel(
+  price: number | string,
+  compareAtPrice: number | string | null | undefined
+): string | null {
+  if (compareAtPrice === null || compareAtPrice === undefined || compareAtPrice === "") return null;
+
+  const pricePaise = Math.round(Number(price) * 100);
+  const comparePaise = Math.round(Number(compareAtPrice) * 100);
+  if (!Number.isFinite(pricePaise) || !Number.isFinite(comparePaise)) return null;
+  if (comparePaise <= pricePaise || pricePaise <= 0) return null;
+
+  const savedPaise = comparePaise - pricePaise;
+  const percent = Math.round((savedPaise / comparePaise) * 100);
+  if (percent < 1) return null;
+
+  return `Save ${formatINRPaise(savedPaise)} (${percent}%)`;
+}
+
+/**
  * "2026-08-26" → "26 Aug".
  *
  * For dashboard date axes and captions. The stored ISO date is unambiguous,
