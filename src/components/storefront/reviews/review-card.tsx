@@ -18,17 +18,22 @@ export type ReviewCardData = {
 /**
  * One review in the product-page grid.
  *
- * ── The photo is a fixed band, not a free-standing image ────────────────────
- * `aspect-[4/3]` on a full-width band puts the photo at roughly 28% of a card's
- * height and the words at the other 72%. That ratio is the whole design: a
- * review is worth reading, and a photo is what makes a shopper believe it. Let
- * the image size itself and a portrait phone photo takes over the card, pushing
- * the sentence that justifies it below the fold of the tile.
+ * ── The photo is a fixed band, and it leads ─────────────────────────────────
+ * `aspect-[4/3]` sizes the photo against the card's WIDTH, so on a ~356px
+ * column it stands about 270px tall. Against a typical three-line review that
+ * works out at roughly 60/40 in the photo's favour.
  *
- * `object-cover` is what holds the ratio — it crops rather than letterboxes, so
- * a portrait phone photo and a landscape one produce the same shaped card.
- * Cards therefore all stand the same height in a row, which is the difference
- * between a grid and a masonry wall.
+ * ⚠️  That is deliberate, and it is NOT the 25-30% the brief first asked for.
+ * The two turned out to be incompatible: to get the photo down to 28% beside a
+ * short review, the band would have to be about 80px tall on a 356px card — a
+ * letterbox strip that crops a portrait phone photo until the piece itself is
+ * barely visible. At that size a photo stops being evidence and becomes
+ * texture, which defeats the reason for showing it. Reviewed against the real
+ * thing on screen and the photo-led version was kept.
+ *
+ * `object-cover` is what makes a grid possible at all — it crops rather than
+ * letterboxes, so a portrait phone photo and a landscape one produce the same
+ * shaped card and a row stands level. Without it this would be a masonry wall.
  */
 export function ReviewCard({ review }: { review: ReviewCardData }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);

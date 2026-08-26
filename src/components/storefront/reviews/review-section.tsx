@@ -32,9 +32,9 @@ function Stars({ rating }: { rating: number }) {
  * getProductReviews, not here — see the note there about `take`), and the note
  * moves beneath them where it reads as a footer rather than a column.
  *
- * Each card devotes roughly 28% of its height to the photo and the rest to the
- * words. See review-card.tsx for why that ratio is fixed rather than letting
- * the image size itself.
+ * The photo leads each card, at roughly 60% of its height. See review-card.tsx
+ * for why — and for why the 25-30% the brief originally asked for turned out to
+ * be incompatible with showing a photograph anyone can read.
  */
 export async function ReviewSection({
   productId,
