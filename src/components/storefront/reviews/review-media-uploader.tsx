@@ -1,9 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import Image from "next/image";
-import { ImagePlus, Loader2, X } from "lucide-react";
+import { ImageIcon, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
+import { Item } from "@/components/ui/item";
+import { Label } from "@/components/ui/label";
 import { uploadToCloudinary } from "@/lib/cloudinary-upload";
 import {
   MAX_REVIEW_IMAGE_BYTES,
@@ -23,6 +25,18 @@ import {
  *
  * Uploads go straight from the browser to Cloudinary, as everywhere else in
  * this codebase — the bytes never pass through a Function.
+ *
+ * ── Why the drop zone is wide and short ─────────────────────────────────────
+ * This was an 80px dashed square, which was easy to scroll straight past. A
+ * customer's photo is the most persuasive thing on a review card, so the
+ * control that produces one should be worth noticing.
+ *
+ * It is NOT the `aspect-square` zone the pattern it borrows from uses, though.
+ * Square means "as tall as the card is wide" — about 350px here, in a dialog
+ * that already carries a rating, a title, a textarea and a submit button. That
+ * pushes the submit below the fold on a phone, and makes an optional photo look
+ * required. Wide and short is the compromise: prominent, still clearly
+ * secondary to the words.
  */
 export function ReviewMediaUploader({
   imageUrl,
@@ -34,6 +48,7 @@ export function ReviewMediaUploader({
   disabled?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputId = useId();
   const [uploading, setUploading] = useState(false);
 
   async function handleFile(files: FileList | null) {
@@ -64,59 +79,62 @@ export function ReviewMediaUploader({
     }
   }
 
+  const busy = disabled || uploading;
+
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium">
+      <Label htmlFor={inputId}>
         Photo <span className="font-normal text-muted-foreground">(optional)</span>
-      </p>
+      </Label>
 
-      <div className="flex flex-wrap items-start gap-3">
-        {imageUrl ? (
-          <div className="relative size-20 overflow-hidden rounded-md border">
-            <Image src={imageUrl} alt="Your photo" fill sizes="80px" className="object-cover" />
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => onChange(null)}
-              aria-label="Remove photo"
-              // Always visible rather than revealed on hover: this control gets
-              // used on a phone as often as on a desktop, and there is no hover
-              // there.
-              className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white"
-            >
-              <X className="size-3" />
-            </button>
-          </div>
-        ) : (
+      {imageUrl ? (
+        <div className="relative h-32 w-full overflow-hidden rounded-md border">
+          {/* The stored photo, shown at the same height the empty zone occupies
+              so the dialog does not jump when one replaces the other. */}
+          <Image src={imageUrl} alt="Your photo" fill sizes="400px" className="object-cover" />
           <button
             type="button"
-            disabled={disabled || uploading}
+            disabled={busy}
+            onClick={() => onChange(null)}
+            aria-label="Remove photo"
+            className="absolute right-1.5 top-1.5 rounded-full bg-black/60 p-1 text-white"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      ) : (
+        /**
+         * A real <button>, not the pattern's `<label role="button" tabindex=0>`.
+         *
+         * ⚠️  A focusable <label> is a trap: browsers open the file picker on
+         * CLICK, but pressing Enter on a focused label does nothing in most of
+         * them. That markup only stays usable because its input is `sr-only`
+         * and therefore still tabbable — the label is decoration with a role
+         * attribute on it. A button that calls .click() is honest about what it
+         * is and works from the keyboard by default.
+         */
+        <Item asChild variant="outline" className="h-32 p-0">
+          <button
+            type="button"
+            disabled={busy}
             onClick={() => inputRef.current?.click()}
-            className="flex size-20 flex-col items-center justify-center gap-1 rounded-md border border-dashed text-xs text-muted-foreground hover:bg-muted disabled:opacity-50"
+            className="flex w-full cursor-pointer flex-col items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {uploading ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="size-8 animate-spin text-muted-foreground" />
             ) : (
-              <ImagePlus className="size-4" />
+              <ImageIcon className="size-8 text-muted-foreground/50" aria-hidden />
             )}
-            {uploading ? "Uploading" : "Add photo"}
+            <span className="text-sm text-muted-foreground">
+              {uploading ? "Uploading…" : "Add a photo"}
+            </span>
           </button>
-        )}
-
-        {imageUrl && (
-          <button
-            type="button"
-            disabled={disabled || uploading}
-            onClick={() => inputRef.current?.click()}
-            className="text-sm underline underline-offset-4 disabled:opacity-50"
-          >
-            {uploading ? "Uploading…" : "Replace"}
-          </button>
-        )}
-      </div>
+        </Item>
+      )}
 
       <input
         ref={inputRef}
+        id={inputId}
         // Kept in step with ALLOWED_REVIEW_IMAGE_FORMATS, which is what
         // Cloudinary actually enforces. A bare `image/*` would let a phone offer
         // formats the signature rejects, so the refusal would arrive after the
@@ -127,10 +145,21 @@ export function ReviewMediaUploader({
         onChange={(e) => handleFile(e.target.files)}
       />
 
-      <p className="text-xs text-muted-foreground">
-        One photo, up to {formatBytes(MAX_REVIEW_IMAGE_BYTES)}. Shoppers find a real photo of the
-        piece more useful than anything else in a review.
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          One photo, up to {formatBytes(MAX_REVIEW_IMAGE_BYTES)}.
+        </p>
+        {imageUrl && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+            className="text-xs underline underline-offset-4 disabled:opacity-50"
+          >
+            {uploading ? "Uploading…" : "Replace"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
