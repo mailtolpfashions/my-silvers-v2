@@ -513,15 +513,25 @@ async function ProductCta({ productId, stock }: { productId: string; stock: numb
         </div>
       </div>
 
-      {/* Directly under the buttons, and only on the desktop rail — on a phone
-          the buttons live in the sticky bar, so a strip pinned under the rail
-          copy would sit nowhere near the control it reassures.
-
-          Authored in the CMS on the `product-info` singleton; renders nothing
-          until an editor adds rows. See product-assurances.tsx. */}
-      <div className="hidden md:block">
-        <ProductAssurances />
-      </div>
+      {/**
+       * Shown at BOTH breakpoints.
+       *
+       * ⚠️  This was `hidden md:block`, reasoned as: on a phone the buttons
+       * live in the sticky bar, so a strip under the rail sits nowhere near the
+       * control it reassures. True, and beside the point — most of this shop's
+       * traffic is a phone, so that hid the hallmark, the returns terms and the
+       * delivery promise from nearly everyone, to keep them adjacent for the
+       * minority on a desktop.
+       *
+       * On a phone it lands directly under the price and size selector, which
+       * is where the questions are actually being asked. The sticky bar is
+       * always in reach, so the buy control is never far from the answer even
+       * when it is not immediately beside it.
+       *
+       * Authored in the CMS on the `product-info` singleton; renders nothing
+       * until an editor adds rows. See product-assurances.tsx.
+       */}
+      <ProductAssurances />
 
       {/* Mobile: the same controls, pinned to the bottom of the viewport.
           Rendered from this component rather than a second one so auth() and
