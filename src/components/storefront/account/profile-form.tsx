@@ -82,8 +82,22 @@ export function ProfileForm({
   );
   const maxDateOfBirth = isHydrated ? todayLocal() : undefined;
 
+  /**
+   * ⚠️  The form is capped at max-w-xl because the PAGE is deliberately wider
+   * than a form wants.
+   *
+   * Every /account page uses `container-checkout` (64rem), which is right for
+   * what most of them hold — an order list, an order's line items, an invoice.
+   * A single-column form inherits that same 64rem and stretches every field to
+   * match, which is how "Full name" ended up as a 975px box for a value that is
+   * rarely thirty characters.
+   *
+   * Capping the FORM rather than the page keeps the section coherent: the back
+   * link and the heading still line up with every other account screen, and
+   * only the fields come back to a sane measure.
+   */
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="max-w-xl space-y-4">
       {state?.error && (
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {state.error}
@@ -161,11 +175,12 @@ export function ProfileForm({
         </div>
       </div>
 
-      {/* The storefront's own call to action, not the rounded /admin one — see
-          the note on the `cta` variant in ui/button.tsx. Checkout already used
-          it; this form and the address form were the two places still speaking
-          the dashboard's language to a shopper. */}
-      <Button type="submit" variant="cta" size="cta" disabled={isPending}>
+      {/* The default (rounded) variant, NOT the storefront's square `cta`.
+          Tried the other way and reverted it: `cta` is sized and lettered for
+          the moment money changes hands — at h-12 it dominated a settings form
+          and made "Save changes" look like the most important thing on the
+          page. Account admin is closer in kind to /admin than to checkout. */}
+      <Button type="submit" disabled={isPending}>
         {isPending ? "Saving…" : "Save changes"}
       </Button>
     </form>

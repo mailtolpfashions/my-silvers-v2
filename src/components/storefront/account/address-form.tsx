@@ -39,8 +39,11 @@ export function AddressForm({
     if (state?.success) onDone?.();
   }, [state?.success, onDone]);
 
+  // max-w-xl for the same reason as profile-form — see the note there. The
+  // page's 64rem suits an address LIST; the form filling it stretched every
+  // field to match.
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="max-w-xl space-y-4">
       {initial?.id && <input type="hidden" name="addressId" value={initial.id} />}
 
       {state?.error && (
@@ -131,12 +134,10 @@ export function AddressForm({
         Use as my default delivery address
       </label>
 
-      {/* items-center, because the two buttons are deliberately different
-          heights: the storefront's `cta` is a tall square block and Cancel
-          stays a quiet ghost. Matching their sizes would give a destructive-
-          adjacent action the same weight as the one being encouraged. */}
-      <div className="flex items-center gap-3">
-        <Button type="submit" variant="cta" size="cta" disabled={isPending}>
+      {/* Default variant, matching profile-form — see the note there for why
+          the storefront's `cta` was tried here and reverted. */}
+      <div className="flex gap-2">
+        <Button type="submit" disabled={isPending}>
           {isPending ? "Saving…" : isEdit ? "Update address" : "Save address"}
         </Button>
         {onDone && (
