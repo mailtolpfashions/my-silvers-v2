@@ -797,18 +797,18 @@ export function CheckoutForm({
                 <span className="text-muted-foreground">
                   {line.name} × {line.quantity}
                 </span>
-                <span>{formatINRPaise(line.pricePaise * line.quantity)}</span>
+                <span className="figures">{formatINRPaise(line.pricePaise * line.quantity)}</span>
               </div>
             ))}
             <div className="flex justify-between border-t pt-3 text-sm">
               <span className="text-muted-foreground">Shipping</span>
-              <span>{shippingPaise === 0 ? "Free" : formatINRPaise(shippingPaise)}</span>
+              <span className="figures">{shippingPaise === 0 ? "Free" : formatINRPaise(shippingPaise)}</span>
             </div>
             {/* Steps up while the line items stay at 14px — same reasoning as
                 the cart's summary block, which this mirrors. */}
             <div className="flex items-baseline justify-between border-t pt-3 text-base font-semibold">
               <span>Total</span>
-              <span>{formatINRPaise(totalPaise)}</span>
+              <span className="figures">{formatINRPaise(totalPaise)}</span>
             </div>
           </div>
         </div>

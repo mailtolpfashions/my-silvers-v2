@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Playfair_Display, DM_Sans, Raleway } from "next/font/google";
+import { Playfair_Display, DM_Sans, Raleway, Archivo, DM_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -27,8 +27,42 @@ const raleway = Raleway({
   display: "swap",
 });
 
-// Geist Mono was dropped: a whole downloaded family for one `font-mono` order
-// ID in /admin. Tailwind's default system mono stack covers that case.
+/**
+ * Storefront display face — headings only, via .text-h1/.text-h2/.text-h3.
+ *
+ * Variable with a WIDTH axis, which is the reason for choosing it. Set slightly
+ * expanded, Archivo reads engineered and precise, which is what a shop built on
+ * an assay mark should sound like. A hallmark is a stamp; stamps are exact.
+ *
+ * ⚠️  Deliberately NOT wired to --font-heading, which every h1–h6 in the app
+ * inherits including /admin and /cms. Those are tools, and a tool wants a
+ * neutral face; a display cut at 14px in a dashboard card title looks like a
+ * font that failed to load. The storefront scale classes opt in instead.
+ */
+const archivo = Archivo({
+  variable: "--font-archivo",
+  subsets: ["latin"],
+  axes: ["wdth"],
+  display: "swap",
+});
+
+/**
+ * Every certified number: prices, order numbers, ring sizes, the 925 mark.
+ *
+ * ⚠️  A mono was here before and was removed, correctly — the note said "a
+ * whole downloaded family for one `font-mono` order ID in /admin". That
+ * reasoning held for one use. It does not hold for this one: after the 925
+ * system these figures appear on every product card, every product page, the
+ * cart, checkout and every order screen. A stamped figure should look stamped.
+ *
+ * One weight only, so the cost is a single file rather than a family.
+ */
+const dmMono = DM_Mono({
+  variable: "--font-dm-mono",
+  subsets: ["latin"],
+  weight: ["400"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.mysilvers.in"),
@@ -87,7 +121,7 @@ export default function RootLayout({
     // next-themes writing a class onto <html> before hydration.
     <html
       lang="en-IN"
-      className={`${playfair.variable} ${dmSans.variable} ${raleway.variable} h-full antialiased`}
+      className={`${playfair.variable} ${dmSans.variable} ${raleway.variable} ${archivo.variable} ${dmMono.variable} h-full antialiased`}
     >
       {/* Single light theme by design. There is no theme provider: next-themes
           was a client-side context wrapping every page, and the site has one

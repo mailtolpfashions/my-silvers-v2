@@ -33,6 +33,20 @@
   --font-serif: var(--font-playfair);
   --font-brand: var(--font-raleway);
 
+  /* ── The storefront display face ──────────────────────────────────────────
+     Archivo, set expanded by .text-h1/.text-h2/.text-h3 below.
+
+     ⚠️  Kept OUT of --font-heading on purpose. That token feeds every h1–h6 in
+     the application, /admin and /cms included, and those are tools: a display
+     cut at 14px in a dashboard card title reads as a font that failed to load.
+     The storefront's own scale classes opt in; nothing else does. */
+  --font-display: var(--font-archivo);
+
+  /* Certified numbers — prices, order numbers, ring sizes, the 925 mark. See
+     .numeral below, and the note in layout.tsx for why a mono is back after
+     being removed once. */
+  --font-mono: var(--font-dm-mono);
+
   /* ── Ramp vs semantic ─────────────────────────────────────────────────────
      The ramp below is the raw palette: six tones, no accent. The semantic
      tokens further down — background, foreground, muted, card, border — are
@@ -194,39 +208,48 @@
      Ratios in comments are worst-case, i.e. against --half-white (#f2f2f2), not
      the page background, since muted fills are the darkest thing text sits on.
      Every value here is contrast-checked — keep it that way when editing. ─── */
-  /* ── Silver is not grey ───────────────────────────────────────────────────
-     These were a true achromatic ramp: #f2f2f2, #e0e0e0, #8a8a8a, #666666,
-     #2d2d2d. Neutral greys are what a page defaults to, and the shop read as
-     unconsidered for exactly that reason — a palette with no chroma anywhere
-     gives the eye nothing to hold.
+  /* ── Warm, because this shop sells in India ───────────────────────────────
+     Two rewrites, and the second reverses the first. Recording both, because
+     the reasoning is the useful part.
 
-     Every tone below now carries a slight blue bias, taken from the material:
-     photograph sterling and the shadows go cool while the highlights stay warm.
-     It is subtle by design — nobody should be able to name the colour — but a
-     grey biased toward the accent reads as chosen where a pure grey reads as
-     inherited.
+     It began as a true achromatic ramp — #f2f2f2, #e0e0e0, #8a8a8a, #666666,
+     #2d2d2d. A palette with no chroma anywhere gives the eye nothing to hold,
+     and pure greys are what a page defaults TO rather than chooses.
 
-     ⚠️  Contrast was re-checked against the new --half-white, not the old one,
-     and every value here EQUALS OR BEATS the ratio it replaces. Keep it that
-     way: the numbers in these comments are load-bearing. --white stays pure so
-     cards still sit level with the page and are separated by --border alone. */
+     The first fix biased every tone COOL, on the reasoning that photographed
+     sterling goes blue in shadow. Materially true, commercially wrong: cool
+     grey on white is the visual language of Western minimalism, and in Indian
+     jewellery retail it reads as distant and expensive. Every shop that
+     actually sells here — Tanishq, CaratLane, GIVA — sits on a warm ground.
+     Warmth is not decoration in this market; it is the difference between a
+     page that feels like a shop and one that feels like a gallery.
+
+     ⚠️  So the bias is warm, and the material argument loses to the market one.
+     Contrast re-checked against the new --half-white; every value EQUALS OR
+     BEATS the ratio it replaces. Those numbers are load-bearing — keep them
+     true. --white stays pure so cards sit level with the page and separate by
+     --border alone. */
   --white: #ffffff; /* page background, cards, elevated surfaces */
-  --half-white: #f1f3f5; /* muted fills, secondary surfaces */
-  --hairline: #dde1e5; /* decorative card edges and rules — see note above */
-  --half-grey: #838a91; /* control borders, disabled — 3.14:1, clears the 3:1 rule */
-  --grey: #5b6066; /* muted foreground — 5.70:1 */
-  --half-black: #26292e; /* body ink — 13.12:1 */
-  --black: #101318; /* headings, footer, primary fills, emphasis — 16.73:1 */
+  --half-white: #f7f3ec; /* muted fills, secondary surfaces — warm ivory */
+  --hairline: #e8e1d5; /* decorative card edges and rules — see note above */
+  --half-grey: #8a8073; /* control borders, disabled — 3.51:1, clears the 3:1 rule */
+  --grey: #655c50; /* muted foreground — 5.93:1 */
+  --half-black: #2e2822; /* body ink — 13.16:1 */
+  --black: #15110d; /* headings, footer, primary fills, emphasis — 16.98:1 */
 
   /* ── The accent, and the only one ─────────────────────────────────────────
-     Oxidised silver: what the metal turns when it tarnishes toward blue-black.
-     8.40:1 on --half-white, so it is legible as text as well as fill.
+     Oxidised silver — the blackened antique finish that is one of the largest
+     silver categories in India, and the single point where the material and
+     the market agree. It survives the warm ground because it is the one cool
+     note against it, which is what makes it read as deliberate rather than as
+     a leftover from the cool palette above.
 
-     ⚠️  Emphasis and state ONLY — focus rings, the hallmark strip, a link that
-     must be found. It is not a brand colour to be sprinkled. The moment it
-     appears as decoration it stops meaning anything, and the palette is back to
-     where it started. */
-  --oxide: #2c4a5e;
+     8.67:1 on --half-white, so it is legible as text as well as fill.
+
+     ⚠️  Emphasis and state ONLY — focus rings, the hallmark, a link that must
+     be found. It is not a brand colour to be sprinkled. The moment it appears
+     as decoration it stops meaning anything. */
+  --oxide: #2f4858;
 
   --background: var(--white);
   --foreground: var(--half-black);
@@ -867,19 +890,90 @@
   line-height: 1.04;
   letter-spacing: -0.02em;
 }
+/* ─── Storefront headings ────────────────────────────────────────────────────
+   These three carry the display face; nothing else does. They used to set size
+   and nothing else, inheriting DM Sans from the h1–h6 rule — which is how a
+   shop selling hallmarked silver ended up with the same voice as its own admin
+   dashboard.
+
+   `wdth 105` is a light expansion, not a stretch. Archivo's width axis draws
+   genuinely wider letterforms rather than scaling them, so headings read as
+   engineered and deliberate where a condensed or normal cut reads as neutral.
+   Paired with negative tracking so the expansion tightens rather than sprawls.
+
+   ⚠️  Storefront only. /admin and /cms keep DM Sans through --font-heading;
+   see the note on --font-display. ─────────────────────────────────────────── */
+.text-h1,
+.text-h2,
+.text-h3 {
+  font-family: var(--font-display), var(--font-heading), ui-sans-serif, sans-serif;
+  font-variation-settings: "wdth" 105;
+}
 .text-h1 {
   font-size: var(--text-h1);
-  line-height: 1.1;
-  letter-spacing: -0.015em;
+  line-height: 1.06;
+  letter-spacing: -0.028em;
 }
 .text-h2 {
   font-size: var(--text-h2);
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+  line-height: 1.16;
+  letter-spacing: -0.022em;
 }
 .text-h3 {
   font-size: var(--text-h3);
-  line-height: 1.25;
+  line-height: 1.24;
+  letter-spacing: -0.014em;
+}
+
+/* ─── Two kinds of number, and they are not the same ─────────────────────────
+
+   .numeral — ISSUED OR ASSAYED identifiers. Order numbers, ring sizes, the 925
+   mark. Things stamped or allocated rather than written, set in the voice of a
+   stamp. This shop competes against plated silver that photographs identically
+   and its answer is a figure struck into the metal, so those figures look
+   struck.
+
+   .figures — MONEY. Tabular alignment, but the body face at full weight.
+
+   ⚠️  Prices were briefly .numeral too, and that was wrong. A mono price is a
+   quieter, more technical price, and in Indian retail the price and the saving
+   beside it are the headline a shopper is scanning for — not a data point.
+   Making them recede is the opposite of what this market needs. The alignment
+   is worth keeping; the typewriter voice is not. ─────────────────────────── */
+.numeral {
+  font-family: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.figures {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── You save ₹X ────────────────────────────────────────────────────────────
+   Indian retail convention, and real information rather than a badge: a
+   struck-through figure asks the shopper to do the subtraction, and most do not
+   bother. Stating the saving is the single most persuasive line on a product
+   tile in this market.
+
+   Set in the accent, not in red. Red on a price says "warning" everywhere else
+   on this site, and a saving is the opposite of a warning. ────────────────── */
+.saving {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--oxide);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The hallmark itself. Small, letterspaced, oxide — the signature mark of the
+   925 system. Used wherever a piece asserts what it is made of. */
+.hallmark {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--oxide);
+  line-height: 1.4;
 }
 /* Sits under a heading. Deliberately muted and not a heading font — it's the
    sentence that explains the section, not a second title. */

@@ -338,12 +338,18 @@ async function ProductDetailContent({ params }: { params: Promise<{ slug: string
               `incl. of all taxes` stays on the line rather than below it: it is
               a qualifier on the number, and Indian shoppers read an unqualified
               figure as the one before delivery and GST. */}
-          <p className="mt-4 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-            <span className="text-2xl font-medium text-foreground">
+          {/* The hallmark, above the price and reading into it. This is the one
+              page where a shopper decides whether ₹4,000 is a fair price for
+              silver, and the answer is the assay mark — the thing plated silver
+              photographed beside it cannot claim. See .hallmark in globals.css. */}
+          <p className="hallmark mt-4">925 · Sterling · 92.5% Ag</p>
+
+          <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+            <span className="figures text-2xl font-semibold text-foreground">
               {formatINR(product.price.toString())}
             </span>
             {product.compareAtPrice && (
-              <span className="text-base text-muted-foreground line-through">
+              <span className="figures text-base text-muted-foreground line-through">
                 {formatINR(product.compareAtPrice.toString())}
               </span>
             )}

@@ -230,14 +230,41 @@ export function ProductCard({
             The category went with it. "Pendants" above a pendant, on a page the
             shopper reached by tapping Pendants, spent the tile's most valuable
             line saying nothing — and it was pushing the price down to third. */}
+        {/* The hallmark. 925 is stamped into every piece this shop sells, so it
+            is reproduced rather than described — the assay mark is the argument
+            for the price against plated silver that photographs identically,
+            and it belongs where the price is. See .hallmark in globals.css. */}
+        <p className="hallmark mb-1">925 · Sterling</p>
+
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           {/* 16px semibold — one step up from the 14px name below it, so the
-              number leads the tile on size as well as on position. */}
-          <span className="text-base font-semibold text-foreground">{formatINR(price)}</span>
+              number leads the tile on size as well as on position.
+
+              .numeral sets it in the mono: a measured figure in the voice of a
+              stamp, and tabular so a row of tiles lines its prices up. */}
+          <span className="figures text-base font-semibold text-foreground">
+            {formatINR(price)}
+          </span>
           {compareAt && compareAt > price && (
-            <span className="text-sm text-muted-foreground line-through">
+            <span className="figures text-sm text-muted-foreground line-through">
               {formatINR(compareAt)}
             </span>
+          )}
+          {/* ⚠️  This reverses a decision recorded above — that the saving stays
+              implicit, shown "as a struck-through compare-at price, which is
+              the quiet way to say the same thing".
+
+              Quiet is right for a Western catalogue and wrong here. A struck
+              figure asks the shopper to do the subtraction, and most will not;
+              every shop that competes for this basket — Tanishq, CaratLane,
+              GIVA — states the saving outright, because in Indian retail it is
+              the most persuasive line on a tile.
+
+              It is still not a badge. No fill, no percentage sticker, no red:
+              one line of accent text stating a fact the shopper would otherwise
+              have to work out. The pills that note warns about stay gone. */}
+          {compareAt && compareAt > price && (
+            <span className="saving">Save {formatINR(compareAt - price)}</span>
           )}
         </div>
 

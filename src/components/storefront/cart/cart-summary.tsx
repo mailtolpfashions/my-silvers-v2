@@ -35,7 +35,7 @@ export function CartSummary({
           carts both use this component — one place, both flows. */}
       <StickyActionBar>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-lg font-semibold leading-tight">
+          <p className="figures truncate text-lg font-semibold leading-tight">
             {formatINRPaise(totalPaise)}
           </p>
           <p className="text-xs text-muted-foreground">
@@ -53,11 +53,11 @@ export function CartSummary({
         <dl className="space-y-3 text-sm">
           <div className="flex justify-between">
             <dt className="text-muted-foreground">Subtotal</dt>
-            <dd>{formatINRPaise(subtotalPaise)}</dd>
+            <dd className="figures">{formatINRPaise(subtotalPaise)}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-muted-foreground">Shipping</dt>
-            <dd>{shippingPaise === 0 ? "Free" : formatINRPaise(shippingPaise)}</dd>
+            <dd className="figures">{shippingPaise === 0 ? "Free" : formatINRPaise(shippingPaise)}</dd>
           </div>
           {remainingForFree > 0 && (
             <p className="text-xs text-black">
@@ -70,7 +70,7 @@ export function CartSummary({
               summary louder without making the total lead. */}
           <div className="flex items-baseline justify-between border-t pt-3 text-base font-semibold">
             <dt>Total</dt>
-            <dd>{formatINRPaise(totalPaise)}</dd>
+            <dd className="figures">{formatINRPaise(totalPaise)}</dd>
           </div>
         </dl>
 

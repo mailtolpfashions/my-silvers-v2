@@ -237,7 +237,7 @@ export function OrderDetail({
           <div className="space-y-1 border-t pt-4 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Subtotal</span>
-              <span>{formatINR(order.subtotal.toString())}</span>
+              <span className="figures">{formatINR(order.subtotal.toString())}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Shipping</span>
@@ -252,7 +252,7 @@ export function OrderDetail({
                 summaries this block mirrors. */}
             <div className="flex items-baseline justify-between pt-1 text-base font-semibold">
               <span>Total</span>
-              <span>{formatINR(order.totalAmount.toString())}</span>
+              <span className="figures">{formatINR(order.totalAmount.toString())}</span>
             </div>
           </div>
         </div>
