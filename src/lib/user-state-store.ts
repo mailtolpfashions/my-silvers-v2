@@ -86,6 +86,30 @@ export function setCartQuantityLocal(productId: string, quantity: number) {
   emit({ ...current, cart: next });
 }
 
+/**
+ * Optimistic write by DELTA rather than by value.
+ *
+ * ⚠️  This map is keyed by product, not by cart line — one entry holds the
+ * total across every size of a piece. The cart page, though, is a list of
+ * LINES: a ring in size 16 and the same ring in size 18 are two rows, and each
+ * row knows only its own quantity.
+ *
+ * So a row cannot call setCartQuantityLocal. Removing a size-16 line that held
+ * 1 would set the product's total to 0 and wipe the size-18 line from the badge
+ * as well. Adjusting by a delta is correct however many lines the piece has,
+ * because it never needs to know the total to change it.
+ *
+ * Clamped at zero: a stale row racing the server must not drive a count
+ * negative.
+ */
+export function adjustCartQuantityLocal(productId: string, delta: number) {
+  const next = new Map(current.cart);
+  const updated = (next.get(productId) ?? 0) + delta;
+  if (updated <= 0) next.delete(productId);
+  else next.set(productId, updated);
+  emit({ ...current, cart: next });
+}
+
 /** Test/route-change escape hatch — drops back to the pre-hydration state. */
 export function resetUserState() {
   emit(SERVER_SNAPSHOT);
