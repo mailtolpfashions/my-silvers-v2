@@ -131,8 +131,12 @@ export function AddressForm({
         Use as my default delivery address
       </label>
 
-      <div className="flex gap-2">
-        <Button type="submit" disabled={isPending}>
+      {/* items-center, because the two buttons are deliberately different
+          heights: the storefront's `cta` is a tall square block and Cancel
+          stays a quiet ghost. Matching their sizes would give a destructive-
+          adjacent action the same weight as the one being encouraged. */}
+      <div className="flex items-center gap-3">
+        <Button type="submit" variant="cta" size="cta" disabled={isPending}>
           {isPending ? "Saving…" : isEdit ? "Update address" : "Save address"}
         </Button>
         {onDone && (
