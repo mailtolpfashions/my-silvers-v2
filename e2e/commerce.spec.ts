@@ -308,6 +308,116 @@ test.describe("cash on delivery, end to end", () => {
     const codOption = page.locator('input[name="paymentMethod"][value="cod"]');
     await expect(codOption, "COD is switched off but still offered").toHaveCount(0);
   });
+
+  /**
+   * The processing overlay, which is the highest-stakes piece of UI in the shop
+   * — the bug it exists to prevent is a shopper pressing pay twice, and that
+   * costs a real person real money.
+   *
+   * ⚠️  Lives HERE rather than in a spec of its own for the reason at the top of
+   * this file: it needs COD switched on, and anything that writes store
+   * settings has to share this file's lock. It was written as its own spec
+   * first and failed intermittently in the full suite for exactly the reason
+   * documented above — commerce.spec flipped COD off in another worker while
+   * it was mid-checkout.
+   *
+   * The Server Action is held open deliberately. The COD path completes in
+   * about a second, and asserting on something that appears and vanishes in
+   * that window is how a flaky test gets written; holding the POST makes the
+   * overlay's presence a fact rather than a timing accident.
+   */
+  test("a processing overlay blocks the form while an order is being placed", async ({
+    page,
+    browser,
+  }) => {
+    const product = await getInStockProduct();
+    test.skip(!product, "no in-stock, single-variant product in this database");
+
+    await withAdmin(browser, async (adminPage) => {
+      await openSettings(adminPage);
+      await setToggle(adminPage, "codEnabled", true);
+      await saveSettings(adminPage);
+    });
+
+    const email = `${E2E_EMAIL_PREFIX}overlay-${Date.now()}@example.test`;
+    const customer = await createTestUser({ email, password: TEST_PASSWORD, role: "customer" });
+
+    try {
+      await signIn(page, email);
+
+      await page.goto(`/products/${product!.slug}`);
+      const addToCart = page
+        .getByRole("button", { name: /add to (cart|bag)/i })
+        .locator("visible=true");
+      await expect(addToCart.first()).toBeVisible({ timeout: 20_000 });
+      await addToCart.first().click();
+      await expect(
+        page.getByRole("link", { name: /cart/i }).first(),
+        "the item never reached the server-side cart"
+      ).not.toContainText(/empty/i, { timeout: 20_000 });
+
+      await page.goto("/checkout");
+      await expect(page.locator("#fullName")).toBeVisible({ timeout: 20_000 });
+
+      await page.locator("#fullName").fill("E2E Overlay Buyer");
+      await page.locator("#phone").fill("9876543210");
+      await page.locator("#addressLine1").fill("12 Test Street");
+      await page.locator("#city").fill("Coimbatore");
+      await page.locator("#state").selectOption("Tamil Nadu");
+      await page.locator("#pincode").fill("641001");
+
+      const codOption = page.locator('input[name="paymentMethod"][value="cod"]');
+      await expect(codOption, "COD was enabled but no COD option rendered").toHaveCount(1);
+      await codOption.check({ force: true });
+
+      const placeOrder = page
+        .getByRole("button", { name: /place order/i })
+        .locator("visible=true")
+        .first();
+      await expect(placeOrder).toBeEnabled({ timeout: 20_000 });
+
+      // Server Actions POST back to the page's own URL, so matching on method
+      // catches this one and nothing else.
+      await page.route("**/checkout", async (route) => {
+        if (route.request().method() === "POST") {
+          await new Promise((resolve) => setTimeout(resolve, 4000));
+        }
+        await route.continue();
+      });
+
+      await placeOrder.click();
+
+      await expect(
+        page.getByText(/placing your order/i),
+        "no processing overlay appeared after submitting"
+      ).toBeVisible({ timeout: 10_000 });
+
+      /**
+       * `inert` is the half that stops a KEYBOARD; the overlay only stops a
+       * pointer. Scoped with :has() because inert applies to a whole subtree
+       * and several elements legitimately report it — what matters is that the
+       * container holding the address fields is the inert one.
+       */
+      await expect(
+        page.locator("div[inert]:has(#fullName)"),
+        "the form was left reachable while the order was being placed"
+      ).toBeAttached();
+
+      // And it must come down again — an overlay outliving the request would
+      // strand the shopper on a dead screen.
+      await page.waitForURL(/\/orders\/|\/account\/orders\//, { timeout: 30_000 });
+      await expect(page.getByText(/placing your order/i)).toBeHidden();
+    } finally {
+      await page.unroute("**/checkout").catch(() => {});
+      await deleteOrdersForUser(customer.id).catch(() => {});
+      await deleteUser(customer.id).catch(() => {});
+      await withAdmin(browser, async (adminPage) => {
+        await openSettings(adminPage);
+        await setToggle(adminPage, "codEnabled", false);
+        await saveSettings(adminPage);
+      }).catch(() => {});
+    }
+  });
 });
 
 /**
