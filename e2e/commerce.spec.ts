@@ -246,6 +246,23 @@ test.describe("cash on delivery, end to end", () => {
       await page.locator("#state").selectOption("Tamil Nadu");
       await page.locator("#pincode").fill("641001");
 
+      /**
+       * The reported bug, checked on the way past.
+       *
+       * Punjab with a Coimbatore pincode used to place an order successfully —
+       * both fields were valid alone and nothing compared them. The form is
+       * already filled, so proving it costs one selectOption and one assertion.
+       * Set back to Tamil Nadu afterwards; the rest of this test is the happy
+       * path and needs a consistent address.
+       */
+      await page.locator("#state").selectOption("Punjab");
+      await expect(
+        page.getByText(/isn't in the state you selected/i),
+        "a Punjab/Coimbatore address was accepted without complaint"
+      ).toBeVisible({ timeout: 10_000 });
+      await page.locator("#state").selectOption("Tamil Nadu");
+      await expect(page.getByText(/isn't in the state you selected/i)).toBeHidden();
+
       const codOption = page.locator('input[name="paymentMethod"][value="cod"]');
       await expect(codOption, "COD was enabled but no COD option rendered").toHaveCount(1);
       await codOption.check({ force: true });

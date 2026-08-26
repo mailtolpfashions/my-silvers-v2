@@ -22,7 +22,12 @@ import {
 import { readGuestCart, clearGuestCart } from "@/lib/guest-cart";
 import { formatINRPaise } from "@/lib/format";
 import { shippingChargePaise, type ShippingRates } from "@/server/orders/money";
-import { INDIAN_STATES, MAX_ADDRESSES } from "@/lib/validation/account";
+import {
+  INDIAN_STATES,
+  MAX_ADDRESSES,
+  PINCODE_STATE_MISMATCH,
+  pincodeMatchesState,
+} from "@/lib/validation/account";
 import { saveCheckoutAddressAction } from "@/actions/account-actions";
 import { checkPincodeAction, type PincodeCheck } from "@/actions/shipping-actions";
 
@@ -205,6 +210,24 @@ export function CheckoutForm({
    * third-party API being up.
    */
   const blockedByPincode = pincodeCheck?.status === "unserviceable";
+
+  /**
+   * The state dropdown and the pincode disagreeing.
+   *
+   * ⚠️  Reported from the live site: choosing Punjab and typing a Chennai
+   * pincode placed the order successfully. Both fields were valid on their own
+   * and nothing compared them, so the shop only found out when the courier did.
+   *
+   * placeOrderAction rejects this too — that is the enforcement, and this is
+   * not. Doing it here as well means the shopper sees it under the field they
+   * mistyped, while they are still looking at it, instead of as a red banner
+   * after they have committed to paying.
+   *
+   * Only speaks once both fields are filled; half-typed input is not a
+   * contradiction yet.
+   */
+  const stateMismatch =
+    pincodeComplete && form.state !== "" && !pincodeMatchesState(formPincode, form.state);
 
   /** Copies a saved address into the form, or clears it for manual entry. */
   function chooseAddress(id: string) {
@@ -669,10 +692,16 @@ export function CheckoutForm({
                     outage and stays silent — telling a shopper we could not
                     reach our courier tells them nothing they can act on — and
                     the un-asked state has nothing to report either. */}
-                {checkingPincode && (
+                {/* Takes precedence over everything below it: if the state and
+                    the pincode disagree, a delivery estimate is an estimate for
+                    somewhere the shopper may not have meant. */}
+                {stateMismatch && (
+                  <p className="text-xs text-destructive">{PINCODE_STATE_MISMATCH}</p>
+                )}
+                {!stateMismatch && checkingPincode && (
                   <p className="text-xs text-muted-foreground">Checking delivery…</p>
                 )}
-                {!checkingPincode && pincodeCheck?.status === "serviceable" && (
+                {!stateMismatch && !checkingPincode && pincodeCheck?.status === "serviceable" && (
                   <p className="text-xs text-muted-foreground">
                     {pincodeCheck.estimatedDays
                       ? `Delivers in about ${pincodeCheck.estimatedDays} day${
@@ -681,7 +710,7 @@ export function CheckoutForm({
                       : "We deliver to this pincode."}
                   </p>
                 )}
-                {!checkingPincode && pincodeCheck?.status === "unserviceable" && (
+                {!stateMismatch && !checkingPincode && pincodeCheck?.status === "unserviceable" && (
                   <p className="text-xs text-destructive">
                     {wantCod
                       ? "Cash on delivery isn't available for this pincode. Try paying online, or use a different address."
@@ -750,7 +779,7 @@ export function CheckoutForm({
             variant="cta"
             size="cta"
             className="hidden w-full md:inline-flex"
-            disabled={submitting || blockedByPincode}
+            disabled={submitting || blockedByPincode || stateMismatch}
           >
             {submitting
               ? "Placing order…"
@@ -805,7 +834,7 @@ export function CheckoutForm({
               variant="cta"
               size="cta"
               className="h-12 shrink-0 px-8 sm:h-12"
-              disabled={submitting || blockedByPincode}
+              disabled={submitting || blockedByPincode || stateMismatch}
             >
               {submitting
                 ? "Placing…"

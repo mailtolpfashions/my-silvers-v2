@@ -13,7 +13,13 @@ import {
   getClientIp,
   RATE_LIMIT_MESSAGE,
 } from "@/server/rate-limit/limiter";
-import { phoneSchema } from "@/lib/validation/account";
+import {
+  INDIAN_STATES,
+  PINCODE_STATE_MISMATCH,
+  phoneSchema,
+  pincodeMatchesState,
+  pincodeSchema,
+} from "@/lib/validation/account";
 import { getStoreSettings } from "@/server/settings/store-settings";
 
 const addressSchema = z.object({
@@ -26,8 +32,30 @@ const addressSchema = z.object({
   addressLine1: z.string().trim().min(3).max(200),
   addressLine2: z.string().trim().max(200).optional().or(z.literal("")),
   city: z.string().trim().min(2).max(100),
-  state: z.string().trim().min(2).max(100),
-  pincode: z.string().trim().regex(/^[0-9]{6}$/, "Pincode must be 6 digits"),
+  /**
+   * ⚠️  These two were `z.string().min(2).max(100)` and `/^[0-9]{6}/`, which is
+   * looser than the address book has always been — checkout accepted any
+   * two-character string as a state, and a PIN code starting with 0, which
+   * India Post never issues. The same address typed in two places on this site
+   * was validated to two different standards, and the weaker one was on the
+   * screen that takes the money.
+   */
+  state: z.enum(INDIAN_STATES, { message: "Select a state." }),
+  pincode: pincodeSchema,
+}).superRefine((value, ctx) => {
+  /**
+   * State and PIN code have to agree.
+   *
+   * Reported: selecting Punjab and entering a Chennai PIN code placed the order
+   * successfully. Each field was valid alone, and nothing compared them — so
+   * the shop found out when the courier did, days later and at its own cost.
+   *
+   * Zone-level check; see pincodeMatchesState for exactly what it does and does
+   * not catch.
+   */
+  if (!pincodeMatchesState(value.pincode, value.state)) {
+    ctx.addIssue({ code: "custom", path: ["pincode"], message: PINCODE_STATE_MISMATCH });
+  }
 });
 
 const placeOrderSchema = z.object({

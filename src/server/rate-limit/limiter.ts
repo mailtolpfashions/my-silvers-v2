@@ -26,17 +26,14 @@ let warned = false;
 function getRedis(): Redis | null {
   if (!isConfigured()) {
     if (!warned) {
-      // Three states, not two: production refuses, production-with-the-opt-out
-      // allows, and everything else allows. Saying "will be REFUSED" when
-      // RATE_LIMIT_FAIL_OPEN is set sends whoever reads the log looking for a
-      // problem that is not there — which is exactly what it did during the
-      // audit's own test runs.
+      // Two states here, not three. The opt-out used to need a branch of its
+      // own so the log would not cry misconfiguration at a deliberate choice —
+      // but checkRateLimit now returns before this is ever reached when the
+      // flag is set, and warnOptOut says that plainly instead.
       const state =
         process.env.NODE_ENV !== "production"
           ? "rate limiting is DISABLED (non-production)."
-          : failOpenOptOut()
-            ? "rate limiting is DISABLED — RATE_LIMIT_FAIL_OPEN is set. Never set that on the live shop."
-            : "rate-limited routes will be REFUSED until UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are set.";
+          : "rate-limited routes will be REFUSED until UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are set.";
       console.warn(`[rate-limit] Upstash not configured — ${state}`);
       warned = true;
     }
@@ -137,6 +134,25 @@ function failOpenOptOut(): boolean {
   return process.env.RATE_LIMIT_FAIL_OPEN === "1";
 }
 
+let warnedOptOut = false;
+
+/**
+ * Says once, out loud, that the shop is running unprotected.
+ *
+ * getRedis has its own warning, but it only speaks when Upstash is absent —
+ * which is no longer the same situation. A server with working credentials that
+ * is ignoring them on purpose must still announce itself, or the only evidence
+ * is an environment variable nobody thinks to look at.
+ */
+function warnOptOut(): void {
+  if (warnedOptOut) return;
+  console.warn(
+    "[rate-limit] DISABLED — RATE_LIMIT_FAIL_OPEN is set. Every tier allows every " +
+      "request, configured or not. This belongs in the test runner only; never set it on the live shop."
+  );
+  warnedOptOut = true;
+}
+
 const limiters = new Map<string, Ratelimit>();
 
 function getLimiter(tier: Tier): Ratelimit | null {
@@ -212,17 +228,40 @@ let warnedNoIp = false;
  *     the degraded window is visible instead of silent.
  */
 export async function checkRateLimit(tierName: keyof typeof TIERS, key: string): Promise<boolean> {
+  /**
+   * The opt-out is checked FIRST, before Upstash is consulted at all.
+   *
+   * ⚠️  It used to be reachable only inside the `!limiter` branch below, which
+   * meant it opted out of nothing as soon as real credentials existed. The
+   * moment Upstash was configured locally, the e2e suite started spending the
+   * live `auth` tier — five sign-ins per fifteen minutes, shared by four
+   * workers all arriving from 127.0.0.1 — and locked itself out of its own
+   * login page on the first test. The flag is named for turning rate limiting
+   * off; it now does that.
+   *
+   * Safe because the flag is never set on a deployment: it is absent from
+   * `.env` and from Vercel, and lives only in playwright.config.ts's webServer
+   * env. Forgetting to configure Upstash still fails closed — that asymmetry is
+   * untouched.
+   */
+  if (failOpenOptOut()) {
+    warnOptOut();
+    return true;
+  }
+
   const limiter = getLimiter(TIERS[tierName]);
 
   if (!limiter) {
-    if (process.env.NODE_ENV === "production" && !failOpenOptOut()) {
+    // No `&& !failOpenOptOut()` here any more — the opt-out returned above, so
+    // reaching this line means it is not set.
+    if (process.env.NODE_ENV === "production") {
       console.error(
         `[rate-limit] DENYING ${tierName}: Upstash is not configured in production. ` +
           "Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN."
       );
       return false;
     }
-    return true; // dev/preview, or an explicit opt-out — see note above
+    return true; // dev or preview, running without Redis
   }
 
   try {
