@@ -2,6 +2,9 @@ import { prisma } from "@/server/db";
 import { CategoryManager } from "@/components/admin/category-manager";
 import { PageHeader } from "@/components/layout/page-header";
 
+/** Blocking, like every other admin route — see admin/reviews/page.tsx. */
+export const instant = false;
+
 export default async function AdminCategoriesPage() {
   const categories = await prisma.category.findMany({
     orderBy: { sortOrder: "asc" },

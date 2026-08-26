@@ -15,6 +15,27 @@ import { formatINR } from "@/lib/format";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
 
+/**
+ * Blocking, like every other admin route — see the fuller note in
+ * admin/reviews/page.tsx for the reasoning. In short: everything here is
+ * per-shopkeeper and behind a login, so there is no shell worth prerendering
+ * and nothing to share between visitors; it is opened by staff a few times a
+ * day, so no conversion or crawl budget rides on it; and the data IS the page,
+ * so a skeleton would be replaced wholesale a moment later.
+ *
+ * ⚠️  Note this does NOT mean the dashboard cannot stream. The abandoned-cart
+ * row below has its own <Suspense> and still streams independently, because
+ * that query is genuinely slow enough to hold up the other six rows. `instant`
+ * governs whether Next VALIDATES the route for instant navigation, not whether
+ * the route is allowed to have boundaries inside it.
+ *
+ * Without this the dev overlay reports getDashboardStats as blocking the
+ * prerender. Validation is dev-only at the framework's default warning level,
+ * so `next build` passes either way — which is exactly how this route went so
+ * long as the only admin page missing the export.
+ */
+export const instant = false;
+
 export default async function AdminDashboardPage() {
   const [stats, trends, revenueDays, recentOrders] = await Promise.all([
     getDashboardStats(),
