@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/server/auth/auth";
 import { getCurrentRole } from "@/server/auth/require-role";
@@ -66,6 +67,30 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 }
 
 async function AdminGate({ children }: { children: React.ReactNode }) {
+  /**
+   * ⚠️  Declares this subtree request-time BEFORE auth() runs, and it has to be
+   * before rather than anywhere in the function.
+   *
+   * The <Suspense> above was only half of what cacheComponents wants. The other
+   * half is this: next-auth's `auth()` reads `new Date()` internally to check
+   * session expiry, and the prerenderer refuses an unstable clock reading in a
+   * scope that has not yet declared itself dynamic — "encountered the unstable
+   * value `new Date()` while prerendering". `auth()` does read cookies, which
+   * would make it dynamic, but the date is read first, so the complaint lands
+   * before the cookie access can vouch for it.
+   *
+   * `connection()` is the documented [dynamic] remedy and it is also simply
+   * true: nothing under /admin can be prerendered, because all of it depends on
+   * who is asking. The Suspense boundary is what keeps that from leaking into
+   * the rest of the app.
+   *
+   * See getDashboardTrends in server/admin/stats.ts for the same problem solved
+   * the other way — a CACHED scope, where the clock has to come from
+   * scheduleNow() instead. Which fix applies depends on whether the value may
+   * differ per request. Here it must.
+   */
+  await connection();
+
   // Defense in depth — proxy.ts already gates /admin optimistically, this is
   // the authoritative server-side check.
   //
