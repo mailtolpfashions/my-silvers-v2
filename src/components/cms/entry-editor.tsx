@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 import { FormSaveBar } from "@/components/layout/form-save-bar";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,6 +63,10 @@ export function EntryEditor({
   const [currentId, setCurrentId] = useState(entryId);
   const [showPreview, setShowPreview] = useState(false);
   const [seoOpen, setSeoOpen] = useState(false);
+  // Replaced a window.confirm(). See the note on ConfirmDialog for why that
+  // matters beyond appearance — a browser-chrome dialog can be suppressed by
+  // the user, after which Delete silently does nothing.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   /**
@@ -192,7 +197,7 @@ export function EntryEditor({
 
   function handleDelete() {
     if (!currentId) return;
-    if (!window.confirm("Delete this entry permanently?")) return;
+    setConfirmingDelete(false);
     startTransition(async () => {
       const result = await deleteEntryAction(currentId, typeName);
       if (result.ok) {
@@ -288,9 +293,31 @@ export function EntryEditor({
               </Button>
             )}
             {isAdmin && currentId && (
-              <Button variant="destructive" size="sm" disabled={isPending} onClick={handleDelete}>
-                Delete
-              </Button>
+              <>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={isPending}
+                  onClick={() => setConfirmingDelete(true)}
+                >
+                  Delete
+                </Button>
+                <ConfirmDialog
+                  open={confirmingDelete}
+                  onOpenChange={setConfirmingDelete}
+                  title="Delete this entry permanently?"
+                  confirmLabel="Delete permanently"
+                  disabled={isPending}
+                  onConfirm={handleDelete}
+                  description={
+                    <>
+                      The entry and every saved version of it are removed. If it is currently
+                      published, it comes off the live site as well. Unpublish instead if you only
+                      want it out of sight.
+                    </>
+                  }
+                />
+              </>
             )}
           </div>
         </div>

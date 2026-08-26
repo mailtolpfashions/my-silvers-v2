@@ -16,14 +16,30 @@ export const metadata = { title: "Your details" };
 export default function ProfilePage() {
   return (
     <div className="container-checkout rhythm-transactional">
-      <Link href="/account" className="text-sm text-muted-foreground underline">
-        ← Back to account
-      </Link>
-      <h1 className="mb-6 mt-4 text-h1">Your details</h1>
+      {/**
+       * ⚠️  The narrow column lives HERE, not on the form, and it carries the
+       * back link and the heading with it.
+       *
+       * The page container is `container-checkout` (64rem) like every other
+       * /account screen, which suits the ones that fill it — an order list, an
+       * invoice. This page holds a short single-column form, so capping only
+       * the form left it hugging the left edge under a heading that ran the
+       * full 64rem: the block read as misaligned rather than narrow.
+       *
+       * Centring the whole column keeps the three parts aligned with each other
+       * and puts the page's weight in the middle, which is where the eye
+       * already is on a page with nothing in the margins.
+       */}
+      <div className="mx-auto max-w-xl">
+        <Link href="/account" className="text-sm text-muted-foreground underline">
+          ← Back to account
+        </Link>
+        <h1 className="mb-6 mt-4 text-h1">Your details</h1>
 
-      <Suspense fallback={<ProfileSkeleton />}>
-        <Profile />
-      </Suspense>
+        <Suspense fallback={<ProfileSkeleton />}>
+          <Profile />
+        </Suspense>
+      </div>
     </div>
   );
 }

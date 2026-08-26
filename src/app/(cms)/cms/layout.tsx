@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/server/auth/auth";
 import { getCurrentRole } from "@/server/auth/require-role";
@@ -37,6 +38,10 @@ export default function CmsLayout({ children }: { children: React.ReactNode }) {
 }
 
 async function CmsGate({ children }: { children: React.ReactNode }) {
+  // Request-time, before auth() reads the clock. Identical to AdminGate — the
+  // full explanation is in (admin)/admin/layout.tsx.
+  await connection();
+
   // Role from the database, not from session.user.role — the token's copy is
   // written once at sign-in, so a revoked editor would keep rendering this
   // shell until it expired. See the note in require-role.ts.

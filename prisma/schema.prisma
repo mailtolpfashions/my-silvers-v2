@@ -324,23 +324,44 @@ model Review {
   title              String?
   comment            String?
   isVerifiedPurchase Boolean  @default(false) // computed server-side only — never client-supplied
-  /// Whether shoppers can see it.
+  /// Where the review is in moderation. Replaced an `isPublished` boolean.
   ///
-  /// Defaults to TRUE: reviews go live as they are written, and moderation is
-  /// after the fact. That is a deliberate choice over holding every review for
-  /// approval — a queue nobody empties is how a shop ends up with three
-  /// reviews. Flip the default here if that ever stops being true.
+  /// ⚠️  THREE states, not two, and the third is the whole reason this is an
+  /// enum. A boolean makes "nobody has looked at this yet" and "a moderator
+  /// rejected this" the same value — so every rejected review falls back into
+  /// the pending queue and gets re-judged forever. `rejected` is terminal;
+  /// `pending` is work.
   ///
-  /// ⚠️  Every storefront read must filter on this. It is enforced in
+  /// Defaults to `pending`: nothing a customer writes reaches the storefront
+  /// until someone approves it. That is a reversal of the original design
+  /// (reviews went live as written, moderated after the fact) and it carries
+  /// the cost that design was avoiding — a queue nobody empties is how a shop
+  /// ends up with three reviews. getAttentionItems surfaces the backlog on the
+  /// dashboard for exactly that reason.
+  ///
+  /// ⚠️  Every storefront read must filter to `approved`. It is enforced in
   /// server/products/reviews.ts and server/reviews/top-reviews.ts, including
-  /// the rating AGGREGATE — a hidden review that still moves the star average
-  /// is only half hidden.
-  isPublished        Boolean  @default(true)
+  /// the rating AGGREGATE — an unapproved review that still moves the star
+  /// average is only half hidden.
+  status             ReviewStatus @default(pending)
+  /// Photos the customer uploaded with the review. Cloudinary URLs under
+  /// `mysilvers/reviews/` only — every one is re-verified against Cloudinary's
+  /// Admin API before it is stored. See server/reviews/media.ts.
+  imageUrls          String[]
+  /// One clip, same folder and same verification as imageUrls.
+  videoUrl           String?
   createdAt          DateTime @default(now())
 
   @@unique([userId, productId])
   @@index([productId, createdAt(sort: Desc)])
-  @@index([isPublished, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+}
+
+/// See the note on Review.status — the third state is the point.
+enum ReviewStatus {
+  pending
+  approved
+  rejected
 }
 
 model NewsletterSubscriber {

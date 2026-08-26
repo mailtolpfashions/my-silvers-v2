@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { destroyReviewMedia } from "@/server/reviews/media";
 
 /** Thrown when someone tries to review a product they have not had delivered. */
 export class ReviewNotPermittedError extends Error {
@@ -11,15 +12,17 @@ export class ReviewNotPermittedError extends Error {
 export async function getProductReviews(productId: string) {
   const [reviews, stats] = await Promise.all([
     prisma.review.findMany({
-      // isPublished on BOTH reads, not just the list: a hidden review that
-      // still moves the star average is only half hidden.
-      where: { productId, isPublished: true },
+      // `approved` on BOTH reads, not just the list: a review awaiting approval
+      // that still moves the star average is only half hidden. Note this is an
+      // allowlist of one state, not `status: { not: "rejected" }` — written
+      // that way so a future fourth state cannot become visible by default.
+      where: { productId, status: "approved" },
       include: { user: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       take: 50,
     }),
     prisma.review.aggregate({
-      where: { productId, isPublished: true },
+      where: { productId, status: "approved" },
       _avg: { rating: true },
       _count: true,
     }),
@@ -42,6 +45,9 @@ export async function upsertReview(input: {
   rating: number;
   title?: string;
   comment?: string;
+  /** Already verified against Cloudinary — see server/reviews/media.ts. */
+  imageUrls?: string[];
+  videoUrl?: string | null;
 }) {
   const product = await prisma.product.findFirst({
     where: { id: input.productId, isActive: true },
@@ -67,7 +73,19 @@ export async function upsertReview(input: {
     );
   }
 
-  return prisma.review.upsert({
+  const imageUrls = input.imageUrls ?? [];
+  const videoUrl = input.videoUrl ?? null;
+
+  // What they had attached before this edit, so anything they dropped can be
+  // cleared out of Cloudinary rather than left paid-for and unreachable.
+  const previous = await prisma.review.findUnique({
+    where: {
+      userId_productId: { userId: input.userId, productId: input.productId },
+    },
+    select: { imageUrls: true, videoUrl: true },
+  });
+
+  const review = await prisma.review.upsert({
     where: {
       userId_productId: { userId: input.userId, productId: input.productId },
     },
@@ -75,7 +93,25 @@ export async function upsertReview(input: {
       rating: input.rating,
       title: input.title || null,
       comment: input.comment || null,
+      imageUrls,
+      videoUrl,
       isVerifiedPurchase: true,
+      /**
+       * ⚠️  An edit ALWAYS returns the review to the queue — including one that
+       * was already approved, and including one that was rejected.
+       *
+       * Without this the approval gate is bypassable in two moves: write
+       * something unobjectionable, wait for approval, then edit it to say
+       * anything at all. The approved flag would still be set and the new text
+       * would go straight to the storefront. So approval attaches to the words
+       * that were read, not to the row.
+       *
+       * The cost is real and is accepted: fixing a typo in an approved review
+       * takes it off the storefront until someone looks again. A moderator
+       * cannot tell an innocent re-edit from a bait-and-switch, so neither can
+       * the code.
+       */
+      status: "pending",
     },
     create: {
       userId: input.userId,
@@ -83,7 +119,24 @@ export async function upsertReview(input: {
       rating: input.rating,
       title: input.title || null,
       comment: input.comment || null,
+      imageUrls,
+      videoUrl,
       isVerifiedPurchase: true,
     },
   });
+
+  // AFTER the write, and deliberately not awaited. Running it first would mean
+  // a failed upsert had already destroyed media the surviving review still
+  // points at; awaiting it would let a slow Cloudinary hold up a review that is
+  // already saved. An orphaned file is a cost that can be swept up later; a
+  // review rendering a dead image is a bug the shopper sees.
+  if (previous) {
+    const kept = new Set([...imageUrls, videoUrl].filter((url): url is string => !!url));
+    const dropped = [...previous.imageUrls, previous.videoUrl].filter(
+      (url): url is string => !!url && !kept.has(url)
+    );
+    if (dropped.length > 0) void destroyReviewMedia(dropped);
+  }
+
+  return review;
 }

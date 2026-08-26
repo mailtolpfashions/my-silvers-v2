@@ -5,13 +5,19 @@ import { requireRole } from "@/server/auth/require-role";
 /**
  * The moderation queue.
  *
- * Reviews go live as they are written — see the note on Review.isPublished —
- * so this is an after-the-fact tool, and its default view is deliberately
- * "everything, newest first" rather than a pending queue. There is no pending
- * state to empty.
+ * ⚠️  This screen used to be optional. It is not any more.
+ *
+ * Reviews once went live as they were written and this was an after-the-fact
+ * tool — its default view was "everything, newest first" because there was no
+ * pending state to empty. Approval changed that: nothing a customer writes
+ * reaches the storefront until someone opens this page, so the default view is
+ * now the PENDING queue, and an unattended queue is now indistinguishable from
+ * a shop with no reviews.
+ *
+ * getAttentionItems puts the pending count on the dashboard for that reason.
  */
 
-export type ReviewFilter = "all" | "published" | "hidden" | "unverified";
+export type ReviewFilter = "pending" | "all" | "approved" | "rejected" | "unverified";
 
 /** How many rows one page of the moderation table holds. */
 export const REVIEW_PAGE_SIZE = 30;
@@ -19,8 +25,9 @@ export const REVIEW_PAGE_SIZE = 30;
 function whereFor(filter: ReviewFilter, q: string | undefined) {
   const search = q?.trim();
   return {
-    ...(filter === "published" ? { isPublished: true } : {}),
-    ...(filter === "hidden" ? { isPublished: false } : {}),
+    ...(filter === "pending" ? { status: "pending" as const } : {}),
+    ...(filter === "approved" ? { status: "approved" as const } : {}),
+    ...(filter === "rejected" ? { status: "rejected" as const } : {}),
     // Written by someone with no delivered order for the piece. These are the
     // ones worth a second look — upsertReview refuses them now, but reviews
     // written before that rule still exist.
@@ -40,7 +47,7 @@ function whereFor(filter: ReviewFilter, q: string | undefined) {
 }
 
 export async function listReviews({
-  filter = "all",
+  filter = "pending",
   q,
   page = 1,
 }: {
@@ -55,9 +62,16 @@ export async function listReviews({
   const [rows, total] = await Promise.all([
     prisma.review.findMany({
       where,
-      // Hidden first: if someone is on this screen, the thing they most likely
-      // came to check is what is currently suppressed.
-      orderBy: [{ isPublished: "asc" }, { createdAt: "desc" }],
+      /**
+       * Pending first, then approved, then rejected — which is what ascending
+       * order on the enum gives, because Postgres sorts an enum by DECLARATION
+       * order rather than alphabetically.
+       *
+       * ⚠️  That makes this line quietly dependent on the order of the values
+       * in `enum ReviewStatus`. Reordering them there silently reorders this
+       * screen. They are declared in workflow order for exactly this reason.
+       */
+      orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       skip,
       take: REVIEW_PAGE_SIZE,
       include: {
@@ -74,10 +88,22 @@ export async function listReviews({
 /** Counts for the filter tabs, so each says how much is behind it. */
 export async function reviewCounts() {
   await requireRole("admin");
-  const [all, hidden, unverified] = await Promise.all([
+  // groupBy rather than one count per state: three states now, and a fourth
+  // would otherwise mean a fourth round trip.
+  const [all, byStatus, unverified] = await Promise.all([
     prisma.review.count(),
-    prisma.review.count({ where: { isPublished: false } }),
+    prisma.review.groupBy({ by: ["status"], _count: true }),
     prisma.review.count({ where: { isVerifiedPurchase: false } }),
   ]);
-  return { all, published: all - hidden, hidden, unverified };
+
+  const countFor = (status: "pending" | "approved" | "rejected") =>
+    byStatus.find((row) => row.status === status)?._count ?? 0;
+
+  return {
+    all,
+    pending: countFor("pending"),
+    approved: countFor("approved"),
+    rejected: countFor("rejected"),
+    unverified,
+  };
 }

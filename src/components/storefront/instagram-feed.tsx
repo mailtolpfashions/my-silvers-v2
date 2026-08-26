@@ -36,10 +36,35 @@ export async function InstagramFeed({
   return (
     <RevealSection className="container-page rhythm-commerce">
       {eyebrow && <p className="label-eyebrow mb-2 text-center">{eyebrow}</p>}
-      <div className="mb-6 flex items-center justify-center gap-2">
-        <InstagramGlyph className="h-5 w-5" />
-        {title && <h2 className="text-h2">{title}</h2>}
-      </div>
+      {/**
+       * ⚠️  The glyph is INLINE, inside the heading — see the fuller note in
+       * customer-reviews.tsx, which had the identical bug and where it was
+       * actually visible.
+       *
+       * This one was not misbehaving yet, only because the titles typed in so
+       * far happen to be short. That is not a property of the code: `title`
+       * comes from the CMS, so the day someone writes a heading long enough to
+       * wrap on a phone, the glyph detaches and strands against the left edge,
+       * vertically centred beside a heading it no longer looks part of. Fixed
+       * ahead of that rather than waiting for it to be reported.
+       *
+       * The glyph is only rendered without a heading when there is no title at
+       * all — that path keeps the flex row, since a lone icon has nothing to
+       * flow with.
+       */}
+      {title ? (
+        <h2 className="mb-6 text-center text-h2">
+          {/* Tuned for the heading's size, which is larger than the body text
+              the tick in customer-reviews.tsx sits in — hence -0.15em here
+              rather than -0.2em. */}
+          <InstagramGlyph className="mr-2 inline h-5 w-5 align-[-0.15em]" />
+          {title}
+        </h2>
+      ) : (
+        <div className="mb-6 flex justify-center">
+          <InstagramGlyph className="h-5 w-5" />
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-px sm:grid-cols-4 sm:gap-0">
         {posts.map((post) => (
           <a

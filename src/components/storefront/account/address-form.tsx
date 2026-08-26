@@ -39,8 +39,11 @@ export function AddressForm({
     if (state?.success) onDone?.();
   }, [state?.success, onDone]);
 
+  // max-w-xl for the same reason as profile-form — see the note there. The
+  // page's 64rem suits an address LIST; the form filling it stretched every
+  // field to match.
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="max-w-xl space-y-4">
       {initial?.id && <input type="hidden" name="addressId" value={initial.id} />}
 
       {state?.error && (
@@ -56,7 +59,14 @@ export function AddressForm({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="fullName">Recipient name</Label>
-          <Input id="fullName" name="fullName" required defaultValue={initial?.fullName ?? ""} maxLength={80} />
+          <Input
+            id="fullName"
+            name="fullName"
+            required
+            placeholder="Who is this being delivered to"
+            defaultValue={initial?.fullName ?? ""}
+            maxLength={80}
+          />
         </div>
       </div>
 
@@ -68,25 +78,45 @@ export function AddressForm({
           type="tel"
           inputMode="numeric"
           required
-          placeholder="9876543210"
+          placeholder="Enter your 10-digit mobile number"
           defaultValue={initial?.phone ?? ""}
         />
       </div>
 
       <div className="space-y-1.5">
         <Label htmlFor="addressLine1">Flat / House no., Building, Street</Label>
-        <Input id="addressLine1" name="addressLine1" required defaultValue={initial?.addressLine1 ?? ""} maxLength={120} />
+        <Input
+          id="addressLine1"
+          name="addressLine1"
+          required
+          placeholder="House or flat number, building, street"
+          defaultValue={initial?.addressLine1 ?? ""}
+          maxLength={120}
+        />
       </div>
 
       <div className="space-y-1.5">
         <Label htmlFor="addressLine2">Area, Landmark (optional)</Label>
-        <Input id="addressLine2" name="addressLine2" defaultValue={initial?.addressLine2 ?? ""} maxLength={120} />
+        <Input
+          id="addressLine2"
+          name="addressLine2"
+          placeholder="Area, landmark"
+          defaultValue={initial?.addressLine2 ?? ""}
+          maxLength={120}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-1.5">
           <Label htmlFor="city">City</Label>
-          <Input id="city" name="city" required defaultValue={initial?.city ?? ""} maxLength={60} />
+          <Input
+            id="city"
+            name="city"
+            required
+            placeholder="Enter your city"
+            defaultValue={initial?.city ?? ""}
+            maxLength={60}
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="state">State</Label>
@@ -98,7 +128,7 @@ export function AddressForm({
             className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
           >
             <option value="" disabled>
-              Select…
+              Select your state
             </option>
             {INDIAN_STATES.map((s) => (
               <option key={s} value={s}>
@@ -114,7 +144,7 @@ export function AddressForm({
             name="pincode"
             inputMode="numeric"
             required
-            placeholder="600001"
+            placeholder="Enter your 6-digit PIN code"
             defaultValue={initial?.pincode ?? ""}
             maxLength={6}
           />
@@ -131,6 +161,8 @@ export function AddressForm({
         Use as my default delivery address
       </label>
 
+      {/* Default variant, matching profile-form — see the note there for why
+          the storefront's `cta` was tried here and reverted. */}
       <div className="flex gap-2">
         <Button type="submit" disabled={isPending}>
           {isPending ? "Saving…" : isEdit ? "Update address" : "Save address"}

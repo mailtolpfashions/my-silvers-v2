@@ -1,10 +1,24 @@
 import { prisma } from "@/server/db";
+import type { ReviewStatus } from "@/generated/prisma/enums";
 
 export type ReviewableItem = {
   productId: string;
   slug: string;
   /** Their existing review, when they've already written one. */
-  existing: { rating: number; title: string | null; comment: string | null } | null;
+  existing: {
+    rating: number;
+    title: string | null;
+    comment: string | null;
+    imageUrls: string[];
+    videoUrl: string | null;
+    /**
+     * Shown to the customer, so "I wrote that and it never appeared" has an
+     * answer on the page rather than becoming an email. `rejected` is
+     * deliberately NOT distinguished from `pending` in the UI — see the note
+     * in order-item-review.tsx.
+     */
+    status: ReviewStatus;
+  } | null;
 };
 
 /**
@@ -41,7 +55,17 @@ export async function getReviewableItems(
     }),
     prisma.review.findMany({
       where: { userId, productId: { in: productIds } },
-      select: { productId: true, rating: true, title: true, comment: true },
+      select: {
+        productId: true,
+        rating: true,
+        title: true,
+        comment: true,
+        // So editing a review opens with the photos already on it, rather than
+        // an empty picker that silently wipes them on save.
+        imageUrls: true,
+        videoUrl: true,
+        status: true,
+      },
     }),
   ]);
 
@@ -56,7 +80,14 @@ export async function getReviewableItems(
           productId: p.id,
           slug: p.slug,
           existing: existing
-            ? { rating: existing.rating, title: existing.title, comment: existing.comment }
+            ? {
+                rating: existing.rating,
+                title: existing.title,
+                comment: existing.comment,
+                imageUrls: existing.imageUrls,
+                videoUrl: existing.videoUrl,
+                status: existing.status,
+              }
             : null,
         },
       ];

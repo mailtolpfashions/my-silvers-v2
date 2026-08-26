@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { focusFirstInvalid } from "@/lib/form-validity";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
 import { toast } from "sonner";
@@ -89,6 +90,16 @@ export function CheckoutForm({
   const [idempotencyKey] = useState(() => crypto.randomUUID());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * The ids of fields the browser rejected on the last submit attempt.
+   *
+   * Empty until someone actually tries to pay — marking a form red before it
+   * has been submitted scolds a shopper for not having filled in a field they
+   * have not reached yet. Each id is dropped again as soon as that field is
+   * edited, so the red clears as it is fixed rather than only on the next
+   * attempt.
+   */
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [pendingPayment, setPendingPayment] = useState<PendingPayment | null>(null);
   const [paymentDismissed, setPaymentDismissed] = useState(false);
   const [saveAddress, setSaveAddress] = useState(true);
@@ -286,8 +297,30 @@ export function CheckoutForm({
     rzp.open();
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    /**
+     * Read synchronously, before any await. `e.currentTarget` is null by the
+     * time an awaited call resolves, so capturing it later would throw on the
+     * one path that matters least and be invisible in testing.
+     */
+    const formElement = e.currentTarget;
+
+    // The form carries noValidate, so this is the only thing standing between a
+    // half-filled address and placeOrderAction. See lib/form-validity.ts.
+    const invalid = focusFirstInvalid(formElement);
+    if (invalid.length > 0) {
+      setInvalidFields(new Set(invalid));
+      setError(
+        invalid.length === 1
+          ? "One field still needs filling in — it's highlighted below."
+          : `${invalid.length} fields still need filling in — they're highlighted below.`
+      );
+      return;
+    }
+
+    setInvalidFields(new Set());
     setError(null);
     setSubmitting(true);
     try {
@@ -350,6 +383,16 @@ export function CheckoutForm({
     }
   }
 
+  /** Drops a field's red mark the moment it is edited. */
+  function clearInvalid(name: string) {
+    setInvalidFields((current) => {
+      if (!current.has(name)) return current; // no re-render on every keystroke
+      const next = new Set(current);
+      next.delete(name);
+      return next;
+    });
+  }
+
   function field(name: keyof typeof form, label: string, props?: React.ComponentProps<typeof Input>) {
     return (
       <div className="space-y-1.5">
@@ -357,7 +400,13 @@ export function CheckoutForm({
         <Input
           id={name}
           value={form[name]}
-          onChange={(e) => setForm((f) => ({ ...f, [name]: e.target.value }))}
+          // ui/input.tsx already styles aria-invalid — destructive border and
+          // ring. Nothing new is needed to make these read as errors.
+          aria-invalid={invalidFields.has(name)}
+          onChange={(e) => {
+            setForm((f) => ({ ...f, [name]: e.target.value }));
+            clearInvalid(name);
+          }}
           {...props}
         />
       </div>
@@ -369,7 +418,11 @@ export function CheckoutForm({
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
 
       <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
-        <form onSubmit={handleSubmit} className="space-y-6">
+        {/* noValidate hands reporting to focusFirstInvalid — see the note in
+            lib/form-validity.ts. The browser still does the CHECKING; what it
+            no longer does is place an unstyled bubble that vanishes on the next
+            click and can sit under a phone keyboard. */}
+        <form onSubmit={handleSubmit} noValidate className="space-y-6">
           {error && (
             <p className="border-l-2 border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
@@ -392,7 +445,12 @@ export function CheckoutForm({
           )}
 
           {!isAuthed &&
-            field("email", "Email", { type: "email", required: true, autoComplete: "email" })}
+            field("email", "Email", {
+              type: "email",
+              required: true,
+              autoComplete: "email",
+              placeholder: "Enter your email address",
+            })}
 
           <fieldset className="space-y-4">
             <legend className="label-eyebrow mb-1">Shipping address</legend>
@@ -451,25 +509,48 @@ export function CheckoutForm({
                 explanation. */}
             {selectedAddressId === NEW_ADDRESS && (
               <div className="space-y-4">
-                {field("fullName", "Full name", { required: true, autoComplete: "name" })}
+                {/**
+                 * ⚠️  Placeholders instruct; they never show sample DATA.
+                 *
+                 * Mobile number was `placeholder="9876543210"`, and at a glance
+                 * a grey ten-digit number is indistinguishable from one the
+                 * shopper has typed. People skipped the field believing it was
+                 * already filled, then had the submit refused on a box that
+                 * looked complete. That is the exact confusion this form can
+                 * least afford, being the last screen before payment.
+                 */}
+                {field("fullName", "Full name", {
+                  required: true,
+                  autoComplete: "name",
+                  placeholder: "Enter your full name",
+                })}
                 {field("phone", "Mobile number", {
                   required: true,
                   type: "tel",
                   inputMode: "numeric",
                   autoComplete: "tel",
-                  placeholder: "9876543210",
+                  placeholder: "Enter your 10-digit mobile number",
                   pattern: "(\\+?91|0)?[6-9][0-9]{9}",
                   title: "10-digit Indian mobile number",
                 })}
                 {field("addressLine1", "Address line 1", {
                   required: true,
                   autoComplete: "address-line1",
+                  // Says what belongs on THIS line rather than repeating the
+                  // label — the split between the two lines is the thing people
+                  // actually hesitate over.
+                  placeholder: "House or flat number, building, street",
                 })}
                 {field("addressLine2", "Address line 2 (optional)", {
                   autoComplete: "address-line2",
+                  placeholder: "Area, landmark",
                 })}
                 <div className="grid grid-cols-2 gap-4">
-                  {field("city", "City", { required: true, autoComplete: "address-level2" })}
+                  {field("city", "City", {
+                    required: true,
+                    autoComplete: "address-level2",
+                    placeholder: "Enter your city",
+                  })}
                   <div className="space-y-1.5">
                     <Label htmlFor="state">State</Label>
                     <select
@@ -477,11 +558,19 @@ export function CheckoutForm({
                       required
                       autoComplete="address-level1"
                       value={form.state}
-                      onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))}
-                      className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                      aria-invalid={invalidFields.has("state")}
+                      onChange={(e) => {
+                        setForm((f) => ({ ...f, state: e.target.value }));
+                        clearInvalid("state");
+                      }}
+                      // aria-invalid classes spelled out because this is a bare
+                      // <select>, not ui/input.tsx — it gets none of Input's
+                      // styling for free. Kept identical so a red state field
+                      // matches a red text field beside it.
+                      className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20"
                     >
                       <option value="" disabled>
-                        Select…
+                        Select your state
                       </option>
                       {INDIAN_STATES.map((s) => (
                         <option key={s} value={s}>
@@ -494,8 +583,10 @@ export function CheckoutForm({
                 {field("pincode", "Pincode", {
                   required: true,
                   autoComplete: "postal-code",
+                  inputMode: "numeric",
                   pattern: "[0-9]{6}",
                   title: "6-digit pincode",
+                  placeholder: "Enter your 6-digit pincode",
                 })}
 
                 {/* Only two of the four states say anything. "unknown" is an
@@ -570,6 +661,7 @@ export function CheckoutForm({
             <Textarea
               id="notes"
               value={form.notes}
+              placeholder="Anything we should know — a delivery instruction, a gift message"
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
             />
           </div>

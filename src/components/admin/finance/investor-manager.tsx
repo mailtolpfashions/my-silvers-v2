@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatINR } from "@/lib/format";
 import {
   addInvestmentAction,
@@ -356,8 +357,7 @@ export function InvestorManager({
                   </TableHeader>
                   <TableBody>
                     {investmentSort.rows.map((entry) => (
-                      <Fragment key={entry.id}>
-                        <TableRow>
+                      <TableRow key={entry.id}>
                         <TableCell>
                           {new Date(entry.investedAt).toLocaleDateString("en-IN", {
                             day: "numeric",
@@ -379,43 +379,33 @@ export function InvestorManager({
                           >
                             <Trash2 className="size-4" />
                           </Button>
+                          {/* Portalled to the body, so it sits inside a cell in
+                              the source without putting a dialog inside a
+                              <table> in the DOM. That is also what let the
+                              extra confirmation ROW — and the Fragment that
+                              existed only to hold it — go away. */}
+                          <ConfirmDialog
+                            open={confirmingDelete === entry.id}
+                            onOpenChange={(next) =>
+                              setConfirmingDelete(next ? entry.id : null)
+                            }
+                            title="Delete this contribution?"
+                            confirmLabel="Delete"
+                            disabled={isPending}
+                            onConfirm={() =>
+                              run(() => deleteInvestmentAction(entry.id), "Contribution removed.")
+                            }
+                            description={
+                              <>
+                                {entry.investorName}&apos;s contribution of{" "}
+                                <strong>{formatINR(entry.amount)}</strong> will be removed. Their
+                                share of all capital changes, and so does every past period this
+                                was counted in.
+                              </>
+                            }
+                          />
                         </TableCell>
                       </TableRow>
-                        {confirmingDelete === entry.id && (
-                          <TableRow className="bg-muted/40">
-                            <TableCell colSpan={5}>
-                              <p className="text-sm">
-                                Delete {entry.investorName}&apos;s contribution of{" "}
-                                <strong>{formatINR(entry.amount)}</strong>? Their share of all
-                                capital changes, and so does every past period this was counted in.
-                              </p>
-                              <div className="mt-3 flex gap-2">
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  disabled={isPending}
-                                  onClick={() => {
-                                    run(
-                                      () => deleteInvestmentAction(entry.id),
-                                      "Contribution removed.",
-                                    );
-                                    setConfirmingDelete(null);
-                                  }}
-                                >
-                                  Delete
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setConfirmingDelete(null)}
-                                >
-                                  Cancel
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </Fragment>
                     ))}
                   </TableBody>
                 </Table>
@@ -518,31 +508,25 @@ function InvestorRowEditor({
           >
             <Trash2 className="size-4" />
           </Button>
-          {confirming && (
-            <span className="flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground">Remove?</span>
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={disabled}
-                onClick={() => {
-                  onDelete();
-                  setConfirming(false);
-                }}
-                className="h-7"
-              >
-                Yes
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setConfirming(false)}
-                className="h-7"
-              >
-                No
-              </Button>
-            </span>
-          )}
+          {/* Was an inline "Remove? Yes / No" that appeared beside the bin icon
+              and widened the row as it did. A bare "Yes" is also the weakest
+              possible label on an irreversible control — it confirms that a
+              question was asked, not what agreeing to it does. */}
+          <ConfirmDialog
+            open={confirming}
+            onOpenChange={setConfirming}
+            title={`Remove ${investor.name}?`}
+            confirmLabel="Remove partner"
+            disabled={disabled}
+            onConfirm={onDelete}
+            description={
+              <>
+                Their partner record is deleted. This is only possible while they have no
+                contributions recorded — once they have put capital in, mark them inactive
+                instead.
+              </>
+            }
+          />
         </div>
       </TableCell>
     </TableRow>

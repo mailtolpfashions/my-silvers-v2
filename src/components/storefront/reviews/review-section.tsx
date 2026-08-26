@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Star } from "lucide-react";
 import { getProductReviews } from "@/server/products/reviews";
+import { ReviewMedia } from "@/components/storefront/reviews/review-media";
 
 function Stars({ rating }: { rating: number }) {
   return (
@@ -66,6 +67,11 @@ export async function ReviewSection({
                 {review.comment && (
                   <p className="mt-1 text-sm text-muted-foreground">{review.comment}</p>
                 )}
+                <ReviewMedia
+                  imageUrls={review.imageUrls}
+                  videoUrl={review.videoUrl}
+                  authorName={review.user.name ?? "Customer"}
+                />
               </div>
             ))
           )}
@@ -84,8 +90,12 @@ export async function ReviewSection({
                 <Link href="/account/orders" className="underline underline-offset-4">
                   your orders
                 </Link>{" "}
-                to write one.
+                to write one — including photos and a short video, if you like.
               </p>
+              {/* Set here rather than only in the confirmation toast: someone
+                  deciding whether to bother writing one should know it will not
+                  appear the instant they press post. */}
+              <p className="mt-1.5">Every review is read by our team before it appears.</p>
             </div>
           ) : (
             <p className="border-t p-4 text-sm text-muted-foreground">

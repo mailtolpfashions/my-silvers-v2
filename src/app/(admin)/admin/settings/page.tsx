@@ -13,6 +13,16 @@ import { StoreSettingsForm } from "@/components/admin/store-settings-form";
  */
 export const metadata = { title: "Settings" };
 
+/**
+ * Blocking, like every other admin route — see admin/reviews/page.tsx.
+ *
+ * `getStoreSettings` is behind `use cache`, but `requireRole` is not and cannot
+ * be: it reads the session and then the database, which is the whole point of
+ * it (see require-role.ts). So this route blocks regardless of the settings
+ * cache.
+ */
+export const instant = false;
+
 export default async function AdminSettingsPage() {
   await requireRole("admin");
 
