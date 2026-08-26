@@ -83,21 +83,16 @@ export function ProfileForm({
   const maxDateOfBirth = isHydrated ? todayLocal() : undefined;
 
   /**
-   * ⚠️  The form is capped at max-w-xl because the PAGE is deliberately wider
-   * than a form wants.
+   * No width cap here on purpose — the page owns it.
    *
-   * Every /account page uses `container-checkout` (64rem), which is right for
-   * what most of them hold — an order list, an order's line items, an invoice.
-   * A single-column form inherits that same 64rem and stretches every field to
-   * match, which is how "Full name" ended up as a 975px box for a value that is
-   * rarely thirty characters.
-   *
-   * Capping the FORM rather than the page keeps the section coherent: the back
-   * link and the heading still line up with every other account screen, and
-   * only the fields come back to a sane measure.
+   * This briefly carried `max-w-xl` itself, which fixed the 975px-wide "Full
+   * name" box but left the form hugging the left edge beneath a full-width
+   * heading. The narrow column now lives in account/profile/page.tsx and wraps
+   * the heading and back link too, so all three stay aligned. Keeping the width
+   * in one place stops the two disagreeing later.
    */
   return (
-    <form action={formAction} className="max-w-xl space-y-4">
+    <form action={formAction} className="space-y-4">
       {state?.error && (
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {state.error}
