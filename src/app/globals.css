@@ -335,6 +335,34 @@
   p {
     text-wrap: pretty;
   }
+
+  /* ── The same, for text that is not in a <p> or an <h*> ─────────────────
+     An audit of every text-bearing element turned up three kinds the rules
+     above miss, all of them real prose:
+
+       • shadcn's Card and Empty render their title and description as
+         <div>, so neither rule reaches them. Dialog, AlertDialog and Sheet
+         get theirs from Radix, which emits <h2> and <p> — already covered,
+         and matched again here harmlessly.
+       • <blockquote> carries the homepage review quotes.
+
+     Matched on the data-slot SUFFIX rather than by listing components, so a
+     shadcn component added later is covered the day it arrives rather than
+     the day someone notices. Every slot in the library is named
+     `<component>-title` / `<component>-description`.
+
+     Checked and deliberately not included: <li> and <dd> carry no prose
+     here — the product FAQ's <dd> nests a full RichText block whose own <p>
+     tags are already covered, and the rest hold prices and spec values,
+     which have nothing to wrap. */
+  [data-slot$="title"] {
+    text-wrap: balance;
+  }
+
+  blockquote,
+  [data-slot$="description"] {
+    text-wrap: pretty;
+  }
 }
 
 /* ─── Brand utilities ─────────────────────────────────────────────────────── */
