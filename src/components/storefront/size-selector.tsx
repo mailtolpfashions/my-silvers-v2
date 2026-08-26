@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useId, useState } from "react";
+import { createContext, useContext, useId, useRef, useState } from "react";
 import { Ruler } from "lucide-react";
 
 type SizeState = {
@@ -15,9 +15,11 @@ type SizeState = {
   /**
    * Call before adding to the cart. Returns the size to send, or null when the
    * product needs one and none is chosen — in which case the selector has
-   * already flagged itself.
+   * already flagged itself AND scrolled into view.
    */
   requireSize: () => string | null;
+  /** The selector's own element, so requireSize can bring it back on screen. */
+  selectorRef: React.RefObject<HTMLDivElement | null>;
 };
 
 const SizeContext = createContext<SizeState | null>(null);
@@ -41,11 +43,37 @@ export function SizeProvider({
 }) {
   const [selected, setSelected] = useState("");
   const [missing, setMissing] = useState(false);
+  const selectorRef = useRef<HTMLDivElement>(null);
 
   function requireSize(): string | null {
     if (sizes.length === 0) return "";
     if (!selected) {
       setMissing(true);
+
+      /**
+       * ⚠️  Bring the selector back on screen, because the button that refused
+       * is frequently nowhere near it.
+       *
+       * "Add to cart" and "Buy now" also live in the sticky bar at the bottom
+       * of a phone screen, and on a long product page the shopper is usually
+       * far below the size chips by the time they press one. Setting `missing`
+       * alone rendered "Please choose a size first" into a part of the page
+       * they could not see: the button simply did nothing, twice, and then they
+       * left. This is the whole reason the ref exists.
+       */
+      selectorRef.current?.scrollIntoView({
+        behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+        block: "center",
+      });
+      // Focus the first choosable chip, so the fix is one keypress away and a
+      // screen reader is moved to the thing that needs answering. preventScroll
+      // so it does not fight the smooth scroll above.
+      selectorRef.current
+        ?.querySelector<HTMLButtonElement>('button[role="radio"]:not([disabled])')
+        ?.focus({ preventScroll: true });
+
       return null;
     }
     return selected;
@@ -53,7 +81,16 @@ export function SizeProvider({
 
   return (
     <SizeContext.Provider
-      value={{ sizes, stockBySize, selected, setSelected, missing, setMissing, requireSize }}
+      value={{
+        sizes,
+        stockBySize,
+        selected,
+        setSelected,
+        missing,
+        setMissing,
+        requireSize,
+        selectorRef,
+      }}
     >
       {children}
     </SizeContext.Provider>
@@ -75,20 +112,24 @@ export function useSize(): SizeState {
       missing: false,
       setMissing: () => {},
       requireSize: () => "",
+      selectorRef: { current: null },
     }
   );
 }
 
 /** The size chips. Renders nothing for a product with no sizes. */
 export function SizeSelector({ sizeGuideHref }: { sizeGuideHref?: string }) {
-  const { sizes, stockBySize, selected, setSelected, missing, setMissing } = useSize();
+  const { sizes, stockBySize, selected, setSelected, missing, setMissing, selectorRef } = useSize();
   const labelId = useId();
   const errorId = useId();
 
   if (sizes.length === 0) return null;
 
   return (
-    <div className="mt-6">
+    // scroll-mt so that if anything ever scrolls to this by hash or anchor it
+    // clears the sticky header. requireSize uses block:"center" and does not
+    // depend on it.
+    <div ref={selectorRef} className="mt-6 scroll-mt-24">
       <div className="mb-2.5 flex items-center justify-between">
         <p id={labelId} className="text-sm font-medium">
           Size{selected && <span className="text-muted-foreground"> · {selected}</span>}
@@ -114,6 +155,7 @@ export function SizeSelector({ sizeGuideHref }: { sizeGuideHref?: string }) {
         aria-labelledby={labelId}
         aria-describedby={missing ? errorId : undefined}
         aria-required
+        aria-invalid={missing}
         className="flex flex-wrap gap-2"
       >
         {sizes.map((size) => {
@@ -136,12 +178,26 @@ export function SizeSelector({ sizeGuideHref }: { sizeGuideHref?: string }) {
                 setSelected(size);
                 setMissing(false);
               }}
+              /**
+               * When a purchase has been refused for want of a size, the CHIPS
+               * turn red — not only the sentence beneath them. A red line of
+               * text under an unchanged row of buttons tells a shopper that
+               * something is wrong without showing them what to press; the
+               * control that needs answering should be the thing that looks
+               * answerable.
+               *
+               * Sold-out chips stay grey. Colouring one red would read as "this
+               * is the problem", when the problem is that a DIFFERENT chip has
+               * not been chosen.
+               */
               className={`min-w-11 border px-3.5 py-2 text-sm transition-colors sm:min-w-12 sm:px-4 sm:py-2.5 ${
                 soldOut
                   ? "cursor-not-allowed border-input/60 text-muted-foreground/60 line-through"
                   : active
                     ? "border-foreground bg-foreground text-background"
-                    : "border-input hover:border-foreground"
+                    : missing
+                      ? "border-destructive text-destructive hover:border-foreground hover:text-foreground"
+                      : "border-input hover:border-foreground"
               }`}
             >
               {size}

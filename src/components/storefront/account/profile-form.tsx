@@ -153,7 +153,7 @@ export function ProfileForm({
             type="tel"
             inputMode="numeric"
             autoComplete="tel"
-            placeholder="9876543210"
+            placeholder="Enter your 10-digit mobile number"
             defaultValue={initial.phone ?? ""}
           />
         </div>
