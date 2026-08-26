@@ -759,6 +759,33 @@ export function CheckoutForm({
                 : `Pay ${formatINRPaise(totalPaise)}`}
           </Button>
 
+          {/**
+           * One line of reassurance at the button, which is where the doubt is.
+           *
+           * ⚠️  Both halves are literally true and neither is a badge. Razorpay
+           * IS the gateway (see openRazorpay above), and card details genuinely
+           * never reach this shop — Checkout.js collects them inside Razorpay's
+           * own iframe on their domain, which is the whole reason the payment
+           * window is not our markup.
+           *
+           * Naming the gateway is the trust cue that works in India: Razorpay
+           * is recognised, and "secured by <company nobody has heard of>" says
+           * nothing. This is deliberately NOT a row of card-network logos —
+           * those are images of other companies' trademarks used as decoration,
+           * and the shopper is about to see the real list inside the payment
+           * window anyway.
+           *
+           * Hidden with the button it belongs to. The mobile equivalent would
+           * sit in the sticky bar, which has room for an amount and an action
+           * and nothing else.
+           */}
+          {!wantCod && (
+            <p className="mt-3 hidden text-center text-xs text-muted-foreground md:block">
+              Payments are handled by Razorpay. Your card details are entered on their
+              secure page and never reach us.
+            </p>
+          )}
+
           {/* Mobile: the amount and the action pinned to the bottom, matching
               the cart and product pages. Rendered inside the <form> so it stays
               a plain submit button — `fixed` takes it out of flow either way.
