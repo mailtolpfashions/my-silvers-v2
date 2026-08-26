@@ -41,7 +41,12 @@ const allowPlaceholderImages =
  */
 const isDev = process.env.NODE_ENV !== "production";
 
-const CSP = [
+/**
+ * `frameAncestors` is a parameter for exactly one route: the CMS live preview,
+ * which is DESIGNED to be framed by the editor beside it. Everywhere else it is
+ * 'none'. See PREVIEW_HEADERS.
+ */
+const csp = (frameAncestors: "'none'" | "'self'") => [
   "default-src 'self'",
   // 'unsafe-inline': see the note above. 'unsafe-eval' is dev-only — React uses
   // eval to rebuild server error stacks in the browser; production needs neither.
@@ -61,15 +66,16 @@ const CSP = [
   "frame-src https://api.razorpay.com https://checkout.razorpay.com",
   "media-src 'self' https://res.cloudinary.com",
   "worker-src 'self' blob:",
-  // Nothing on this site should ever be framed — the clickjacking gate, and the
-  // modern replacement for X-Frame-Options (both are sent; old browsers read
-  // only the latter).
-  "frame-ancestors 'none'",
+  // The clickjacking gate, and the modern replacement for X-Frame-Options
+  // (both are sent; old browsers read only the latter).
+  `frame-ancestors ${frameAncestors}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
   "upgrade-insecure-requests",
 ].join("; ");
+
+const CSP = csp("'none'");
 
 const SECURITY_HEADERS = [
   // Report-Only while the policy is validated against the real third parties.
@@ -90,12 +96,45 @@ const SECURITY_HEADERS = [
   },
 ];
 
+/**
+ * The CMS live preview, and nothing else.
+ *
+ * ⚠️  `X-Frame-Options: DENY` refuses framing from EVERY origin, our own
+ * included — there is no same-origin exemption in that header, which is the
+ * usual surprise. So the editor's preview pane, an iframe pointing at our own
+ * /preview route, rendered as "localhost refused to connect".
+ *
+ * SAMEORIGIN here rather than dropping the header: the preview may be framed by
+ * this site and still by nobody else. Narrow on three counts — the route is
+ * gated to admin and editor in proxy.ts, it takes its content only from
+ * same-origin postMessage and never from a URL, and it displays a draft the
+ * author is already looking at. There is no clickjacking value in a page that
+ * shows you your own unsaved words.
+ *
+ * Everything else keeps DENY.
+ */
+const PREVIEW_HEADERS = SECURITY_HEADERS.map((header) =>
+  header.key === "X-Frame-Options"
+    ? { key: header.key, value: "SAMEORIGIN" }
+    : header.key === "Content-Security-Policy-Report-Only"
+      ? { key: header.key, value: csp("'self'") }
+      : header
+);
+
 const nextConfig: NextConfig = {
   // Drops the "X-Powered-By: Next.js" fingerprint from every response.
   poweredByHeader: false,
 
   async headers() {
-    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+    return [
+      // ⚠️  MUST NOT OVERLAP with the blanket rule below. Next applies the
+      // headers of EVERY matching entry, so two matches would send two
+      // X-Frame-Options headers — and a browser seeing both DENY and SAMEORIGIN
+      // takes the most restrictive, silently leaving the preview broken. Hence
+      // the negative lookahead rather than ordering.
+      { source: "/preview/:path*", headers: PREVIEW_HEADERS },
+      { source: "/((?!preview/).*)", headers: SECURITY_HEADERS },
+    ];
   },
 
   // Partial Prerendering: a static shell served from the edge, with per-shopper
