@@ -2,6 +2,27 @@ import { prisma } from "@/server/db";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
 
+/**
+ * Blocking, like every other admin and CMS route — the reasoning is set out in
+ * full in admin/reviews/page.tsx. In short: this is behind a login, opened by
+ * staff a handful of times a day, and the three counts ARE the page, so there
+ * is no shell worth prerendering and a skeleton would be replaced wholesale a
+ * moment later.
+ *
+ * ⚠️  This route was one of two missing the export — exactly the oversight the
+ * admin dashboard's note warns about. Validation is dev-only at the framework's
+ * default warning level, so `next build` passed either way and the only signal
+ * was an overlay error in dev:
+ *
+ *   Route "/cms": Next.js encountered uncached data during prerendering …
+ *   `fetch(...)` or `connection()` accessed outside of <Suspense>
+ *
+ * Streaming the counts behind <Suspense> would also silence it, and would be
+ * the wrong fix here: it buys a flash of three empty cards on a page nobody is
+ * deciding anything from.
+ */
+export const instant = false;
+
 export default async function CmsDashboardPage() {
   const [entryCount, publishedCount, mediaCount] = await Promise.all([
     prisma.contentEntry.count(),
