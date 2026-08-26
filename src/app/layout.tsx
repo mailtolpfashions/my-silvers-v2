@@ -112,7 +112,25 @@ export default function RootLayout({
           distinguishable at a glance, and a longer duration than the 4s default
           because several of these carry a "View cart" action worth reaching.
         */}
-        <Toaster richColors closeButton position="bottom-right" duration={5000} />
+        {/**
+         * ⚠️  No `richColors`, and no `closeButton`.
+         *
+         * `richColors` is what made a "Added to wishlist" toast arrive green
+         * with a green tick — sonner's own success palette, on a shop whose
+         * entire identity is achromatic. It meant the single most saturated
+         * colour a shopper ever saw belonged to a component library rather than
+         * to the brand, and it is the specific thing that made the site read as
+         * assembled from parts.
+         *
+         * Colour is not how this shop says "done" — the words and the mark do
+         * that. The one place colour still carries meaning is failure, which is
+         * a hazard and needs to be unmissable; see --destructive.
+         *
+         * `closeButton` went with it. A toast that dismisses itself in five
+         * seconds does not need a control, and the × was drawing the eye to the
+         * least useful thing in the notification.
+         */}
+        <Toaster position="bottom-right" duration={5000} />
       </body>
     </html>
   );

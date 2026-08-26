@@ -194,16 +194,39 @@
      Ratios in comments are worst-case, i.e. against --half-white (#f2f2f2), not
      the page background, since muted fills are the darkest thing text sits on.
      Every value here is contrast-checked — keep it that way when editing. ─── */
+  /* ── Silver is not grey ───────────────────────────────────────────────────
+     These were a true achromatic ramp: #f2f2f2, #e0e0e0, #8a8a8a, #666666,
+     #2d2d2d. Neutral greys are what a page defaults to, and the shop read as
+     unconsidered for exactly that reason — a palette with no chroma anywhere
+     gives the eye nothing to hold.
+
+     Every tone below now carries a slight blue bias, taken from the material:
+     photograph sterling and the shadows go cool while the highlights stay warm.
+     It is subtle by design — nobody should be able to name the colour — but a
+     grey biased toward the accent reads as chosen where a pure grey reads as
+     inherited.
+
+     ⚠️  Contrast was re-checked against the new --half-white, not the old one,
+     and every value here EQUALS OR BEATS the ratio it replaces. Keep it that
+     way: the numbers in these comments are load-bearing. --white stays pure so
+     cards still sit level with the page and are separated by --border alone. */
   --white: #ffffff; /* page background, cards, elevated surfaces */
-  --half-white: #f2f2f2; /* muted fills, secondary surfaces */
-  --hairline: #e0e0e0; /* decorative card edges and rules — see note above */
-  --half-grey: #8a8a8a; /* control borders, disabled — 3.08:1, clears the 3:1 rule */
-  --grey: #666666; /* muted foreground — 5.13:1 */
-  /* Body and headings. Both carried over unchanged from the ivory palette —
-     they were already neutral, which is why the switch to monochrome needed no
-     new values at the dark end. Both clear AAA comfortably. */
-  --half-black: #2d2d2d; /* body ink — 12.30:1 */
-  --black: #0c0c0e; /* headings, footer, primary fills, emphasis — 17.46:1 */
+  --half-white: #f1f3f5; /* muted fills, secondary surfaces */
+  --hairline: #dde1e5; /* decorative card edges and rules — see note above */
+  --half-grey: #838a91; /* control borders, disabled — 3.14:1, clears the 3:1 rule */
+  --grey: #5b6066; /* muted foreground — 5.70:1 */
+  --half-black: #26292e; /* body ink — 13.12:1 */
+  --black: #101318; /* headings, footer, primary fills, emphasis — 16.73:1 */
+
+  /* ── The accent, and the only one ─────────────────────────────────────────
+     Oxidised silver: what the metal turns when it tarnishes toward blue-black.
+     8.40:1 on --half-white, so it is legible as text as well as fill.
+
+     ⚠️  Emphasis and state ONLY — focus rings, the hallmark strip, a link that
+     must be found. It is not a brand colour to be sprinkled. The moment it
+     appears as decoration it stops meaning anything, and the palette is back to
+     where it started. */
+  --oxide: #2c4a5e;
 
   --background: var(--white);
   --foreground: var(--half-black);
@@ -239,7 +262,10 @@
   --border: var(--hairline);
   /* … real control boundaries are not. --half-grey is 3.08:1 on --half-white. */
   --input: var(--half-grey);
-  --ring: var(--black);
+  /* The focus ring is the one piece of UI every keyboard user sees on every
+     screen, which makes it the right place for the accent to earn its keep. It
+     was --black, indistinguishable from the border it sat against. */
+  --ring: var(--oxide);
 
   /* Five steps down the ramp, so series stay distinguishable without hue.
      --white is deliberately NOT here: a white series is invisible on a white
@@ -258,8 +284,16 @@
      dropdowns and the admin/CMS surfaces. Everything on the storefront that
      frames an image or an action is square; see the .rhythm-* and tile rules
      below. A hard corner on a text input is hostile; a rounded corner on a
-     photograph is a Shopify theme. */
-  --radius: 0.75rem;
+     photograph is a Shopify theme.
+
+     ⚠️  4px, down from 12px. The split above is right and stays — what was
+     wrong was the SIZE of the soft half. At 12px an input reads as an app
+     control, which put a second visual language beside the square storefront
+     rather than a quieter version of the same one. 4px is a machined edge: it
+     keeps the corner from being hostile, which is the whole reason the radius
+     exists, without pretending to be a phone. Everything derived from it —
+     --radius-sm through --radius-4xl — collapses with it, which is the point. */
+  --radius: 4px;
 
   /* --radius-card is deliberately GONE. The storefront product tile, the
      collection tile and the editorial tile are all square-cornered now — the
