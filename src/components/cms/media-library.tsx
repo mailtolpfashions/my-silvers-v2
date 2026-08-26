@@ -6,6 +6,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Upload, Loader2, Film } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -132,6 +133,8 @@ export function MediaLibrary({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [detail, setDetail] = useState<MediaRow | null>(null);
   const [uploading, setUploading] = useState(false);
+  // Replaced a window.confirm() — see the note on ConfirmDialog.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function updateParam(key: string, value: string | null) {
@@ -181,7 +184,7 @@ export function MediaLibrary({
 
   function deleteSelected() {
     if (selected.size === 0) return;
-    if (!window.confirm(`Delete ${selected.size} file(s)? This can't be undone.`)) return;
+    setConfirmingDelete(false);
     startTransition(async () => {
       const result = await deleteMediaAssetsAction([...selected]);
       toast.success(`Deleted ${result.deleted} file(s).`);
@@ -215,9 +218,30 @@ export function MediaLibrary({
           onChange={(e) => handleUpload(e.target.files)}
         />
         {selected.size > 0 && (
-          <Button variant="destructive" disabled={isPending} onClick={deleteSelected}>
-            Delete ({selected.size})
-          </Button>
+          <>
+            <Button
+              variant="destructive"
+              disabled={isPending}
+              onClick={() => setConfirmingDelete(true)}
+            >
+              Delete ({selected.size})
+            </Button>
+            <ConfirmDialog
+              open={confirmingDelete}
+              onOpenChange={setConfirmingDelete}
+              title={`Delete ${selected.size} file${selected.size === 1 ? "" : "s"}?`}
+              confirmLabel="Delete permanently"
+              disabled={isPending}
+              onConfirm={deleteSelected}
+              description={
+                <>
+                  This cannot be undone. Anything still pointing at{" "}
+                  {selected.size === 1 ? "this file" : "these files"} — a product image, a CMS
+                  block — will be left with a broken link.
+                </>
+              }
+            />
+          </>
         )}
       </div>
 

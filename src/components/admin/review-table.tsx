@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Check, Star, Trash2, Undo2, Video, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   bulkSetReviewStatusAction,
   deleteReviewAction,
@@ -314,32 +315,25 @@ export function ReviewTable({ reviews }: { reviews: AdminReview[] }) {
             </div>
           </CardContent>
 
-          {confirming === review.id && (
-            <CardContent className="border-t bg-muted/40 p-4 text-sm">
-              <p>
-                Delete this review permanently? {review.customerName} will be able to write a new
-                one for {review.productName} — each customer may have one review per product, so
-                removing theirs frees the slot, and the replacement lands back in this queue.{" "}
+          <ConfirmDialog
+            open={confirming === review.id}
+            onOpenChange={(next) => setConfirming(next ? review.id : null)}
+            title="Delete this review permanently?"
+            confirmLabel="Delete permanently"
+            disabled={isPending}
+            onConfirm={() => remove(review.id)}
+            description={
+              <>
+                {review.customerName} will be able to write a new one for {review.productName} —
+                each customer may have one review per product, so removing theirs frees the slot,
+                and the replacement lands back in this queue.{" "}
                 {(review.imageUrls.length > 0 || review.videoUrl) &&
                   "Their uploaded photos and video are erased from Cloudinary too, so the file URLs stop working. "}
                 <strong>Reject it instead</strong> if you only want it off the storefront — that is
                 final and does not free the slot.
-              </p>
-              <div className="mt-3 flex gap-2">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  disabled={isPending}
-                  onClick={() => remove(review.id)}
-                >
-                  Delete permanently
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setConfirming(null)}>
-                  Cancel
-                </Button>
-              </div>
-            </CardContent>
-          )}
+              </>
+            }
+          />
         </Card>
       ))}
     </div>
