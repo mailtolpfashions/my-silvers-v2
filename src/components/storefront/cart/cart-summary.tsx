@@ -14,12 +14,23 @@ import { shippingChargePaise, type ShippingRates } from "@/server/orders/money";
  */
 export function CartSummary({
   subtotalPaise,
+  /**
+   * Total saved across the order, in paise. Computed by the CALLER, because
+   * only the caller holds the per-line compare-at prices — and both callers
+   * total it with the same savingPaise the product pages use, so the cart can
+   * never claim a saving a product page declined to show.
+   *
+   * Defaulted rather than required: the summary renders nothing for it at
+   * zero, so a caller with no discounted lines passes nothing.
+   */
+  savedPaise = 0,
   // Rates arrive as a prop because they are admin-editable settings and this
   // component renders inside the client-side guest cart as well as the server
   // cart — see the note on ShippingRates in server/orders/money.ts.
   rates,
 }: {
   subtotalPaise: number;
+  savedPaise?: number;
   rates: ShippingRates;
 }) {
   const shippingPaise = shippingChargePaise(subtotalPaise, rates);
@@ -73,6 +84,19 @@ export function CartSummary({
             <dd className="figures">{formatINRPaise(totalPaise)}</dd>
           </div>
         </dl>
+
+        {/* Below the total, and deliberately OUTSIDE the <dl>.
+
+            It is not a line item. The subtotal above is already the discounted
+            money, so a "You saved" row sitting among Subtotal/Shipping/Total
+            reads as something still to be taken off — a shopper doing the
+            arithmetic would find it does not add up. Placed under the rule it
+            is what it actually is: a statement about the order just totalled.
+
+            Same `.saving` treatment as the product page and the grid tiles. */}
+        {savedPaise > 0 && (
+          <p className="saving mt-3">You saved {formatINRPaise(savedPaise)} on this order</p>
+        )}
 
         {/* Hidden on mobile — the sticky bar is the button there, and two
             checkout buttons on one screen is a question, not a shortcut. */}

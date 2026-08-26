@@ -38,18 +38,39 @@ export function savingLabel(
   price: number | string,
   compareAtPrice: number | string | null | undefined
 ): string | null {
-  if (compareAtPrice === null || compareAtPrice === undefined || compareAtPrice === "") return null;
+  const saved = savingPaise(price, compareAtPrice);
+  if (saved === 0) return null;
+
+  const comparePaise = Math.round(Number(compareAtPrice) * 100);
+  const percent = Math.round((saved / comparePaise) * 100);
+
+  return `Save ${formatINRPaise(saved)} (${percent}%)`;
+}
+
+/**
+ * What one unit saves, in paise. Zero when there is nothing honest to claim.
+ *
+ * The rules live here rather than in savingLabel so the cart totals a saving by
+ * the same definition the product page states one by. Without that, a cart can
+ * add up per-item savings the pages themselves declined to show.
+ */
+export function savingPaise(
+  price: number | string,
+  compareAtPrice: number | string | null | undefined
+): number {
+  if (compareAtPrice === null || compareAtPrice === undefined || compareAtPrice === "") return 0;
 
   const pricePaise = Math.round(Number(price) * 100);
   const comparePaise = Math.round(Number(compareAtPrice) * 100);
-  if (!Number.isFinite(pricePaise) || !Number.isFinite(comparePaise)) return null;
-  if (comparePaise <= pricePaise || pricePaise <= 0) return null;
+  if (!Number.isFinite(pricePaise) || !Number.isFinite(comparePaise)) return 0;
+  if (comparePaise <= pricePaise || pricePaise <= 0) return 0;
 
-  const savedPaise = comparePaise - pricePaise;
-  const percent = Math.round((savedPaise / comparePaise) * 100);
-  if (percent < 1) return null;
+  const saved = comparePaise - pricePaise;
+  // Below one percent is a rounding error dressed as a discount, and the "(0%)"
+  // that would sit beside it looks broken. See the note on savingLabel.
+  if (Math.round((saved / comparePaise) * 100) < 1) return 0;
 
-  return `Save ${formatINRPaise(savedPaise)} (${percent}%)`;
+  return saved;
 }
 
 /**

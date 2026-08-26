@@ -2,7 +2,7 @@ import { ViewTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { stockLabel, isScarce } from "@/lib/stock-label";
-import { formatINR } from "@/lib/format";
+import { formatINR, savingLabel } from "@/lib/format";
 import { CARD_IMAGE_CLASS, CARD_TITLE_CLASS, CARD_SHELL_CLASS } from "@/lib/card-styles";
 import { WishlistButton } from "@/components/storefront/wishlist-button";
 import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
@@ -129,6 +129,15 @@ export function ProductCard({
   const hoverImage = product.images[1];
   const price = Number(product.price);
   const compareAt = product.compareAtPrice ? Number(product.compareAtPrice) : null;
+  /**
+   * Shared with the product page, so a tile and the page it opens cannot state
+   * the same saving two different ways — which they did: the tile said
+   * "Save ₹1,000" and the page "Save ₹1,000 (20%)".
+   *
+   * It also brings the guards the hand-rolled version here never had — paise
+   * arithmetic instead of float subtraction, and silence below one percent.
+   */
+  const saving = savingLabel(price, compareAt);
   const href = `/products/${product.slug}`;
 
   return (
@@ -263,9 +272,7 @@ export function ProductCard({
               It is still not a badge. No fill, no percentage sticker, no red:
               one line of accent text stating a fact the shopper would otherwise
               have to work out. The pills that note warns about stay gone. */}
-          {compareAt && compareAt > price && (
-            <span className="saving">Save {formatINR(compareAt - price)}</span>
-          )}
+          {saving && <span className="saving">{saving}</span>}
         </div>
 
         <h3 className={`${CARD_TITLE_CLASS} mt-1.5 text-foreground`}>

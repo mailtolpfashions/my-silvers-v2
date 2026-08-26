@@ -6,7 +6,7 @@ import { getCartWithProducts } from "@/server/cart";
 import { CartRecommendations } from "@/components/storefront/cart/cart-recommendations";
 import { toPaise, MAX_ITEM_QUANTITY, type ShippingRates } from "@/server/orders/money";
 import { getStoreSettings } from "@/server/settings/store-settings";
-import { formatINR } from "@/lib/format";
+import { formatINR, savingPaise } from "@/lib/format";
 import { EmptyCart } from "@/components/storefront/cart/empty-cart";
 import { CartSummary } from "@/components/storefront/cart/cart-summary";
 import { CartRowControls } from "@/components/storefront/cart/cart-row-controls";
@@ -76,6 +76,16 @@ async function AuthedCart({ userId, rates }: { userId: string; rates: ShippingRa
 
   const subtotalPaise = rows.reduce(
     (sum, i) => sum + toPaise(i.product.price) * i.quantity,
+    0
+  );
+
+  // Totalled the same way as the subtotal, and by the same definition of a
+  // saving the product pages state one by — see savingPaise. Matches
+  // guest-cart-view.tsx, so both carts report the same figure.
+  const savedPaise = rows.reduce(
+    (sum, i) =>
+      sum +
+      savingPaise(i.product.price.toString(), i.product.compareAtPrice?.toString()) * i.quantity,
     0
   );
 
@@ -150,7 +160,7 @@ async function AuthedCart({ userId, rates }: { userId: string; rates: ShippingRa
         {/* Sticky from lg: on a wide screen the summary would otherwise sit at
             the top of a column while the shopper reads the bottom of the list. */}
         <div className="lg:sticky lg:top-[7.5rem]">
-          <CartSummary subtotalPaise={subtotalPaise} rates={rates} />
+          <CartSummary subtotalPaise={subtotalPaise} savedPaise={savedPaise} rates={rates} />
         </div>
       </div>
 

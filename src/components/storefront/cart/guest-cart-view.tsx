@@ -13,7 +13,7 @@ import {
   setGuestCartQuantity,
   removeFromGuestCart,
 } from "@/lib/guest-cart";
-import { formatINR } from "@/lib/format";
+import { formatINR, savingPaise } from "@/lib/format";
 import { EmptyCart } from "@/components/storefront/cart/empty-cart";
 import { MAX_ITEM_QUANTITY, type ShippingRates } from "@/server/orders/money";
 
@@ -22,6 +22,7 @@ type Summary = {
   name: string;
   slug: string;
   price: string;
+  compareAtPrice: string | null;
   image: string | null;
   stock: number;
 };
@@ -75,6 +76,14 @@ export function GuestCartView({ rates }: { rates: ShippingRates }) {
 
   const subtotalPaise = rows.reduce(
     (sum, { item, product }) => sum + Math.round(Number(product.price) * 100) * item.quantity,
+    0
+  );
+
+  // Totalled the same way as the subtotal, and by the same definition of a
+  // saving the product pages state one by — see savingPaise.
+  const savedPaise = rows.reduce(
+    (sum, { item, product }) =>
+      sum + savingPaise(product.price, product.compareAtPrice) * item.quantity,
     0
   );
 
@@ -160,7 +169,7 @@ export function GuestCartView({ rates }: { rates: ShippingRates }) {
         ))}
       </ul>
       <div className="lg:sticky lg:top-[7.5rem]">
-        <CartSummary subtotalPaise={subtotalPaise} rates={rates} />
+        <CartSummary subtotalPaise={subtotalPaise} savedPaise={savedPaise} rates={rates} />
         <p className="mt-3 text-center text-xs text-muted-foreground">
           <Link href="/login?redirect=/cart" className="underline">
             Sign in

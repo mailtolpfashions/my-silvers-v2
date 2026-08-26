@@ -41,6 +41,9 @@ export async function GET(req: NextRequest) {
       name: p.name,
       slug: p.slug,
       price: p.price.toString(),
+      // Additive to the guest cart's contract, not a change to it — the cart
+      // totals what was saved across the order, and cannot without this.
+      compareAtPrice: p.compareAtPrice?.toString() ?? null,
       image: p.images[0] ?? null,
       stock: p.stock,
     })),
