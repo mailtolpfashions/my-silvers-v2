@@ -64,7 +64,12 @@ export function RevenueChart({ days }: { days: RevenueDay[] }) {
              * case, which is the mobile one.
              */
             className={`min-h-0.5 flex-1 rounded-t-[2px] ${
-              d.revenuePaise > 0 ? "bg-primary" : "bg-muted"
+              // bg-border, not bg-muted. The stub only does its job if it can
+              // be SEEN: --muted is #f2f2f2 against a #ffffff card, which at
+              // 2px tall is nothing at all — the first version of this drew a
+              // baseline that was not there. --border is the theme's own
+              // hairline (#e0e0e0), the value it already uses for rules.
+              d.revenuePaise > 0 ? "bg-primary" : "bg-border"
             }`}
           />
         ))}
