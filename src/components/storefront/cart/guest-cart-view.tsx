@@ -119,9 +119,16 @@ export function GuestCartView({ rates }: { rates: ShippingRates }) {
                 {item.size && (
                   <p className="mt-1 text-xs text-muted-foreground">Size {item.size}</p>
                 )}
-                {/* Matches the signed-in cart's row — see cart/page.tsx. */}
-                <p className="mt-2 text-base font-semibold text-foreground">
-                  {formatINR(product.price)}
+                {/* Matches the signed-in cart's row, strike included — see
+                    cart/page.tsx for why the guard is savingPaise and not a
+                    bare comparison. */}
+                <p className="mt-2 flex items-baseline gap-2 text-base font-semibold text-foreground">
+                  {savingPaise(product.price, product.compareAtPrice) > 0 && (
+                    <span className="text-sm font-normal text-muted-foreground line-through">
+                      {formatINR(product.compareAtPrice!)}
+                    </span>
+                  )}
+                  <span>{formatINR(product.price)}</span>
                 </p>
                 {/* No count, matching src/lib/stock-label.ts and the signed-in
                     cart — this row said "Only 2 left" while every other surface

@@ -133,9 +133,25 @@ async function AuthedCart({ userId, rates }: { userId: string; rates: ShippingRa
                   )}
                   {/* Foreground and a step up from the name, not 14px grey. A
                       price set quieter than the product it belongs to is the
-                      wrong way round in a cart. Matches guest-cart-view.tsx. */}
-                  <p className="mt-2 text-base font-semibold text-foreground">
-                    {formatINR(item.product.price.toString())}
+                      wrong way round in a cart. Matches guest-cart-view.tsx.
+
+                      The compare-at is struck to its left when there is a
+                      genuine saving on the line, so the discount is visible
+                      against the PIECE and not only totalled in the summary
+                      column — where a shopper reading the item rows never
+                      looks. Guarded by savingPaise rather than a bare
+                      `compareAt > price`, so a row cannot show a strike the
+                      summary refuses to count. */}
+                  <p className="mt-2 flex items-baseline gap-2 text-base font-semibold text-foreground">
+                    {savingPaise(
+                      item.product.price.toString(),
+                      item.product.compareAtPrice?.toString()
+                    ) > 0 && (
+                      <span className="text-sm font-normal text-muted-foreground line-through">
+                        {formatINR(item.product.compareAtPrice!.toString())}
+                      </span>
+                    )}
+                    <span>{formatINR(item.product.price.toString())}</span>
                   </p>
                   {/* No count — see src/lib/stock-label.ts. */}
                   {item.product.stock < item.quantity && (

@@ -37,6 +37,37 @@ export function CartSummary({
   const totalPaise = subtotalPaise + shippingPaise;
   const remainingForFree = rates.freeShippingThresholdPaise - subtotalPaise;
 
+  /**
+   * What this order would have cost at the undiscounted prices.
+   *
+   * Derived rather than passed: `savedPaise` already carries every rule about
+   * what counts (see savingPaise), so adding it back is the only definition of
+   * "before" that can agree with the saving stated below. A separately computed
+   * original could drift from it, and the two sit four lines apart where a
+   * shopper can check the subtraction.
+   */
+  const originalSubtotalPaise = subtotalPaise + savedPaise;
+
+  /**
+   * Delivery earned rather than delivery absent.
+   *
+   * Free shipping shown as the word "Free" alone says nothing about what was
+   * avoided. Struck against the real charge it says what the threshold was
+   * worth — and the charge is an admin setting, so this is whatever the shop
+   * has configured, not a number invented here.
+   */
+  const shippingSavedPaise = shippingPaise === 0 ? rates.shippingChargePaise : 0;
+
+  /**
+   * ⚠️  Includes the shipping saving, and must.
+   *
+   * The two struck figures above are the shopper's own working: subtotal saved
+   * plus delivery saved. If this line counted only the product discount, anyone
+   * adding up the strikes would land on a bigger number than the total claims
+   * and conclude one of them is wrong. Every figure in this block reconciles.
+   */
+  const totalSavedPaise = savedPaise + shippingSavedPaise;
+
   return (
     <>
       {/* Below md the summary sits at the very bottom of a long list, so a
@@ -62,18 +93,48 @@ export function CartSummary({
         <h2 className="label-eyebrow mb-5">Order summary</h2>
 
         <dl className="space-y-3 text-sm">
-          <div className="flex justify-between">
+          {/* The struck figure sits to the LEFT of the one being charged, in
+              both rows. Read left to right that is "was, now" — the order the
+              price is read in on the product page and the grid tiles, so the
+              cart says it the same way the rest of the site does. */}
+          <div className="flex justify-between gap-3">
             <dt className="text-muted-foreground">Subtotal</dt>
-            <dd className="figures">{formatINRPaise(subtotalPaise)}</dd>
+            <dd className="flex items-baseline gap-2">
+              {savedPaise > 0 && (
+                <span className="figures text-muted-foreground line-through">
+                  {formatINRPaise(originalSubtotalPaise)}
+                </span>
+              )}
+              <span className="figures">{formatINRPaise(subtotalPaise)}</span>
+            </dd>
           </div>
-          <div className="flex justify-between">
+          <div className="flex justify-between gap-3">
             <dt className="text-muted-foreground">Shipping</dt>
-            <dd className="figures">{shippingPaise === 0 ? "Free" : formatINRPaise(shippingPaise)}</dd>
+            <dd className="flex items-baseline gap-2">
+              {shippingSavedPaise > 0 && (
+                <span className="figures text-muted-foreground line-through">
+                  {formatINRPaise(shippingSavedPaise)}
+                </span>
+              )}
+              <span className="figures">
+                {shippingPaise === 0 ? "Free" : formatINRPaise(shippingPaise)}
+              </span>
+            </dd>
           </div>
-          {remainingForFree > 0 && (
+          {/* Two different jobs, so never both at once.
+              Under the threshold the shopper can still act, and the actionable
+              form of this fact is what is missing rather than what the rule is.
+              Over it, the rule is what explains the struck charge above. */}
+          {remainingForFree > 0 ? (
             <p className="text-xs text-black">
               Add {formatINRPaise(remainingForFree)} more for free shipping.
             </p>
+          ) : (
+            rates.freeShippingThresholdPaise > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Free delivery on orders above {formatINRPaise(rates.freeShippingThresholdPaise)}.
+              </p>
+            )
           )}
           {/* The breakdown rows stay at 14px — they are arithmetic. Only the
               total steps up, because it is the one number in this block a
@@ -94,8 +155,8 @@ export function CartSummary({
             is what it actually is: a statement about the order just totalled.
 
             Same `.saving` treatment as the product page and the grid tiles. */}
-        {savedPaise > 0 && (
-          <p className="saving mt-3">You saved {formatINRPaise(savedPaise)} on this order</p>
+        {totalSavedPaise > 0 && (
+          <p className="saving mt-3">You saved {formatINRPaise(totalSavedPaise)} on this order</p>
         )}
 
         {/* Hidden on mobile — the sticky bar is the button there, and two
