@@ -85,6 +85,45 @@ not an invoice.
 
 ---
 
+## What the key is and is not for
+
+Getting the shopper's coordinates is **free**. `navigator.geolocation` is built
+into every browser, costs nothing and needs no account. On an iPhone the
+coordinates come from Apple's own location system; on Android, from Google's.
+Either way that half is free and has nothing to do with our key.
+
+The key pays for the **second** half: turning `13.0827, 80.2707` into
+"Chennai, Tamil Nadu, 600017". That translation is the metered service.
+
+So the device never talks to Google. It hands coordinates to the browser, the
+browser posts them to our server, and our server asks Google. An Apple device
+needs no Google account, no Google app and no Google permission for this to
+work.
+
+## Devices and browsers
+
+Works on Safari (iOS, iPadOS, macOS), Chrome, Firefox and Edge. Three things
+are worth knowing:
+
+**https is required.** Geolocation is a secure-context API and every browser
+refuses it over plain http — Safari most strictly. The live site is https, so
+shoppers never meet this. It bites during **testing**: opening the dev server
+from a phone at `http://192.168.x.x:3000` is not a secure context, and the
+failure looks identical to the shopper having denied the prompt. `localhost` is
+a secure context, so desktop testing works and gives no warning. The button
+detects this case and says so rather than letting you chase permissions.
+
+**iOS has two switches, not one.** Safari's own per-site prompt, and
+*Settings → Privacy & Security → Location Services → Safari Websites* at the OS
+level. If the OS switch is off, Safari's prompt never appears at all and the
+call fails immediately. This is the most common "it doesn't work on my iPhone"
+cause, and it is not something the site can fix or detect.
+
+**Never name a setting's location in the error copy.** There is no single right
+answer across platforms — the address-bar icon exists on desktop Chrome and
+nowhere near an iPhone. `geolocationMessage` says "your browser or device
+settings" deliberately.
+
 ## Why no map, no street
 
 A phone's coordinates land somewhere between ten metres and half a kilometre

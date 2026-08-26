@@ -48,6 +48,23 @@ export function UseMyLocationButton({
       return;
     }
 
+    /**
+     * Geolocation is a SECURE-CONTEXT API: every browser refuses it over plain
+     * http, and Safari on iOS is the strictest about it.
+     *
+     * A shopper never meets this — the live site is https. It exists for the
+     * one case that bites during testing: opening the dev server from a phone
+     * on the same wifi, at http://192.168.x.x:3000. That is not a secure
+     * context, so the call fails as PERMISSION_DENIED and looks exactly like a
+     * shopper having denied the prompt — which sends you debugging permissions
+     * when the real answer is the protocol. `localhost` IS a secure context, so
+     * desktop testing works and gives no hint that anything is wrong.
+     */
+    if (!window.isSecureContext) {
+      setMessage("Location needs a secure (https) connection. Please type your address.");
+      return;
+    }
+
     setBusy(true);
     try {
       const position = await currentPosition();
@@ -151,14 +168,21 @@ function currentPosition(): Promise<GeolocationPosition> {
  *
  * PERMISSION_DENIED is the one that needs care. It is not an error — it is a
  * choice, and a reasonable one — so it must not read like something broke, and
- * it must not nag. It says where the setting lives and then gets out of the
- * way.
+ * it must not nag.
+ *
+ * ⚠️  It must also not claim to know WHERE the setting is. This said "you can
+ * turn it on in your browser's address bar", which is true on desktop Chrome
+ * and wrong nearly everywhere else — and most wrong on an iPhone, where the
+ * same refusal can come from Safari's own prompt OR from iOS Location Services
+ * being off for Safari entirely, two settings in two different apps, neither of
+ * them an address bar. Sending someone to look at a bar that is not there makes
+ * them think the site is broken. Name the possibilities, do not pick one.
  */
 function geolocationMessage(err: unknown): string {
   if (typeof GeolocationPositionError !== "undefined" && err instanceof GeolocationPositionError) {
     switch (err.code) {
       case err.PERMISSION_DENIED:
-        return "No problem — location is off for this site. You can turn it on in your browser's address bar, or just type your address below.";
+        return "No problem — location is switched off for this site. You can allow it in your browser or device settings, or just type your address below.";
       case err.POSITION_UNAVAILABLE:
         return "Your device couldn't get a location fix. Please type your address.";
       case err.TIMEOUT:
