@@ -4,9 +4,8 @@ import { z } from "zod";
 import { revalidatePath, updateTag } from "next/cache";
 import { auth } from "@/server/auth/auth";
 import { upsertReview, ReviewNotPermittedError } from "@/server/products/reviews";
-import { verifyReviewMedia, ReviewMediaError } from "@/server/reviews/media";
+import { verifyReviewImage, ReviewMediaError } from "@/server/reviews/media";
 import { checkRateLimit, RATE_LIMIT_MESSAGE } from "@/server/rate-limit/limiter";
-import { MAX_REVIEW_IMAGES } from "@/lib/review-media";
 
 const reviewSchema = z.object({
   productId: z.string().min(1),
@@ -14,12 +13,11 @@ const reviewSchema = z.object({
   rating: z.number().int().min(1).max(5),
   title: z.string().trim().max(150).optional().or(z.literal("")),
   comment: z.string().trim().max(1000).optional().or(z.literal("")),
-  // Shape only. Whether these URLs are real Cloudinary assets, in the reviews
-  // folder, of the right type and under the size limit is decided by
-  // verifyReviewMedia — a URL string is a claim, and zod cannot check a claim
-  // about a remote file.
-  imageUrls: z.array(z.string().url()).max(MAX_REVIEW_IMAGES).optional(),
-  videoUrl: z.string().url().nullish(),
+  // Shape only. Whether this URL is a real Cloudinary asset, sitting in the
+  // reviews folder, an image rather than a clip, and under the size limit is
+  // decided by verifyReviewImage — a URL string is a claim, and zod cannot
+  // check a claim about a remote file.
+  imageUrl: z.string().url().nullish(),
 });
 
 export async function submitReviewAction(input: unknown) {
@@ -37,12 +35,9 @@ export async function submitReviewAction(input: unknown) {
   }
 
   try {
-    // Before the write, not after: a review must never be saved pointing at
-    // media that turns out to be oversize or fabricated.
-    const media = await verifyReviewMedia({
-      imageUrls: parsed.data.imageUrls,
-      videoUrl: parsed.data.videoUrl,
-    });
+    // Before the write, not after: a review must never be saved pointing at a
+    // photo that turns out to be oversize, fabricated, or a video.
+    const imageUrl = await verifyReviewImage(parsed.data.imageUrl);
 
     await upsertReview({
       userId: session.user.id,
@@ -50,8 +45,7 @@ export async function submitReviewAction(input: unknown) {
       rating: parsed.data.rating,
       title: parsed.data.title || undefined,
       comment: parsed.data.comment || undefined,
-      imageUrls: media.imageUrls,
-      videoUrl: media.videoUrl,
+      imageUrl,
     });
     revalidatePath(`/products/${parsed.data.productSlug}`);
     // The homepage now shows real 4-and-5-star reviews, so a new one has to

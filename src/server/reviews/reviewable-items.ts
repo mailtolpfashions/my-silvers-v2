@@ -9,8 +9,7 @@ export type ReviewableItem = {
     rating: number;
     title: string | null;
     comment: string | null;
-    imageUrls: string[];
-    videoUrl: string | null;
+    imageUrl: string | null;
     /**
      * Shown to the customer, so "I wrote that and it never appeared" has an
      * answer on the page rather than becoming an email. `rejected` is
@@ -62,8 +61,7 @@ export async function getReviewableItems(
         comment: true,
         // So editing a review opens with the photos already on it, rather than
         // an empty picker that silently wipes them on save.
-        imageUrls: true,
-        videoUrl: true,
+        imageUrl: true,
         status: true,
       },
     }),
@@ -84,8 +82,7 @@ export async function getReviewableItems(
                 rating: existing.rating,
                 title: existing.title,
                 comment: existing.comment,
-                imageUrls: existing.imageUrls,
-                videoUrl: existing.videoUrl,
+                imageUrl: existing.imageUrl,
                 status: existing.status,
               }
             : null,

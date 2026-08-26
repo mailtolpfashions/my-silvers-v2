@@ -1,5 +1,5 @@
 /**
- * The one place the review-media limits are written down.
+ * The one place the review-photo limits are written down.
  *
  * Imported by BOTH the browser (for the instant "that file is too big" toast)
  * and the server (for the check that actually counts). They must not drift:
@@ -12,13 +12,19 @@
  * whatever they like into the reviews folder. What makes these numbers true is
  * server/reviews/media.ts, which asks Cloudinary how big the asset actually is
  * and destroys anything over the line. See the note there.
+ *
+ * ── One photo, no video ──────────────────────────────────────────────────────
+ * This carried four photos and a 50 MB clip. Both went when the review grid
+ * gained a fixed photo band at the top of each card: there is one slot, so a
+ * second photo has nowhere to render and a video has no shape that fits at all.
+ * Widening it again means changing the card first, not this file.
  */
 
-/** Cloudinary folder for customer review media — separate from every admin folder. */
+/** Cloudinary folder for customer review photos — separate from every admin folder. */
 export const REVIEW_MEDIA_FOLDER = "mysilvers/reviews";
 
-export const MAX_REVIEW_IMAGES = 4;
-export const MAX_REVIEW_VIDEOS = 1;
+/** One. See the note above before raising it. */
+export const MAX_REVIEW_IMAGES = 1;
 
 const MB = 1024 * 1024;
 
@@ -26,28 +32,16 @@ const MB = 1024 * 1024;
 export const MAX_REVIEW_IMAGE_BYTES = 5 * MB;
 
 /**
- * Roughly 30–60 seconds of phone video. Deliberately well under Cloudinary's
- * 100 MB per-file ceiling — the point is a shopper showing how a piece wears,
- * not a film.
- */
-export const MAX_REVIEW_VIDEO_BYTES = 50 * MB;
-
-/**
  * Formats Cloudinary itself will accept into this folder.
  *
- * These are signed into the upload request, so Cloudinary rejects anything
- * else before a byte is stored — this is the one restriction that IS enforced
- * at upload time rather than after it. Keep the two lists in sync with the
- * `accept` attributes on the file inputs.
+ * These are signed into the upload request, so Cloudinary rejects anything else
+ * before a byte is stored — the one restriction that IS enforced at upload time
+ * rather than after it. Video formats are deliberately absent: that refusal is
+ * what stops someone posting a clip straight to the signed endpoint now that
+ * the form no longer offers it. Keep in sync with the `accept` attribute on the
+ * file input.
  */
 export const ALLOWED_REVIEW_IMAGE_FORMATS = ["jpg", "jpeg", "png", "webp", "heic", "heif"] as const;
-export const ALLOWED_REVIEW_VIDEO_FORMATS = ["mp4", "mov", "webm", "m4v"] as const;
-
-export type ReviewMediaKind = "image" | "video";
-
-export function maxBytesFor(kind: ReviewMediaKind): number {
-  return kind === "image" ? MAX_REVIEW_IMAGE_BYTES : MAX_REVIEW_VIDEO_BYTES;
-}
 
 /** "5 MB" — for limit copy and error messages, so both quote the same figure. */
 export function formatBytes(bytes: number): string {

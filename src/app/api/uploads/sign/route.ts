@@ -3,11 +3,7 @@ import { v2 as cloudinary } from "cloudinary";
 import { auth } from "@/server/auth/auth";
 import { getCurrentRole } from "@/server/auth/require-role";
 import { checkRateLimit, RATE_LIMIT_MESSAGE } from "@/server/rate-limit/limiter";
-import {
-  ALLOWED_REVIEW_IMAGE_FORMATS,
-  ALLOWED_REVIEW_VIDEO_FORMATS,
-  REVIEW_MEDIA_FOLDER,
-} from "@/lib/review-media";
+import { ALLOWED_REVIEW_IMAGE_FORMATS, REVIEW_MEDIA_FOLDER } from "@/lib/review-media";
 
 /**
  * Cloudinary signed-upload signatures. The browser uploads file bytes
@@ -40,11 +36,15 @@ import {
  */
 const STAFF_FOLDERS = new Set(["mysilvers/products", "mysilvers/categories", "mysilvers/cms"]);
 
-/** Signed alongside the folder — see fence #2 above. */
-const REVIEW_ALLOWED_FORMATS = [
-  ...ALLOWED_REVIEW_IMAGE_FORMATS,
-  ...ALLOWED_REVIEW_VIDEO_FORMATS,
-].join(",");
+/**
+ * Signed alongside the folder — see fence #2 above.
+ *
+ * ⚠️  Image formats ONLY. Video used to be listed here, and taking it out is
+ * what actually stops a clip reaching the reviews folder now that the form no
+ * longer offers one — the form is only a form, whereas Cloudinary refuses an
+ * upload whose format is not in the signed allowed_formats.
+ */
+const REVIEW_ALLOWED_FORMATS = ALLOWED_REVIEW_IMAGE_FORMATS.join(",");
 
 export async function POST(req: NextRequest) {
   let requested = "mysilvers/products";

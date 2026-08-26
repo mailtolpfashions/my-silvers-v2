@@ -147,8 +147,7 @@ export default async function AdminReviewsPage({
             productName: r.product.name,
             productSlug: r.product.slug,
             productImage: r.product.images[0] ?? null,
-            imageUrls: r.imageUrls,
-            videoUrl: r.videoUrl,
+            imageUrl: r.imageUrl,
           }))}
         />
       )}

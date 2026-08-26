@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Star } from "lucide-react";
 import { getProductReviews } from "@/server/products/reviews";
-import { ReviewMedia } from "@/components/storefront/reviews/review-media";
+import { ReviewCard } from "@/components/storefront/reviews/review-card";
 
 function Stars({ rating }: { rating: number }) {
   return (
@@ -18,6 +18,24 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
+/**
+ * Product-page reviews.
+ *
+ * ── A grid, and photos lead it ──────────────────────────────────────────────
+ * This was a single stacked column with the "bought this piece?" note beside it
+ * in a 360px rail. That put the shop's own copy level with the first review and
+ * gave every review the same weight, which on a page whose job is to convince
+ * someone wastes the one thing a shopper trusts more than our photography: a
+ * picture of the piece taken by a stranger.
+ *
+ * So the reviews now run three across, photo-bearing ones first (ordered in
+ * getProductReviews, not here — see the note there about `take`), and the note
+ * moves beneath them where it reads as a footer rather than a column.
+ *
+ * Each card devotes roughly 28% of its height to the photo and the rest to the
+ * words. See review-card.tsx for why that ratio is fixed rather than letting
+ * the image size itself.
+ */
 export async function ReviewSection({
   productId,
   productSlug,
@@ -44,68 +62,64 @@ export async function ReviewSection({
         )}
       </div>
 
-      <div className="mt-6 grid gap-10 lg:grid-cols-[1fr_360px]">
-        <div className="space-y-6">
-          {reviews.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No reviews yet — be the first to review this piece.
-            </p>
-          ) : (
-            reviews.map((review) => (
-              <div key={review.id} className="border-b pb-5 last:border-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Stars rating={review.rating} />
-                  <span className="text-sm font-medium">{review.user.name ?? "Customer"}</span>
-                  {review.isVerifiedPurchase && (
-                    <span className="text-micro uppercase tracking-[0.1em] text-black">Verified purchase</span>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    {review.createdAt.toLocaleDateString("en-IN", { dateStyle: "medium" })}
-                  </span>
-                </div>
-                {review.title && <p className="mt-2 text-sm font-medium">{review.title}</p>}
-                {review.comment && (
-                  <p className="mt-1 text-sm text-muted-foreground">{review.comment}</p>
-                )}
-                <ReviewMedia
-                  imageUrls={review.imageUrls}
-                  videoUrl={review.videoUrl}
-                  authorName={review.user.name ?? "Customer"}
-                />
-              </div>
-            ))
-          )}
+      {reviews.length === 0 ? (
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          No reviews yet — be the first to review this piece.
+        </p>
+      ) : (
+        // items-stretch (the grid default) plus h-full on the card is what keeps
+        // a row level: without it a card with a short quote would sit shorter
+        // than the photo-bearing one beside it and the row would look broken.
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {reviews.map((review) => (
+            <ReviewCard
+              key={review.id}
+              review={{
+                id: review.id,
+                rating: review.rating,
+                title: review.title,
+                comment: review.comment,
+                imageUrl: review.imageUrl,
+                authorName: review.user.name ?? "Customer",
+                isVerifiedPurchase: review.isVerifiedPurchase,
+                // Serialised here because ReviewCard is a client component and a
+                // Date cannot cross that boundary.
+                createdAt: review.createdAt.toISOString(),
+              }}
+            />
+          ))}
         </div>
+      )}
 
-        <div>
-          {/* Reviewing moved to the order history, where proof of purchase
-              lives — the same place Amazon and Flipkart put it. A form here
-              would invite people who never bought the piece to fill it in and
-              then be refused on submit. */}
-          {isAuthed ? (
-            <div className="border-t bg-muted/30 p-4 text-sm text-muted-foreground">
-              <p className="font-medium text-foreground">Bought this piece?</p>
-              <p className="mt-1.5">
-                Reviews come from delivered orders. Find it under{" "}
-                <Link href="/account/orders" className="underline underline-offset-4">
-                  your orders
-                </Link>{" "}
-                to write one — including photos and a short video, if you like.
-              </p>
-              {/* Set here rather than only in the confirmation toast: someone
-                  deciding whether to bother writing one should know it will not
-                  appear the instant they press post. */}
-              <p className="mt-1.5">Every review is read by our team before it appears.</p>
-            </div>
-          ) : (
-            <p className="border-t p-4 text-sm text-muted-foreground">
-              <Link href={`/login?redirect=/products/${productSlug}`} className="underline">
-                Sign in
-              </Link>{" "}
-              to review a piece you&apos;ve bought.
-            </p>
-          )}
-        </div>
+      {/* Reviewing lives in the order history, where proof of purchase is — the
+          same place Amazon and Flipkart put it. A form here would invite people
+          who never bought the piece to fill it in and then be refused on submit.
+
+          Beneath the grid rather than in a rail beside it: as a column it sat
+          level with the first review and competed with it, and it is the least
+          important thing in this section. */}
+      <div className="mt-8 border-t pt-5 text-sm text-muted-foreground">
+        {isAuthed ? (
+          <p>
+            <span className="font-medium text-foreground">Bought this piece?</span> Reviews come
+            from delivered orders — find it under{" "}
+            <Link href="/account/orders" className="underline underline-offset-4">
+              your orders
+            </Link>{" "}
+            to write one, and add a photo if you have one. Every review is read by our team before
+            it appears.
+          </p>
+        ) : (
+          <p>
+            <Link
+              href={`/login?redirect=/products/${productSlug}`}
+              className="underline underline-offset-4"
+            >
+              Sign in
+            </Link>{" "}
+            to review a piece you&apos;ve bought.
+          </p>
+        )}
       </div>
     </section>
   );

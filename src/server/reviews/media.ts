@@ -2,12 +2,9 @@ import "server-only";
 import { v2 as cloudinary } from "cloudinary";
 import { isAllowedMediaUrl } from "@/server/media/url-allowlist";
 import {
-  MAX_REVIEW_IMAGES,
-  MAX_REVIEW_VIDEOS,
+  MAX_REVIEW_IMAGE_BYTES,
   REVIEW_MEDIA_FOLDER,
   formatBytes,
-  maxBytesFor,
-  type ReviewMediaKind,
 } from "@/lib/review-media";
 
 cloudinary.config({
@@ -17,7 +14,7 @@ cloudinary.config({
 });
 
 /**
- * The check that actually enforces the review-media limits.
+ * The check that actually enforces the review-photo rules.
  *
  * ⚠️  Read this before trusting the file-size check in the upload widget.
  *
@@ -29,10 +26,10 @@ cloudinary.config({
  * the form can push a 900 MB file into the reviews folder.
  *
  * This module closes it at the only other place it can be closed: submit time.
- * Every URL arriving on a review is treated as a claim, not a fact, and each
- * one is checked against Cloudinary's Admin API for what it REALLY is —
- * because `bytes`, `resource_type` and `format` posted by a browser are just
- * strings a browser chose to send.
+ * The URL arriving on a review is treated as a claim, not a fact, and is
+ * checked against Cloudinary's Admin API for what it REALLY is — because
+ * `bytes`, `resource_type` and `format` posted by a browser are just strings a
+ * browser chose to send.
  *
  * A URL that fails any check is destroyed rather than merely refused. Leaving
  * it would mean an oversize asset sitting in the account, paid for, reachable
@@ -50,14 +47,15 @@ export class ReviewMediaError extends Error {
 /**
  * `https://res.cloudinary.com/<cloud>/<image|video>/upload/<...>/<public_id>.<ext>`
  *
- * The public ID is everything after the version segment (or after `upload/`
- * when there is none), minus the extension — folders included, which is what
- * makes the folder check below possible.
+ * `video` is still matched, and then REFUSED below. Matching only `image` would
+ * make a video URL fail as "could not be attached", which is true but useless —
+ * and it would leave the uploaded clip sitting in the folder rather than
+ * destroyed. Recognising it is what lets it be cleaned up.
  */
 const CLOUDINARY_ASSET =
   /^https:\/\/res\.cloudinary\.com\/[^/]+\/(image|video)\/upload\/(?:v\d+\/)?(.+)$/;
 
-type ParsedAsset = { kind: ReviewMediaKind; publicId: string; resourceType: "image" | "video" };
+type ParsedAsset = { publicId: string; resourceType: "image" | "video" };
 
 function parseCloudinaryUrl(url: string): ParsedAsset | null {
   if (!isAllowedMediaUrl(url)) return null;
@@ -70,11 +68,7 @@ function parseCloudinaryUrl(url: string): ParsedAsset | null {
   // carrying them is not one we issued, and is refused rather than unpicked.
   const publicId = rest.replace(/\.[a-z0-9]+$/i, "");
 
-  return {
-    kind: resourceType === "video" ? "video" : "image",
-    publicId,
-    resourceType: resourceType as "image" | "video",
-  };
+  return { publicId, resourceType: resourceType as "image" | "video" };
 }
 
 /** Best-effort cleanup. A failure here must never take the caller down with it. */
@@ -87,94 +81,57 @@ async function destroyQuietly(publicId: string, resourceType: "image" | "video")
 }
 
 /**
- * Verifies one URL against Cloudinary and returns it, or throws.
+ * Verifies the single photo a review is trying to attach, and returns it.
  *
- * Three questions, in the order that fails cheapest first: is it ours, is it
- * in the reviews folder, and is it within the size limit for its kind.
+ * Returns null when there is nothing to attach. Throws ReviewMediaError with a
+ * shopper-readable message when what arrived cannot be accepted.
  */
-async function verifyOne(url: string, expected: ReviewMediaKind): Promise<string> {
+export async function verifyReviewImage(imageUrl?: string | null): Promise<string | null> {
+  const url = imageUrl?.trim();
+  if (!url) return null;
+
   const parsed = parseCloudinaryUrl(url);
   if (!parsed) {
-    throw new ReviewMediaError("That file could not be attached. Please upload it again.");
+    throw new ReviewMediaError("That photo could not be attached. Please upload it again.");
   }
-  if (parsed.kind !== expected) {
-    throw new ReviewMediaError(
-      expected === "image"
-        ? "One of your photos is not an image file."
-        : "That video is not a video file."
-    );
-  }
+
   // The folder is part of the public ID, and the signature pinned the folder at
   // upload time — so an asset outside it was never issued by this route. This
   // also stops a shopper attaching a PRODUCT image as if it were their own
   // photo, which would otherwise pass every other check here.
   if (!parsed.publicId.startsWith(`${REVIEW_MEDIA_FOLDER}/`)) {
-    throw new ReviewMediaError("That file could not be attached. Please upload it again.");
+    throw new ReviewMediaError("That photo could not be attached. Please upload it again.");
+  }
+
+  if (parsed.resourceType === "video") {
+    // Destroyed, not just refused: the clip is already in the folder by the
+    // time we see its URL, and nothing will ever reference it.
+    await destroyQuietly(parsed.publicId, "video");
+    throw new ReviewMediaError("Reviews take a photo, not a video.");
   }
 
   let resource: { bytes: number };
   try {
-    resource = await cloudinary.api.resource(parsed.publicId, {
-      resource_type: parsed.resourceType,
-    });
+    resource = await cloudinary.api.resource(parsed.publicId, { resource_type: "image" });
   } catch {
     // 404 from Cloudinary means the URL points at nothing — a fabricated or
     // already-deleted asset. Either way it must not be stored.
-    throw new ReviewMediaError("That file is no longer available. Please upload it again.");
+    throw new ReviewMediaError("That photo is no longer available. Please upload it again.");
   }
 
-  const limit = maxBytesFor(expected);
-  if (resource.bytes > limit) {
-    await destroyQuietly(parsed.publicId, parsed.resourceType);
-    throw new ReviewMediaError(
-      expected === "image"
-        ? `Photos must be under ${formatBytes(limit)} each.`
-        : `Videos must be under ${formatBytes(limit)}.`
-    );
+  if (resource.bytes > MAX_REVIEW_IMAGE_BYTES) {
+    await destroyQuietly(parsed.publicId, "image");
+    throw new ReviewMediaError(`Photos must be under ${formatBytes(MAX_REVIEW_IMAGE_BYTES)}.`);
   }
 
   return url;
 }
 
 /**
- * Verifies everything a review is trying to attach.
+ * Removes review photos from Cloudinary — called when a review is deleted or
+ * when an edit drops its photo.
  *
- * Counts are checked before any network call — refusing five photos costs
- * nothing, whereas verifying them first would be four Admin API calls spent on
- * a request that was always going to be refused.
- */
-export async function verifyReviewMedia(input: {
-  imageUrls?: string[];
-  videoUrl?: string | null;
-}): Promise<{ imageUrls: string[]; videoUrl: string | null }> {
-  // De-duped: the same URL twice is one photo, and would otherwise let someone
-  // fill the grid with a single upload.
-  const images = [...new Set(input.imageUrls ?? [])];
-  const video = input.videoUrl?.trim() || null;
-
-  if (images.length > MAX_REVIEW_IMAGES) {
-    throw new ReviewMediaError(`Up to ${MAX_REVIEW_IMAGES} photos, please.`);
-  }
-  if (video && MAX_REVIEW_VIDEOS < 1) {
-    throw new ReviewMediaError("Videos are not accepted.");
-  }
-  if (images.length === 0 && !video) return { imageUrls: [], videoUrl: null };
-
-  // In parallel: up to five independent HTTP calls, and doing them in sequence
-  // would put five round trips on the critical path of a form submit.
-  const [verifiedImages, verifiedVideo] = await Promise.all([
-    Promise.all(images.map((url) => verifyOne(url, "image"))),
-    video ? verifyOne(video, "video") : Promise.resolve(null),
-  ]);
-
-  return { imageUrls: verifiedImages, videoUrl: verifiedVideo };
-}
-
-/**
- * Removes review media from Cloudinary — called when a review is deleted or
- * when an edit drops an attachment.
- *
- * Deliberately fire-and-forget at the call site: a review must still delete
+ * Deliberately fire-and-forget at most call sites: a review must still delete
  * even if Cloudinary is unreachable, or moderation would be blocked by a third
  * party being down. The worst case is a paid-for orphan, which is recoverable;
  * an undeletable review is not.
