@@ -9,15 +9,34 @@ import {
   getGuestCartSnapshot,
   getGuestCartServerSnapshot,
 } from "@/lib/guest-cart";
+import {
+  subscribeUserState,
+  getUserStateSnapshot,
+  getUserStateServerSnapshot,
+} from "@/lib/user-state-store";
 
 /**
  * Cart icon with a live item count.
  *
- * Guests: read from localStorage via useSyncExternalStore, so the badge updates
- * the instant an item is added, without a round trip.
+ * Both kinds of shopper read from a client store, so the badge moves the
+ * instant something is added — guests from localStorage, signed-in shoppers
+ * from the user-state store that AddToCartButton already updates optimistically.
  *
- * Signed in: the count is a server prop. AddToCartButton calls router.refresh()
- * after a successful add, which re-renders the header with the new value.
+ * ⚠️  The signed-in half used to be `initialCount`, a server prop, and this
+ * comment used to say "AddToCartButton calls router.refresh() after a
+ * successful add, which re-renders the header with the new value." That call no
+ * longer exists — it was replaced by the optimistic store — so nothing was
+ * re-rendering the header at all. `addToCartAction` revalidates "/cart", which
+ * is a different route from the product page the shopper is standing on.
+ *
+ * The result was a badge that stayed on its old number until the next
+ * navigation. Intermittent rather than constant, because an action response can
+ * refresh the tree anyway depending on what else invalidated — which is exactly
+ * why it survived: it looked right most of the time, and the e2e suite caught
+ * it as a flake rather than a failure.
+ *
+ * `initialCount` is still the value until the store hydrates, so the server
+ * render and first paint show a real number instead of flashing zero.
  */
 export function CartButton({
   isAuthed,
@@ -31,10 +50,21 @@ export function CartButton({
     getGuestCartSnapshot,
     getGuestCartServerSnapshot
   );
+  const state = useSyncExternalStore(
+    subscribeUserState,
+    getUserStateSnapshot,
+    getUserStateServerSnapshot
+  );
 
-  const count = isAuthed
-    ? initialCount
-    : guestItems.reduce((total, item) => total + item.quantity, 0);
+  const guestCount = guestItems.reduce((total, item) => total + item.quantity, 0);
+  // Summed from the same map AddToCartButton writes to, so one add moves the
+  // badge and every card for that product together.
+  const authedCount =
+    state.status === "ready"
+      ? [...state.cart.values()].reduce((total, quantity) => total + quantity, 0)
+      : initialCount;
+
+  const count = isAuthed ? authedCount : guestCount;
 
   return (
     <Button asChild variant="ghost" size="icon" className="relative size-10 rounded-none md:size-11" aria-label="Cart">

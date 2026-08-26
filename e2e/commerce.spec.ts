@@ -211,13 +211,29 @@ test.describe("cash on delivery, end to end", () => {
       await expect(addToCart.first()).toBeVisible({ timeout: 20_000 });
       await addToCart.first().click();
 
-      // A signed-in cart is a Server Action writing to Postgres, not
-      // localStorage — the click resolves before the row exists, and going
-      // straight to /checkout arrives at an empty cart.
+      /**
+       * Wait for the TOAST, not for the cart badge.
+       *
+       * A signed-in cart is a Server Action writing to Postgres — the click
+       * resolves before the row exists, and going straight to /checkout arrives
+       * at an empty cart. Something has to mark the write as done.
+       *
+       * ⚠️  That used to be the header badge changing from "Cart is empty",
+       * which worked only by accident: the badge was a server prop, so it moved
+       * when the server re-rendered, which loosely tracked the write. It was
+       * never a guarantee — hence this test's long-running intermittent failure
+       * — and it stopped being even loosely true when the badge became
+       * optimistic (see cart-button.tsx), because then it changed instantly
+       * while Postgres had not been touched.
+       *
+       * AddToCartButton raises this toast only AFTER addToCartAction resolves
+       * ok, so it is the one thing on screen that means "the server accepted
+       * it". Assert on the real signal rather than a proxy for it.
+       */
       await expect(
-        page.getByRole("link", { name: /cart/i }).first(),
-        "the item never reached the server-side cart"
-      ).not.toContainText(/empty/i, { timeout: 20_000 });
+        page.getByText(/added to cart/i).first(),
+        "the add-to-cart action never confirmed"
+      ).toBeVisible({ timeout: 20_000 });
 
       await page.goto("/checkout");
       await expect(page.locator("#fullName")).toBeVisible({ timeout: 20_000 });
@@ -351,10 +367,11 @@ test.describe("cash on delivery, end to end", () => {
         .locator("visible=true");
       await expect(addToCart.first()).toBeVisible({ timeout: 20_000 });
       await addToCart.first().click();
+      // The toast, not the badge — see the fuller note on the test above.
       await expect(
-        page.getByRole("link", { name: /cart/i }).first(),
-        "the item never reached the server-side cart"
-      ).not.toContainText(/empty/i, { timeout: 20_000 });
+        page.getByText(/added to cart/i).first(),
+        "the add-to-cart action never confirmed"
+      ).toBeVisible({ timeout: 20_000 });
 
       await page.goto("/checkout");
       await expect(page.locator("#fullName")).toBeVisible({ timeout: 20_000 });
