@@ -15,6 +15,10 @@ import {
   type PlaceOrderResult,
 } from "@/actions/order-actions";
 import { StickyActionBar } from "@/components/storefront/sticky-action-bar";
+import {
+  PaymentProcessingOverlay,
+  type PaymentStage,
+} from "@/components/storefront/checkout/payment-processing-overlay";
 import { readGuestCart, clearGuestCart } from "@/lib/guest-cart";
 import { formatINRPaise } from "@/lib/format";
 import { shippingChargePaise, type ShippingRates } from "@/server/orders/money";
@@ -89,6 +93,16 @@ export function CheckoutForm({
   const [lines, setLines] = useState<CheckoutLine[] | null>(initialLines);
   const [idempotencyKey] = useState(() => crypto.randomUUID());
   const [submitting, setSubmitting] = useState(false);
+  /**
+   * Which wait, if any, the shopper is currently in — see
+   * checkout/payment-processing-overlay.tsx.
+   *
+   * Separate from `submitting`, which only covers the order-creation call and
+   * goes false again the moment Razorpay opens its window. The gap this closes
+   * is AFTER that window shuts, while the payment is being confirmed and the
+   * form is back on screen looking untouched and pressable.
+   */
+  const [paymentStage, setPaymentStage] = useState<PaymentStage | null>(null);
   const [error, setError] = useState<string | null>(null);
   /**
    * The ids of fields the browser rejected on the last submit attempt.
@@ -284,6 +298,10 @@ export function CheckoutForm({
          * `total` means the network or the action round trip; `navigate` large
          * with a small `verify` means the destination page.
          */
+        // Razorpay's window has just closed, so the form is visible again and
+        // looks entirely pressable. This is the gap the overlay exists for.
+        setPaymentStage("verifying");
+
         const began = performance.now();
         const result = await verifyPaymentAction({
           razorpayOrderId: resp.razorpay_order_id,
@@ -299,7 +317,16 @@ export function CheckoutForm({
           // router.push resolves when the transition is committed, so this
           // measures the wait for the order page rather than just the call.
           console.info(`[checkout] navigate=${Math.round(performance.now() - verified)}ms`);
+          /**
+           * The overlay stays up through the navigation and is unmounted with
+           * the page. Clearing it here would flash the checkout form back for a
+           * frame before the order page paints — the last thing to show someone
+           * who has just paid.
+           */
         } else {
+          // Verification refused: the form has to come back, because the error
+          // banner is on it and there may be a retry to make.
+          setPaymentStage(null);
           setError(result.error);
         }
       },
@@ -345,6 +372,7 @@ export function CheckoutForm({
     setInvalidFields(new Set());
     setError(null);
     setSubmitting(true);
+    setPaymentStage("placing");
     try {
       const result: PlaceOrderResult = await placeOrderAction({
         address: {
@@ -366,6 +394,9 @@ export function CheckoutForm({
       });
 
       if (!result.ok) {
+        // Nothing was placed — put the form back so the banner can be read and
+        // whatever it complains about can be fixed.
+        setPaymentStage(null);
         setError(result.error);
         return;
       }
@@ -393,6 +424,12 @@ export function CheckoutForm({
           keyId: result.razorpay.keyId,
         };
         setPendingPayment(payment);
+        /**
+         * Razorpay's own window now covers the page and is the thing to look
+         * at, so ours comes down. It goes back up in the handler, once their
+         * window closes and the confirmation begins.
+         */
+        setPaymentStage(null);
         openRazorpay(payment);
       } else {
         // COD — order is final immediately.
@@ -439,7 +476,24 @@ export function CheckoutForm({
     <>
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
+      <PaymentProcessingOverlay stage={paymentStage} />
+
+      {/**
+       * `inert` while a payment is in flight — the overlay alone is not enough.
+       *
+       * Covering the page stops a POINTER reaching the form. It does nothing
+       * about the keyboard: Tab still walks into the fields underneath, and
+       * Enter on the focused pay button submits again. `inert` takes the whole
+       * subtree out of the tab order, out of the accessibility tree and out of
+       * reach of clicks in one attribute, which is exactly the intent.
+       *
+       * On the wrapper rather than the <form>, so the order summary beside it
+       * is frozen too — it carries its own pay button on desktop.
+       */}
+      <div
+        inert={paymentStage !== null}
+        className="grid gap-8 lg:grid-cols-[1fr_360px]"
+      >
         {/* noValidate hands reporting to focusFirstInvalid — see the note in
             lib/form-validity.ts. The browser still does the CHECKING; what it
             no longer does is place an unstyled bubble that vanishes on the next

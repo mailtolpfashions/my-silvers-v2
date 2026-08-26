@@ -168,4 +168,89 @@ test.describe("checkout → order page timing", () => {
       await withAdmin(browser, async (admin) => setCod(admin, codWasOn));
     }
   });
+
+  /**
+   * The processing overlay is on the highest-stakes screen in the shop, and the
+   * bug it prevents — pressing pay twice — costs a real customer real money. So
+   * it is worth a test that it genuinely blocks, not just that it renders.
+   *
+   * The Server Action is held open deliberately. Without that this races: the
+   * COD path completes in about a second, and asserting on something that
+   * appears and vanishes in that window is how a flaky test is written. Holding
+   * the POST makes the overlay's presence a fact rather than a timing accident.
+   */
+  test("the processing overlay blocks the form while an order is being placed", async ({
+    page,
+    browser,
+  }) => {
+    const product = await getInStockProduct();
+    test.skip(!product, "no in-stock, unsized product to buy");
+
+    let codWasOn = false;
+    await withAdmin(browser, async (admin) => {
+      await admin.goto("/admin/settings");
+      codWasOn = (await admin.locator("#codEnabled").getAttribute("data-state")) === "checked";
+      await setCod(admin, true);
+    });
+
+    const shopper = await signInAs(page, "customer", "timing-overlay");
+
+    try {
+      await page.goto(`/products/${product!.slug}`);
+      await page.getByRole("button", { name: /add to (cart|bag)/i }).first().click();
+      await page.waitForTimeout(1500);
+
+      await page.goto("/checkout");
+      await expect(page.locator("#fullName")).toBeVisible({ timeout: 20_000 });
+
+      await page.locator("#fullName").fill(ADDRESS.fullName);
+      await page.locator("#phone").fill(ADDRESS.phone);
+      await page.locator("#addressLine1").fill(ADDRESS.addressLine1);
+      await page.locator("#city").fill(ADDRESS.city);
+      await page.locator("#state").selectOption(ADDRESS.state);
+      await page.locator("#pincode").fill(ADDRESS.pincode);
+      await page.locator('input[name="paymentMethod"][value="cod"]').check();
+      await page.waitForTimeout(1500);
+
+      // Hold the Server Action open. Server Actions POST back to the page's own
+      // URL, so matching on method is enough to catch it and nothing else.
+      await page.route("**/checkout", async (route) => {
+        if (route.request().method() === "POST") {
+          await new Promise((resolve) => setTimeout(resolve, 4000));
+        }
+        await route.continue();
+      });
+
+      await page.getByRole("button", { name: /place order|pay ₹/i }).first().click();
+
+      await expect(
+        page.getByText(/placing your order/i),
+        "the processing overlay did not appear after submitting"
+      ).toBeVisible({ timeout: 10_000 });
+
+      /**
+       * inert is what stops a KEYBOARD reaching the form; the overlay only
+       * stops a pointer, so this is the harder half of the guarantee.
+       *
+       * Scoped with :has() rather than a bare div[inert] — inert applies to a
+       * whole subtree, so several elements on the page legitimately report it
+       * and a bare selector is a strict-mode violation. What actually matters
+       * is that the container holding the address fields is the inert one.
+       */
+      await expect(
+        page.locator("div[inert]:has(#fullName)"),
+        "the form was left reachable while the order was being placed"
+      ).toBeAttached();
+
+      // And it must come down again — an overlay that outlives the request
+      // would strand the shopper on a dead screen.
+      await expect(page.getByText(/^MYS-\d+/)).toBeVisible({ timeout: 40_000 });
+      await expect(page.getByText(/placing your order/i)).toBeHidden();
+    } finally {
+      await page.unroute("**/checkout").catch(() => {});
+      await deleteOrdersForUser(shopper.id).catch(() => {});
+      await shopper.dispose();
+      await withAdmin(browser, async (admin) => setCod(admin, codWasOn));
+    }
+  });
 });
