@@ -39,18 +39,38 @@ export function focusFirstInvalid(form: HTMLFormElement): string[] {
     (element) => !element.checkValidity()
   );
 
-  const first = invalid[0];
-  if (first) {
+  const firstInvalid = invalid[0];
+  if (firstInvalid) {
     // `center` rather than the default `start`: a field scrolled to the very
     // top of the viewport sits under the sticky header on this site, which is
     // the failure mode this function exists to prevent.
-    first.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+    firstInvalid.scrollIntoView({
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+      block: "center",
+    });
     // preventScroll, because focus() would otherwise jump instantly to its own
     // idea of the right position and fight the smooth scroll above.
-    first.focus({ preventScroll: true });
+    firstInvalid.focus({ preventScroll: true });
   }
 
   return invalid.map((element) => element.id).filter(Boolean);
+}
+
+/**
+ * The same answer, without touching focus or scroll.
+ *
+ * focusFirstInvalid MOVES THE PAGE, which is right when a shopper has pressed
+ * a button and wrong on every keystroke afterwards. This is for re-asking the
+ * question as they type: which fields is the form still blocked on?
+ *
+ * Same source of truth — the browser's own constraint validation — so a field
+ * cannot be counted here and passed there.
+ */
+export function listInvalid(form: HTMLFormElement): string[] {
+  return Array.from(form.querySelectorAll<ValidatableField>(FIELD_SELECTOR))
+    .filter((element) => !element.checkValidity())
+    .map((element) => element.id)
+    .filter(Boolean);
 }
 
 function prefersReducedMotion(): boolean {

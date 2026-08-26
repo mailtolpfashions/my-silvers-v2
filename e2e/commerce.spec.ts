@@ -238,6 +238,24 @@ test.describe("cash on delivery, end to end", () => {
       await page.goto("/checkout");
       await expect(page.locator("#fullName")).toBeVisible({ timeout: 20_000 });
 
+      /**
+       * The "still needs filling in" banner has to go when the field is filled.
+       *
+       * It used to be stored text set on a failed submit and never cleared, so
+       * a shopper who fixed the field was still being told one was missing —
+       * with nothing highlighted, because the red ring DID clear. Done here,
+       * before the form is filled, because an empty form is exactly the state
+       * that produces it.
+       */
+      const banner = page.getByText(/still needs? (filling in|to be filled)/i);
+      // By type, not by name: COD has not been chosen yet, so this button still
+      // reads "Pay ₹1,309" rather than "Place order". Matching the label here
+      // waits forever on a locator that resolves to nothing.
+      await page.locator('button[type="submit"]').locator("visible=true").first().click();
+      await expect(banner, "an empty checkout form submitted without complaint").toBeVisible({
+        timeout: 10_000,
+      });
+
       await page.locator("#fullName").fill("E2E Test Buyer");
       await page.locator("#phone").fill("9876543210");
       await page.locator("#addressLine1").fill("12 Test Street");
@@ -262,6 +280,13 @@ test.describe("cash on delivery, end to end", () => {
       ).toBeVisible({ timeout: 10_000 });
       await page.locator("#state").selectOption("Tamil Nadu");
       await expect(page.getByText(/isn't in the state you selected/i)).toBeHidden();
+
+      // Every field now carries a value, so the banner from the empty submit
+      // above must have cleared itself — nobody pressed the button again.
+      await expect(
+        banner,
+        "the validation banner outlived the fields it was complaining about"
+      ).toBeHidden();
 
       const codOption = page.locator('input[name="paymentMethod"][value="cod"]');
       await expect(codOption, "COD was enabled but no COD option rendered").toHaveCount(1);

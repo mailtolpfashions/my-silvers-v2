@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { focusFirstInvalid } from "@/lib/form-validity";
+import { useEffect, useRef, useState } from "react";
+import { focusFirstInvalid, listInvalid } from "@/lib/form-validity";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
 import { toast } from "sonner";
@@ -120,15 +120,18 @@ export function CheckoutForm({
   const [paymentStage, setPaymentStage] = useState<PaymentStage | null>(null);
   const [error, setError] = useState<string | null>(null);
   /**
-   * The ids of fields the browser rejected on the last submit attempt.
+   * The ids of fields the browser is currently rejecting.
    *
    * Empty until someone actually tries to pay — marking a form red before it
    * has been submitted scolds a shopper for not having filled in a field they
-   * have not reached yet. Each id is dropped again as soon as that field is
-   * edited, so the red clears as it is fixed rather than only on the next
-   * attempt.
+   * have not reached yet. Once armed it is re-derived on every change, so the
+   * red comes off the moment a field becomes valid rather than on the next
+   * attempt. The banner above the form is counted from this set, which is what
+   * keeps the two from disagreeing.
    */
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
+  /** Needed to re-ask the browser about validity outside a submit event. */
+  const formRef = useRef<HTMLFormElement>(null);
   const [pendingPayment, setPendingPayment] = useState<PendingPayment | null>(null);
   const [paymentDismissed, setPaymentDismissed] = useState(false);
   const [saveAddress, setSaveAddress] = useState(true);
@@ -282,6 +285,37 @@ export function CheckoutForm({
     })();
   }, [isAuthed, initialLines]);
 
+  /**
+   * Re-asks the browser which fields are still blocking the submit, whenever
+   * anything in the form changes.
+   *
+   * ⚠️  This replaced a `clearInvalid(name)` that deleted a field from the set
+   * the moment it was TOUCHED. Two things were wrong with that. The red ring
+   * came off a pincode on its first digit, five short of valid — and the
+   * banner, which was stored text rather than derived, never came off at all.
+   * A shopper who filled the missing field was still being told a field was
+   * missing, with nothing highlighted to show which.
+   *
+   * One source of truth now: the browser's own constraint validation, asked
+   * again on every change. The ring is red exactly while a field is invalid,
+   * and the banner counts exactly those rings.
+   *
+   * Does nothing until a submit has actually failed — `current.size === 0`
+   * returns early — so nothing on this form turns red before the shopper has
+   * pressed the button once. Returning `current` unchanged when the answer is
+   * the same keeps this from re-rendering on every keystroke.
+   */
+  useEffect(() => {
+    const element = formRef.current;
+    if (!element) return;
+    setInvalidFields((current) => {
+      if (current.size === 0) return current;
+      const next = listInvalid(element);
+      const unchanged = next.length === current.size && next.every((id) => current.has(id));
+      return unchanged ? current : new Set(next);
+    });
+  }, [form, selectedAddressId]);
+
   if (lines === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (lines.length === 0) {
     return <p className="rhythm-transactional text-center text-muted-foreground">Your cart is empty.</p>;
@@ -394,11 +428,14 @@ export function CheckoutForm({
     const invalid = focusFirstInvalid(formElement);
     if (invalid.length > 0) {
       setInvalidFields(new Set(invalid));
-      setError(
-        invalid.length === 1
-          ? "One field still needs filling in — it's highlighted below."
-          : `${invalid.length} fields still need filling in — they're highlighted below.`
-      );
+      // The banner is DERIVED from that set rather than stored here — see
+      // validationMessage. Storing it was what left "One field still needs
+      // filling in" on screen after the field had been filled.
+      //
+      // Any older server error goes: it is about a submit that is no longer
+      // the one being attempted, and two red banners disagreeing about what is
+      // wrong is worse than either alone.
+      setError(null);
       return;
     }
 
@@ -475,15 +512,18 @@ export function CheckoutForm({
     }
   }
 
-  /** Drops a field's red mark the moment it is edited. */
-  function clearInvalid(name: string) {
-    setInvalidFields((current) => {
-      if (!current.has(name)) return current; // no re-render on every keystroke
-      const next = new Set(current);
-      next.delete(name);
-      return next;
-    });
-  }
+
+  /**
+   * The banner, derived rather than stored — which is the whole fix. A stored
+   * string has to be remembered about and cleared; this cannot outlive the
+   * condition it describes.
+   */
+  const validationMessage =
+    invalidFields.size === 0
+      ? null
+      : invalidFields.size === 1
+        ? "One field still needs filling in — it's highlighted below."
+        : `${invalidFields.size} fields still need filling in — they're highlighted below.`;
 
   function field(name: keyof typeof form, label: string, props?: React.ComponentProps<typeof Input>) {
     return (
@@ -495,10 +535,9 @@ export function CheckoutForm({
           // ui/input.tsx already styles aria-invalid — destructive border and
           // ring. Nothing new is needed to make these read as errors.
           aria-invalid={invalidFields.has(name)}
-          onChange={(e) => {
-            setForm((f) => ({ ...f, [name]: e.target.value }));
-            clearInvalid(name);
-          }}
+          // Nothing cleared by hand: the effect re-asks the browser which
+          // fields are invalid on every form change.
+          onChange={(e) => setForm((f) => ({ ...f, [name]: e.target.value }))}
           {...props}
         />
       </div>
@@ -531,10 +570,13 @@ export function CheckoutForm({
             lib/form-validity.ts. The browser still does the CHECKING; what it
             no longer does is place an unstyled bubble that vanishes on the next
             click and can sit under a phone keyboard. */}
-        <form onSubmit={handleSubmit} noValidate className="space-y-6">
-          {error && (
+        <form ref={formRef} onSubmit={handleSubmit} noValidate className="space-y-6">
+          {/* One banner, not two. The validation message wins when it is
+              showing: it is about the form as it stands right now, whereas a
+              server error is about a submit that has already been superseded. */}
+          {(validationMessage ?? error) && (
             <p className="border-l-2 border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
+              {validationMessage ?? error}
             </p>
           )}
 
@@ -639,10 +681,8 @@ export function CheckoutForm({
                         state: fill.state ?? f.state,
                         pincode: fill.pincode ?? f.pincode,
                       }));
-                      // Filled fields are no longer the ones holding up submit.
-                      if (fill.city) clearInvalid("city");
-                      if (fill.state) clearInvalid("state");
-                      if (fill.pincode) clearInvalid("pincode");
+                      // Nothing to clear by hand — three fields just changed,
+                      // so the effect re-checks the form on the next render.
                     }}
                   />
                 )}
@@ -697,10 +737,7 @@ export function CheckoutForm({
                       autoComplete="address-level1"
                       value={form.state}
                       aria-invalid={invalidFields.has("state")}
-                      onChange={(e) => {
-                        setForm((f) => ({ ...f, state: e.target.value }));
-                        clearInvalid("state");
-                      }}
+                      onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))}
                       // aria-invalid classes spelled out because this is a bare
                       // <select>, not ui/input.tsx — it gets none of Input's
                       // styling for free. Kept identical so a red state field
