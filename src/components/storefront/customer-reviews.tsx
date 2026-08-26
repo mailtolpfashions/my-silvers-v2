@@ -1,8 +1,40 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Star, BadgeCheck } from "lucide-react";
-import { getTopReviews } from "@/server/reviews/top-reviews";
+import { getTopReviews, type TopReview } from "@/server/reviews/top-reviews";
 import { RevealSection } from "@/components/storefront/reveal-section";
+
+/**
+ * The card's thumbnail — the reviewer's own photo when they attached one,
+ * otherwise the catalogue shot.
+ *
+ * A shopper who has scrolled this far has already seen our photography. A phone
+ * picture of the piece as it actually arrived is the one image on the card they
+ * have not seen and that cannot be styled, which is precisely what makes it
+ * worth more here than a studio image. The product name sits beside it either
+ * way, so the review stays checkable whichever picture is used.
+ */
+function ReviewThumbnail({ review }: { review: TopReview }) {
+  const src = review.customerImage ?? review.product.image;
+
+  return (
+    <div className="relative size-11 shrink-0 overflow-hidden rounded-sm bg-muted">
+      {src && (
+        <Image
+          src={src}
+          // Decorative: the whole card is a single link and the text beside this
+          // already names the piece, so describing the photo here would only
+          // lengthen the link's spoken name.
+          alt=""
+          fill
+          loading="lazy"
+          sizes="44px"
+          className="object-cover"
+        />
+      )}
+    </div>
+  );
+}
 
 /**
  * Homepage social proof, drawn from real reviews rather than CMS copy.
@@ -64,20 +96,10 @@ export async function CustomerReviews() {
               <p className="mt-4 text-sm font-medium text-foreground">{review.authorName}</p>
 
               {/* The product is the proof — naming it is what makes the review
-                  checkable rather than a floating quote. */}
+                  checkable rather than a floating quote. The picture beside it
+                  may be the reviewer's own; see ReviewThumbnail. */}
               <div className="mt-4 flex items-center gap-3 border-t pt-4">
-                <div className="relative size-11 shrink-0 overflow-hidden rounded-sm bg-muted">
-                  {review.product.image && (
-                    <Image
-                      src={review.product.image}
-                      alt=""
-                      fill
-                      loading="lazy"
-                      sizes="44px"
-                      className="object-cover"
-                    />
-                  )}
-                </div>
+                <ReviewThumbnail review={review} />
                 <span className="line-clamp-2 text-xs text-muted-foreground transition-colors group-hover:text-foreground">
                   on {review.product.name}
                 </span>

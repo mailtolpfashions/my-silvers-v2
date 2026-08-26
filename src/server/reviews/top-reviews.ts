@@ -11,6 +11,15 @@ export type TopReview = {
   comment: string;
   authorName: string;
   createdAt: Date;
+  /**
+   * The reviewer's own first photo, when they attached one.
+   *
+   * Kept separate from `product.image` rather than collapsed into a single
+   * "thumbnail" field, so the component can fall back on its own and so the
+   * two are never confused at the call site: one is a catalogue photograph we
+   * shot, the other is a customer's phone picture of the piece they bought.
+   */
+  customerImage: string | null;
   product: { name: string; slug: string; image: string | null };
 };
 
@@ -55,6 +64,7 @@ export async function getTopReviews(take = 6): Promise<TopReview[]> {
       title: true,
       comment: true,
       createdAt: true,
+      imageUrls: true,
       user: { select: { name: true } },
       product: { select: { name: true, slug: true, images: true } },
     },
@@ -86,6 +96,9 @@ export async function getTopReviews(take = 6): Promise<TopReview[]> {
         // homepage. "Divya R." is the convention the review list already uses.
         authorName: shortenName(r.user.name),
         createdAt: r.createdAt,
+        // Only the first. A homepage card has room for one thumbnail, and the
+        // rest of their photos are on the product page where they belong.
+        customerImage: r.imageUrls[0] ?? null,
         product: {
           name: r.product.name,
           slug: r.product.slug,
