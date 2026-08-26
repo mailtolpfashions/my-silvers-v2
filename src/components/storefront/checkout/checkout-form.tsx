@@ -30,6 +30,7 @@ import {
 } from "@/lib/validation/account";
 import { saveCheckoutAddressAction } from "@/actions/account-actions";
 import { checkPincodeAction, type PincodeCheck } from "@/actions/shipping-actions";
+import { UseMyLocationButton } from "@/components/storefront/checkout/use-my-location-button";
 
 export type CheckoutLine = { name: string; quantity: number; pricePaise: number };
 
@@ -75,6 +76,7 @@ export function CheckoutForm({
   savedAddresses = [],
   rates,
   codEnabled,
+  geocodingEnabled,
 }: {
   isAuthed: boolean;
   userEmail?: string;
@@ -93,6 +95,14 @@ export function CheckoutForm({
    * treat this prop as the enforcement point.
    */
   codEnabled: boolean;
+  /**
+   * Whether a reverse-geocoding key is configured on the server.
+   *
+   * Resolved server-side because the key itself never comes near the browser —
+   * the client cannot check for it, only be told. False hides the button
+   * entirely rather than showing one that reports a failure on every tap.
+   */
+  geocodingEnabled: boolean;
 }) {
   const router = useRouter();
   const [lines, setLines] = useState<CheckoutLine[] | null>(initialLines);
@@ -608,6 +618,35 @@ export function CheckoutForm({
                 explanation. */}
             {selectedAddressId === NEW_ADDRESS && (
               <div className="space-y-4">
+                {/**
+                 * Only rendered when a geocoding key is configured — a button
+                 * that always fails is worse than no button. See
+                 * isGeocodingConfigured.
+                 *
+                 * Placed above the fields rather than beside the pincode: it
+                 * fills three of them, so it belongs to the group.
+                 */}
+                {geocodingEnabled && (
+                  <UseMyLocationButton
+                    disabled={submitting}
+                    onFill={(fill) => {
+                      setForm((f) => ({
+                        ...f,
+                        // Each field only if we actually got one — a partial
+                        // answer must never blank what the shopper already
+                        // typed.
+                        city: fill.city ?? f.city,
+                        state: fill.state ?? f.state,
+                        pincode: fill.pincode ?? f.pincode,
+                      }));
+                      // Filled fields are no longer the ones holding up submit.
+                      if (fill.city) clearInvalid("city");
+                      if (fill.state) clearInvalid("state");
+                      if (fill.pincode) clearInvalid("pincode");
+                    }}
+                  />
+                )}
+
                 {/**
                  * ⚠️  Placeholders instruct; they never show sample DATA.
                  *

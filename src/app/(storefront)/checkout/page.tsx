@@ -5,6 +5,7 @@ import { prisma } from "@/server/db";
 import { getCartWithProducts } from "@/server/cart";
 import { toPaise, type ShippingRates } from "@/server/orders/money";
 import { getStoreSettings } from "@/server/settings/store-settings";
+import { isGeocodingConfigured } from "@/server/integrations/geocoding";
 import { STICKY_BAR_SPACER } from "@/components/storefront/sticky-action-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -96,6 +97,7 @@ async function CheckoutBody() {
       savedAddresses={savedAddresses}
       rates={rates}
       codEnabled={settings.codEnabled}
+      geocodingEnabled={isGeocodingConfigured()}
     />
   );
 }

@@ -103,6 +103,21 @@ export const TIERS = {
   // Looser than the order tiers because it fires while someone is typing their
   // pincode, but still capped: it is an unauthenticated hop to a paid upstream.
   pincode: { tokens: 20, window: "5 m", prefix: "rl:pincode" },
+  /**
+   * Reverse geocoding for the "Use my current location" button.
+   *
+   * TIGHTER than `pincode`, and for the opposite reason. The pincode lookup
+   * fires on its own as someone types, so it has to allow for a changed mind;
+   * this one fires only on a deliberate tap, and an honest shopper taps it once
+   * — twice if they walked somewhere. Ten is already generous.
+   *
+   * It is also the one tier in front of a metered bill. Google's free tier is
+   * 10,000 calls a month, and this is the only thing standing between that and
+   * whoever finds the endpoint, so the ceiling is set by what abuse costs
+   * rather than by what feels permissive. Belt and braces with the hard quota
+   * cap set in the Google Cloud console; see docs/geolocation.md.
+   */
+  geocode: { tokens: 10, window: "15 m", prefix: "rl:geocode" },
   newsletter: { tokens: 3, window: "15 m", prefix: "rl:newsletter" },
   review: { tokens: 5, window: "15 m", prefix: "rl:review" },
   /**
