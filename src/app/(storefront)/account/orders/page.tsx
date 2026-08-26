@@ -5,7 +5,7 @@ import { auth } from "@/server/auth/auth";
 import { getUserOrders } from "@/server/orders/queries";
 import { OrderStatusBadges } from "@/components/storefront/orders/order-detail";
 import { formatINR } from "@/lib/format";
-import { Button } from "@/components/ui/button";
+import { EditorialLink } from "@/components/storefront/editorial-link";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
@@ -33,11 +33,23 @@ async function OrdersList() {
 
   if (orders.length === 0) {
     return (
+      // Matches the cart and wishlist empties: a heading at text-h3, a sentence
+      // that says what the page will hold, then an editorial link.
+      //
+      // ⚠️  It was a muted line and a rounded <Button>. That button is the
+      // /admin control language — see the note on the `cta` and `editorial`
+      // variants in ui/button.tsx — and it was the only place on the shopping
+      // side of the storefront still using it. Three empty states in three
+      // shapes is how a site starts feeling assembled rather than designed.
       <div className="rhythm-commerce text-center">
-        <p className="text-muted-foreground">You haven&apos;t placed any orders yet.</p>
-        <Button asChild className="mt-4">
-          <Link href="/products">Start shopping</Link>
-        </Button>
+        <p className="text-h3">No orders yet</p>
+        <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
+          Once you order, everything you have bought lives here — with tracking, invoices
+          and the place to write a review.
+        </p>
+        <div className="mt-8 flex justify-center">
+          <EditorialLink href="/products">Browse all jewellery</EditorialLink>
+        </div>
       </div>
     );
   }

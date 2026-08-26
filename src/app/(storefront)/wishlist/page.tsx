@@ -6,6 +6,7 @@ import { toProductListItem } from "@/server/products/search";
 import { withBlurPlaceholders } from "@/server/media/blur";
 import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
 import { EditorialLink } from "@/components/storefront/editorial-link";
+import { RecentlyViewed } from "@/components/storefront/recently-viewed";
 import { RevealSection } from "@/components/storefront/reveal-section";
 import { ProductGridSkeleton } from "@/components/storefront/product-card-skeleton";
 
@@ -75,16 +76,27 @@ async function SavedProducts() {
     // A premium empty state: a sentence explaining what the page is for and
     // one way forward. It was a grey line and a rounded button.
     return (
-      <div className="rhythm-commerce text-center">
-        <p className="text-h3">Nothing saved yet</p>
-        <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
-          Tap the heart on any piece to keep it here while you decide. Your wishlist stays
-          with your account, on every device.
-        </p>
-        <div className="mt-8 flex justify-center">
-          <EditorialLink href="/products">Browse all jewellery</EditorialLink>
+      <>
+        <div className="rhythm-commerce text-center">
+          <p className="text-h3">Nothing saved yet</p>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
+            Tap the heart on any piece to keep it here while you decide. Your wishlist stays
+            with your account, on every device.
+          </p>
+          <div className="mt-8 flex justify-center">
+            <EditorialLink href="/products">Browse all jewellery</EditorialLink>
+          </div>
         </div>
-      </div>
+
+        {/* The same treatment the empty cart gets, and for a stronger reason:
+            the instruction above is "tap the heart on any piece", and this puts
+            pieces with hearts on them directly underneath it rather than
+            sending the shopper away to find some.
+
+            Renders nothing for a visitor with no history, so a first-time
+            arrival still gets the sentence and the link and no empty frame. */}
+        <RecentlyViewed />
+      </>
     );
   }
 
