@@ -119,13 +119,42 @@ export async function getDashboardTrends(): Promise<{
 
 export type RevenueDay = { day: string; revenuePaise: number };
 
-/** Daily revenue for the last 30 days (same revenue definition as above). */
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WINDOW_DAYS = 30;
+
+/**
+ * Daily revenue for the last 30 days (same revenue definition as above).
+ *
+ * ⚠️  The clock comes from scheduleNow(), for the same reason getDashboardTrends
+ * above does — and this function is why that note needs to be read rather than
+ * skimmed. It kept `Date.now()` in the gap-filling loop and the dashboard threw
+ * "encountered the unstable value `Date.now()` while prerendering" against this
+ * line.
+ *
+ * What makes this one different from every other clock read in the server code
+ * is that nothing here has already made the scope request-time. `requireRole()`
+ * and `getCurrentRole()` protect their callers by reading cookies first;
+ * getLiveAnnouncements is inside `"use cache"`. This function only runs a
+ * Prisma query, and an uncached database read does NOT satisfy the guard — only
+ * an explicit request-time API does.
+ *
+ * ── One anchor, used on both sides ──────────────────────────────────────────
+ * The window boundary is now passed INTO the SQL rather than the query using
+ * Postgres's own `now()`. That is not tidying: a cached JS clock next to a live
+ * database clock disagree by up to the cacheLife window, so for a few minutes
+ * after midnight UTC the loop would build keys for one 30-day span while the
+ * query returned a different one, and a day's bar would silently vanish.
+ * Deriving both from the same value makes them agree by construction.
+ */
 export async function getRevenueByDay(): Promise<RevenueDay[]> {
+  const now = await scheduleNow();
+  const since = new Date(now.getTime() - WINDOW_DAYS * DAY_MS);
+
   const rows = await prisma.$queryRaw<Array<{ day: Date; revenue: string }>>`
     SELECT date_trunc('day', "createdAt") AS day,
            COALESCE(SUM("totalAmount"), 0)::text AS revenue
     FROM "Order"
-    WHERE "createdAt" >= now() - interval '30 days'
+    WHERE "createdAt" >= ${since}
       AND ("paymentStatus" = 'paid'
            OR ("paymentMethod" = 'cod' AND "orderStatus" != 'cancelled'))
     GROUP BY 1
@@ -137,9 +166,8 @@ export async function getRevenueByDay(): Promise<RevenueDay[]> {
     rows.map((r) => [r.day.toISOString().slice(0, 10), Math.round(Number(r.revenue) * 100)])
   );
   const out: RevenueDay[] = [];
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-    const key = d.toISOString().slice(0, 10);
+  for (let i = WINDOW_DAYS - 1; i >= 0; i--) {
+    const key = new Date(now.getTime() - i * DAY_MS).toISOString().slice(0, 10);
     out.push({ day: key, revenuePaise: byDay.get(key) ?? 0 });
   }
   return out;
