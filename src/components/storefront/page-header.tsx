@@ -65,11 +65,20 @@ export function PageHeader({
   );
 
   return (
-    // 16:4 gives the wide, shallow shape at desktop widths, but the same ratio
-    // is only 192px at 768px — not enough for a heading plus a description.
-    // min-height is the floor: below ~1440px the band stops shrinking and
-    // letterboxes the artwork rather than clipping the copy.
-    <section className="relative aspect-[16/5] min-h-[340px] w-full overflow-hidden bg-black">
+    /**
+     * Half the height it was: 32:5 where it used to be 16:5, and a 240px floor
+     * where it used to be 340px. On a 1920 screen that is 300px rather than
+     * 600 — the band was taking a third of the viewport before a shopper saw a
+     * single product, on pages whose entire job is showing products.
+     *
+     * ⚠️  The floor does not halve with the ratio, and cannot. It exists
+     * because the copy needs a fixed amount of room — eyebrow, heading and two
+     * lines of description come to roughly 160px whatever the viewport is
+     * doing — so below about 1536px the band stops shrinking and letterboxes
+     * the artwork rather than clipping the words. Take the floor much under
+     * 240px and the description starts colliding with the edges.
+     */
+    <section className="relative aspect-[32/5] min-h-[240px] w-full overflow-hidden bg-black">
       {imageHref ? (
         <Link href={imageHref} aria-label={title} className="absolute inset-0">
           {art}
