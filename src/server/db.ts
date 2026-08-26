@@ -35,14 +35,45 @@ const POOL = {
    * Drop our own idle connections before the far end does. A socket the pooler
    * has already closed still looks alive in the local pool, and the query that
    * draws it is the one that fails.
+   *
+   * ⚠️  Was 10 seconds, which made this line the CAUSE of reconnections rather
+   * than the cure for them. Any quiet stretch longer than ten seconds — which
+   * is most of them, on a dev server or a shop between customers — emptied the
+   * pool, so the next page view paid for a fresh DNS lookup, TCP handshake, TLS
+   * negotiation and pgbouncer auth.
+   *
+   * That matters because `aws-1-ap-south-1.pooler.supabase.com` round-robins
+   * across three addresses on a ~30 second TTL, and a window occasionally
+   * appears where new connections hang for the full eight-second timeout before
+   * clearing on their own. A pool that keeps its sockets sails through such a
+   * window; a pool that rebuilds itself every fifteen seconds walks into it.
+   *
+   * Measured, same eight rounds of six queries with fifteen-second gaps:
+   *
+   *   idleTimeoutMillis: 10_000  →  35 new connections,  6 of 48 queries failed
+   *   idleTimeoutMillis: 60_000  →   5 new connections,  0 of 48 queries failed
+   *
+   * Sixty seconds is still far under pgbouncer's own 600s server_idle_timeout,
+   * so the far end is not going to close these underneath us.
    */
-  idleTimeoutMillis: 10_000,
+  idleTimeoutMillis: 60_000,
 
   /**
    * TCP keepalives on the sockets we are actively holding, so an idle-but-in-use
    * connection is not silently reaped by something between here and Supabase.
    */
   keepAlive: true,
+
+  /**
+   * When the first keepalive probe actually goes out.
+   *
+   * Without it Node leaves the delay to the operating system, and Windows
+   * defaults to two hours — so a socket killed by a NAT or a dropped wifi link
+   * is never noticed by the keepalive whose entire job is to notice it. Now
+   * that connections are held for a minute instead of ten seconds, this is what
+   * makes `keepAlive` above mean anything.
+   */
+  keepAliveInitialDelayMillis: 10_000,
 } as const;
 
 /**
