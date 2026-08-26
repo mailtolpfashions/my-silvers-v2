@@ -82,6 +82,16 @@ export const TIERS = {
   pincode: { tokens: 20, window: "5 m", prefix: "rl:pincode" },
   newsletter: { tokens: 3, window: "15 m", prefix: "rl:newsletter" },
   review: { tokens: 5, window: "15 m", prefix: "rl:review" },
+  /**
+   * Cloudinary upload signatures for customer review media.
+   *
+   * Looser than `review` on purpose — one review can carry five uploads (four
+   * photos and a clip), each of which asks for its own signature, so a tier as
+   * tight as the review tier would refuse a shopper halfway through their own
+   * first attempt. 40 still bounds what one account can push into the reviews
+   * folder, and every signature it hands out is folder- and format-locked.
+   */
+  uploadSign: { tokens: 40, window: "15 m", prefix: "rl:uploadsign" },
 } as const satisfies Record<string, Tier>;
 
 /**

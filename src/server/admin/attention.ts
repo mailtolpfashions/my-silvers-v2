@@ -37,12 +37,12 @@ export type AttentionItem = {
 export async function getAttentionItems() {
   await requireRole("admin");
 
-  const [outOfStock, lowStock, hiddenReviews, unverifiedReviews, failedPayments, pendingPayments, returnRequests] =
+  const [outOfStock, lowStock, pendingReviews, unverifiedReviews, failedPayments, pendingPayments, returnRequests] =
     await Promise.all([
       prisma.product.count({ where: { isActive: true, stock: 0 } }),
       prisma.product.count({ where: { isActive: true, stock: { gt: 0, lte: LOW_STOCK_AT } } }),
-      prisma.review.count({ where: { isPublished: false } }),
-      prisma.review.count({ where: { isVerifiedPurchase: false, isPublished: true } }),
+      prisma.review.count({ where: { status: "pending" } }),
+      prisma.review.count({ where: { isVerifiedPurchase: false, status: "approved" } }),
       prisma.order.count({ where: { paymentStatus: "failed" } }),
       // `paying` is the transient claimed state — an order sitting in it is
       // stuck, which is precisely what wants surfacing here.
@@ -91,10 +91,19 @@ export async function getAttentionItems() {
       href: "/admin/reviews?filter=unverified",
     },
     {
-      key: "hidden-reviews",
-      count: hiddenReviews,
-      label: (n) => `${n} review${n === 1 ? "" : "s"} hidden`,
-      href: "/admin/reviews?filter=hidden",
+      key: "pending-reviews",
+      count: pendingReviews,
+      label: (n) => `${n} review${n === 1 ? "" : "s"} awaiting approval`,
+      /**
+       * Urgent, unlike the "hidden reviews" row it replaces.
+       *
+       * That row was housekeeping — someone had already dealt with those. This
+       * one is a customer's words sitting unread and invisible to every shopper
+       * on the site, and the whole risk of the approval gate is that this pile
+       * quietly grows until the shop looks like it has no reviews at all.
+       */
+      urgent: true,
+      href: "/admin/reviews?filter=pending",
     },
   ];
 
