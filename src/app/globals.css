@@ -306,6 +306,62 @@
   h6 {
     @apply font-heading text-black;
     font-weight: 500;
+    /* Even line lengths, so a two-line heading does not leave one word
+       stranded on the second line. Browsers cap `balance` at a handful of
+       lines and fall back to normal wrapping beyond that, so it costs nothing
+       on a heading that is unexpectedly long. */
+    text-wrap: balance;
+  }
+
+  /* ── Sentence wrapping ──────────────────────────────────────────────────
+     Until this existed, every paragraph on the site broke wherever the
+     browser's greedy algorithm ran out of room — which is what leaves a
+     single word alone on the last line.
+
+     ⚠️  `pretty` for body copy, NOT `balance`. They solve different problems
+     and swapping them makes things worse:
+
+       balance — equalises line LENGTHS. Right for a heading, wrong for a
+                 paragraph, and it knows nothing about grammar: it will
+                 happily split "we're / confirming" if that evens the lines
+                 out. It is also capped at a few lines, so on real body copy
+                 it mostly does nothing.
+       pretty  — leaves the lines alone and only prevents the last line from
+                 being a single orphaned word. That is the actual complaint
+                 with body text.
+
+     Both are progressive enhancements: a browser without them wraps exactly
+     as it does today, so there is nothing to fall back to. */
+  p {
+    text-wrap: pretty;
+  }
+
+  /* ── The same, for text that is not in a <p> or an <h*> ─────────────────
+     An audit of every text-bearing element turned up three kinds the rules
+     above miss, all of them real prose:
+
+       • shadcn's Card and Empty render their title and description as
+         <div>, so neither rule reaches them. Dialog, AlertDialog and Sheet
+         get theirs from Radix, which emits <h2> and <p> — already covered,
+         and matched again here harmlessly.
+       • <blockquote> carries the homepage review quotes.
+
+     Matched on the data-slot SUFFIX rather than by listing components, so a
+     shadcn component added later is covered the day it arrives rather than
+     the day someone notices. Every slot in the library is named
+     `<component>-title` / `<component>-description`.
+
+     Checked and deliberately not included: <li> and <dd> carry no prose
+     here — the product FAQ's <dd> nests a full RichText block whose own <p>
+     tags are already covered, and the rest hold prices and spec values,
+     which have nothing to wrap. */
+  [data-slot$="title"] {
+    text-wrap: balance;
+  }
+
+  blockquote,
+  [data-slot$="description"] {
+    text-wrap: pretty;
   }
 }
 

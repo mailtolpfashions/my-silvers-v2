@@ -74,14 +74,14 @@ export async function deleteReviewAction(id: string): Promise<ReviewActionResult
 
   const review = await prisma.review.delete({
     where: { id },
-    select: { product: { select: { slug: true } }, imageUrls: true, videoUrl: true },
+    select: { product: { select: { slug: true } }, imageUrl: true },
   });
 
   // Awaited, unlike the edit-time cleanup in upsertReview. There the media was
   // merely superseded; here it is the point of the action, and a moderator is
   // entitled to know it finished. destroyReviewMedia swallows its own failures,
   // so this cannot fail the delete — it only makes it take as long as it takes.
-  await destroyReviewMedia([...review.imageUrls, review.videoUrl]);
+  await destroyReviewMedia([review.imageUrl]);
 
   invalidate(review.product.slug);
   return { ok: true };

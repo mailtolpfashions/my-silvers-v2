@@ -18,7 +18,20 @@ export async function getProductReviews(productId: string) {
       // that way so a future fourth state cannot become visible by default.
       where: { productId, status: "approved" },
       include: { user: { select: { name: true } } },
-      orderBy: { createdAt: "desc" },
+      /**
+       * ⚠️  Photo-bearing reviews first, then newest — and `nulls: "last"` is
+       * doing real work, not decorating.
+       *
+       * Postgres defaults a DESC sort to NULLS FIRST, so a bare
+       * `imageUrl: "desc"` would float every review WITHOUT a photo to the top:
+       * the exact opposite of what the grid is for. Prisma exposes the
+       * override, so the intent is stated rather than inherited.
+       *
+       * Ordering here rather than in the component because of `take` below —
+       * sorting after the fact would let a photo review sitting at position 51
+       * be cut before it could be promoted.
+       */
+      orderBy: [{ imageUrl: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
       take: 50,
     }),
     prisma.review.aggregate({
@@ -46,8 +59,7 @@ export async function upsertReview(input: {
   title?: string;
   comment?: string;
   /** Already verified against Cloudinary — see server/reviews/media.ts. */
-  imageUrls?: string[];
-  videoUrl?: string | null;
+  imageUrl?: string | null;
 }) {
   const product = await prisma.product.findFirst({
     where: { id: input.productId, isActive: true },
@@ -73,16 +85,15 @@ export async function upsertReview(input: {
     );
   }
 
-  const imageUrls = input.imageUrls ?? [];
-  const videoUrl = input.videoUrl ?? null;
+  const imageUrl = input.imageUrl ?? null;
 
-  // What they had attached before this edit, so anything they dropped can be
-  // cleared out of Cloudinary rather than left paid-for and unreachable.
+  // What they had attached before this edit, so a replaced or removed photo can
+  // be cleared out of Cloudinary rather than left paid-for and unreachable.
   const previous = await prisma.review.findUnique({
     where: {
       userId_productId: { userId: input.userId, productId: input.productId },
     },
-    select: { imageUrls: true, videoUrl: true },
+    select: { imageUrl: true },
   });
 
   const review = await prisma.review.upsert({
@@ -93,8 +104,7 @@ export async function upsertReview(input: {
       rating: input.rating,
       title: input.title || null,
       comment: input.comment || null,
-      imageUrls,
-      videoUrl,
+      imageUrl,
       isVerifiedPurchase: true,
       /**
        * ⚠️  An edit ALWAYS returns the review to the queue — including one that
@@ -119,8 +129,7 @@ export async function upsertReview(input: {
       rating: input.rating,
       title: input.title || null,
       comment: input.comment || null,
-      imageUrls,
-      videoUrl,
+      imageUrl,
       isVerifiedPurchase: true,
     },
   });
@@ -130,12 +139,8 @@ export async function upsertReview(input: {
   // points at; awaiting it would let a slow Cloudinary hold up a review that is
   // already saved. An orphaned file is a cost that can be swept up later; a
   // review rendering a dead image is a bug the shopper sees.
-  if (previous) {
-    const kept = new Set([...imageUrls, videoUrl].filter((url): url is string => !!url));
-    const dropped = [...previous.imageUrls, previous.videoUrl].filter(
-      (url): url is string => !!url && !kept.has(url)
-    );
-    if (dropped.length > 0) void destroyReviewMedia(dropped);
+  if (previous?.imageUrl && previous.imageUrl !== imageUrl) {
+    void destroyReviewMedia([previous.imageUrl]);
   }
 
   return review;

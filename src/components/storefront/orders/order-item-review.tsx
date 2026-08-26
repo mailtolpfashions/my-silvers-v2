@@ -39,8 +39,7 @@ export function OrderItemReview({
     rating: number;
     title: string | null;
     comment: string | null;
-    imageUrls: string[];
-    videoUrl: string | null;
+    imageUrl: string | null;
     status: ReviewStatus;
   } | null;
 }) {
@@ -49,8 +48,7 @@ export function OrderItemReview({
   const [hovered, setHovered] = useState(0);
   const [title, setTitle] = useState(existing?.title ?? "");
   const [comment, setComment] = useState(existing?.comment ?? "");
-  const [imageUrls, setImageUrls] = useState<string[]>(existing?.imageUrls ?? []);
-  const [videoUrl, setVideoUrl] = useState<string | null>(existing?.videoUrl ?? null);
+  const [imageUrl, setImageUrl] = useState<string | null>(existing?.imageUrl ?? null);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit() {
@@ -65,8 +63,7 @@ export function OrderItemReview({
         rating,
         title,
         comment,
-        imageUrls,
-        videoUrl,
+        imageUrl,
       });
       if (result.ok) {
         // It is NOT live, and saying so would be a small lie the shopper finds
@@ -174,10 +171,8 @@ export function OrderItemReview({
               are what a review IS, and a photo grid at the top of the dialog
               would read as the main event. */}
           <ReviewMediaUploader
-            imageUrls={imageUrls}
-            videoUrl={videoUrl}
-            onImagesChange={setImageUrls}
-            onVideoChange={setVideoUrl}
+            imageUrl={imageUrl}
+            onChange={setImageUrl}
             disabled={isPending}
           />
 

@@ -64,7 +64,7 @@ export async function getTopReviews(take = 6): Promise<TopReview[]> {
       title: true,
       comment: true,
       createdAt: true,
-      imageUrls: true,
+      imageUrl: true,
       user: { select: { name: true } },
       product: { select: { name: true, slug: true, images: true } },
     },
@@ -98,7 +98,7 @@ export async function getTopReviews(take = 6): Promise<TopReview[]> {
         createdAt: r.createdAt,
         // Only the first. A homepage card has room for one thumbnail, and the
         // rest of their photos are on the product page where they belong.
-        customerImage: r.imageUrls[0] ?? null,
+        customerImage: r.imageUrl,
         product: {
           name: r.product.name,
           slug: r.product.slug,

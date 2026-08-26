@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Check, Star, Trash2, Undo2, Video, X } from "lucide-react";
+import { Check, Star, Trash2, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -27,9 +27,8 @@ export type AdminReview = {
   productName: string;
   productSlug: string;
   productImage: string | null;
-  /** What the customer attached. Moderated with the review, not separately. */
-  imageUrls: string[];
-  videoUrl: string | null;
+  /** The one photo the customer attached. Moderated with the review, not separately. */
+  imageUrl: string | null;
 };
 
 /**
@@ -224,38 +223,23 @@ export function ReviewTable({ reviews }: { reviews: AdminReview[] }) {
                   is about deciding whether something belongs on the shop, and
                   that decision needs the full-size file — a 64px thumbnail is
                   enough to notice a problem, never enough to judge one. */}
-              {(review.imageUrls.length > 0 || review.videoUrl) && (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {review.imageUrls.map((url, i) => (
-                    <a
-                      key={url}
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer"
-                      title="Open full size"
-                      className="relative size-14 overflow-hidden rounded border"
-                    >
-                      <Image
-                        src={url}
-                        alt={`Customer photo ${i + 1}`}
-                        fill
-                        sizes="56px"
-                        className="object-cover"
-                      />
-                    </a>
-                  ))}
-                  {review.videoUrl && (
-                    <a
-                      href={review.videoUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      title="Open the customer's video"
-                      className="flex size-14 flex-col items-center justify-center gap-0.5 rounded border bg-muted text-[10px] text-muted-foreground"
-                    >
-                      <Video className="size-4" />
-                      Video
-                    </a>
-                  )}
+              {review.imageUrl && (
+                <div className="pt-1">
+                  <a
+                    href={review.imageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Open full size"
+                    className="relative block size-14 overflow-hidden rounded border"
+                  >
+                    <Image
+                      src={review.imageUrl}
+                      alt="Customer photo"
+                      fill
+                      sizes="56px"
+                      className="object-cover"
+                    />
+                  </a>
                 </div>
               )}
             </div>
@@ -327,8 +311,8 @@ export function ReviewTable({ reviews }: { reviews: AdminReview[] }) {
                 {review.customerName} will be able to write a new one for {review.productName} —
                 each customer may have one review per product, so removing theirs frees the slot,
                 and the replacement lands back in this queue.{" "}
-                {(review.imageUrls.length > 0 || review.videoUrl) &&
-                  "Their uploaded photos and video are erased from Cloudinary too, so the file URLs stop working. "}
+                {review.imageUrl &&
+                  "Their uploaded photo is erased from Cloudinary too, so the file URL stops working. "}
                 <strong>Reject it instead</strong> if you only want it off the storefront — that is
                 final and does not free the slot.
               </>

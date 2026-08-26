@@ -344,12 +344,16 @@ model Review {
   /// the rating AGGREGATE — an unapproved review that still moves the star
   /// average is only half hidden.
   status             ReviewStatus @default(pending)
-  /// Photos the customer uploaded with the review. Cloudinary URLs under
-  /// `mysilvers/reviews/` only — every one is re-verified against Cloudinary's
+  /// The one photo a customer may attach. A Cloudinary URL under
+  /// `mysilvers/reviews/` and nothing else — re-verified against Cloudinary's
   /// Admin API before it is stored. See server/reviews/media.ts.
-  imageUrls          String[]
-  /// One clip, same folder and same verification as imageUrls.
-  videoUrl           String?
+  ///
+  /// Singular by design. This was `imageUrls String[]` alongside a `videoUrl`;
+  /// both were dropped in favour of one photo, because the review grid gives a
+  /// photo a fixed band at the top of a card and there is nowhere for a second
+  /// one to go. If a gallery is ever wanted back, this becomes an array again
+  /// AND the card has to grow somewhere to put them.
+  imageUrl           String?
   createdAt          DateTime @default(now())
 
   @@unique([userId, productId])
