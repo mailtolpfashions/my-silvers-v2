@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { prisma } from "@/server/db";
-import { checkRateLimit, getClientIp } from "@/server/rate-limit/limiter";
+import { checkIpRateLimit } from "@/server/rate-limit/limiter";
 import { normaliseScans, type ScanEvent } from "@/server/integrations/shiprocket";
 import type { OrderStatus } from "@/generated/prisma/client";
 
@@ -78,7 +78,7 @@ function tokenMatches(provided: string | null): boolean {
 
 export async function POST(req: Request) {
   // Its own tier, not Razorpay's — see the note on shiprocketWebhook.
-  if (!(await checkRateLimit("shiprocketWebhook", await getClientIp()))) {
+  if (!(await checkIpRateLimit("shiprocketWebhook"))) {
     return new Response("Too many requests", { status: 429 });
   }
 

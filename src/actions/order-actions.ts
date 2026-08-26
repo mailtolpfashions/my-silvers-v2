@@ -8,6 +8,7 @@ import { cancelOrder, CancelError } from "@/server/orders/cancel-order";
 import { requestReturn, AdminOrderError } from "@/server/orders/admin";
 import { revalidatePath, updateTag } from "next/cache";
 import {
+  checkIpRateLimit,
   checkRateLimit,
   getClientIp,
   RATE_LIMIT_MESSAGE,
@@ -64,10 +65,40 @@ export async function placeOrderAction(input: unknown): Promise<PlaceOrderResult
   const session = await auth();
   const userId = session?.user?.id;
 
-  // Guest checkout is deliberately tighter than authenticated (3/30m vs 10/15m).
-  const allowed = userId
-    ? await checkRateLimit("order", userId)
-    : await checkRateLimit("guestOrder", await getClientIp());
+  /**
+   * Guest checkout is deliberately tighter than authenticated, and is limited
+   * on TWO keys rather than one.
+   *
+   * ⚠️  It was a single 3-per-30-minutes bucket keyed by IP, which is a way to
+   * refuse real customers in India. Jio and Airtel put subscribers behind
+   * CGNAT, so thousands of people share one public address — three guest
+   * orders from anywhere behind it locked out everyone else for half an hour.
+   * On a shop whose traffic is mostly mobile that is a normal afternoon, not
+   * an edge case.
+   *
+   *   guestOrder    (email, tight)  the case worth stopping: one person
+   *                                 ordering over and over
+   *   guestOrderIp  (IP, loose)     the backstop: a script working through a
+   *                                 list of addresses
+   *
+   * The IP half is SKIPPED when the address is unknown rather than falling back
+   * to a shared constant, which put every unidentifiable visitor in one bucket.
+   * See getClientIp.
+   *
+   * A guest order always carries an email — the schema marks it optional, but
+   * the check below refuses without one — so the tight limit is never the half
+   * that gets skipped.
+   */
+  let allowed: boolean;
+  if (userId) {
+    allowed = await checkRateLimit("order", userId);
+  } else {
+    const ip = await getClientIp();
+    const email = data.guestEmail?.toLowerCase();
+    allowed =
+      (!email || (await checkRateLimit("guestOrder", email))) &&
+      (!ip || (await checkRateLimit("guestOrderIp", ip)));
+  }
   if (!allowed) return { ok: false, error: RATE_LIMIT_MESSAGE };
 
   // ── Store settings gate ──
@@ -141,7 +172,7 @@ export type VerifyPaymentResult = { ok: true } | { ok: false; error: string };
  * over this exact order/payment pair.
  */
 export async function verifyPaymentAction(input: unknown): Promise<VerifyPaymentResult> {
-  if (!(await checkRateLimit("paymentVerify", await getClientIp()))) {
+  if (!(await checkIpRateLimit("paymentVerify"))) {
     return { ok: false, error: RATE_LIMIT_MESSAGE };
   }
 

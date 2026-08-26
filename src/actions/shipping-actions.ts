@@ -1,7 +1,7 @@
 "use server";
 
 import { checkServiceability, ShiprocketError } from "@/server/integrations/shiprocket";
-import { checkRateLimit, getClientIp } from "@/server/rate-limit/limiter";
+import { checkIpRateLimit } from "@/server/rate-limit/limiter";
 
 export type PincodeCheck =
   | { status: "serviceable"; estimatedDays: number | null }
@@ -39,7 +39,7 @@ export async function checkPincodeAction(
 ): Promise<PincodeCheck> {
   if (!/^\d{6}$/.test(pincode)) return { status: "unknown" };
 
-  if (!(await checkRateLimit("pincode", await getClientIp()))) {
+  if (!(await checkIpRateLimit("pincode"))) {
     return { status: "unknown" };
   }
 

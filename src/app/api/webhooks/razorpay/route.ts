@@ -1,7 +1,7 @@
 import { revalidateTag } from "next/cache";
 import { verifyWebhookSignature } from "@/server/payments/verify-signature";
 import { fulfillOrder, markPaymentFailed, PaymentError } from "@/server/orders/fulfill-order";
-import { checkRateLimit, getClientIp } from "@/server/rate-limit/limiter";
+import { checkIpRateLimit } from "@/server/rate-limit/limiter";
 
 /**
  * Razorpay webhook — the second of the two verification paths racing into
@@ -10,7 +10,7 @@ import { checkRateLimit, getClientIp } from "@/server/rate-limit/limiter";
  * exact bytes Razorpay sent, and re-serialized JSON would never match.
  */
 export async function POST(req: Request) {
-  if (!(await checkRateLimit("webhook", await getClientIp()))) {
+  if (!(await checkIpRateLimit("webhook"))) {
     return new Response("Too many requests", { status: 429 });
   }
 

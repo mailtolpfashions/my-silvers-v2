@@ -2,11 +2,7 @@
 
 import { z } from "zod";
 import { prisma } from "@/server/db";
-import {
-  checkRateLimit,
-  getClientIp,
-  RATE_LIMIT_MESSAGE,
-} from "@/server/rate-limit/limiter";
+import { checkIpRateLimit, RATE_LIMIT_MESSAGE } from "@/server/rate-limit/limiter";
 import {
   isDisposableEmail,
   DISPOSABLE_EMAIL_MESSAGE,
@@ -18,7 +14,7 @@ export async function subscribeNewsletterAction(
   _prevState: string | undefined,
   formData: FormData
 ): Promise<string | undefined> {
-  if (!(await checkRateLimit("newsletter", await getClientIp()))) {
+  if (!(await checkIpRateLimit("newsletter"))) {
     return RATE_LIMIT_MESSAGE;
   }
 

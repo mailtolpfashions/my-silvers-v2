@@ -5,11 +5,7 @@ import { AuthError } from "next-auth";
 import { prisma } from "@/server/db";
 import { signIn } from "@/server/auth/auth";
 import { requestPasswordReset, resetPassword } from "@/server/auth/password-reset";
-import {
-  checkRateLimit,
-  getClientIp,
-  RATE_LIMIT_MESSAGE,
-} from "@/server/rate-limit/limiter";
+import { checkIpRateLimit, RATE_LIMIT_MESSAGE } from "@/server/rate-limit/limiter";
 import {
   isDisposableEmail,
   DISPOSABLE_EMAIL_MESSAGE,
@@ -19,7 +15,7 @@ export async function loginAction(
   _prevState: string | undefined,
   formData: FormData
 ): Promise<string | undefined> {
-  if (!(await checkRateLimit("auth", await getClientIp()))) return RATE_LIMIT_MESSAGE;
+  if (!(await checkIpRateLimit("auth"))) return RATE_LIMIT_MESSAGE;
   try {
     await signIn("credentials", {
       email: formData.get("email"),
@@ -47,7 +43,7 @@ export async function registerAction(
   _prevState: string | undefined,
   formData: FormData
 ): Promise<string | undefined> {
-  if (!(await checkRateLimit("auth", await getClientIp()))) return RATE_LIMIT_MESSAGE;
+  if (!(await checkIpRateLimit("auth"))) return RATE_LIMIT_MESSAGE;
 
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -86,7 +82,7 @@ export async function forgotPasswordAction(
   _prevState: string | undefined,
   formData: FormData
 ): Promise<string | undefined> {
-  if (!(await checkRateLimit("auth", await getClientIp()))) return RATE_LIMIT_MESSAGE;
+  if (!(await checkIpRateLimit("auth"))) return RATE_LIMIT_MESSAGE;
 
   const email = String(formData.get("email") ?? "").trim();
   if (!email) return "Email is required.";
@@ -100,7 +96,7 @@ export async function resetPasswordAction(
   _prevState: string | undefined,
   formData: FormData
 ): Promise<string | undefined> {
-  if (!(await checkRateLimit("auth", await getClientIp()))) return RATE_LIMIT_MESSAGE;
+  if (!(await checkIpRateLimit("auth"))) return RATE_LIMIT_MESSAGE;
 
   const token = String(formData.get("token") ?? "");
   const password = String(formData.get("password") ?? "");

@@ -61,7 +61,33 @@ type Tier = {
 export const TIERS = {
   auth: { tokens: 5, window: "15 m", prefix: "rl:auth" },
   paymentVerify: { tokens: 5, window: "15 m", prefix: "rl:payverify" },
+  /**
+   * Guest checkout, keyed by EMAIL ADDRESS.
+   *
+   * ⚠️  This was 3 per 30 minutes keyed by IP, and in India that is a way to
+   * refuse real customers. Jio and Airtel put subscribers behind CGNAT, so
+   * thousands of people share one public address — three guest orders from
+   * anywhere behind that NAT would lock out everyone else on it for half an
+   * hour. On a shop whose traffic is mostly mobile, that is not a rare edge
+   * case; it is a normal Tuesday.
+   *
+   * The email is the honest identity for a guest order: two strangers on the
+   * same carrier have different ones, while the same person ordering four
+   * times in half an hour is the case worth stopping. The count stays tight
+   * because a genuine customer never needs a fourth.
+   */
   guestOrder: { tokens: 3, window: "30 m", prefix: "rl:guestorder" },
+
+  /**
+   * The backstop for the above: guest orders from one IP, whatever email they
+   * claim. Loose on purpose — it exists to stop a script working through a
+   * list of addresses, not to police a household or a carrier NAT.
+   *
+   * 40 in 30 minutes is far more than a shared address will produce honestly
+   * and far less than bulk abuse needs to be worth the effort. Skipped
+   * entirely when the IP is unknown; see getClientIp.
+   */
+  guestOrderIp: { tokens: 40, window: "30 m", prefix: "rl:guestorderip" },
   order: { tokens: 10, window: "15 m", prefix: "rl:order" },
   orderOps: { tokens: 15, window: "15 m", prefix: "rl:orderops" },
   webhook: { tokens: 10, window: "1 m", prefix: "rl:webhook" },
@@ -128,10 +154,41 @@ function getLimiter(tier: Tier): Ratelimit | null {
   return limiter;
 }
 
-export async function getClientIp(): Promise<string> {
+/**
+ * The caller's IP, or null when it genuinely cannot be determined.
+ *
+ * ⚠️  This returned the literal string "unknown" as a fallback, and that was
+ * worse than returning nothing. A shared constant is a shared BUCKET: with no
+ * `x-forwarded-for` — which is every request when the app runs without a proxy
+ * in front of it — every visitor on earth counted against one `guestOrder`
+ * allowance. Three guest orders per half hour, site-wide, for everybody.
+ *
+ * Refusing to guess is the safer failure. An unidentifiable client now skips
+ * IP-based limiting entirely, and the tier that actually protects guest
+ * checkout keys on the email address instead — see placeOrderAction. Losing
+ * the IP backstop when the deployment is misconfigured is a real weakening,
+ * but it is bounded and loud, where lumping strangers together silently
+ * refused real customers.
+ *
+ * Vercel always sets the header, so on the intended deployment this never
+ * returns null.
+ */
+export async function getClientIp(): Promise<string | null> {
   const h = await headers();
-  return h.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
+  if (forwarded) return forwarded;
+
+  if (!warnedNoIp) {
+    console.warn(
+      "[rate-limit] no x-forwarded-for header — IP-based limits are being SKIPPED. " +
+        "Expected behind a proxy that sets it (Vercel does)."
+    );
+    warnedNoIp = true;
+  }
+  return null;
 }
+
+let warnedNoIp = false;
 
 /**
  * Returns true when the request is allowed.
@@ -175,6 +232,25 @@ export async function checkRateLimit(tierName: keyof typeof TIERS, key: string):
     console.error("[rate-limit] check failed — allowing request", err);
     return true;
   }
+}
+
+/**
+ * The IP-keyed check, with the "we don't know who this is" policy in one place.
+ *
+ * Every caller that limits by address wants the same answer when there is no
+ * address: skip the check rather than count this visitor against a bucket
+ * shared with every other unidentifiable one. Spelling that out at eight call
+ * sites is how the eighth ends up doing something different.
+ *
+ * ⚠️  Skipping is a real weakening, and it is the lesser one. A shared "unknown"
+ * key does not protect anything — an attacker is in the same bucket as the
+ * customers they are denying — while it does reliably refuse real people. On
+ * the intended deployment the header is always present and this never skips.
+ */
+export async function checkIpRateLimit(tierName: keyof typeof TIERS): Promise<boolean> {
+  const ip = await getClientIp();
+  if (!ip) return true;
+  return checkRateLimit(tierName, ip);
 }
 
 export const RATE_LIMIT_MESSAGE = "Too many requests. Please wait a few minutes and try again.";
