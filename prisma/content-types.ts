@@ -117,6 +117,26 @@ export const systemContentTypes = [
             required: true,
           },
           /**
+           * A name for the ROW, not a heading for the page.
+           *
+           * The mirror image of the three fields below: it appears only for the
+           * kinds that have no heading, and it is never rendered on the
+           * storefront — nothing in homepage-section.tsx reads it. It exists so
+           * a section can be called something in this list. "Category tiles"
+           * sitting unnamed among ten titled rows looks broken even when it is
+           * the one section behaving exactly as designed.
+           *
+           * Declared BEFORE `title` on purpose. itemSummary falls back to the
+           * first VISIBLE text field when the summary field is hidden, and that
+           * ordering is what makes this the label these rows are listed under.
+           */
+          {
+            name: "adminLabel",
+            label: "Section name — for this list only, never shown on the site",
+            type: "text",
+            showWhen: { field: "type", equals: ["categoryTiles", "instagram"] },
+          },
+          /**
            * Hidden for the two section kinds that throw them away.
            *
            * `categoryTiles` is a full-bleed band whose tiles carry the category
