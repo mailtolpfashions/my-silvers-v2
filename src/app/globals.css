@@ -485,11 +485,13 @@
 .container-page {
   margin-inline: auto;
   width: 100%;
-  padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
+  padding-inline: max(1rem, env(safe-area-inset-left))
+    max(1rem, env(safe-area-inset-right));
 }
 @media (min-width: 640px) {
   .container-page {
-    padding-inline: max(1.5rem, env(safe-area-inset-left)) max(1.5rem, env(safe-area-inset-right));
+    padding-inline: max(1.5rem, env(safe-area-inset-left))
+      max(1.5rem, env(safe-area-inset-right));
   }
 }
 /* Above the reference's own width the gutter takes the extra room, so the
@@ -501,12 +503,14 @@
    before rather than leaving it alone. Any future step must clear 1440. */
 @media (min-width: 1536px) {
   .container-page {
-    padding-inline: max(2.5rem, env(safe-area-inset-left)) max(2.5rem, env(safe-area-inset-right));
+    padding-inline: max(2.5rem, env(safe-area-inset-left))
+      max(2.5rem, env(safe-area-inset-right));
   }
 }
 @media (min-width: 1920px) {
   .container-page {
-    padding-inline: max(4rem, env(safe-area-inset-left)) max(4rem, env(safe-area-inset-right));
+    padding-inline: max(4rem, env(safe-area-inset-left))
+      max(4rem, env(safe-area-inset-right));
   }
 }
 
@@ -516,11 +520,13 @@
   margin-inline: auto;
   width: 100%;
   max-width: var(--container-detail);
-  padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
+  padding-inline: max(1rem, env(safe-area-inset-left))
+    max(1rem, env(safe-area-inset-right));
 }
 @media (min-width: 640px) {
   .container-detail {
-    padding-inline: max(1.5rem, env(safe-area-inset-left)) max(1.5rem, env(safe-area-inset-right));
+    padding-inline: max(1.5rem, env(safe-area-inset-left))
+      max(1.5rem, env(safe-area-inset-right));
   }
 }
 
@@ -532,11 +538,13 @@
   margin-inline: auto;
   width: 100%;
   max-width: var(--container-checkout);
-  padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
+  padding-inline: max(1rem, env(safe-area-inset-left))
+    max(1rem, env(safe-area-inset-right));
 }
 @media (min-width: 640px) {
   .container-checkout {
-    padding-inline: max(1.5rem, env(safe-area-inset-left)) max(1.5rem, env(safe-area-inset-right));
+    padding-inline: max(1.5rem, env(safe-area-inset-left))
+      max(1.5rem, env(safe-area-inset-right));
   }
 }
 
@@ -545,7 +553,8 @@
   margin-inline: auto;
   width: 100%;
   max-width: var(--container-prose);
-  padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
+  padding-inline: max(1rem, env(safe-area-inset-left))
+    max(1rem, env(safe-area-inset-right));
 }
 
 /* ─── Header ──────────────────────────────────────────────────────────────────
@@ -653,7 +662,11 @@
   z-index: -1;
   pointer-events: none;
   opacity: 0;
-  background: linear-gradient(to bottom, rgba(12, 12, 14, 0.55) 0%, rgba(12, 12, 14, 0) 100%);
+  background: linear-gradient(
+    to bottom,
+    rgba(12, 12, 14, 0.55) 0%,
+    rgba(12, 12, 14, 0) 100%
+  );
   transition: opacity 300ms ease;
 }
 
@@ -712,7 +725,9 @@
 }
 
 .storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full])
-  .site-header:not([data-scrolled]):not(:hover):not(:has(:focus-visible))::before {
+  .site-header:not([data-scrolled]):not(:hover):not(
+    :has(:focus-visible)
+  )::before {
   opacity: 1;
 }
 
@@ -759,7 +774,11 @@
    Specificity beats the block above on the extra attribute alone, but it is
    also placed after it deliberately — keep the two adjacent and in this order
    if either is ever edited. */
-.storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full][data-header-ink="dark"])
+.storefront-shell:has(
+    main
+      > :not([style*="display: none"])
+      [data-hero-full][data-header-ink="dark"]
+  )
   .site-header:not([data-scrolled]):not(:hover):not(:has(:focus-visible)) {
   --foreground: #0c0c0e;
   --muted-foreground: rgba(12, 12, 14, 0.72);
@@ -770,12 +789,26 @@
 
 /* The scrim turns over with the type: a white veil lifts ink off a pale
    photograph the same way the dark one lifts white off a shadowed one. */
-.storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full][data-header-ink="dark"])
-  .site-header:not([data-scrolled]):not(:hover):not(:has(:focus-visible))::before {
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0) 100%);
+.storefront-shell:has(
+    main
+      > :not([style*="display: none"])
+      [data-hero-full][data-header-ink="dark"]
+  )
+  .site-header:not([data-scrolled]):not(:hover):not(
+    :has(:focus-visible)
+  )::before {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.62) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
 }
 
-.storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full][data-header-ink="dark"])
+.storefront-shell:has(
+    main
+      > :not([style*="display: none"])
+      [data-hero-full][data-header-ink="dark"]
+  )
   .site-header:not([data-scrolled]):not(:hover):not(:has(:focus-visible))
   .header-band {
   color: #0c0c0e;
@@ -784,7 +817,11 @@
 /* And the badge turns back. In this mode `--black` is ink again, so `bg-black`
    already gives an ink pill — it is the rule above, which forces the digit to
    ink for the white-pill case, that would now make it ink on ink. */
-.storefront-shell:has(main > :not([style*="display: none"]) [data-hero-full][data-header-ink="dark"])
+.storefront-shell:has(
+    main
+      > :not([style*="display: none"])
+      [data-hero-full][data-header-ink="dark"]
+  )
   .site-header:not([data-scrolled]):not(:hover):not(:has(:focus-visible))
   .cart-count {
   color: #ffffff;
@@ -906,7 +943,8 @@
 .text-h1,
 .text-h2,
 .text-h3 {
-  font-family: var(--font-display), var(--font-heading), ui-sans-serif, sans-serif;
+  font-family:
+    var(--font-display), var(--font-heading), ui-sans-serif, sans-serif;
   font-variation-settings: "wdth" 105;
 }
 .text-h1 {
@@ -1145,6 +1183,214 @@
   .reveal-section {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* ─── The review coverflow ────────────────────────────────────────────────────
+   Everything below belongs to review-carousel.tsx. Read that file first — it
+   explains the fan and owns the numbers; this owns only what a plate looks like
+   at a given distance from the centre.
+
+   ── The --focus contract ────────────────────────────────────────────────────
+   The rAF loop sets one custom property per plate, `--focus`, running 1 at the
+   centre to 0 a full step away. Everything a plate does as it arrives — the
+   scrim lifting, the caption fading up, the photograph swelling, the seal
+   growing — hangs off that one number here rather than being six more style
+   writes per plate per frame in JavaScript.
+
+   The powers are not decoration. A linear fade means the caption is at half
+   opacity when the plate is half a step out, which reads as two captions
+   competing; `pow(--focus, 2.2)` keeps it near nothing until the plate is
+   nearly home and then brings it in quickly. The seal is harsher still at 3.
+
+   ⚠️  `--focus` MUST be declared with @property or none of this works. An
+   unregistered custom property is an unparsed token, so pow() and calc() see a
+   string, the whole declaration is invalid, and every plate silently renders at
+   its initial value. It also cannot be interpolated, which is the second half
+   of why the registration matters.
+   ─────────────────────────────────────────────────────────────────────────── */
+@property --focus {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+/* Flattening here would collapse the plates into the stage plane and throw away
+   the translate3d Z the loop writes — the fan would still fan, but flat. */
+.review-stage {
+  transform-style: preserve-3d;
+}
+
+/* The plate is what the loop transforms. It sets transform, opacity, filter,
+   z-index and --focus on this element every frame, so NOTHING here may set any
+   of those or the two fight and the loser is whichever ran last. */
+.review-plate {
+  backface-visibility: hidden;
+}
+
+/* The white frame. Its own layer rather than a background on the plate, because
+   it FADES: the reference brings the frame up as a plate takes centre, so an
+   outer plate reads as a bare photograph receding and the hero reads as a
+   mounted print. A background could not do this without fading the photograph
+   with it. */
+.review-frame {
+  opacity: calc(0.25 + 0.75 * var(--focus));
+}
+
+/* ── The scrim, and why it gets STRONGER toward the centre ──────────────────
+   The name, the provenance and the piece are set in white on top of this, so
+   the scrim is not decoration — it is the only thing making that type legible.
+
+   ⚠️  It was written the intuitive way first, lifting as a plate took centre so
+   the photograph looked "lit". That is exactly backwards: focus 1 is the one
+   moment the text is visible, so the ground was thinnest precisely when it was
+   needed. On a pale photograph — a silver chain on cream silk, which is half
+   this catalogue — white-on-nothing was unreadable.
+
+   So it deepens with focus instead. Off-centre plates keep a light fade (they
+   carry no text and a heavy black band would read as dirt); the centred one
+   gets the full ground.
+
+   The stops are placed against where the type actually sits: the ident block
+   runs from roughly 62% to 87% down the plate, which is 22–63% up this
+   gradient, so the curve is held high across that band rather than falling
+   away linearly. The text-shadow on .review-ident is the belt to this braces —
+   customer photographs are not art-directed and some of them will be white. */
+.review-scrim {
+  background: linear-gradient(
+    to top,
+    rgb(0 0 0 / 0.82) 0%,
+    rgb(0 0 0 / 0.76) 25%,
+    rgb(0 0 0 / 0.55) 50%,
+    rgb(0 0 0 / 0.25) 75%,
+    rgb(0 0 0 / 0) 100%
+  );
+  opacity: calc(0.55 + 0.45 * var(--focus));
+}
+
+/* The identity block. See the note on the powers above for the 2.2. */
+.review-ident {
+  opacity: pow(var(--focus), 2.2);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.55);
+}
+
+/* A slow swell as the plate takes centre. 1.06 rather than the reference's 1.09
+   because our plates are smaller: the same multiplier on a 232px plate crops
+   noticeably more off a portrait phone photo than it does on theirs. */
+.review-shot {
+  transform: scale(calc(1 + 0.06 * var(--focus)));
+  transform-origin: center;
+}
+
+/* Grows from nothing. Steeper than the caption so it lands last, after the
+   plate has visibly settled.
+
+   ⚠️  The -50% is load-bearing and must stay INSIDE this transform. The seal is
+   positioned `left: 50%`, so the translate is what centres it; writing the
+   scale here and leaving the centring to a `-translate-x-1/2` utility would put
+   both on the same property and the later one silently wins, throwing the seal
+   half its own width off-centre. */
+.review-seal {
+  transform: translateX(-50%) scale(calc(0.4 + 0.6 * pow(var(--focus), 3)));
+  opacity: pow(var(--focus), 3);
+}
+
+/* ── The panel stack ────────────────────────────────────────────────────────
+   All six panels are mounted in one grid cell so the block is as tall as the
+   longest quote and never resizes as the fan turns, and so every review is in
+   the HTML for a crawler.
+
+   `visibility: hidden` and not `display: none`: display removes the panel from
+   layout, and the grid would then size itself to whichever quote happened to be
+   showing — which is the resize this stack exists to prevent. */
+.review-panel {
+  visibility: hidden;
+  opacity: 0;
+}
+.review-panel[data-active="true"] {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* The staggered entrance. The animation is declared ONLY on the active panel,
+   so it restarts every time a panel becomes active — a CSS animation replays
+   when it is applied to an element that did not have it. That is the whole
+   mechanism, and it is why this is a data-attribute rule rather than a class
+   the component toggles. */
+@keyframes review-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+.review-panel[data-active="true"] .review-rise {
+  animation: review-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.review-panel[data-active="true"] .review-rise-2 {
+  animation-delay: 60ms;
+}
+.review-panel[data-active="true"] .review-rise-3 {
+  animation-delay: 150ms;
+}
+
+/* Under reduced motion the fan STAYS — it is a layout, not a movement, and the
+   carousel is still fully usable by arrows, dots and keys. What goes is
+   everything that moves on its own: the entrance, the blur, and (in the
+   component) the spring, the sway and the autoplay.
+
+   The `!important` matches the global reduced-motion rule elsewhere in this
+   file; without it the animation is frozen mid-keyframe at opacity 0 and the
+   quote never appears at all. */
+@media (prefers-reduced-motion: reduce) {
+  .review-panel[data-active="true"] .review-rise {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  .review-shot {
+    transform: none;
+  }
+}
+
+/* Without JavaScript the loop never runs, --focus stays at its initial 0, and
+   every plate would sit stacked in the middle of the stage under a black scrim
+   with no caption. Show the first review as a plain card instead. */
+@media (scripting: none) {
+  .review-stage {
+    display: flex;
+    justify-content: center;
+    perspective: none;
+  }
+  .review-plate:not(:first-child) {
+    display: none;
+  }
+  .review-plate {
+    position: static;
+    margin: 0;
+  }
+  /* Every --focus-driven value has to be restated at its focus-1 end, because
+     --focus stays 0 with no loop to move it: the frame would be a ghost, the
+     scrim would be too thin to carry the white type on it, and the seal and
+     the caption would not be there at all. */
+  .review-frame,
+  .review-scrim,
+  .review-ident,
+  .review-seal {
+    opacity: 1;
+  }
+  .review-seal {
+    transform: translateX(-50%);
+  }
+  .review-panel:first-child {
+    visibility: visible;
+    opacity: 1;
   }
 }
 
@@ -1588,7 +1834,10 @@
 }
 @media (min-width: 1024px) {
   .product-frame {
-    width: min(100%, max(24rem, calc(100svh - var(--header-h) - var(--product-top-gap))));
+    width: min(
+      100%,
+      max(24rem, calc(100svh - var(--header-h) - var(--product-top-gap)))
+    );
     /* Centred in its column. The frame is capped by the window HEIGHT while the
        column is an equal half of the viewport WIDTH, so on most windows it is a
        little narrower than its column and something has to absorb the

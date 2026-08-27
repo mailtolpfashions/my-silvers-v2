@@ -1,63 +1,72 @@
-import Link from "next/link";
-import Image from "next/image";
-import { Star, BadgeCheck } from "lucide-react";
-import { getTopReviews, type TopReview } from "@/server/reviews/top-reviews";
+import { BadgeCheck } from "lucide-react";
+import { getTopReviews } from "@/server/reviews/top-reviews";
 import { RevealSection } from "@/components/storefront/reveal-section";
-
-/**
- * The card's thumbnail — the reviewer's own photo when they attached one,
- * otherwise the catalogue shot.
- *
- * A shopper who has scrolled this far has already seen our photography. A phone
- * picture of the piece as it actually arrived is the one image on the card they
- * have not seen and that cannot be styled, which is precisely what makes it
- * worth more here than a studio image. The product name sits beside it either
- * way, so the review stays checkable whichever picture is used.
- */
-function ReviewThumbnail({ review }: { review: TopReview }) {
-  const src = review.customerImage ?? review.product.image;
-
-  return (
-    <div className="relative size-11 shrink-0 overflow-hidden rounded-sm bg-muted">
-      {src && (
-        <Image
-          src={src}
-          // Decorative: the whole card is a single link and the text beside this
-          // already names the piece, so describing the photo here would only
-          // lengthen the link's spoken name.
-          alt=""
-          fill
-          loading="lazy"
-          sizes="44px"
-          className="object-cover"
-        />
-      )}
-    </div>
-  );
-}
+import {
+  ReviewCarousel,
+  type CarouselReview,
+} from "@/components/storefront/reviews/review-carousel";
 
 /**
  * Homepage social proof, drawn from real reviews rather than CMS copy.
  *
- * Every card is a whole clickable link to the product being reviewed — the
+ * Every plate is a whole clickable link to the product being reviewed — the
  * point is that a shopper can check the claim, see the rest of that product's
  * reviews, and buy the thing that earned the praise.
  *
  * Renders nothing when there are no qualifying reviews. An empty "What our
  * customers say" heading is worse than no section, and a new shop legitimately
  * has none yet.
+ *
+ * ── Why this is a fan and not a grid ────────────────────────────────────────
+ * It was three columns of quote cards with a 44px thumbnail apiece. That laid
+ * six reviews out flat and gave the photograph — the only thing on the card a
+ * shopper trusts more than our own copy — less room than the word "on".
+ *
+ * The carousel inverts it: one photograph large and centred, the rest fanned
+ * behind it, and the words in a panel beneath where they get a full measure to
+ * be read at. Fewer reviews on screen at once, which is the trade; the
+ * homepage is the right page to make it on, because nobody arrives there to
+ * audit six testimonials. The product page keeps its grid for exactly that
+ * reason — see reviews/review-section.tsx.
+ *
+ * The fan itself lives in ReviewCarousel, which is a client component. This
+ * stays a server component and hands it plain data: the query, the photo
+ * fallback and the ordering are all decided here, where they are cacheable.
  */
 export async function CustomerReviews() {
   const reviews = await getTopReviews(6);
   if (reviews.length === 0) return null;
+
+  const plates: CarouselReview[] = reviews
+    .map((review) => ({
+      id: review.id,
+      rating: review.rating,
+      title: review.title,
+      comment: review.comment,
+      authorName: review.authorName,
+      // The reviewer's own photo when they attached one, else the catalogue
+      // shot. A carousel cannot skip a review for want of a picture the way a
+      // grid card could shrink around one — a hole in the fan is a hole in the
+      // arc — so there is always an image and the plate caption says which
+      // kind it is.
+      image: review.customerImage ?? review.product.image,
+      isCustomerPhoto: review.customerImage !== null,
+      product: { name: review.product.name, slug: review.product.slug },
+    }))
+    // Customer photos first, so the plate holding centre on arrival is the one
+    // a shopper has not seen before. Only the FIRST position really matters —
+    // the fan cycles through all six either way — but it is the position that
+    // does the most work. `getTopReviews` orders by rating and cannot do this:
+    // it does not know one of the two images will be chosen over the other.
+    .sort((a, b) => Number(b.isCustomerPhoto) - Number(a.isCustomerPhoto));
 
   return (
     <RevealSection className="container-page rhythm-commerce">
       <div className="mb-10 text-center">
         <p className="label-eyebrow mb-2">In their words</p>
         <h2 className="text-h2">What our customers say</h2>
-        {/* Stated once here rather than badged on every card — every review in
-            the system now comes from a delivered order, so a per-card badge
+        {/* Stated once here rather than badged on every plate — every review in
+            the system now comes from a delivered order, so a per-plate badge
             would mark 100% of them and signal nothing. */}
         {/**
          * ⚠️  The tick is INLINE, inside the sentence — not a flex sibling of
@@ -82,54 +91,15 @@ export async function CustomerReviews() {
          * and keeps the measure readable on a wide screen.
          */}
         <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
-          <BadgeCheck className="mr-1.5 inline size-4 align-[-0.2em] text-black" aria-hidden />
+          <BadgeCheck
+            className="mr-1.5 inline size-4 align-[-0.2em] text-black"
+            aria-hidden
+          />
           Every review is from a verified buyer. Tap one to see the piece.
         </p>
       </div>
 
-      <ul className="grid gap-x-10 gap-y-0 sm:grid-cols-2 lg:grid-cols-3">
-        {reviews.map((review) => (
-          <li key={review.id}>
-            <Link
-              href={`/products/${review.product.slug}`}
-              transitionTypes={["nav-forward"]}
-              className="group flex h-full flex-col border-t pt-6 transition-colors hover:border-black"
-            >
-              <span className="flex gap-0.5" aria-label={`${review.rating} out of 5 stars`}>
-                {Array.from({ length: 5 }, (_, i) => (
-                  <Star
-                    key={i}
-                    className={`size-3.5 ${
-                      i < review.rating ? "fill-black text-black" : "text-muted-foreground/30"
-                    }`}
-                    aria-hidden
-                  />
-                ))}
-              </span>
-
-              {review.title && (
-                <p className="mt-3 font-heading text-base text-foreground">{review.title}</p>
-              )}
-
-              <blockquote className="mt-2 line-clamp-4 flex-1 text-sm leading-relaxed text-muted-foreground">
-                {review.comment}
-              </blockquote>
-
-              <p className="mt-4 text-sm font-medium text-foreground">{review.authorName}</p>
-
-              {/* The product is the proof — naming it is what makes the review
-                  checkable rather than a floating quote. The picture beside it
-                  may be the reviewer's own; see ReviewThumbnail. */}
-              <div className="mt-4 flex items-center gap-3 border-t pt-4">
-                <ReviewThumbnail review={review} />
-                <span className="line-clamp-2 text-xs text-muted-foreground transition-colors group-hover:text-foreground">
-                  on {review.product.name}
-                </span>
-              </div>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <ReviewCarousel reviews={plates} />
     </RevealSection>
   );
 }
