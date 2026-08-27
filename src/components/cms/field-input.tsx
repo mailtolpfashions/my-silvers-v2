@@ -146,7 +146,9 @@ function toPlainText(value: unknown): string {
 function itemSummary(
   field: FieldDefinition,
   item: Record<string, unknown>,
-  subFields: FieldDefinition[]
+  subFields: FieldDefinition[],
+  /** The object above this array, for parent-scoped showWhen rules. */
+  parent?: Record<string, unknown>
 ): { title: string; empty: boolean } {
   /**
    * Only fields the editor can actually SEE for this item.
@@ -157,7 +159,7 @@ function itemSummary(
    * heading nobody can edit — and a new one, having none, would read "Empty —
    * nothing typed yet" while being perfectly complete.
    */
-  const visible = subFields.filter((sub) => isFieldVisible(sub, item));
+  const visible = subFields.filter((sub) => isFieldVisible(sub, item, parent));
 
   const named = field.summaryField
     ? visible.find((sub) => sub.name === field.summaryField)
@@ -199,10 +201,17 @@ function ArrayField({
   field,
   value,
   onChange,
+  parent,
 }: {
   field: FieldDefinition;
   value: Value;
   onChange: OnChange;
+  /**
+   * The object containing this array — a homepage SECTION, for the `items[]`
+   * nested inside one. Undefined for a top-level array, which has nothing
+   * above it. Its rows' fields can test it with `showWhen.scope: "parent"`.
+   */
+  parent?: Record<string, unknown>;
 }) {
   const items: Array<Record<string, unknown>> = Array.isArray(value)
     ? (value as Array<Record<string, unknown>>)
@@ -308,7 +317,7 @@ function ArrayField({
 
         {items.map((item, i) => {
           const isOpen = open.has(i);
-          const { title, empty } = itemSummary(field, item, subFields);
+          const { title, empty } = itemSummary(field, item, subFields, parent);
           const badge = field.summaryBadgeField
             ? toPlainText(item[field.summaryBadgeField])
             : "";
@@ -379,13 +388,17 @@ function ArrayField({
               {isOpen && (
                 <div className="space-y-3 border-t bg-muted/20 px-3 py-3">
                   {subFields
-                    .filter((sub) => isFieldVisible(sub, item))
+                    .filter((sub) => isFieldVisible(sub, item, parent))
                     .map((sub) => (
                       <FieldInput
                         key={sub.name}
                         field={sub}
                         value={item[sub.name]}
                         onChange={(v) => updateItem(i, { ...item, [sub.name]: v })}
+                        // This row becomes the parent of anything nested inside
+                        // it — which is what lets an `items[]` field be scoped
+                        // by the section type sitting on `item`.
+                        parent={item}
                       />
                     ))}
                 </div>
@@ -411,10 +424,13 @@ export function FieldInput({
   field,
   value,
   onChange,
+  parent,
 }: {
   field: FieldDefinition;
   value: Value;
   onChange: OnChange;
+  /** Passed straight through to ArrayField — see its note. */
+  parent?: Record<string, unknown>;
 }) {
   if (field.hidden) return null;
 
@@ -498,7 +514,7 @@ export function FieldInput({
           </div>
         );
       case "array":
-        return <ArrayField field={field} value={value} onChange={onChange} />;
+        return <ArrayField field={field} value={value} onChange={onChange} parent={parent} />;
       case "object":
         return (
           <div className="space-y-3 rounded-md border p-3">
@@ -554,10 +570,27 @@ export function FieldInput({
  */
 export function isFieldVisible(
   field: FieldDefinition,
-  siblings: Record<string, unknown>
+  siblings: Record<string, unknown>,
+  /** The object one level up, when there is one. See the note on `scope`. */
+  parent?: Record<string, unknown>
 ): boolean {
   if (!field.showWhen) return true;
-  const actual = siblings[field.showWhen.field];
+
+  /**
+   * "parent" is how a repeater's rows are scoped by the thing containing them.
+   *
+   * An `items[]` row's siblings are icon/title/text/image/href — the section
+   * `type` that decides which of those the storefront actually reads lives one
+   * level up. Without this a rule written against `type` would read undefined
+   * and hide the field always, which looks identical to the field simply not
+   * existing.
+   *
+   * A parent-scoped rule at the top level has no object above it, so it hides
+   * the field. That is deliberate: silently showing a field whose condition
+   * could not be evaluated is how a dead end gets back in.
+   */
+  const source = field.showWhen.scope === "parent" ? parent : siblings;
+  const actual = source?.[field.showWhen.field];
   if (typeof actual !== "string") return false;
   return field.showWhen.equals
     ? field.showWhen.equals.includes(actual)

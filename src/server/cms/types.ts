@@ -19,6 +19,9 @@ export type FieldType =
   | "array"
   | "object";
 
+/** Whose value a `showWhen` rule reads — a sibling, or the object above. */
+export type FieldScope = "self" | "parent";
+
 export type FieldDefinition = {
   name: string;
   label: string;
@@ -68,10 +71,17 @@ export type FieldDefinition = {
    * writing that as a ten-item `equals` list would mean every new section type
    * silently loses its heading until somebody remembered to add it here.
    * Stating the exceptions keeps the default correct.
+   *
+   * `scope` says WHOSE field to test. "self" (the default) reads a sibling —
+   * the right thing for a section's own fields, where `type` sits beside them.
+   * "parent" reads one level up, which is the only way to scope the fields
+   * INSIDE a repeater: an `items[]` row's siblings are icon/title/text/image/
+   * href, and the section `type` that decides which of those matter is on the
+   * object above it.
    */
   showWhen?:
-    | { field: string; equals: string[]; notEquals?: never }
-    | { field: string; notEquals: string[]; equals?: never };
+    | { field: string; scope?: FieldScope; equals: string[]; notEquals?: never }
+    | { field: string; scope?: FieldScope; notEquals: string[]; equals?: never };
 };
 
 export type EntryData = Record<string, unknown>;

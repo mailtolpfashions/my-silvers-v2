@@ -284,23 +284,81 @@ export const systemContentTypes = [
             // repeater and reads only each row's Text, so a pinned section
             // needs no second array field on this form — the label explains
             // which column is being read.
-            label: "Rows — a 'story' uses each Text as one stage; an 'editorialPair' uses Image, Title as the caption, Text as the link label, and Link; a 'worldTiles' uses Image, Title as the word laid over it, and Link (four rows is the shape it was drawn for)",
+            label: "Rows — each section type uses a different set of the fields below, and only those are shown",
             type: "array",
             showWhen: {
               field: "type",
               equals: ["usp", "story", "editorialPair", "worldTiles"],
             },
+            /**
+             * Scoped by the SECTION's type, not by anything on the row.
+             *
+             * ⚠️  These five were offered on every row of all four kinds, and
+             * each kind reads a different subset — ten combinations that were
+             * editable and discarded. A `story` row is the extreme: the mapper
+             * does `.map((it) => str(it.text))`, so a title, an icon, an image
+             * and a link typed there all vanish. The labels tried to carry the
+             * rules in prose ("Image (editorial pair)"), which is both easy to
+             * miss and was wrong — worldTiles uses image and href too.
+             *
+             * `scope: "parent"` is what makes this expressible: a row's own
+             * siblings are these five fields, and the `type` that decides
+             * between them lives on the section above. See FieldScope in
+             * server/cms/types.ts.
+             *
+             * Kept in step with homepage-sections.ts, which is the authority:
+             *   usp            icon, title, text
+             *   story          text
+             *   editorialPair  title, text, image, href
+             *   worldTiles     title, image, href
+             */
             of: [
               {
                 name: "icon",
                 label: "Icon — a Lucide name (shield-check, gem, award…) or an emoji",
                 type: "text",
+                showWhen: { field: "type", scope: "parent", equals: ["usp"] },
               },
-              { name: "title", label: "Title", type: "text" },
-              { name: "text", label: "Text", type: "text" },
-              // Used by editorialPair only; harmless empty on the other two.
-              { name: "image", label: "Image (editorial pair)", type: "image" },
-              { name: "href", label: "Link (editorial pair)", type: "text" },
+              {
+                name: "title",
+                label: "Title",
+                type: "text",
+                showWhen: {
+                  field: "type",
+                  scope: "parent",
+                  equals: ["usp", "editorialPair", "worldTiles"],
+                },
+              },
+              {
+                name: "text",
+                label: "Text",
+                type: "text",
+                showWhen: {
+                  field: "type",
+                  scope: "parent",
+                  equals: ["usp", "story", "editorialPair"],
+                },
+              },
+              {
+                name: "image",
+                label: "Image",
+                type: "image",
+                showWhen: {
+                  field: "type",
+                  scope: "parent",
+                  equals: ["editorialPair", "worldTiles"],
+                },
+              },
+              {
+                name: "href",
+                label: "Link",
+                type: "text",
+                showWhen: {
+                  field: "type",
+                  scope: "parent",
+                  equals: ["editorialPair", "worldTiles"],
+                },
+              },
             ],
           },
         ],
