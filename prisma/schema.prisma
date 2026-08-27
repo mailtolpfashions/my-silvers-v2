@@ -397,7 +397,17 @@ model Order {
   subtotal             Decimal       @db.Decimal(10, 2)
   shippingCharge       Decimal       @db.Decimal(10, 2)
   totalAmount          Decimal       @db.Decimal(10, 2)
+  /// Instructions for the SHOP — "leave with the neighbour", "call before
+  /// delivery". Not the gift message; see below.
   notes                String?
+  /// Marked as a gift at checkout. Kept as its own flag rather than inferred
+  /// from `giftMessage` being present, because a shopper can send a gift
+  /// without writing anything on the card and the packing still differs.
+  isGift               Boolean  @default(false)
+  /// What to write on the card that goes in the box. Separate from `notes`
+  /// because the two are read by different people at different moments — one
+  /// on a picking screen, the other copied out by hand.
+  giftMessage          String?
   returnReason         String?
   returnRequestedAt    DateTime?
   returnResolvedAt     DateTime?
@@ -426,6 +436,9 @@ model Order {
   @@index([paymentStatus, createdAt]) // for the 24h stale-pending cron sweep
   @@index([userId, createdAt(sort: Desc)])
   @@index([orderStatus, createdAt(sort: Desc)])
+  // The partial index on gift orders is created by hand in the migration —
+  // Prisma cannot express a WHERE clause on an index, and declaring it here
+  // without one would plan a full index over every order instead.
 }
 
 model OrderItem {

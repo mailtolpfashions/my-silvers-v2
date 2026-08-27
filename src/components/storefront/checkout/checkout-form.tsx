@@ -50,6 +50,17 @@ export type SavedAddress = {
 const NEW_ADDRESS = "new";
 
 /**
+ * How long a gift message may be.
+ *
+ * Set by the card, not by the database column: this is copied out by hand onto
+ * something that fits in a jewellery box. Two hundred characters is roughly
+ * four handwritten lines. The same number is enforced in order-actions.ts, and
+ * that copy is the one that matters — `maxLength` on the textarea is a courtesy
+ * to whoever is typing, not a control.
+ */
+export const GIFT_MESSAGE_MAX = 200;
+
+/**
  * Razorpay's prefill.contact only accepts a bare 10-digit number or +91-prefixed
  * E.164 — anything with spaces, dashes or a leading 0 is dropped, and the
  * customer is asked for a number they already gave us.
@@ -172,8 +183,15 @@ export function CheckoutForm({
     state: preselected?.state ?? "",
     pincode: preselected?.pincode ?? "",
     notes: "",
+    isGift: false,
+    giftMessage: "",
     paymentMethod: "razorpay" as "razorpay" | "cod",
   });
+
+  /** The keys of `form` whose values are strings — everything `field()` can render. */
+  type TextField = {
+    [K in keyof typeof form]: (typeof form)[K] extends string ? K : never;
+  }[keyof typeof form];
 
   const { pincode: formPincode, paymentMethod } = form;
   /**
@@ -456,6 +474,10 @@ export function CheckoutForm({
         },
         paymentMethod: wantCod ? "cod" : "razorpay",
         notes: form.notes,
+        isGift: form.isGift,
+        // Only when the box is ticked — an unticked gift must not smuggle
+        // through a message typed and then thought better of.
+        giftMessage: form.isGift ? form.giftMessage : "",
         idempotencyKey,
         guestEmail: isAuthed ? undefined : form.email,
         guestItems: isAuthed
@@ -525,7 +547,12 @@ export function CheckoutForm({
         ? "One field still needs filling in — it's highlighted below."
         : `${invalidFields.size} fields still need filling in — they're highlighted below.`;
 
-  function field(name: keyof typeof form, label: string, props?: React.ComponentProps<typeof Input>) {
+  /**
+   * `TextField` rather than `keyof typeof form`, so the checkbox cannot be
+   * passed here. `isGift` is a boolean and an <Input value> is not, and without
+   * the narrowing that is a runtime surprise rather than a compile error.
+   */
+  function field(name: TextField, label: string, props?: React.ComponentProps<typeof Input>) {
     return (
       <div className="space-y-1.5">
         <Label htmlFor={name}>{label}</Label>
@@ -837,12 +864,63 @@ export function CheckoutForm({
             </fieldset>
           )}
 
+          {/* ── Gift ──────────────────────────────────────────────────────────
+              Its own control rather than a line in Order notes.
+
+              ⚠️  The notes placeholder used to read "a delivery instruction, a
+              gift message", which asked one free-text box to carry two things
+              read by different people at different moments: notes are for the
+              SHOP at picking time, a gift message is copy to be handwritten on
+              a card. Merged, a packer has to guess which half of a sentence
+              goes on the card — and most shoppers never realise they could ask
+              for one at all. Silver is bought as a gift constantly in this
+              market; it should be a question, not a hint. */}
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.isGift}
+                onChange={(e) => setForm((f) => ({ ...f, isGift: e.target.checked }))}
+                className="size-4 rounded border-input"
+              />
+              This is a gift
+            </label>
+
+            {form.isGift && (
+              <div className="space-y-1.5">
+                <Label htmlFor="giftMessage">Message for the card (optional)</Label>
+                <Textarea
+                  id="giftMessage"
+                  value={form.giftMessage}
+                  // Hard cap as well as the counter: this is copied onto a small
+                  // printed card by hand, and the server rejects anything longer
+                  // regardless — see the schema in order-actions.ts.
+                  maxLength={GIFT_MESSAGE_MAX}
+                  placeholder="Written by hand on a card and tucked into the box"
+                  onChange={(e) => setForm((f) => ({ ...f, giftMessage: e.target.value }))}
+                />
+                {/* ⚠️  Do not put a promise about prices here.
+                    The first draft of this line said prices are never printed
+                    on a gift order's paperwork. They are: a GST tax invoice has
+                    to state them and has to travel with the parcel. Copy that
+                    promises what the shop cannot do is worse than no copy. */}
+                <p className="text-xs text-muted-foreground">
+                  {/* Only once it is worth knowing about. A counter sitting at
+                      0/200 before anything is typed is furniture. */}
+                  {form.giftMessage.length > 0
+                    ? `${form.giftMessage.length} of ${GIFT_MESSAGE_MAX} characters`
+                    : "We'll write this by hand on a card and tuck it into the box."}
+                </p>
+              </div>
+            )}
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="notes">Order notes (optional)</Label>
             <Textarea
               id="notes"
               value={form.notes}
-              placeholder="Anything we should know — a delivery instruction, a gift message"
+              placeholder="Anything we should know — a delivery instruction, a landmark"
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
             />
           </div>

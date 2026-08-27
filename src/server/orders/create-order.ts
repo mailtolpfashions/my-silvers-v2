@@ -181,6 +181,8 @@ export async function createOrder(input: {
   shippingAddress: ShippingAddressInput;
   paymentMethod: PaymentMethod;
   notes?: string;
+  isGift?: boolean;
+  giftMessage?: string;
   idempotencyKey?: string;
 }): Promise<CreateOrderResult> {
   // ── Store settings gate ──
@@ -279,6 +281,10 @@ export async function createOrder(input: {
           shippingCharge: paiseToRupeeString(shippingPaise),
           totalAmount: paiseToRupeeString(totalPaise),
           notes: input.notes || null,
+          isGift: input.isGift === true,
+          // Never stored against a non-gift order, so a packing screen can
+          // trust the flag alone and not have to check both.
+          giftMessage: (input.isGift && input.giftMessage) || null,
           items: {
             create: items.map((i) => ({
               productId: i.productId,

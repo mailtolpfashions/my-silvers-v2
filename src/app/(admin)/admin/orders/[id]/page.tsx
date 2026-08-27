@@ -198,6 +198,42 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
             </CardContent>
           </Card>
 
+          {/* ── Gift ────────────────────────────────────────────────────────
+              Above the customer note and louder than it, because this one
+              changes what physically goes in the box. A gift that ships without
+              its card cannot be fixed after the fact — the parcel is with the
+              courier and the moment has passed — so it is drawn to be the thing
+              you cannot pack this order without noticing.
+
+              Shown whenever the order is a gift, message or not: a gift with no
+              message still wants the price slip left out and the card enclosed
+              blank, and a packer who only ever sees this block when there are
+              words to copy will read its absence as "not a gift". */}
+          {order.isGift && (
+            <Card className="border-l-2 border-l-foreground">
+              <CardHeader>
+                <CardTitle className="text-base">🎁 Gift order</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                {order.giftMessage ? (
+                  <>
+                    <p className="text-muted-foreground">Write this on the card, as typed:</p>
+                    {/* Preserves the customer's own line breaks — a message
+                        written as three short lines is meant to be three short
+                        lines on the card. */}
+                    <p className="whitespace-pre-wrap border-l-2 pl-3 italic">
+                      {order.giftMessage}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground">
+                    No message — enclose a blank card.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {order.notes && (
             <Card>
               <CardHeader>

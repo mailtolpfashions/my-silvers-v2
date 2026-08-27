@@ -65,6 +65,16 @@ const placeOrderSchema = z.object({
   // must also keep parsing for as long as COD orders exist in the database.
   paymentMethod: z.enum(["razorpay", "cod"]),
   notes: z.string().trim().max(500).optional().or(z.literal("")),
+  isGift: z.boolean().optional(),
+  /**
+   * The message for the card. 200 characters, matching GIFT_MESSAGE_MAX in the
+   * checkout form — but enforced HERE, because a `maxLength` attribute is a
+   * courtesy to whoever is typing and not a control over what is posted.
+   *
+   * Refused rather than truncated: silently cutting someone's message in half
+   * means the card is written wrong and nobody finds out until it is in the box.
+   */
+  giftMessage: z.string().trim().max(200, "A gift message can be up to 200 characters.").optional().or(z.literal("")),
   idempotencyKey: z.string().uuid(),
   guestEmail: z.string().trim().email().optional(),
   guestItems: z
@@ -160,6 +170,16 @@ export async function placeOrderAction(input: unknown): Promise<PlaceOrderResult
       },
       paymentMethod: data.paymentMethod,
       notes: data.notes || undefined,
+      /**
+       * The flag is the authority, not the text.
+       *
+       * A message can only reach the card on an order actually marked as a
+       * gift, so an unticked box cannot smuggle one through — the form clears
+       * it on submit too, but this is the half that a crafted POST also has to
+       * get past.
+       */
+      isGift: data.isGift === true,
+      giftMessage: data.isGift ? data.giftMessage || undefined : undefined,
       idempotencyKey: data.idempotencyKey,
     });
 

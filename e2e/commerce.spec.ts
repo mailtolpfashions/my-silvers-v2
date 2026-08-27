@@ -40,6 +40,10 @@ test.describe.configure({ mode: "serial" });
 const SHIPPING = "77";
 const THRESHOLD = "99999";
 
+/** Deliberately multi-line: the packer copies these out as written. */
+const GIFT_MESSAGE = `Happy birthday, Amma.
+With all my love.`;
+
 async function saveSettings(page: Page) {
   await page.getByRole("button", { name: /^save/i }).click();
   await expect(page.getByText(/saved|updated/i).first()).toBeVisible({ timeout: 15_000 });
@@ -288,6 +292,18 @@ test.describe("cash on delivery, end to end", () => {
         "the validation banner outlived the fields it was complaining about"
       ).toBeHidden();
 
+      /**
+       * A gift message has to survive to the database, because it is the one
+       * thing on an order that cannot be corrected once the parcel has gone.
+       *
+       * The textarea does not exist until the box is ticked — that is half of
+       * what is being checked here. The other half is read back from the order
+       * row below, not from the page: what matters is what the packer will see.
+       */
+      await expect(page.locator("#giftMessage")).toHaveCount(0);
+      await page.getByLabel("This is a gift").check();
+      await page.locator("#giftMessage").fill(GIFT_MESSAGE);
+
       const codOption = page.locator('input[name="paymentMethod"][value="cod"]');
       await expect(codOption, "COD was enabled but no COD option rendered").toHaveCount(1);
       await codOption.check({ force: true });
@@ -303,6 +319,13 @@ test.describe("cash on delivery, end to end", () => {
 
       const order = await getLatestOrderForUser(customer.id);
       expect(order, "no order row was created").not.toBeNull();
+
+      // The card is written from these two columns, so these two columns are
+      // what the test checks — not the confirmation screen.
+      expect(order!.isGift, "the order was not marked as a gift").toBe(true);
+      expect(order!.giftMessage, "the gift message did not survive to the order").toBe(
+        GIFT_MESSAGE
+      );
 
       const items = await getOrderItemsWithCatalogPrice(order!.orderNumber);
       expect(items.length, "the order has no line items").toBeGreaterThan(0);

@@ -271,6 +271,29 @@ export function OrderDetail({
         </div>
       </section>
 
+      {/* Read back, so a shopper can check the words before the parcel goes —
+          a gift message is the one thing on an order that cannot be corrected
+          afterwards, and it is typed once at checkout and never seen again
+          otherwise. */}
+      {order.isGift && (
+        <section className="border-t pt-6">
+          <h2 className="label-eyebrow mb-5">Gift</h2>
+          {order.giftMessage ? (
+            <div className="text-sm text-muted-foreground">
+              <p>We&apos;ll write this by hand on the card:</p>
+              {/* The customer's own line breaks, kept — see the admin view. */}
+              <p className="mt-2 whitespace-pre-wrap border-l-2 pl-3 italic text-foreground">
+                {order.giftMessage}
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Sent as a gift, with a blank card enclosed.
+            </p>
+          )}
+        </section>
+      )}
+
       {order.trackingNumber && (
         <section className="border-t pt-6">
           <h2 className="label-eyebrow mb-5">Tracking</h2>

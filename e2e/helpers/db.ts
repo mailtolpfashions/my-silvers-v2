@@ -89,10 +89,12 @@ export async function getLatestOrderForUser(userId: string): Promise<{
   totalAmount: string;
   paymentMethod: string;
   paymentStatus: string;
+  isGift: boolean;
+  giftMessage: string | null;
 } | null> {
   const { rows } = await getPool().query(
     `SELECT "orderNumber", "subtotal", "shippingCharge", "totalAmount",
-            "paymentMethod"::text, "paymentStatus"::text
+            "paymentMethod"::text, "paymentStatus"::text, "isGift", "giftMessage"
        FROM "Order"
       WHERE "userId" = $1
       ORDER BY "createdAt" DESC
