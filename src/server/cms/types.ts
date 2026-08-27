@@ -59,8 +59,19 @@ export type FieldDefinition = {
    *
    * Purely presentational: values already saved are left untouched when a field
    * hides, so flipping a section's type and back does not lose anything.
+   *
+   * `equals` names the types a field APPLIES to; `notEquals` names the ones it
+   * does not. Both test one sibling field, and exactly one of the two is given.
+   *
+   * The negative form exists for fields that nearly every type uses. Heading,
+   * eyebrow and subtitle are ignored by two of the twelve section kinds, and
+   * writing that as a ten-item `equals` list would mean every new section type
+   * silently loses its heading until somebody remembered to add it here.
+   * Stating the exceptions keeps the default correct.
    */
-  showWhen?: { field: string; equals: string[] };
+  showWhen?:
+    | { field: string; equals: string[]; notEquals?: never }
+    | { field: string; notEquals: string[]; equals?: never };
 };
 
 export type EntryData = Record<string, unknown>;

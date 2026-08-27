@@ -116,12 +116,36 @@ export const systemContentTypes = [
             ],
             required: true,
           },
-          { name: "title", label: "Heading", type: "text" },
-          { name: "eyebrow", label: "Eyebrow", type: "text" },
+          /**
+           * Hidden for the two section kinds that throw them away.
+           *
+           * `categoryTiles` is a full-bleed band whose tiles carry the category
+           * names themselves, and `instagram` renders the feed and nothing
+           * else — neither reads title, eyebrow or subtitle. Offering the
+           * fields anyway is how an editor types a heading, saves, and then
+           * goes looking for it on a page that was never going to show it.
+           *
+           * Stated as exceptions rather than as a list of the ten kinds that DO
+           * use them, so a new section type gets a heading by default instead
+           * of silently losing one. See showWhen in server/cms/types.ts.
+           */
+          {
+            name: "title",
+            label: "Heading",
+            type: "text",
+            showWhen: { field: "type", notEquals: ["categoryTiles", "instagram"] },
+          },
+          {
+            name: "eyebrow",
+            label: "Eyebrow",
+            type: "text",
+            showWhen: { field: "type", notEquals: ["categoryTiles", "instagram"] },
+          },
           {
             name: "subtitle",
             label: "Subtitle — one line under the heading",
             type: "textarea",
+            showWhen: { field: "type", notEquals: ["categoryTiles", "instagram"] },
           },
           {
             name: "source",

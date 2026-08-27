@@ -148,15 +148,30 @@ function itemSummary(
   item: Record<string, unknown>,
   subFields: FieldDefinition[]
 ): { title: string; empty: boolean } {
+  /**
+   * Only fields the editor can actually SEE for this item.
+   *
+   * ⚠️  Without the filter a row is summarised by a field its own form does not
+   * offer. Homepage sections hide heading, eyebrow and subtitle for the two
+   * kinds that ignore them, so a `categoryTiles` row would be labelled from a
+   * heading nobody can edit — and a new one, having none, would read "Empty —
+   * nothing typed yet" while being perfectly complete.
+   */
+  const visible = subFields.filter((sub) => isFieldVisible(sub, item));
+
   const named = field.summaryField
-    ? subFields.find((sub) => sub.name === field.summaryField)
+    ? visible.find((sub) => sub.name === field.summaryField)
     : undefined;
-  const fallback = subFields.find(
+  const fallback = visible.find(
     (sub) => sub.type === "text" || sub.type === "textarea" || sub.type === "richtext"
   );
   const source = named ?? fallback;
 
-  const text = source ? toPlainText(item[source.name]) : "";
+  // No text field on this item at all — the badge beside the row already names
+  // what it is, so there is nothing missing and nothing to complain about.
+  if (!source) return { title: "", empty: false };
+
+  const text = toPlainText(item[source.name]);
   if (!text) return { title: "Empty — nothing typed yet", empty: true };
   // Long enough to identify the row, short enough to stay on one line.
   return { title: text.length > 90 ? `${text.slice(0, 90)}…` : text, empty: false };
@@ -543,5 +558,8 @@ export function isFieldVisible(
 ): boolean {
   if (!field.showWhen) return true;
   const actual = siblings[field.showWhen.field];
-  return typeof actual === "string" && field.showWhen.equals.includes(actual);
+  if (typeof actual !== "string") return false;
+  return field.showWhen.equals
+    ? field.showWhen.equals.includes(actual)
+    : !field.showWhen.notEquals.includes(actual);
 }
