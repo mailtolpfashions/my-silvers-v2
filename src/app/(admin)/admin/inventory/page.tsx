@@ -109,7 +109,7 @@ export default async function AdminInventoryPage({
       }
     : {};
 
-  const [low, out, sized] = await Promise.all([
+  const [low, out, sized, waiting] = await Promise.all([
     prisma.product.findMany({
       where: { isActive: true, stock: { gt: 0, lte: LOW_STOCK_AT }, ...matches },
       orderBy: STOCK_SORTS[lowSort](lowDir),
@@ -141,7 +141,29 @@ export default async function AdminInventoryPage({
       select: { id: true, size: true, product: { select: { id: true, name: true, slug: true, sku: true } } },
       take: 200,
     }),
+    /**
+     * How many people are waiting on each product and size.
+     *
+     * This is the number that turns the two lists above from "what is out"
+     * into "what to reorder first". A piece nobody asked about and a piece
+     * eleven people asked about look identical otherwise.
+     */
+    prisma.stockNotification.groupBy({
+      by: ["productId", "size"],
+      where: { notifiedAt: null },
+      _count: { _all: true },
+    }),
   ]);
+
+  /** productId, or productId + size for a sized piece. */
+  const waitingBy = new Map(
+    waiting.map((w) => [w.size ? `${w.productId}::${w.size}` : w.productId, w._count._all])
+  );
+  /** Every size of one product added together, for the whole-product rows. */
+  const waitingByProduct = new Map<string, number>();
+  for (const w of waiting) {
+    waitingByProduct.set(w.productId, (waitingByProduct.get(w.productId) ?? 0) + w._count._all);
+  }
 
   return (
     <div className="space-y-8">
@@ -162,6 +184,7 @@ export default async function AdminInventoryPage({
         currentSort={outSort}
         currentDir={outDir}
         params={params}
+        waitingByProduct={waitingByProduct}
       />
 
       <Section
@@ -173,6 +196,7 @@ export default async function AdminInventoryPage({
         currentSort={lowSort}
         currentDir={lowDir}
         params={params}
+        waitingByProduct={waitingByProduct}
       />
 
       <section className="space-y-3">
@@ -198,6 +222,11 @@ export default async function AdminInventoryPage({
                 >
                   {variant.product.name}{" "}
                   <span className="text-muted-foreground">size {variant.size}</span>
+                  {(waitingBy.get(`${variant.product.id}::${variant.size}`) ?? 0) > 0 && (
+                    <span className="ml-2 text-[var(--oxide)]">
+                      {waitingBy.get(`${variant.product.id}::${variant.size}`)} waiting
+                    </span>
+                  )}
                 </Link>
               ))}
             </CardContent>
@@ -218,6 +247,7 @@ function Section({
   currentSort,
   currentDir,
   params,
+  waitingByProduct,
 }: {
   title: string;
   empty: string;
@@ -237,6 +267,8 @@ function Section({
   currentSort: StockSortKey;
   currentDir: "asc" | "desc";
   params: InventorySearchParams;
+  /** Pending back-in-stock requests, summed across sizes, keyed by product id. */
+  waitingByProduct: Map<string, number>;
 }) {
   return (
     <section className="space-y-3">
@@ -291,6 +323,14 @@ function Section({
                         </span>
                         {product.name}
                       </Link>
+                      {/* The reorder signal, on the row it belongs to. A piece
+                          nobody asked about and a piece eleven people asked
+                          about are the same row without it. */}
+                      {(waitingByProduct.get(product.id) ?? 0) > 0 && (
+                        <p className="mt-1 pl-[3.25rem] text-xs text-[var(--oxide)]">
+                          {waitingByProduct.get(product.id)} waiting for this to come back
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{product.sku}</TableCell>
                     <TableCell>{formatINR(product.price.toString())}</TableCell>

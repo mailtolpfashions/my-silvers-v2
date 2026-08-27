@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { notifyBackInStock } from "@/server/products/stock-notifications";
 import { assertAllowedMediaUrls } from "@/server/media/url-allowlist";
 
 export function slugify(name: string): string {
@@ -129,9 +130,27 @@ export async function updateProduct(id: string, input: ProductInput) {
   validateMedia(input);
   const { columns, variants } = splitVariants(input);
 
+  /**
+   * What was sold out BEFORE this save, so the write below can be compared
+   * against it.
+   *
+   * ⚠️  Read outside the transaction and before it, because inside it the old
+   * values are already gone. This is the only place in the app where stock
+   * goes UP — decrementStock and restoreStock handle orders — so it is the only
+   * place a restock can be detected at all.
+   *
+   * A stale read here costs at worst a missed alert, never a wrong one: the
+   * send path re-checks nothing, but a piece that was in stock a moment ago and
+   * is in stock now produces no transition and no email.
+   */
+  const before = await prisma.product.findUnique({
+    where: { id },
+    select: { stock: true, variants: { select: { size: true, stock: true } } },
+  });
+
   // One transaction: the product total and its variant rows must never be
   // observable in disagreement.
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     // Sizes the admin removed are deleted outright. Any stock they held leaves
     // the total with them, which is the intended reading of "this size is no
     // longer offered".
@@ -159,6 +178,41 @@ export async function updateProduct(id: string, input: ProductInput) {
       },
     });
   });
+
+  /**
+   * Anything that crossed from sold out to available.
+   *
+   * Strictly a 0 → positive TRANSITION, never "is in stock now". Saving a
+   * product for an unrelated reason — a typo in the description — must not
+   * email everyone who was waiting on a size that has been available for weeks.
+   *
+   * A sized product is compared per size; an unsized one on its own total. The
+   * empty-string size matches how the waiting list stores it.
+   */
+  const restocked: Array<{ productId: string; size: string }> = [];
+  if (before) {
+    if (variants.length > 0) {
+      for (const variant of variants) {
+        const was = before.variants.find((v) => v.size === variant.size)?.stock ?? 0;
+        if (was <= 0 && variant.stock > 0) {
+          restocked.push({ productId: id, size: variant.size });
+        }
+      }
+    } else if (before.stock <= 0 && (columns.stock ?? 0) > 0) {
+      restocked.push({ productId: id, size: "" });
+    }
+  }
+
+  /**
+   * Fire-and-forget, and deliberately not awaited.
+   *
+   * The product is already saved. An admin pressing Save must not wait on a
+   * mail provider, and must not see an error from one — notifyBackInStock
+   * catches its own failures for the same reason.
+   */
+  if (restocked.length > 0) void notifyBackInStock(restocked);
+
+  return updated;
 }
 
 /** Soft delete — the product disappears from the storefront but order-item

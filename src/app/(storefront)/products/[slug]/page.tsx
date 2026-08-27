@@ -22,6 +22,7 @@ import { getSimilarProducts, getAlsoLikeProducts } from "@/server/products/recom
 import { RecordProductView, RecentlyViewed } from "@/components/storefront/recently-viewed";
 import { ProductGallery } from "@/components/storefront/product-gallery";
 import { ProductAssurances } from "@/components/storefront/product-assurances";
+import { NotifyWhenBackForSelection } from "@/components/storefront/notify-when-back";
 import {
   ProductInfoSections,
   ProductInfoSectionsSkeleton,
@@ -434,6 +435,11 @@ async function ProductDetailContent({ params }: { params: Promise<{ slug: string
                 <ProductCta productId={product.id} stock={product.stock} />
               </ViewTransition>
             </Suspense>
+
+            {/* Inside the provider, because for a sized piece the question is
+                whether the CHOSEN size is sold out — not the product. It
+                renders nothing at all when there is stock. */}
+            <NotifyWhenBackForSelection productId={product.id} />
           </SizeProvider>
 
           {/* Expandable rows. The per-product measurements come from the

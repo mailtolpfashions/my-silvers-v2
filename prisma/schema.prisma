@@ -246,6 +246,7 @@ model Product {
   cartItems    CartItem[]
   variants     ProductVariant[]
   wishlistedIn Wishlist[]       @relation("WishlistProducts")
+  stockAlerts  StockNotification[]
 
   // Full-text search column — a GENERATED ALWAYS ... STORED tsvector plus a GIN
   // index, created by raw SQL in the init migration because Prisma can't
@@ -305,6 +306,30 @@ model CartItem {
   /// Keyed by size as well as product, so ring size 7 and size 9 are two lines
   /// rather than one overwriting the other.
   @@unique([cartId, productId, size])
+}
+
+/// Who to email when a sold-out piece comes back.
+model StockNotification {
+  id        String   @id @default(cuid())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  /// Empty string, never null, for products with no sizes — same reasoning as
+  /// CartItem.size: Postgres treats NULLs as distinct in a unique index, so a
+  /// nullable column would let one person register unlimited times and then
+  /// receive that many emails.
+  size      String   @default("")
+  /// Lowercased on the way in. No user relation: the whole point is that
+  /// someone can ask to be told without having an account.
+  email     String
+  createdAt DateTime @default(now())
+  /// Set when the alert goes out. A row is never deleted after sending — it is
+  /// the record that we already told this person, and it is what stops a
+  /// second restock of the same piece emailing them about the first.
+  notifiedAt DateTime?
+
+  @@unique([productId, size, email])
+  // The pending-only index is partial and is created by hand in the migration;
+  // Prisma cannot express a WHERE clause on an index.
 }
 
 model Wishlist {

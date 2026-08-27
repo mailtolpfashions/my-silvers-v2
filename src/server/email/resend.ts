@@ -35,3 +35,36 @@ export async function sendPasswordResetEmail(to: string, rawToken: string) {
     `,
   });
 }
+
+/**
+ * "It's back" — the one email this shop sends that the recipient asked for by
+ * name, about one specific piece.
+ *
+ * Deliberately short and single-purpose. Someone who registered for a sold-out
+ * ring wants a link to that ring, not a newsletter — and the piece may not stay
+ * in stock for long, which is the whole reason they asked.
+ */
+export async function sendBackInStockEmail(params: {
+  to: string;
+  productName: string;
+  productSlug: string;
+  size?: string;
+}) {
+  const url = `${appBaseUrl}/products/${params.productSlug}`;
+  const sized = params.size ? ` (size ${params.size})` : "";
+
+  await resend.emails.send({
+    from,
+    to: params.to,
+    subject: `Back in stock: ${params.productName}`,
+    html: `
+      <p>The piece you asked about is back.</p>
+      <p><strong>${params.productName}</strong>${sized}</p>
+      <p><a href="${url}">View it</a></p>
+      <p style="color:#655c50;font-size:13px">
+        We're sending this once, because you asked to be told about this piece.
+        You are not subscribed to anything.
+      </p>
+    `,
+  });
+}
