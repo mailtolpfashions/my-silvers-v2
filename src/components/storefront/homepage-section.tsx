@@ -183,10 +183,19 @@ export function HomepageSection({
       />
     );
 
+    /**
+     * Pinned, it is a stage and owns a whole screen — the chain's arithmetic
+     * depends on that height exactly, so nothing may be added around it.
+     *
+     * In flow, it is a full-bleed picture that contributed NOTHING at the seam:
+     * its generous `py-28` is the text's inset from the image edge, not space
+     * between sections, so the gap to whatever followed was only that section's
+     * own padding — half of what two ordinary sections leave between them.
+     */
     return revealDepth !== undefined ? (
       <PinnedRevealStage depth={revealDepth}>{story}</PinnedRevealStage>
     ) : (
-      story
+      <div className="rhythm-editorial">{story}</div>
     );
   }
 
@@ -513,9 +522,26 @@ export function HomepageSection({
     }
 
     return (
-      <RevealSection className="tile-accordion flex flex-col sm:aspect-[2/1] sm:flex-row">
-        {tiles}
-      </RevealSection>
+      /**
+       * The band keeps its own edge-to-edge shape; the spacing goes on a
+       * WRAPPER around it.
+       *
+       * ⚠️  Not on the band itself. It is `aspect-[2/1]` under border-box, so
+       * padding there would come out of the tiles' height rather than sitting
+       * outside them — the band would shrink instead of moving apart from its
+       * neighbours.
+       *
+       * Padding rather than margin, because two full-bleed sections can end up
+       * adjacent (this band sits directly above the story section on the live
+       * homepage) and adjacent margins COLLAPSE — the gap between them would
+       * quietly be half of the gap everywhere else, which is the exact problem
+       * this is fixing.
+       */
+      <div className="rhythm-editorial">
+        <RevealSection className="tile-accordion flex flex-col sm:aspect-[2/1] sm:flex-row">
+          {tiles}
+        </RevealSection>
+      </div>
     );
   }
 
@@ -628,7 +654,13 @@ export function HomepageSection({
     return pinned ? (
       <PinnedRevealStage depth={revealDepth}>{linked}</PinnedRevealStage>
     ) : (
-      <RevealSection className="container-page py-4 sm:py-8">{linked}</RevealSection>
+      /**
+       * ⚠️  Was `py-4 sm:py-8` — 16/32px, matching no rhythm class and
+       * explained by nothing. A banner sitting between two ordinary sections
+       * therefore had roughly a third of their spacing above and below it, and
+       * it was the one value on this page that came from nowhere.
+       */
+      <RevealSection className="container-page rhythm-editorial">{linked}</RevealSection>
     );
   }
 

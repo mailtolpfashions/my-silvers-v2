@@ -1813,3 +1813,44 @@
     animation-delay: 0s !important;
   }
 }
+
+/* ── One rhythm for the homepage ──────────────────────────────────────────────
+   Every in-flow section on the homepage leaves the same space, so the gaps
+   between them are equal wherever a shopper looks.
+
+   ⚠️  It has to be 48 and not 80, and that is a constraint rather than a
+   preference. `.fit-viewport` sections are `height: calc(100svh - header)` —
+   they exist to occupy exactly one screen — so they CANNOT contribute more
+   without breaking the thing that defines them. Sections that are free to be
+   any height can come down to meet them; the fixed ones cannot go up.
+
+   Measured on the live homepage at 1440 before this rule: content gaps of 96,
+   128 and 160px depending on which two kinds happened to be adjacent — 48+48,
+   48+80 and 80+80. Now a flat 96 throughout.
+
+   Applied at every breakpoint rather than only at lg: the customer-reviews
+   block under the sections uses `rhythm-commerce` (40/56/80) where the sections
+   use `rhythm-editorial` (40/56/80 too, but 48 at lg) — which on a phone left
+   one 8px-wider seam at the foot of the page that nothing explained.
+
+   Scoped to `.page-over-hero`, so /products, /collections and every other page
+   keeps the full editorial rhythm. Placed at the end of the file because
+   `.fit-viewport`'s own padding-block sits late and unlayered; source order is
+   what decides between them, and both now say the same thing anyway.
+   ─────────────────────────────────────────────────────────────────────────── */
+.page-over-hero .rhythm-editorial,
+.page-over-hero .rhythm-commerce {
+  padding-block: 2.5rem;
+}
+@media (min-width: 640px) {
+  .page-over-hero .rhythm-editorial,
+  .page-over-hero .rhythm-commerce {
+    padding-block: 3.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .page-over-hero .rhythm-editorial,
+  .page-over-hero .rhythm-commerce {
+    padding-block: 3rem;
+  }
+}
