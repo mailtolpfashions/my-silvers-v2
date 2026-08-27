@@ -368,7 +368,23 @@ export const systemContentTypes = [
     fields: [
       { name: "text", label: "Text", type: "text", required: true },
       { name: "subtext", label: "Subtext", type: "text" },
-      { name: "cta", label: "CTA label", type: "text" },
+      /**
+       * ⚠️  "CTA label" was here and nothing has ever rendered it.
+       *
+       * announcements.ts reads text, subtext, tone and the two dates, and
+       * builds `{ id, text, tone }` — there is no link in the announcement bar
+       * for a label to sit on, and no `ctaHref` field was ever defined to give
+       * it one. So an editor could write "Shop the sale", publish it, and see
+       * nothing appear.
+       *
+       * Removed rather than wired up: a call to action in the top bar is a
+       * design decision, not a missing line of code. If one is wanted later it
+       * needs a href field beside it and a place in the rotation to live.
+       *
+       * Removing a definition never deletes stored values — any `cta` already
+       * saved stays in its entry's JSON and would reappear if this were put
+       * back. See the note at the top of prisma/sync-content-types.ts.
+       */
       { name: "tone", label: "Tone", type: "select", options: ["neutral", "sale", "info", "alert"] },
       { name: "isActive", label: "Active", type: "boolean" },
       { name: "startsAt", label: "Starts at", type: "date" },
