@@ -30,6 +30,8 @@ const settingsSchema = z.object({
   guestCheckoutEnabled: z.boolean(),
   shippingCharge: rupees,
   freeShippingThreshold: rupees,
+  giftWrapEnabled: z.boolean(),
+  giftWrapCharge: rupees,
 });
 
 export type SettingsActionResult = { ok: true } | { ok: false; error: string };
@@ -58,6 +60,8 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
     guestCheckoutEnabled: data.guestCheckoutEnabled,
     shippingChargePaise: Math.round(data.shippingCharge * 100),
     freeShippingThresholdPaise: Math.round(data.freeShippingThreshold * 100),
+    giftWrapEnabled: data.giftWrapEnabled,
+    giftWrapChargePaise: Math.round(data.giftWrapCharge * 100),
   };
 
   try {

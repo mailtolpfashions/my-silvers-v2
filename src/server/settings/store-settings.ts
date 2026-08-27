@@ -41,6 +41,25 @@ export type StoreSettings = {
 
   /** Order subtotal, in paise, at or above which shipping is free. */
   freeShippingThresholdPaise: number;
+
+  /**
+   * What gift wrap costs, in paise. Zero offers it free.
+   *
+   * Priced rather than free because that is what this market does: GIVA, the
+   * closest comparison for 925 silver in India, charges ₹50 for it. A shopper
+   * who has seen that will not read a charge here as mean.
+   */
+  giftWrapChargePaise: number;
+
+  /**
+   * Whether gift wrap is offered at all.
+   *
+   * Separate from the price, because zero is a legitimate PRICE — free gift
+   * wrap — and must not be the only way to switch the option off. Without this
+   * flag a shop that wanted to stop offering it during a busy week would have
+   * to invent a prohibitive charge instead.
+   */
+  giftWrapEnabled: boolean;
 };
 
 /**
@@ -56,6 +75,10 @@ export const STORE_SETTING_DEFAULTS: StoreSettings = {
   guestCheckoutEnabled: true,
   shippingChargePaise: 49 * 100,
   freeShippingThresholdPaise: 999 * 100,
+  // ₹50, matching what GIVA charges for the same thing on the same kind of
+  // product. A number a shopper in this market has already seen.
+  giftWrapChargePaise: 50 * 100,
+  giftWrapEnabled: true,
 };
 
 /** Cache tag for every settings read. Invalidated by the admin save action. */
@@ -94,6 +117,8 @@ function parse(raw: unknown): StoreSettings {
       v.freeShippingThresholdPaise,
       d.freeShippingThresholdPaise
     ),
+    giftWrapChargePaise: paise(v.giftWrapChargePaise, d.giftWrapChargePaise),
+    giftWrapEnabled: bool(v.giftWrapEnabled, d.giftWrapEnabled),
   };
 }
 

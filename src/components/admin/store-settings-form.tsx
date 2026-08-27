@@ -14,6 +14,8 @@ export type StoreSettingsFormValues = {
   /** Rupees, not paise — see the note on the settings page. */
   shippingCharge: number;
   freeShippingThreshold: number;
+  giftWrapEnabled: boolean;
+  giftWrapCharge: number;
 };
 
 /**
@@ -63,14 +65,16 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
    */
   const [shippingCharge, setShippingCharge] = useState(String(initial.shippingCharge));
   const [freeThreshold, setFreeThreshold] = useState(String(initial.freeShippingThreshold));
+  const [giftWrapCharge, setGiftWrapCharge] = useState(String(initial.giftWrapCharge));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     const charge = Number(shippingCharge);
     const threshold = Number(freeThreshold);
-    if (!Number.isFinite(charge) || !Number.isFinite(threshold)) {
-      toast.error("Shipping amounts must be numbers.");
+    const wrap = Number(giftWrapCharge);
+    if (!Number.isFinite(charge) || !Number.isFinite(threshold) || !Number.isFinite(wrap)) {
+      toast.error("Amounts must be numbers.");
       return;
     }
 
@@ -80,6 +84,8 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
       guestCheckoutEnabled: form.guestCheckoutEnabled,
       shippingCharge: charge,
       freeShippingThreshold: threshold,
+      giftWrapEnabled: form.giftWrapEnabled,
+      giftWrapCharge: wrap,
     });
     setSaving(false);
 
@@ -145,6 +151,43 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
             </p>
           </div>
         </div>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="label-eyebrow mb-1">Gifting</h2>
+        <p className="mb-5 text-sm text-muted-foreground">
+          Applied to new orders. Orders already placed keep the charge they were
+          quoted.
+        </p>
+
+        <ToggleRow
+          id="giftWrapEnabled"
+          label="Gift wrap"
+          description="Offer gift wrapping and a printed message card at checkout. The message is always free; only the wrap is charged."
+          checked={form.giftWrapEnabled}
+          onChange={(giftWrapEnabled) => setForm((f) => ({ ...f, giftWrapEnabled }))}
+          disabled={saving}
+        />
+
+        {/* Hidden when the option is off — a price for something not on sale is
+            a question with no answer, and leaving it visible invites setting it
+            to something prohibitive as a way of switching the feature off. That
+            is what the toggle above is for. */}
+        {form.giftWrapEnabled && (
+          <div className="mt-5 max-w-[16rem] space-y-1.5">
+            <Label htmlFor="giftWrapCharge">Gift wrap charge (₹)</Label>
+            <Input
+              id="giftWrapCharge"
+              inputMode="decimal"
+              value={giftWrapCharge}
+              onChange={(e) => setGiftWrapCharge(e.target.value)}
+              disabled={saving}
+            />
+            <p className="text-xs text-muted-foreground">
+              Set to 0 to wrap for free. GIVA charges ₹50 for the same thing.
+            </p>
+          </div>
+        )}
       </section>
 
       <Button type="submit" disabled={saving} className="mt-8">

@@ -39,6 +39,7 @@ test.describe.configure({ mode: "serial" });
 // assertions, and the threshold is unreachable so shipping always applies.
 const SHIPPING = "77";
 const THRESHOLD = "99999";
+const GIFT_WRAP = "63";
 
 /** Deliberately multi-line: the packer copies these out as written. */
 const GIFT_MESSAGE = `Happy birthday, Amma.
@@ -199,6 +200,8 @@ test.describe("cash on delivery, end to end", () => {
       await setToggle(adminPage, "codEnabled", true);
       await adminPage.locator("#shippingCharge").fill(SHIPPING);
       await adminPage.locator("#freeShippingThreshold").fill(THRESHOLD);
+      await setToggle(adminPage, "giftWrapEnabled", true);
+      await adminPage.locator("#giftWrapCharge").fill(GIFT_WRAP);
       await saveSettings(adminPage);
     });
 
@@ -355,6 +358,7 @@ test.describe("cash on delivery, end to end", () => {
         0
       );
       const shipping = Number(SHIPPING);
+      const giftWrap = Number(GIFT_WRAP);
 
       expect(
         Number(order!.subtotal),
@@ -364,10 +368,17 @@ test.describe("cash on delivery, end to end", () => {
         Number(order!.shippingCharge),
         "the admin's shipping rate was not the one charged"
       ).toBeCloseTo(shipping, 2);
+      // The browser posts only WHETHER wrapping was wanted. What it costs is
+      // decided server-side from the setting above, so this proves the
+      // admin's price was the one charged and not anything the page sent.
+      expect(
+        Number(order!.giftWrapCharge),
+        "the admin's gift wrap price was not the one charged"
+      ).toBeCloseTo(giftWrap, 2);
       expect(
         Number(order!.totalAmount),
-        "total is not subtotal + shipping as the server computes it"
-      ).toBeCloseTo(expectedSubtotal + shipping, 2);
+        "total is not subtotal + shipping + gift wrap as the server computes it"
+      ).toBeCloseTo(expectedSubtotal + shipping + giftWrap, 2);
 
       expect(order!.paymentMethod).toBe("cod");
       // COD stays 'pending' by design — money has not moved, and the refund

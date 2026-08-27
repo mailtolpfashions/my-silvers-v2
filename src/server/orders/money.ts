@@ -32,6 +32,34 @@ export type ShippingRates = {
 };
 
 /**
+ * What the shopper is offered on top of the pieces themselves.
+ *
+ * Travels the same way as ShippingRates and for the same reason — the checkout
+ * form shows a total before the server sees the order, and it cannot import the
+ * settings reader without dragging Prisma into the client bundle.
+ *
+ * ⚠️  Also like ShippingRates: the figure shown is not the binding one.
+ * create-order.ts recomputes it from the settings at the moment of sale and
+ * snapshots the result onto the order.
+ */
+export type GiftOptions = {
+  giftWrapEnabled: boolean;
+  giftWrapChargePaise: number;
+};
+
+/**
+ * What gift wrap costs on this order.
+ *
+ * Zero unless it was asked for AND is currently on offer. The second half
+ * matters: a checkout page loaded while wrapping was available can be submitted
+ * after it was switched off, and the shopper must not be charged for something
+ * the shop has stopped doing.
+ */
+export function giftWrapChargePaise(wanted: boolean, options: GiftOptions): number {
+  return wanted && options.giftWrapEnabled ? options.giftWrapChargePaise : 0;
+}
+
+/**
  * Per-item cap in a single order. Low for jewellery: pieces are often unique
  * or near-unique, a genuine customer rarely wants more than a matching pair,
  * and a large quantity of one design is more often a reseller or card testing.

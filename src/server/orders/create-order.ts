@@ -8,6 +8,7 @@ import {
   toPaise,
   paiseToRupeeString,
   shippingChargePaise,
+  giftWrapChargePaise,
   MAX_ITEM_QUANTITY,
 } from "@/server/orders/money";
 import { createRazorpayOrder } from "@/server/payments/razorpay";
@@ -237,7 +238,15 @@ export async function createOrder(input: {
   const subtotalPaise = items.reduce((sum, i) => sum + i.pricePaise * i.quantity, 0);
   // Charged from the settings read above, not from whatever the client showed.
   const shippingPaise = shippingChargePaise(subtotalPaise, settings);
-  const totalPaise = subtotalPaise + shippingPaise;
+  /**
+   * Recomputed here from the settings, never taken from the request.
+   *
+   * The browser posts only WHETHER wrapping was asked for; what it costs is
+   * decided at this moment, by the shop. Same rule as the shipping charge and
+   * the line prices — see the note at the top of this function.
+   */
+  const giftWrapPaise = giftWrapChargePaise(input.isGift === true, settings);
+  const totalPaise = subtotalPaise + shippingPaise + giftWrapPaise;
 
   // ── Razorpay order first (external call — never inside the DB transaction).
   // If the DB write below fails, the gateway order is simply never paid. ──
@@ -279,6 +288,7 @@ export async function createOrder(input: {
           razorpayOrderId,
           subtotal: paiseToRupeeString(subtotalPaise),
           shippingCharge: paiseToRupeeString(shippingPaise),
+          giftWrapCharge: paiseToRupeeString(giftWrapPaise),
           totalAmount: paiseToRupeeString(totalPaise),
           notes: input.notes || null,
           isGift: input.isGift === true,

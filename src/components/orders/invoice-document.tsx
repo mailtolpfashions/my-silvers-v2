@@ -132,6 +132,22 @@ export function InvoiceDocument({ invoice }: { invoice: Invoice }) {
               <td className="py-2.5 text-right">{formatINRPaise(invoice.shippingGrossPaise)}</td>
             </tr>
           )}
+          {/* Its own line, not folded into shipping. A customer checking the
+              invoice against what was taken from their card has to be able to
+              find every rupee of it, and a charge that appears only inside a
+              larger number is a charge they cannot account for. */}
+          {invoice.giftWrapGrossPaise > 0 && (
+            <tr className="border-b border-black/10">
+              <td className="py-2.5 pr-3" colSpan={4}>
+                Gift wrap
+              </td>
+              <td className="py-2.5 text-right">
+                {formatINRPaise(invoice.giftWrapTaxablePaise)}
+              </td>
+              <td className="py-2.5 text-right">{formatINRPaise(invoice.giftWrapTaxPaise)}</td>
+              <td className="py-2.5 text-right">{formatINRPaise(invoice.giftWrapGrossPaise)}</td>
+            </tr>
+          )}
         </tbody>
       </table>
 

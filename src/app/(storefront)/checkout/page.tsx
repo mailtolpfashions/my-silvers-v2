@@ -96,6 +96,10 @@ async function CheckoutBody() {
       initialLines={initialLines}
       savedAddresses={savedAddresses}
       rates={rates}
+      gifting={{
+        giftWrapEnabled: settings.giftWrapEnabled,
+        giftWrapChargePaise: settings.giftWrapChargePaise,
+      }}
       codEnabled={settings.codEnabled}
       geocodingEnabled={isGeocodingConfigured()}
     />

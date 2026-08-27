@@ -396,6 +396,10 @@ model Order {
   razorpayPaymentId    String?       @unique
   subtotal             Decimal       @db.Decimal(10, 2)
   shippingCharge       Decimal       @db.Decimal(10, 2)
+  /// What gift wrap cost on THIS order. A snapshot, like shippingCharge — the
+  /// price is an admin setting, and changing it must not rewrite what past
+  /// invoices say was charged. Zero on every order that was not gift wrapped.
+  giftWrapCharge       Decimal       @default(0) @db.Decimal(10, 2)
   totalAmount          Decimal       @db.Decimal(10, 2)
   /// Instructions for the SHOP — "leave with the neighbour", "call before
   /// delivery". Not the gift message; see below.

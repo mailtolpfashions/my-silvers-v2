@@ -21,7 +21,12 @@ import {
 } from "@/components/storefront/checkout/payment-processing-overlay";
 import { readGuestCart, clearGuestCart } from "@/lib/guest-cart";
 import { formatINRPaise } from "@/lib/format";
-import { shippingChargePaise, type ShippingRates } from "@/server/orders/money";
+import {
+  shippingChargePaise,
+  giftWrapChargePaise,
+  type ShippingRates,
+  type GiftOptions,
+} from "@/server/orders/money";
 import {
   INDIAN_STATES,
   MAX_ADDRESSES,
@@ -52,9 +57,8 @@ const NEW_ADDRESS = "new";
 /**
  * How long a gift message may be.
  *
- * Set by the card, not by the database column: this is copied out by hand onto
- * something that fits in a jewellery box. Two hundred characters is roughly
- * four handwritten lines. The same number is enforced in order-actions.ts, and
+ * Set by the card, not by the database column: it is printed on something that
+ * fits in a jewellery box. Two hundred characters is roughly four lines. The same number is enforced in order-actions.ts, and
  * that copy is the one that matters — `maxLength` on the textarea is a courtesy
  * to whoever is typing, not a control.
  */
@@ -86,6 +90,7 @@ export function CheckoutForm({
   initialLines,
   savedAddresses = [],
   rates,
+  gifting,
   codEnabled,
   geocodingEnabled,
 }: {
@@ -98,6 +103,8 @@ export function CheckoutForm({
   savedAddresses?: SavedAddress[];
   /** Admin-editable shipping rates — see ShippingRates in server/orders/money.ts. */
   rates: ShippingRates;
+  /** Admin-editable gifting settings — see GiftOptions in server/orders/money.ts. */
+  gifting: GiftOptions;
   /**
    * Whether to offer cash on delivery.
    *
@@ -341,7 +348,12 @@ export function CheckoutForm({
 
   const subtotalPaise = lines.reduce((s, l) => s + l.pricePaise * l.quantity, 0);
   const shippingPaise = shippingChargePaise(subtotalPaise, rates);
-  const totalPaise = subtotalPaise + shippingPaise;
+  /**
+   * Shown, not charged. create-order.ts recomputes this from the settings at
+   * the moment of sale and snapshots the result — see giftWrapChargePaise.
+   */
+  const giftWrapPaise = giftWrapChargePaise(form.isGift, gifting);
+  const totalPaise = subtotalPaise + shippingPaise + giftWrapPaise;
 
   function successUrl(orderId: string, token: string | null) {
     return isAuthed
@@ -870,11 +882,16 @@ export function CheckoutForm({
               ⚠️  The notes placeholder used to read "a delivery instruction, a
               gift message", which asked one free-text box to carry two things
               read by different people at different moments: notes are for the
-              SHOP at picking time, a gift message is copy to be handwritten on
-              a card. Merged, a packer has to guess which half of a sentence
-              goes on the card — and most shoppers never realise they could ask
-              for one at all. Silver is bought as a gift constantly in this
-              market; it should be a question, not a hint. */}
+              SHOP at picking time, a gift message is copy for the card. Merged,
+              a packer has to guess which half of a sentence goes on the card —
+              and most shoppers never realise they could ask for one at all.
+              Silver is bought as a gift constantly in this market; it should be
+              a question, not a hint.
+
+              Hidden entirely when the shop has gifting switched off, rather
+              than shown greyed out — an option that cannot be taken is not
+              information, it is an apology. */}
+          {gifting.giftWrapEnabled && (
           <div className="space-y-3">
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -883,7 +900,18 @@ export function CheckoutForm({
                 onChange={(e) => setForm((f) => ({ ...f, isGift: e.target.checked }))}
                 className="size-4 rounded border-input"
               />
-              This is a gift
+              {/* The price is on the label, not buried in help text under it.
+                  A charge discovered later in the summary is the kind of
+                  surprise that loses the order rather than the wrap. */}
+              <span>
+                This is a gift — wrapped, with a printed card
+                {gifting.giftWrapChargePaise > 0 && (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    ({formatINRPaise(gifting.giftWrapChargePaise)})
+                  </span>
+                )}
+              </span>
             </label>
 
             {form.isGift && (
@@ -892,11 +920,11 @@ export function CheckoutForm({
                 <Textarea
                   id="giftMessage"
                   value={form.giftMessage}
-                  // Hard cap as well as the counter: this is copied onto a small
-                  // printed card by hand, and the server rejects anything longer
-                  // regardless — see the schema in order-actions.ts.
+                  // Hard cap as well as the counter: it is printed on a small
+                  // card, and the server rejects anything longer regardless —
+                  // see the schema in order-actions.ts.
                   maxLength={GIFT_MESSAGE_MAX}
-                  placeholder="Written by hand on a card and tucked into the box"
+                  placeholder="Printed on the card and tucked into the box"
                   onChange={(e) => setForm((f) => ({ ...f, giftMessage: e.target.value }))}
                 />
                 {/* ⚠️  Do not put a promise about prices here.
@@ -909,11 +937,12 @@ export function CheckoutForm({
                       0/200 before anything is typed is furniture. */}
                   {form.giftMessage.length > 0
                     ? `${form.giftMessage.length} of ${GIFT_MESSAGE_MAX} characters`
-                    : "We'll write this by hand on a card and tuck it into the box."}
+                    : "Printed on the card exactly as you type it."}
                 </p>
               </div>
             )}
           </div>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="notes">Order notes (optional)</Label>
@@ -1014,6 +1043,14 @@ export function CheckoutForm({
               <span className="text-muted-foreground">Shipping</span>
               <span className="figures">{shippingPaise === 0 ? "Free" : formatINRPaise(shippingPaise)}</span>
             </div>
+            {/* Only once it is being charged — a ₹0 gift wrap row on every
+                order is a line item about nothing. */}
+            {giftWrapPaise > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Gift wrap</span>
+                <span className="figures">{formatINRPaise(giftWrapPaise)}</span>
+              </div>
+            )}
             {/* Steps up while the line items stay at 14px — same reasoning as
                 the cart's summary block, which this mirrors. */}
             <div className="flex items-baseline justify-between border-t pt-3 text-base font-semibold">

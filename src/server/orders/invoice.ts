@@ -116,6 +116,10 @@ export type Invoice = {
   shippingGrossPaise: number;
   shippingTaxablePaise: number;
   shippingTaxPaise: number;
+  /** Zero on every order that was not gift wrapped, so the row simply hides. */
+  giftWrapGrossPaise: number;
+  giftWrapTaxablePaise: number;
+  giftWrapTaxPaise: number;
   taxablePaise: number;
   cgstPaise: number;
   sgstPaise: number;
@@ -217,7 +221,22 @@ export async function buildInvoice(order: OrderWithItems): Promise<Invoice> {
   const shippingGrossPaise = toPaise(order.shippingCharge);
   const shipping = splitInclusive(shippingGrossPaise, rate);
 
-  const totalTaxPaise = itemsTaxPaise + shipping.taxPaise;
+  /**
+   * Gift wrap is taxed the same way and for the same reason.
+   *
+   * ⚠️  It has to be HERE, not just on the order. The invoice total is read
+   * from order.totalAmount, which already includes the wrap — so leaving the
+   * charge out of the taxable base produces a document whose parts do not add
+   * up to its own total, on a GST invoice, which is the one place that cannot
+   * be allowed to disagree with itself.
+   *
+   * Composite supply, like shipping: packaging bundled with the jewellery
+   * follows the principal rate rather than attracting its own.
+   */
+  const giftWrapGrossPaise = toPaise(order.giftWrapCharge);
+  const giftWrap = splitInclusive(giftWrapGrossPaise, rate);
+
+  const totalTaxPaise = itemsTaxPaise + shipping.taxPaise + giftWrap.taxPaise;
 
   /**
    * Place of supply decides the split. Same state as the seller and the tax is
@@ -257,7 +276,10 @@ export async function buildInvoice(order: OrderWithItems): Promise<Invoice> {
     shippingGrossPaise,
     shippingTaxablePaise: shipping.taxablePaise,
     shippingTaxPaise: shipping.taxPaise,
-    taxablePaise: itemsTaxablePaise + shipping.taxablePaise,
+    giftWrapGrossPaise,
+    giftWrapTaxablePaise: giftWrap.taxablePaise,
+    giftWrapTaxPaise: giftWrap.taxPaise,
+    taxablePaise: itemsTaxablePaise + shipping.taxablePaise + giftWrap.taxablePaise,
     cgstPaise,
     sgstPaise,
     igstPaise,

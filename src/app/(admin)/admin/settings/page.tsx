@@ -42,6 +42,8 @@ export default async function AdminSettingsPage() {
           // works in rupees throughout and the action converts back.
           shippingCharge: settings.shippingChargePaise / 100,
           freeShippingThreshold: settings.freeShippingThresholdPaise / 100,
+          giftWrapEnabled: settings.giftWrapEnabled,
+          giftWrapCharge: settings.giftWrapChargePaise / 100,
         }}
       />
     </>
