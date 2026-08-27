@@ -2,7 +2,10 @@ import { Fragment } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import Link from "next/link";
 import { NewsletterForm } from "@/components/storefront/newsletter-form";
-import { getStoreSettings, STORE_SETTINGS_TAG } from "@/server/settings/store-settings";
+import {
+  getStoreSettings,
+  STORE_SETTINGS_TAG,
+} from "@/server/settings/store-settings";
 
 /**
  * Reading the clock is non-deterministic, so it can't happen freely inside a
@@ -65,7 +68,10 @@ async function PaymentMethods() {
  * expression — Next inlines these at build time and cannot resolve a dynamic
  * lookup. Any left blank simply doesn't render.
  */
-const whatsappNumber = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/[^\d]/g, "");
+const whatsappNumber = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(
+  /[^\d]/g,
+  "",
+);
 
 const SOCIAL = {
   instagram: process.env.NEXT_PUBLIC_INSTAGRAM_URL ?? "",
@@ -104,7 +110,35 @@ export function SiteFooter() {
     // The inset padding matters now that the root layout opts into
     // viewport-fit: cover — the page runs under Android's gesture pill, and the
     // copyright line is the last thing on it.
-    <footer className="mt-20 bg-black pb-[env(safe-area-inset-bottom)] text-white sm:mt-28">
+    //
+    // ── The top margin is the site's section rhythm, not a bigger number ─────
+    // This was mt-20/sm:mt-28. Added to the trailing section's own padding that
+    // put 120px between the last thing on the homepage and the footer, where
+    // every other section boundary on that page is 80px — enough of an outlier
+    // that it read as the page having run out rather than as separation,
+    // especially on a phone where the black footer starts below the fold and
+    // there is nothing on screen to anchor the space.
+    //
+    // ⚠️  One margin cannot be exact everywhere, and it is worth knowing why
+    // before "correcting" it again. The trailing section's padding is itself
+    // context-dependent — .rhythm-commerce is 48/64/80px normally but 40/56/48
+    // inside .page-over-hero (the homepage), see globals.css — so the gap this
+    // lands in is the sum of two different things depending on the route. These
+    // values are chosen to sit close on both: exact on an ordinary page below
+    // 1024px, and within about 8px on the homepage. The footer is never on
+    // screen at the same time as a section boundary, so close is enough; what
+    // is not enough is being half as far again as everything else.
+    //
+    // Measured, content-to-footer, against the section rhythm each route runs:
+    //
+    //              homepage            ordinary page
+    //   mobile     76px  (target 80)   104px (target 96)
+    //   640–1023   100px (target 112)  128px (target 128)
+    //   1024+      92px  (target 96)   144px (target 160)
+    //
+    // A third step at lg would land the ordinary page exactly and throw the
+    // homepage 32px out, which is the wrong trade — so there are two.
+    <footer className="mt-14 bg-black pb-[env(safe-area-inset-bottom)] text-white sm:mt-16">
       {/* ── The brand statement ─────────────────────────────────────────────
           One line, set large and quiet across the top of the footer. It is the
           last thing a shopper reads on any page, and the footer previously
@@ -214,7 +248,12 @@ function SocialLink({
       aria-label={label}
       className="text-white/70 transition-colors hover:text-white"
     >
-      <svg className="size-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <svg
+        className="size-5"
+        fill="currentColor"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
         {children}
       </svg>
     </Link>
