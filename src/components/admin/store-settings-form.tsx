@@ -184,7 +184,12 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
               disabled={saving}
             />
             <p className="text-xs text-muted-foreground">
-              Set to 0 to wrap for free. GIVA charges ₹50 for the same thing.
+              {/* ⚠️  No competitor names in shipped copy. This read "GIVA
+                  charges ₹50 for the same thing" — which puts another shop's
+                  name in this one's admin panel, and goes stale the moment they
+                  reprice. The reasoning behind the ₹50 default belongs in the
+                  code comment on STORE_SETTING_DEFAULTS, not on screen. */}
+              Set to 0 to wrap for free.
             </p>
           </div>
         )}
