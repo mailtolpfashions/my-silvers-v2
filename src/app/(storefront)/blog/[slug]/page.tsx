@@ -71,6 +71,7 @@ async function BlogPostBody({ params }: { params: Params }) {
         image={d.coverImage}
         author={d.author}
         publishedAt={(d.publishedAt ? new Date(d.publishedAt) : post.publishedAt)?.toISOString()}
+        modifiedAt={post.updatedAt?.toISOString()}
       />
 
       <article className="container-prose rhythm-commerce">

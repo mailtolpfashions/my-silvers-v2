@@ -304,6 +304,10 @@ export async function getPublishedEntry(typeName: string, slug?: string) {
     slug: entry.slug,
     data: entry.publishedData as EntryData,
     publishedAt: entry.publishedAt,
+    // When the entry was last touched, as distinct from when it first went
+    // live. Answer engines weigh freshness, so a post that has been corrected
+    // or expanded should say so — see ArticleJsonLd's dateModified.
+    updatedAt: entry.updatedAt,
     seo: {
       metaTitle: entry.seoMetaTitle,
       metaDescription: entry.seoMetaDescription,
@@ -331,5 +335,6 @@ export async function listPublishedEntries(typeName: string, take = 50) {
       slug: e.slug,
       data: e.publishedData as EntryData,
       publishedAt: e.publishedAt,
+      updatedAt: e.updatedAt,
     }));
 }

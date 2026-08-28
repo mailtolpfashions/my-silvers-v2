@@ -20,7 +20,13 @@ export async function generateMetadata({
   const category = await prisma.category.findFirst({ where: { slug, isActive: true } });
   // noindex for unknown slugs — see the note in collections/[slug]/page.tsx.
   if (!category) return { title: "Not found", robots: { index: false, follow: false } };
-  return { title: category.name, description: category.description ?? undefined };
+  return {
+    title: category.name,
+    description: category.description ?? undefined,
+    // The sort and price filters produce query-string variants of this page;
+    // all of them are the same listing.
+    alternates: { canonical: `/category/${category.slug}` },
+  };
 }
 
 type CategorySearchParams = Promise<{

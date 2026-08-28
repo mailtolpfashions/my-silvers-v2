@@ -30,6 +30,9 @@ export const metadata: Metadata = {
   title: "All jewellery",
   description:
     "Every piece in the MY Silvers catalogue — hallmarked 925 sterling silver rings, earrings, necklaces, bracelets and anklets, made to be worn every day.",
+  // This route is also search and the faceted listing, so every filtered and
+  // sorted variant of it points back here as the one page worth indexing.
+  alternates: { canonical: "/products" },
 };
 
 type SearchParams = Promise<{

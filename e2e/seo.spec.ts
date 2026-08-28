@@ -114,6 +114,34 @@ test.describe("structured data", () => {
     const offer = Array.isArray(productLd.offers) ? productLd.offers[0] : productLd.offers;
     expect(offer.price, "offer has no price").toBeTruthy();
     expect(offer.priceCurrency, "offer has no currency").toBe("INR");
+
+    // Shipping is what promotes a plain Product result to a merchant listing —
+    // the format that carries delivery and returns into the search result.
+    expect(offer.shippingDetails, "offer has no shippingDetails").toBeTruthy();
+    expect(offer.shippingDetails.shippingDestination.addressCountry).toBe("IN");
+    expect(offer.shippingDetails.shippingRate.currency).toBe("INR");
+
+    /**
+     * The honesty check, and the reason this test is worth more than it looks.
+     *
+     * A return window and a delivery estimate are business claims Google prints
+     * verbatim in the search result. They are configured in admin, default to
+     * "unstated", and must be ABSENT rather than defaulted while unset — so
+     * whichever way this database is configured, the markup has to agree with
+     * it. A future edit that quietly defaults these fails here.
+     */
+    const returnPolicy = offer.hasMerchantReturnPolicy;
+    if (returnPolicy) {
+      expect(returnPolicy.merchantReturnDays, "a return policy with no window").toBeGreaterThan(0);
+      expect(returnPolicy.applicableCountry).toBe("IN");
+    }
+    const deliveryTime = offer.shippingDetails.deliveryTime;
+    if (deliveryTime) {
+      expect(deliveryTime.handlingTime.maxValue).toBeGreaterThanOrEqual(
+        deliveryTime.handlingTime.minValue
+      );
+      expect(deliveryTime.transitTime.minValue, "a transit estimate of zero days").toBeGreaterThan(0);
+    }
   });
 });
 
@@ -139,5 +167,44 @@ test.describe("sitemap and robots", () => {
   test("robots.txt points at the sitemap", async ({ request }) => {
     const body = await (await request.get("/robots.txt")).text();
     expect(body.toLowerCase(), "robots.txt does not reference the sitemap").toContain("sitemap:");
+  });
+
+  test("robots.txt keeps the sitelinks search target crawlable", async ({ request }) => {
+    const body = await (await request.get("/robots.txt")).text();
+
+    // The WebSite SearchAction in structured-data.tsx advertises
+    // /products?q={search_term_string}. Google will not render a search box
+    // whose target it has been told not to crawl, and the faceted disallow
+    // covers that URL unless this allow is present to outrank it.
+    expect(body, "the SearchAction target is not allowed — the search box is dropped").toContain(
+      "Allow: /products?q=*"
+    );
+    expect(body, "faceted product URLs are no longer disallowed").toContain(
+      "Disallow: /products?*"
+    );
+  });
+
+  test("robots.txt names the AI crawlers explicitly", async ({ request }) => {
+    const body = await (await request.get("/robots.txt")).text();
+
+    // Allowed on purpose rather than by accident of the wildcard rule — see the
+    // note in app/robots.ts. Losing these lines silently removes the shop from
+    // AI-generated answers.
+    for (const bot of ["GPTBot", "OAI-SearchBot", "ClaudeBot", "PerplexityBot"]) {
+      expect(body, `robots.txt no longer names ${bot}`).toContain(bot);
+    }
+  });
+
+  test("llms.txt describes the shop and links to real categories", async ({ request }) => {
+    const response = await request.get("/llms.txt");
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("text/plain");
+
+    const body = await response.text();
+    expect(body, "llms.txt has no heading").toContain("# MY Silvers");
+    // Built from the database, so an empty section list means the query broke
+    // rather than that the shop has nothing to say.
+    expect(body, "llms.txt lists no categories").toContain("/category/");
+    expect(body, "llms.txt does not point at the FAQ").toContain("/faq");
   });
 });

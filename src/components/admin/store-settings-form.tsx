@@ -16,6 +16,13 @@ export type StoreSettingsFormValues = {
   freeShippingThreshold: number;
   giftWrapEnabled: boolean;
   giftWrapCharge: number;
+  /** Whole days. Zero throughout means "not stated" — see the section copy. */
+  returnWindowDays: number;
+  returnShippingPaidBy: "customer" | "merchant";
+  handlingTimeMinDays: number;
+  handlingTimeMaxDays: number;
+  transitTimeMinDays: number;
+  transitTimeMaxDays: number;
 };
 
 /**
@@ -53,6 +60,40 @@ function ToggleRow({
   );
 }
 
+/**
+ * A day-count input. Same raw-string state discipline as the money fields, and
+ * for the same reason — see the note in the component below.
+ */
+function DayField({
+  id,
+  label,
+  hint,
+  value,
+  onChange,
+  disabled,
+}: {
+  id: string;
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (next: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+      />
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
 export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValues }) {
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -67,6 +108,13 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
   const [freeThreshold, setFreeThreshold] = useState(String(initial.freeShippingThreshold));
   const [giftWrapCharge, setGiftWrapCharge] = useState(String(initial.giftWrapCharge));
 
+  /** Same reasoning as the money fields above: raw strings, parsed on submit. */
+  const [returnWindow, setReturnWindow] = useState(String(initial.returnWindowDays));
+  const [handlingMin, setHandlingMin] = useState(String(initial.handlingTimeMinDays));
+  const [handlingMax, setHandlingMax] = useState(String(initial.handlingTimeMaxDays));
+  const [transitMin, setTransitMin] = useState(String(initial.transitTimeMinDays));
+  const [transitMax, setTransitMax] = useState(String(initial.transitTimeMaxDays));
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -78,6 +126,21 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
       return;
     }
 
+    // An empty day field reads as "not stated", which is what 0 means here — so
+    // clearing one is a legitimate way to withdraw the claim, not an error.
+    const dayCount = (raw: string) => (raw.trim() === "" ? 0 : Number(raw));
+    const dayValues = {
+      returnWindowDays: dayCount(returnWindow),
+      handlingTimeMinDays: dayCount(handlingMin),
+      handlingTimeMaxDays: dayCount(handlingMax),
+      transitTimeMinDays: dayCount(transitMin),
+      transitTimeMaxDays: dayCount(transitMax),
+    };
+    if (!Object.values(dayValues).every((n) => Number.isInteger(n) && n >= 0)) {
+      toast.error("Day counts must be whole numbers.");
+      return;
+    }
+
     setSaving(true);
     const result = await saveStoreSettingsAction({
       codEnabled: form.codEnabled,
@@ -86,6 +149,8 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
       freeShippingThreshold: threshold,
       giftWrapEnabled: form.giftWrapEnabled,
       giftWrapCharge: wrap,
+      returnShippingPaidBy: form.returnShippingPaidBy,
+      ...dayValues,
     });
     setSaving(false);
 
@@ -193,6 +258,82 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
             </p>
           </div>
         )}
+      </section>
+
+      <section className="mt-10">
+        <h2 className="label-eyebrow mb-1">Returns &amp; delivery</h2>
+        <p className="mb-5 text-sm text-muted-foreground">
+          These are published to Google, and are what it shows next to the shop
+          in search results. Leave a field at 0 and nothing is published for it —
+          the shop simply makes no claim. Only fill these in once the policy is
+          decided, and keep them in step with the returns wording in the CMS.
+        </p>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <DayField
+            id="returnWindowDays"
+            label="Return window (days)"
+            hint="Days after delivery a piece can be sent back. 0 publishes no return policy at all."
+            value={returnWindow}
+            onChange={setReturnWindow}
+            disabled={saving}
+          />
+        </div>
+
+        {/* Only asked once a window exists — who pays to post back a return
+            nobody accepts is a question with no answer. Same reasoning as the
+            gift wrap charge above. */}
+        {Number(returnWindow) > 0 && (
+          <ToggleRow
+            id="returnShippingPaidBy"
+            label="Shop pays return postage"
+            description="On: returns are free for the shopper. Off: they pay to post the item back. This appears in search results, so it should match what the returns page says."
+            checked={form.returnShippingPaidBy === "merchant"}
+            onChange={(merchant) =>
+              setForm((f) => ({
+                ...f,
+                returnShippingPaidBy: merchant ? "merchant" : "customer",
+              }))
+            }
+            disabled={saving}
+          />
+        )}
+
+        <div className="mt-5 grid gap-5 sm:grid-cols-2">
+          <DayField
+            id="handlingTimeMinDays"
+            label="Dispatch within — from (days)"
+            value={handlingMin}
+            onChange={setHandlingMin}
+            disabled={saving}
+          />
+          <DayField
+            id="handlingTimeMaxDays"
+            label="Dispatch within — to (days)"
+            value={handlingMax}
+            onChange={setHandlingMax}
+            disabled={saving}
+          />
+          <DayField
+            id="transitTimeMinDays"
+            label="Delivery takes — from (days)"
+            value={transitMin}
+            onChange={setTransitMin}
+            disabled={saving}
+          />
+          <DayField
+            id="transitTimeMaxDays"
+            label="Delivery takes — to (days)"
+            value={transitMax}
+            onChange={setTransitMax}
+            disabled={saving}
+          />
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Dispatch is how long a piece sits with the shop; delivery is time in
+          transit after that. Any of the four left at 0 and no delivery estimate
+          is published.
+        </p>
       </section>
 
       <Button type="submit" disabled={saving} className="mt-8">

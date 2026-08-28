@@ -5,7 +5,10 @@ import { EditorialLink } from "@/components/storefront/editorial-link";
 import { BreadcrumbJsonLd } from "@/components/storefront/structured-data";
 import { RevealSection } from "@/components/storefront/reveal-section";
 
-export const metadata = { title: "Journal" };
+export const metadata = {
+  title: "Journal",
+  alternates: { canonical: "/blog" },
+};
 
 /**
  * The journal index.

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { getPublishedEntry } from "@/server/cms/entries";
 import { toHeroSlides } from "@/server/cms/hero-slides";
 import { resolveHomepageSections } from "@/server/products/homepage-sections";
@@ -22,6 +23,38 @@ import { ProductGridSkeleton } from "@/components/storefront/product-card-skelet
  * element, and putting it in a fallback would delay the one thing the page is
  * judged on. Everything below it streams.
  */
+/**
+ * The homepage had no metadata of its own, which left two things broken: it was
+ * the only page in the site with no canonical, and its title and description
+ * could only ever be the root layout's defaults — hardcoded strings, on the one
+ * page whose content is entirely CMS-driven.
+ *
+ * So this reads the same `homepage` entry the page body does and uses the SEO
+ * fields an editor already fills in for every other content type, falling back
+ * to the layout defaults when they are blank. No copy is written here; that is
+ * the rule for this route.
+ *
+ * `getPublishedEntry` is cached, so this shares the body's read rather than
+ * adding one.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const homepage = await getPublishedEntry("homepage");
+
+  return {
+    // undefined, not a fallback string — it lets the root layout's default
+    // title and description apply untouched.
+    title: homepage?.seo.metaTitle ?? undefined,
+    description: homepage?.seo.metaDescription ?? undefined,
+    // The site root. Spelled out because a shop is reached by enough tagged
+    // links — utm_source, an Instagram bio, a WhatsApp forward — that the
+    // parameterised variants need somewhere to point.
+    alternates: { canonical: "/" },
+    ...(homepage?.seo.ogImage
+      ? { openGraph: { images: [homepage.seo.ogImage] } }
+      : {}),
+  };
+}
+
 export default async function HomePage() {
   // One read: slides live on the homepage entry now, so the separate
   // heroSlide query is gone.
