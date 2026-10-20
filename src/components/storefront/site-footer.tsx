@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import Link from "next/link";
 import { NewsletterForm } from "@/components/storefront/newsletter-form";
+import { getActiveCategories } from "@/server/products/search";
 import {
   getStoreSettings,
   STORE_SETTINGS_TAG,
@@ -79,18 +80,25 @@ const SOCIAL = {
   youtube: process.env.NEXT_PUBLIC_YOUTUBE_URL ?? "",
 };
 
+/**
+ * Shown beside the copyright line. Razorpay will not activate live payments
+ * without reachable privacy and terms pages (plus contact, refund and shipping
+ * — those sit under Customer care above). Each is a CMS `page` entry: the
+ * slugs here must match the entries' slugs exactly, or the link 404s.
+ */
+const LEGAL_LINKS = [
+  { label: "Privacy policy", href: "/p/privacy" },
+  { label: "Terms & conditions", href: "/p/terms" },
+];
+
 const FOOTER_LINKS: Record<string, { label: string; href: string }[]> = {
+  // The categories follow these two — see CategoryLinks.
   Shop: [
     { label: "All jewellery", href: "/products" },
     { label: "Collections", href: "/collections" },
-    { label: "Rings", href: "/category/rings" },
-    { label: "Earrings", href: "/category/earrings" },
-    { label: "Necklaces", href: "/category/necklaces" },
-    { label: "Bracelets", href: "/category/bracelets" },
-    { label: "Anklets", href: "/category/anklets" },
-    { label: "Pendants", href: "/category/pendants" },
   ],
   "Customer care": [
+    { label: "Contact us", href: "/p/contact" },
     { label: "FAQ", href: "/faq" },
     { label: "Track your order", href: "/account/orders" },
     { label: "Shipping & delivery", href: "/p/shipping" },
@@ -172,6 +180,7 @@ export function SiteFooter() {
                     </Link>
                   </li>
                 ))}
+                {heading === "Shop" && <CategoryLinks />}
               </ul>
             </nav>
           ))}
@@ -218,14 +227,49 @@ export function SiteFooter() {
             stale silently. Cash on delivery is listed only when it is actually
             offered; see PaymentMethods below. */}
         <div className="mt-14 flex flex-col gap-6 border-t border-white/10 pt-8 text-xs text-white/60 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            © <CopyrightYear /> MY Silvers. All rights reserved.
-          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+            <p>
+              © <CopyrightYear /> MY Silvers. All rights reserved.
+            </p>
+            <nav aria-label="Legal" className="flex gap-5">
+              {LEGAL_LINKS.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="transition-colors hover:text-white"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
           <PaymentMethods />
         </div>
       </div>
     </footer>
   );
+}
+
+/**
+ * The Shop column's categories, read from the database rather than written
+ * here. This was a hardcoded list of six slugs, which linked to 404s on any
+ * database where a category had a different slug or did not exist yet — a
+ * fresh production database has none — and never showed a category added
+ * later. Same cached read as the header nav, invalidated by the category admin.
+ */
+async function CategoryLinks() {
+  const categories = await getActiveCategories();
+
+  return categories.map((category) => (
+    <li key={category.id}>
+      <Link
+        href={`/category/${category.slug}`}
+        className="text-sm text-white/70 transition-colors hover:text-white"
+      >
+        {category.name}
+      </Link>
+    </li>
+  ));
 }
 
 function SocialLink({

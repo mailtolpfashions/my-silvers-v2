@@ -87,6 +87,21 @@ an argument, which leaves it in your shell history.
 
 ## 2. Content before launch
 
+- [ ] Create these CMS **pages** (`/cms` → Pages). The footer links to each by
+      slug, so the slug must match exactly or the link is a 404. None of them
+      exist on a fresh database. Razorpay checks for the first five before it
+      activates live payments.
+
+      | Slug         | Page                  | Must include                                      |
+      | ------------ | --------------------- | ------------------------------------------------- |
+      | `contact`    | Contact us            | Legal business name, address, phone, email        |
+      | `privacy`    | Privacy policy        | What you collect, why, who it is shared with      |
+      | `terms`      | Terms & conditions    | Terms of sale, governing law                      |
+      | `returns`    | Returns & exchanges   | Refund / cancellation policy and timelines        |
+      | `shipping`   | Shipping & delivery   | Where you ship, how long, what it costs           |
+      | `about`      | Our story             |                                                   |
+      | `care-guide` | Silver care guide     |                                                   |
+
 - [ ] Rewrite every FAQ answer. The seeded ones are prefixed
       `"Sample answer —"` and will go live verbatim otherwise.
 - [ ] Publish real hero slides. **Keep the video under control** — an
