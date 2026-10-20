@@ -176,225 +176,250 @@ export function ProductForm({
     );
   }
 
+  /** Size rows are edited in place; one helper keeps the handlers short. */
+  const setSizeRow = (i: number, patch: Partial<{ size: string; stock: string }>) =>
+    setForm((f) => ({
+      ...f,
+      sizeStock: f.sizeStock.map((r, j) => (j === i ? { ...r, ...patch } : r)),
+    }));
+
   return (
     // The FORM is full width and the FIELDS are capped, rather than capping the
     // form itself. The save bar is a child of the form — it has to be, to
-    // submit it — so a capped form made the bar 816px inside a 1185px column:
-    // flush with the left edge because of its negative margin, and stopping
-    // dead a third of the way from the right. A bar that spans the working area
-    // is the shape this pattern has everywhere it appears.
+    // submit it — so a capped form made the bar stop short of the right edge.
+    // A bar that spans the working area is the shape this pattern has
+    // everywhere it appears.
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="max-w-3xl space-y-6">
-      {textField("name", "Name", { required: true })}
+      {/* ── Two columns from xl up ────────────────────────────────────────────
+          Left describes the piece (words, pictures, physical details); right is
+          everything about selling it (money, stock, where it sits, visibility).
+          The same split Shopify and WooCommerce use, so it reads as familiar,
+          and it uses the full width instead of a single 768px column with the
+          right half of the page empty. Details sits on the left so the two
+          columns end at roughly the same height. Below xl
+          the columns stack in that same order. `items-start` keeps a short
+          column from stretching its cards to match the long one. */}
+      <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
+        <div className="space-y-6">
+          <Section title="Product">
+            {textField("name", "Name", { required: true })}
 
-      <div className="space-y-1.5">
-        <Label htmlFor="shortDescription">Short description</Label>
-        <Input
-          id="shortDescription"
-          value={form.shortDescription}
-          onChange={(e) => set("shortDescription", e.target.value)}
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="description">Description</Label>
-        <Textarea
-          id="description"
-          rows={5}
-          value={form.description}
-          onChange={(e) => set("description", e.target.value)}
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label>Images (up to 6)</Label>
-        <ImagesUploader images={form.images} onChange={(images) => set("images", images)} />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label>Product video (optional)</Label>
-        <VideoUploader videoUrl={form.videoUrl} onChange={(url) => set("videoUrl", url)} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        {textField("price", "Price (₹)", { type: "number", min: 0, step: "0.01", required: true })}
-        {textField("compareAtPrice", "Compare-at price (₹)", { type: "number", min: 0, step: "0.01" })}
-        {/* What WE paid. Admin-only and never rendered on the storefront — it
-            is what every margin figure in /admin/finance is computed from, and
-            a product left blank is excluded from those figures rather than
-            counted as free. */}
-        {textField("costPrice", "Cost price (₹)", { type: "number", min: 0, step: "0.01" })}
-        {form.sizeStock.length > 0 ? (
-          <div className="space-y-1.5">
-            <Label>Stock</Label>
-            {/* Derived, not editable: the total is the sum of the size rows, and
-                two places to edit one number is how they drift apart. */}
-            <div className="flex h-9 items-center rounded-lg border border-input px-2.5 text-sm text-muted-foreground">
-              {form.sizeStock.reduce((sum, r) => sum + (Number(r.stock) || 0), 0)} across{" "}
-              {form.sizeStock.length} size{form.sizeStock.length === 1 ? "" : "s"}
+            <div className="space-y-1.5">
+              <Label htmlFor="shortDescription">Short description</Label>
+              <Input
+                id="shortDescription"
+                value={form.shortDescription}
+                onChange={(e) => set("shortDescription", e.target.value)}
+              />
             </div>
-          </div>
-        ) : (
-          textField("stock", "Stock", { type: "number", min: 0, step: 1, required: true })
-        )}
-      </div>
 
-      {/* Who we bought it from. Internal, like cost price — it feeds the
-          "Sales by vendor" report in /admin/finance and never reaches the
-          storefront. A native datalist rather than a combobox: it suggests the
-          names already on file without stopping a new one being typed, and
-          the server reuses an existing spelling case-insensitively. */}
-      <div className="max-w-sm space-y-1.5">
-        <Label htmlFor="vendor">Vendor (internal)</Label>
-        <Input
-          id="vendor"
-          list="vendor-suggestions"
-          autoComplete="off"
-          placeholder="Who you bought this from"
-          value={form.vendor}
-          onChange={(e) => set("vendor", e.target.value)}
-        />
-        <datalist id="vendor-suggestions">
-          {vendors.map((v) => (
-            <option key={v} value={v} />
-          ))}
-        </datalist>
-        <p className="text-xs text-muted-foreground">Not shown to customers.</p>
-      </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                rows={6}
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+              />
+            </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        {textField("sku", "SKU", { required: true })}
-        <div className="space-y-1.5">
-          <Label required>Category</Label>
-          <Select value={form.categoryId} onValueChange={(v) => set("categoryId", v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Choose category" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+            <div className="space-y-1.5">
+              {textField("tags", "Tags (comma-separated)")}
+              <p className="text-xs text-muted-foreground">
+                Collections, and the header&apos;s finish and occasion links, find pieces by tag.
+              </p>
+            </div>
+          </Section>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        {textField("weight", "Weight (grams)", { type: "number", min: 0, step: "0.001" })}
-        {textField("purity", "Purity")}
-        {textField("dimensions", "Dimensions")}
-      </div>
+          <Section title="Media">
+            <div className="space-y-1.5">
+              <Label>Images (up to 6)</Label>
+              <ImagesUploader images={form.images} onChange={(images) => set("images", images)} />
+            </div>
 
-      <div className="space-y-3 rounded-lg border p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <Label>Sizes and stock</Label>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Each size holds its own stock. Leave empty for a piece with no sizes —
-              earrings and pendants.
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              setForm((f) => ({ ...f, sizeStock: [...f.sizeStock, { size: "", stock: "0" }] }))
-            }
-          >
-            Add size
-          </Button>
+            <div className="space-y-1.5">
+              <Label>Product video (optional)</Label>
+              <VideoUploader videoUrl={form.videoUrl} onChange={(url) => set("videoUrl", url)} />
+            </div>
+          </Section>
+
+          <Section title="Details">
+            <div className="grid gap-4 sm:grid-cols-2">
+              {textField("weight", "Weight (grams)", { type: "number", min: 0, step: "0.001" })}
+              {textField("purity", "Purity")}
+              {textField("dimensions", "Dimensions")}
+              {textField("material", "Material")}
+            </div>
+          </Section>
+
         </div>
 
-        {form.sizeStock.length === 0 ? (
-          <p className="py-2 text-sm text-muted-foreground">No sizes — sold as one item.</p>
-        ) : (
-          <div className="space-y-2">
-            {form.sizeStock.map((row, i) => (
-              // Index as key: rows have no id, and the size is editable, so
-              // keying on it would remount the input on every keystroke and
-              // lose focus.
-              <div key={i} className="flex items-end gap-2">
-                <div className="w-40 space-y-1.5">
-                  {i === 0 && <Label className="text-xs">Size</Label>}
-                  <Input
-                    value={row.size}
-                    placeholder="7 / 18 in / M"
-                    onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        sizeStock: f.sizeStock.map((r, j) =>
-                          j === i ? { ...r, size: e.target.value } : r,
-                        ),
-                      }))
-                    }
-                  />
+        <div className="space-y-6">
+          <Section title="Pricing">
+            <div className="grid gap-4 sm:grid-cols-3">
+              {textField("price", "Price (₹)", { type: "number", min: 0, step: "0.01", required: true })}
+              {textField("compareAtPrice", "Compare-at price (₹)", { type: "number", min: 0, step: "0.01" })}
+              {/* What WE paid. Admin-only and never rendered on the storefront —
+                  it is what every margin figure in /admin/finance is computed
+                  from, and a product left blank is excluded from those figures
+                  rather than counted as free. */}
+              {textField("costPrice", "Cost price (₹)", { type: "number", min: 0, step: "0.01" })}
+            </div>
+          </Section>
+
+          <Section title="Inventory">
+            <div className="grid gap-4 sm:grid-cols-2">
+              {textField("sku", "SKU", { required: true })}
+              <div className="space-y-1.5">
+                <Label required>Category</Label>
+                <Select value={form.categoryId} onValueChange={(v) => set("categoryId", v)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Choose category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {form.sizeStock.length > 0 ? (
+                <div className="space-y-1.5">
+                  <Label>Stock</Label>
+                  {/* Derived, not editable: the total is the sum of the size
+                      rows, and two places to edit one number is how they drift
+                      apart. */}
+                  <div className="flex h-9 items-center rounded-lg border border-input px-2.5 text-sm text-muted-foreground">
+                    {form.sizeStock.reduce((sum, r) => sum + (Number(r.stock) || 0), 0)} across{" "}
+                    {form.sizeStock.length} size{form.sizeStock.length === 1 ? "" : "s"}
+                  </div>
                 </div>
-                <div className="w-24 space-y-1.5">
-                  {i === 0 && <Label className="text-xs">Stock</Label>}
-                  <Input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={row.stock}
-                    onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        sizeStock: f.sizeStock.map((r, j) =>
-                          j === i ? { ...r, stock: e.target.value } : r,
-                        ),
-                      }))
-                    }
-                  />
+              ) : (
+                textField("stock", "Stock", { type: "number", min: 0, step: 1, required: true })
+              )}
+
+              {/* Who we bought it from. Internal, like cost price — it feeds the
+                  "Sales by vendor" report in /admin/finance and never reaches
+                  the storefront. A native datalist rather than a combobox: it
+                  suggests the names already on file without stopping a new one
+                  being typed, and the server reuses an existing spelling
+                  case-insensitively. */}
+              <div className="space-y-1.5">
+                <Label htmlFor="vendor">Vendor (internal)</Label>
+                <Input
+                  id="vendor"
+                  list="vendor-suggestions"
+                  autoComplete="off"
+                  placeholder="Who you bought this from"
+                  value={form.vendor}
+                  onChange={(e) => set("vendor", e.target.value)}
+                />
+                <datalist id="vendor-suggestions">
+                  {vendors.map((v) => (
+                    <option key={v} value={v} />
+                  ))}
+                </datalist>
+                <p className="text-xs text-muted-foreground">Not shown to customers.</p>
+              </div>
+            </div>
+
+            {/* Sizes sit with stock because they ARE stock: each size holds its
+                own count, and adding one replaces the single Stock box above. */}
+            <div className="space-y-3 rounded-lg border p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <Label>Sizes and stock</Label>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Each size holds its own stock. Leave empty for a piece with no sizes —
+                    earrings and pendants.
+                  </p>
                 </div>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={() =>
-                    setForm((f) => ({
-                      ...f,
-                      sizeStock: f.sizeStock.filter((_, j) => j !== i),
-                    }))
+                    setForm((f) => ({ ...f, sizeStock: [...f.sizeStock, { size: "", stock: "0" }] }))
                   }
                 >
-                  Remove
+                  Add size
                 </Button>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        {textField("material", "Material")}
-      </div>
+              {form.sizeStock.length === 0 ? (
+                <p className="py-2 text-sm text-muted-foreground">No sizes — sold as one item.</p>
+              ) : (
+                <div className="space-y-2">
+                  {form.sizeStock.map((row, i) => (
+                    // Index as key: rows have no id, and the size is editable,
+                    // so keying on it would remount the input on every
+                    // keystroke and lose focus.
+                    <div key={i} className="flex items-end gap-2">
+                      <div className="w-40 space-y-1.5">
+                        {i === 0 && <Label className="text-xs">Size</Label>}
+                        <Input
+                          value={row.size}
+                          placeholder="7 / 18 in / M"
+                          onChange={(e) => setSizeRow(i, { size: e.target.value })}
+                        />
+                      </div>
+                      <div className="w-24 space-y-1.5">
+                        {i === 0 && <Label className="text-xs">Stock</Label>}
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={row.stock}
+                          onChange={(e) => setSizeRow(i, { stock: e.target.value })}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setForm((f) => ({
+                            ...f,
+                            sizeStock: f.sizeStock.filter((_, j) => j !== i),
+                          }))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Section>
 
-      {textField("tags", "Tags (comma-separated)")}
-
-      <div className="flex flex-wrap gap-6">
-        {(
-          [
-            ["isFeatured", "Featured"],
-            ["isBestseller", "Bestseller"],
-            ...(isEdit ? ([["isActive", "Active — visible in store"]] as const) : []),
-          ] as Array<[keyof ProductFormValues, string]>
-        ).map(([key, label]) => (
-          <label key={key} className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={form[key] as boolean}
-              onCheckedChange={(checked) => set(key, checked === true ? true : (false as never))}
-            />
-            {label}
-          </label>
-        ))}
+          <Section title="Visibility">
+            <div className="flex flex-wrap gap-6">
+              {(
+                [
+                  ["isFeatured", "Featured"],
+                  ["isBestseller", "Bestseller"],
+                  ...(isEdit ? ([["isActive", "Active — visible in store"]] as const) : []),
+                ] as Array<[keyof ProductFormValues, string]>
+              ).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={form[key] as boolean}
+                    onCheckedChange={(checked) => set(key, checked === true ? true : (false as never))}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </Section>
         </div>
       </div>
 
       {/* Always present, so Save and Cancel sit in one fixed place rather than
-          at the foot of a twenty-field form. A new product has nothing saved to
+          at the foot of a long form. A new product has nothing saved to
           discard BACK to, so that button is offered only when editing. */}
       <FormSaveBar
         dirty={dirty}
@@ -404,5 +429,19 @@ export function ProductForm({
         onCancel={() => router.push("/admin/products")}
       />
     </form>
+  );
+}
+
+/**
+ * One titled group of fields. A bordered card rather than a bare heading, so
+ * that in two columns each group reads as a unit and the eye can find
+ * "Pricing" or "Inventory" without reading labels.
+ */
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-4 rounded-lg border bg-background p-5">
+      <h2 className="label-eyebrow">{title}</h2>
+      {children}
+    </section>
   );
 }
