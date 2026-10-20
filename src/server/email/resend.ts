@@ -2,6 +2,12 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const from = process.env.RESEND_FROM_EMAIL ?? "MY Silvers <orders@mysilvers.in>";
+/**
+ * Where a customer's "Reply" goes. The From address is a send-only identity on
+ * Resend — nothing receives mail for it — so without this every reply to an
+ * order confirmation bounced. support@ is a real mailbox (Zoho).
+ */
+const replyTo = process.env.RESEND_REPLY_TO || "support@mysilvers.in";
 const appBaseUrl = process.env.APP_BASE_URL ?? "http://localhost:3000";
 
 export async function sendOrderConfirmationEmail(params: {
@@ -11,6 +17,7 @@ export async function sendOrderConfirmationEmail(params: {
 }) {
   await resend.emails.send({
     from,
+    replyTo,
     to: params.to,
     subject: `Order confirmed: ${params.orderNumber}`,
     html: `
@@ -26,6 +33,7 @@ export async function sendPasswordResetEmail(to: string, rawToken: string) {
   const resetUrl = `${appBaseUrl}/reset-password?token=${rawToken}`;
   await resend.emails.send({
     from,
+    replyTo,
     to,
     subject: "Reset your MY Silvers password",
     html: `
@@ -55,6 +63,7 @@ export async function sendBackInStockEmail(params: {
 
   await resend.emails.send({
     from,
+    replyTo,
     to: params.to,
     subject: `Back in stock: ${params.productName}`,
     html: `
