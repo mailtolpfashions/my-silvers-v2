@@ -1,6 +1,7 @@
 import { prisma } from "@/server/db";
 import { ProductForm, EMPTY_PRODUCT_FORM } from "@/components/admin/product-form";
 import { PageHeader } from "@/components/layout/page-header";
+import { listVendors } from "@/server/products/admin";
 
 /**
  * Blocking, like every other admin route — see admin/reviews/page.tsx.
@@ -12,11 +13,14 @@ import { PageHeader } from "@/components/layout/page-header";
 export const instant = false;
 
 export default async function NewProductPage() {
-  const categories = await prisma.category.findMany({
-    where: { isActive: true },
-    orderBy: { sortOrder: "asc" },
-    select: { id: true, name: true },
-  });
+  const [categories, vendors] = await Promise.all([
+    prisma.category.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, name: true },
+    }),
+    listVendors(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -26,7 +30,7 @@ export default async function NewProductPage() {
         backHref="/admin/products"
         backLabel="All products"
       />
-      <ProductForm initial={EMPTY_PRODUCT_FORM} categories={categories} />
+      <ProductForm initial={EMPTY_PRODUCT_FORM} categories={categories} vendors={vendors} />
     </div>
   );
 }

@@ -51,13 +51,13 @@ export async function GET(req: NextRequest) {
       // works: export, fill the column in a spreadsheet, re-import. The import
       // in server/products/admin.ts reads the same header, and leaves existing
       // costs alone when the column is absent.
-      "name", "sku", "slug", "category", "price", "compareAtPrice", "costPrice", "stock",
+      "name", "sku", "slug", "category", "price", "compareAtPrice", "costPrice", "vendor", "stock",
       "weight", "purity", "dimensions", "sizes", "material", "tags",
       "isFeatured", "isBestseller", "isActive", "images", "videoUrl", "createdAt",
     ],
     products.map((p) => [
       p.name, p.sku, p.slug, p.category.name, p.price.toString(),
-      p.compareAtPrice?.toString() ?? "", p.costPrice?.toString() ?? "", p.stock,
+      p.compareAtPrice?.toString() ?? "", p.costPrice?.toString() ?? "", p.vendor ?? "", p.stock,
       p.weight?.toString() ?? "",
       p.purity, p.dimensions ?? "", p.sizes.join(","), p.material ?? "",
       p.tags.join(","), p.isFeatured, p.isBestseller, p.isActive,

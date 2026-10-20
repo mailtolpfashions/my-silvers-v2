@@ -1,6 +1,7 @@
 import { prisma } from "@/server/db";
 import { notifyBackInStock } from "@/server/products/stock-notifications";
 import { assertAllowedMediaUrls } from "@/server/media/url-allowlist";
+import { NO_VENDOR } from "@/lib/vendor";
 
 export function slugify(name: string): string {
   return name
@@ -28,6 +29,8 @@ export type ProductInput = {
   compareAtPrice?: number | null;
   /// What we paid. Admin-only — never selected into a storefront query.
   costPrice?: number | null;
+  /// Who we bought it from. Admin-only, like costPrice. Normalised on save.
+  vendor?: string | null;
   images: string[];
   videoUrl?: string | null;
   categoryId: string;
@@ -65,6 +68,36 @@ export function splitStockEvenly(
   const base = Math.floor(stock / sizes.length);
   const remainder = stock % sizes.length;
   return sizes.map((size, i) => ({ size, stock: base + (i < remainder ? 1 : 0) }));
+}
+
+/**
+ * Tidies a typed vendor name and reuses the spelling already on file.
+ *
+ * The vendor report groups on this exact string, so "Ravi Silvers" and
+ * "ravi silvers " would otherwise be two suppliers with half the sales each.
+ * Whitespace is collapsed, and if any product already names this vendor in a
+ * different case, that existing spelling wins. Blank means no vendor.
+ */
+export async function normalizeVendor(raw: string | null | undefined): Promise<string | null> {
+  const vendor = (raw ?? "").trim().replace(/\s+/g, " ");
+  if (!vendor) return null;
+
+  const existing = await prisma.product.findFirst({
+    where: { vendor: { equals: vendor, mode: "insensitive" } },
+    select: { vendor: true },
+  });
+  return existing?.vendor ?? vendor;
+}
+
+/** Every vendor name in use, for the form's suggestions and the list filter. */
+export async function listVendors(): Promise<string[]> {
+  const rows = await prisma.product.findMany({
+    where: { vendor: { not: null } },
+    distinct: ["vendor"],
+    select: { vendor: true },
+    orderBy: { vendor: "asc" },
+  });
+  return rows.map((r) => r.vendor).filter((v): v is string => !!v);
 }
 
 function validateMedia(input: Pick<ProductInput, "images" | "videoUrl">) {
@@ -116,6 +149,7 @@ export async function createProduct(input: ProductInput) {
       slug,
       compareAtPrice: input.compareAtPrice ?? null,
       costPrice: input.costPrice ?? null,
+      vendor: await normalizeVendor(input.vendor),
       videoUrl: input.videoUrl || null,
       weight: input.weight ?? null,
       purity: input.purity || "925 Sterling Silver",
@@ -148,6 +182,10 @@ export async function updateProduct(id: string, input: ProductInput) {
     select: { stock: true, variants: { select: { size: true, stock: true } } },
   });
 
+  // Outside the transaction: it is a read against other products, and holding
+  // the transaction open for it gains nothing.
+  const vendor = await normalizeVendor(input.vendor);
+
   // One transaction: the product total and its variant rows must never be
   // observable in disagreement.
   const updated = await prisma.$transaction(async (tx) => {
@@ -172,6 +210,7 @@ export async function updateProduct(id: string, input: ProductInput) {
         ...columns,
         compareAtPrice: input.compareAtPrice ?? null,
         costPrice: input.costPrice ?? null,
+        vendor,
         videoUrl: input.videoUrl || null,
         weight: input.weight ?? null,
         tags: input.tags.map((t) => t.toLowerCase()),
@@ -256,6 +295,7 @@ export function isProductSortKey(value: unknown): value is ProductSortKey {
 export async function getAdminProducts(params: {
   q?: string;
   categoryId?: string;
+  vendor?: string;
   active?: "active" | "inactive";
   stock?: "in" | "out";
   flag?: "featured" | "bestseller";
@@ -277,6 +317,12 @@ export async function getAdminProducts(params: {
         }
       : {}),
     ...(params.categoryId ? { categoryId: params.categoryId } : {}),
+    // NO_VENDOR is the filter's "not set" option, for finding the gaps.
+    ...(params.vendor === NO_VENDOR
+      ? { vendor: null }
+      : params.vendor
+        ? { vendor: params.vendor }
+        : {}),
     ...(params.active === "active" ? { isActive: true } : {}),
     ...(params.active === "inactive" ? { isActive: false } : {}),
     ...(params.stock === "in" ? { stock: { gt: 0 } } : {}),
@@ -316,6 +362,7 @@ export const CSV_TEMPLATE_HEADERS = [
   "price",
   "compareAtPrice",
   "costPrice",
+  "vendor",
   "category",
   "weight",
   "purity",
@@ -408,6 +455,7 @@ export async function bulkImportProducts(rows: CsvRow[]): Promise<{
         price,
         compareAtPrice,
         costPrice,
+        vendor: row.vendor,
         images: parseList(row.images),
         categoryId,
         weight,

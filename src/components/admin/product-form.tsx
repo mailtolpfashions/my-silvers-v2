@@ -30,6 +30,7 @@ export type ProductFormValues = {
   price: string;
   compareAtPrice: string;
   costPrice: string;
+  vendor: string;
   images: string[];
   videoUrl: string | null;
   categoryId: string;
@@ -54,6 +55,7 @@ export const EMPTY_PRODUCT_FORM: ProductFormValues = {
   price: "",
   compareAtPrice: "",
   costPrice: "",
+  vendor: "",
   images: [],
   videoUrl: null,
   categoryId: "",
@@ -78,10 +80,13 @@ export function ProductForm({
   productId,
   initial,
   categories,
+  vendors = [],
 }: {
   productId?: string;
   initial: ProductFormValues;
   categories: Array<{ id: string; name: string }>;
+  /** Vendor names already in use, offered as suggestions. */
+  vendors?: string[];
 }) {
   const router = useRouter();
   const [form, setForm] = useState(initial);
@@ -121,6 +126,7 @@ export function ProductForm({
         price: Number(form.price),
         compareAtPrice: form.compareAtPrice ? Number(form.compareAtPrice) : null,
         costPrice: form.costPrice ? Number(form.costPrice) : null,
+        vendor: form.vendor.trim() || null,
         images: form.images,
         videoUrl: form.videoUrl,
         categoryId: form.categoryId,
@@ -231,6 +237,29 @@ export function ProductForm({
         ) : (
           textField("stock", "Stock", { type: "number", min: 0, step: 1, required: true })
         )}
+      </div>
+
+      {/* Who we bought it from. Internal, like cost price — it feeds the
+          "Sales by vendor" report in /admin/finance and never reaches the
+          storefront. A native datalist rather than a combobox: it suggests the
+          names already on file without stopping a new one being typed, and
+          the server reuses an existing spelling case-insensitively. */}
+      <div className="max-w-sm space-y-1.5">
+        <Label htmlFor="vendor">Vendor (internal)</Label>
+        <Input
+          id="vendor"
+          list="vendor-suggestions"
+          autoComplete="off"
+          placeholder="Who you bought this from"
+          value={form.vendor}
+          onChange={(e) => set("vendor", e.target.value)}
+        />
+        <datalist id="vendor-suggestions">
+          {vendors.map((v) => (
+            <option key={v} value={v} />
+          ))}
+        </datalist>
+        <p className="text-xs text-muted-foreground">Not shown to customers.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

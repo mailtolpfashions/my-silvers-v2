@@ -176,8 +176,8 @@ export async function searchProducts(params: {
  *
  * ── Decimals become strings, and that is load-bearing ────────────────────────
  * A cached function's return value has to survive serialization, and Prisma
- * hands back `Decimal` class instances for price, compareAtPrice, costPrice
- * and weight. Those do not survive it. They are converted here, which is also
+ * hands back `Decimal` class instances for price, compareAtPrice and weight
+ * (costPrice is one too, but it is dropped — see below). Those do not survive it. They are converted here, which is also
  * why this returns a mapped object rather than the raw row.
  *
  * Nothing downstream had to change: the two components that take the whole
@@ -204,11 +204,18 @@ export async function getProductBySlug(slug: string) {
   });
   if (!product) return null;
 
+  // ⚠️  What we paid and who we bought it from never leave this function. The
+  // page passes chosen fields to the browser today, so nothing leaks — but
+  // that is a habit, and one spread of `product` into a client component
+  // would publish both in the page payload. Dropped here, they cannot.
+  const { costPrice, vendor, ...publicFields } = product;
+  void costPrice;
+  void vendor;
+
   return {
-    ...product,
+    ...publicFields,
     price: product.price.toString(),
     compareAtPrice: product.compareAtPrice?.toString() ?? null,
-    costPrice: product.costPrice?.toString() ?? null,
     weight: product.weight?.toString() ?? null,
   };
 }
