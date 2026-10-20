@@ -27,6 +27,9 @@ export type StoreSettingsFormValues = {
   navOccasions: NavRow[];
 };
 
+/** Each settings group's card — the same treatment as the product form's sections. */
+const CARD = "rounded-lg border bg-background p-5";
+
 /** One header-menu link as edited here: a label, and the words it searches. */
 type NavRow = { label: string; query: string };
 
@@ -293,8 +296,14 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-2xl">
-      <section>
+    <form onSubmit={handleSubmit}>
+      {/* Two columns of cards from xl up, matching the product form: what
+          happens at the till (checkout, shipping, gifting) on the left, what
+          the shop publishes about itself (returns and delivery, the header
+          menu) on the right. Below xl they stack in that order. */}
+      <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
+      <div className="space-y-6">
+      <section className={CARD}>
         <h2 className="label-eyebrow mb-1">Checkout</h2>
 
         <ToggleRow
@@ -316,7 +325,7 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
         />
       </section>
 
-      <section className="mt-10">
+      <section className={CARD}>
         <h2 className="label-eyebrow mb-1">Shipping</h2>
         <p className="mb-5 text-sm text-muted-foreground">
           Applied to new orders. Orders already placed keep the charge they were
@@ -352,7 +361,7 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
         </div>
       </section>
 
-      <section className="mt-10">
+      <section className={CARD}>
         <h2 className="label-eyebrow mb-1">Gifting</h2>
         <p className="mb-5 text-sm text-muted-foreground">
           Applied to new orders. Orders already placed keep the charge they were
@@ -394,7 +403,10 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
         )}
       </section>
 
-      <section className="mt-10">
+      </div>
+
+      <div className="space-y-6">
+      <section className={CARD}>
         <h2 className="label-eyebrow mb-1">Returns &amp; delivery</h2>
         <p className="mb-5 text-sm text-muted-foreground">
           These are published to Google, and are what it shows next to the shop
@@ -470,7 +482,7 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
         </p>
       </section>
 
-      <section className="mt-10">
+      <section className={CARD}>
         <h2 className="label-eyebrow mb-1">Header menu</h2>
         <p className="mb-2 text-sm text-muted-foreground">
           Each link searches product names, descriptions and tags for its search word. The
@@ -498,6 +510,9 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
           disabled={saving}
         />
       </section>
+
+      </div>
+      </div>
 
       <Button type="submit" disabled={saving} className="mt-8">
         {saving ? "Saving…" : "Save settings"}

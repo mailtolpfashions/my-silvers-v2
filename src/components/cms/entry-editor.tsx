@@ -30,6 +30,25 @@ export type VersionSummary = {
   savedAt: string;
 };
 
+/**
+ * Field types that go in the editor's sidebar rather than the main column.
+ *
+ * Short, settings-like values: what the entry is called in a URL, its cover
+ * picture, a choice from a list, an on/off, a date. Everything else — text
+ * an editor writes, rich text, and repeating lists like hero slides and
+ * homepage sections — is content, and gets the wide column.
+ */
+const SIDEBAR_FIELD_TYPES = new Set<FieldDefinition["type"]>([
+  "slug",
+  "image",
+  "media",
+  "select",
+  "boolean",
+  "date",
+  "number",
+  "color",
+]);
+
 export function EntryEditor({
   typeName,
   typeLabel,
@@ -244,15 +263,91 @@ export function EntryEditor({
     </div>
   );
 
+  /** Top-level fields that belong in the sidebar: short settings, not content. */
+  const sideFields = fields.filter((f) => SIDEBAR_FIELD_TYPES.has(f.type));
+  const mainFields = fields.filter((f) => !SIDEBAR_FIELD_TYPES.has(f.type));
+
+  const fieldList = (list: FieldDefinition[]) => (
+    <div className="space-y-5">
+      {list.map((field) => (
+        <FieldInput
+          key={field.name}
+          field={field}
+          value={data[field.name]}
+          onChange={(v) => setData((d) => ({ ...d, [field.name]: v }))}
+        />
+      ))}
+    </div>
+  );
+
+  const seoCard = (
+    <Card>
+      <CardHeader className="cursor-pointer" onClick={() => setSeoOpen((o) => !o)}>
+        <CardTitle className="text-sm">SEO {seoOpen ? "▾" : "▸"}</CardTitle>
+      </CardHeader>
+      {seoOpen && (
+        <CardContent className="space-y-4">
+          {seoField("metaTitle", "Meta title")}
+          {seoField("metaDescription", "Meta description", true)}
+          {seoField("ogImage", "OG image URL")}
+          {seoField("canonicalUrl", "Canonical URL")}
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={seo.noIndex}
+              onChange={(e) => setSeo((s) => ({ ...s, noIndex: e.target.checked }))}
+            />
+            Hide from search engines (noindex)
+          </label>
+        </CardContent>
+      )}
+    </Card>
+  );
+
+  const versionsCard = versions.length > 0 && (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Version history (last {versions.length})</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {versions.map((version) => (
+          <div key={version.id} className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">
+              v{version.versionNumber}
+              {version.label ? ` · ${version.label}` : ""} ·{" "}
+              {new Date(version.savedAt).toLocaleString("en-IN", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}
+            </span>
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={isPending}
+                onClick={() => handleRestore(version.id)}
+              >
+                Restore
+              </Button>
+            )}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className={showPreview ? "grid gap-6 xl:grid-cols-2" : ""}>
-      {/* ⚠️  max-w-3xl, matching the admin product form.
-          The column was unconstrained, and <main> is full-bleed, so on a 1920px
-          monitor a single-line "Question" input rendered 1,591px wide — a form
-          control eight times longer than anything typed into it, which is what
-          made these screens read as empty space with a stripe of content. In
-          preview mode the grid already halves the column and this does nothing. */}
-      <div className="max-w-3xl space-y-6">
+      {/* ── Layout ────────────────────────────────────────────────────────────
+          With the preview open, the preview takes the right half and the form
+          stays one column, as before. With it closed, the form uses the full
+          width: the content an editor writes (title, body, slides, sections)
+          in a wide main column, and the short settings beside it (slug, cover
+          image, switches, dates), with SEO and version history in that same
+          sidebar — the layout every mainstream CMS uses. Fields are split by
+          TYPE, so every content type gets it without per-type configuration;
+          see SIDEBAR_FIELD_TYPES. */}
+      <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{typeLabel}</h1>
@@ -322,72 +417,28 @@ export function EntryEditor({
           </div>
         </div>
 
-        <div className="space-y-5">
-          {fields.map((field) => (
-            <FieldInput
-              key={field.name}
-              field={field}
-              value={data[field.name]}
-              onChange={(v) => setData((d) => ({ ...d, [field.name]: v }))}
-            />
-          ))}
-        </div>
-
-        <Card>
-          <CardHeader
-            className="cursor-pointer"
-            onClick={() => setSeoOpen((o) => !o)}
-          >
-            <CardTitle className="text-sm">SEO {seoOpen ? "▾" : "▸"}</CardTitle>
-          </CardHeader>
-          {seoOpen && (
-            <CardContent className="space-y-4">
-              {seoField("metaTitle", "Meta title")}
-              {seoField("metaDescription", "Meta description", true)}
-              {seoField("ogImage", "OG image URL")}
-              {seoField("canonicalUrl", "Canonical URL")}
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={seo.noIndex}
-                  onChange={(e) => setSeo((s) => ({ ...s, noIndex: e.target.checked }))}
-                />
-                Hide from search engines (noindex)
-              </label>
-            </CardContent>
-          )}
-        </Card>
-
-        {versions.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Version history (last {versions.length})</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {versions.map((version) => (
-                <div key={version.id} className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    v{version.versionNumber}
-                    {version.label ? ` · ${version.label}` : ""} ·{" "}
-                    {new Date(version.savedAt).toLocaleString("en-IN", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                  </span>
-                  {isAdmin && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={isPending}
-                      onClick={() => handleRestore(version.id)}
-                    >
-                      Restore
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+        {showPreview ? (
+          <>
+            {fieldList(fields)}
+            {seoCard}
+            {versionsCard}
+          </>
+        ) : (
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
+            {fieldList(mainFields)}
+            <aside className="space-y-6">
+              {sideFields.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Settings</CardTitle>
+                  </CardHeader>
+                  <CardContent>{fieldList(sideFields)}</CardContent>
+                </Card>
+              )}
+              {seoCard}
+              {versionsCard}
+            </aside>
+          </div>
         )}
 
         {/* onSave rather than a submit: this editor drives server actions from
