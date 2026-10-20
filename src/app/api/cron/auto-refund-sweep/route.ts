@@ -24,7 +24,19 @@ import { createRefund } from "@/server/payments/razorpay";
  * every 6 hours on Pro.
  */
 export async function GET(req: Request) {
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  /**
+   * ⚠️  Fails CLOSED when the secret is missing. The old one-line comparison
+   * interpolated `process.env.CRON_SECRET` straight into the expected header,
+   * so with the variable unset it expected the literal "Bearer undefined" —
+   * and anyone who sent exactly that could trigger a sweep that issues real
+   * refunds. A placeholder copied from .env.example is treated as unset too.
+   */
+  const secret = process.env.CRON_SECRET ?? "";
+  if (secret.length < 16 || secret.startsWith("your-")) {
+    console.error("[cron] CRON_SECRET is unset or a placeholder — refusing the refund sweep");
+    return new Response("Cron not configured", { status: 503 });
+  }
+  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
     return new Response("Unauthorized", { status: 401 });
   }
 
