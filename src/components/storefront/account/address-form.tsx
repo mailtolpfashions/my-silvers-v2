@@ -58,7 +58,7 @@ export function AddressForm({
           <Input id="label" name="label" placeholder="Home, Office…" defaultValue={initial?.label ?? ""} maxLength={30} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="fullName">Recipient name</Label>
+          <Label htmlFor="fullName" required>Recipient name</Label>
           <Input
             id="fullName"
             name="fullName"
@@ -71,7 +71,7 @@ export function AddressForm({
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="addressPhone">Mobile number</Label>
+        <Label htmlFor="addressPhone" required>Mobile number</Label>
         <Input
           id="addressPhone"
           name="phone"
@@ -84,7 +84,7 @@ export function AddressForm({
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="addressLine1">Flat / House no., Building, Street</Label>
+        <Label htmlFor="addressLine1" required>Flat / House no., Building, Street</Label>
         <Input
           id="addressLine1"
           name="addressLine1"
@@ -108,7 +108,7 @@ export function AddressForm({
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-1.5">
-          <Label htmlFor="city">City</Label>
+          <Label htmlFor="city" required>City</Label>
           <Input
             id="city"
             name="city"
@@ -119,7 +119,7 @@ export function AddressForm({
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="state">State</Label>
+          <Label htmlFor="state" required>State</Label>
           <select
             id="state"
             name="state"
@@ -138,7 +138,7 @@ export function AddressForm({
           </select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="pincode">PIN code</Label>
+          <Label htmlFor="pincode" required>PIN code</Label>
           <Input
             id="pincode"
             name="pincode"

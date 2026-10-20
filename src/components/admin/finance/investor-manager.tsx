@@ -142,7 +142,7 @@ export function InvestorManager({
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
           <div className="space-y-1.5">
-            <Label htmlFor="inv-name">Name</Label>
+            <Label htmlFor="inv-name" required>Name</Label>
             <Input
               id="inv-name"
               value={draft.name}
@@ -161,7 +161,7 @@ export function InvestorManager({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="inv-share">Share (%)</Label>
+            <Label htmlFor="inv-share" required>Share (%)</Label>
             <Input
               id="inv-share"
               type="number"
@@ -263,7 +263,7 @@ export function InvestorManager({
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_1fr_auto] sm:items-end">
               <div className="space-y-1.5">
-                <Label htmlFor="con-who">Partner</Label>
+                <Label htmlFor="con-who" required>Partner</Label>
                 <select
                   id="con-who"
                   value={contribution.investorId}
@@ -278,7 +278,7 @@ export function InvestorManager({
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="con-amount">Amount (₹)</Label>
+                <Label htmlFor="con-amount" required>Amount (₹)</Label>
                 <Input
                   id="con-amount"
                   type="number"
@@ -290,7 +290,7 @@ export function InvestorManager({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="con-date">Date</Label>
+                <Label htmlFor="con-date" required>Date</Label>
                 <Input
                   id="con-date"
                   type="date"

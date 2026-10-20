@@ -567,7 +567,7 @@ export function CheckoutForm({
   function field(name: TextField, label: string, props?: React.ComponentProps<typeof Input>) {
     return (
       <div className="space-y-1.5">
-        <Label htmlFor={name}>{label}</Label>
+        <Label htmlFor={name} required={!!props?.required}>{label}</Label>
         <Input
           id={name}
           value={form[name]}
@@ -769,7 +769,7 @@ export function CheckoutForm({
                     placeholder: "Enter your city",
                   })}
                   <div className="space-y-1.5">
-                    <Label htmlFor="state">State</Label>
+                    <Label htmlFor="state" required>State</Label>
                     <select
                       id="state"
                       required

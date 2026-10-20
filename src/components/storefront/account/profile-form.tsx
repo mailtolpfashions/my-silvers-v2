@@ -131,7 +131,7 @@ export function ProfileForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="name">Full name</Label>
+          <Label htmlFor="name" required>Full name</Label>
           <Input id="name" name="name" defaultValue={initial.name ?? ""} required maxLength={80} />
         </div>
       </div>

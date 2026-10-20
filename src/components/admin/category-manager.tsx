@@ -83,7 +83,7 @@ function CategoryFormDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="cat-name">Name</Label>
+            <Label htmlFor="cat-name" required>Name</Label>
             <Input
               id="cat-name"
               value={form.name}

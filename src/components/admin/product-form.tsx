@@ -165,7 +165,7 @@ export function ProductForm({
   ) {
     return (
       <div className="space-y-1.5">
-        <Label htmlFor={key}>{label}</Label>
+        <Label htmlFor={key} required={!!props?.required}>{label}</Label>
         <Input
           id={key}
           value={form[key] as string}
@@ -265,7 +265,7 @@ export function ProductForm({
       <div className="grid grid-cols-2 gap-4">
         {textField("sku", "SKU", { required: true })}
         <div className="space-y-1.5">
-          <Label>Category</Label>
+          <Label required>Category</Label>
           <Select value={form.categoryId} onValueChange={(v) => set("categoryId", v)}>
             <SelectTrigger>
               <SelectValue placeholder="Choose category" />
