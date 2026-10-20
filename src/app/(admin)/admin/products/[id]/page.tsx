@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { CATEGORY_ORDER } from "@/server/products/category-order";
 import { prisma } from "@/server/db";
 import { ProductForm, type ProductFormValues } from "@/components/admin/product-form";
 import { PageHeader } from "@/components/layout/page-header";
@@ -35,7 +36,7 @@ export default async function EditProductPage({
   const [product, categories, vendors] = await Promise.all([
     prisma.product.findUnique({ where: { id }, include: { variants: true } }),
     prisma.category.findMany({
-      orderBy: { sortOrder: "asc" },
+      orderBy: CATEGORY_ORDER,
       select: { id: true, name: true },
     }),
     listVendors(),

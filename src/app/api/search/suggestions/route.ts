@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { CATEGORY_ORDER } from "@/server/products/category-order";
 import { prisma } from "@/server/db";
 
 /**
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
       prisma.category.findMany({
         where: { isActive: true, name: { contains: term, mode: "insensitive" } },
         select: { name: true, slug: true },
-        orderBy: { sortOrder: "asc" },
+        orderBy: CATEGORY_ORDER,
         take: 3,
       }),
     ]);

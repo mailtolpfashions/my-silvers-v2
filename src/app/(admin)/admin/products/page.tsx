@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CATEGORY_ORDER } from "@/server/products/category-order";
 import Image from "next/image";
 import { getAdminProducts, listVendors } from "@/server/products/admin";
 import { prisma } from "@/server/db";
@@ -78,7 +79,7 @@ export default async function AdminProductsPage({
       sort: params.sort,
       dir: params.dir,
     }),
-    prisma.category.findMany({ orderBy: { sortOrder: "asc" } }),
+    prisma.category.findMany({ orderBy: CATEGORY_ORDER }),
     listVendors(),
   ]);
 
