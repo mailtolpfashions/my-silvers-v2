@@ -355,28 +355,8 @@ export async function getAdminProducts(params: {
 export type CsvRow = Record<string, string>;
 export type RowError = { row: number; error: string };
 
-export const CSV_TEMPLATE_HEADERS = [
-  "name",
-  "description",
-  "shortDescription",
-  "price",
-  "compareAtPrice",
-  "costPrice",
-  "vendor",
-  "category",
-  "weight",
-  "purity",
-  "dimensions",
-  "sizes",
-  "material",
-  "stock",
-  "sku",
-  "tags",
-  "isFeatured",
-  "isBestseller",
-  "isActive",
-  "images",
-] as const;
+// The column list lives in lib/ so the import dialog can share it — see there.
+export { CSV_TEMPLATE_HEADERS } from "@/lib/product-csv";
 
 function parseBool(v: string | undefined): boolean {
   return ["true", "1", "yes"].includes((v ?? "").trim().toLowerCase());

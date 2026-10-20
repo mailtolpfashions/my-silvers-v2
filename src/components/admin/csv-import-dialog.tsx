@@ -14,14 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { bulkImportProductsAction } from "@/actions/admin-product-actions";
-
-// Keep in sync with CSV_TEMPLATE_HEADERS in src/server/products/admin.ts
-// (that module pulls in Prisma and can't be imported client-side).
-const TEMPLATE_HEADERS = [
-  "name", "description", "shortDescription", "price", "compareAtPrice",
-  "category", "weight", "purity", "dimensions", "sizes", "material",
-  "stock", "sku", "tags", "isFeatured", "isBestseller", "isActive", "images",
-];
+import { CSV_TEMPLATE_HEADERS as TEMPLATE_HEADERS } from "@/lib/product-csv";
 
 function download(filename: string, content: string, type = "text/csv") {
   const blob = new Blob([content], { type });
