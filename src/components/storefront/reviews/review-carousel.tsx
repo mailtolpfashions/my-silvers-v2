@@ -418,6 +418,31 @@ export function ReviewCarousel({ reviews }: { reviews: CarouselReview[] }) {
          */
         const rim = win > 1 ? clamp01((shelf - 1) / (win - 1)) : 0;
 
+        /**
+         * How far PAST the outermost ring the plate has drifted, 0…1.
+         *
+         * ⚠️  This is what stops two photographs being drawn in the same place,
+         * and without it a six-review ring always did.
+         *
+         * `shelf` clamps at `win` so distant plates park at the edge instead of
+         * flying off — but parking is only invisible if something COVERS the
+         * parked plate, and the antipodal one is not covered. With six reviews
+         * the plate at delta ±3 clamps onto the exact box of the plate at ±2:
+         * same transform, same 0.5 opacity, one z-index apart. Measured at a
+         * 1920 viewport both sat at [1323..1546], so the rear one read as a
+         * second photograph peeking out from behind the outer plate of the fan.
+         *
+         * Fading over that last step means a parked plate is fully transparent
+         * rather than half-visible, and one swinging back into the window fades
+         * in as it comes. Plates inside the window are untouched: at reach ≤ win
+         * this is 0 and the fan is exactly as it was.
+         *
+         * It bites hardest on a phone, where `win` is 1 and `rim` is therefore
+         * always 0 — three plates parked on one spot at FULL opacity, with no
+         * dimming to disguise it.
+         */
+        const beyond = clamp01(reach - win);
+
         const lateral = sign * step * Math.pow(shelf, CROWD);
         const drop = SAG * Math.pow(shelf, BOW);
         const scale = Math.pow(TAPER, shelf);
@@ -428,12 +453,12 @@ export function ReviewCarousel({ reviews }: { reviews: CarouselReview[] }) {
           `translate3d(${lateral.toFixed(2)}px, ${(drop + sway + lift).toFixed(2)}px, ` +
           `${(-RECEDE * shelf).toFixed(2)}px) ` +
           `rotate(${(sign * CANT * shelf).toFixed(3)}deg) scale(${scale.toFixed(4)})`;
-        el.style.opacity = (1 - VEIL * rim).toFixed(3);
+        el.style.opacity = ((1 - VEIL * rim) * (1 - beyond)).toFixed(3);
         // `blur(0)` is not free — it still promotes the plate to its own layer
         // and, on the centre plate, visibly softens the photograph on a
         // fractional-DPR screen. No filter at all when there is nothing to blur.
         el.style.filter =
-          m.reduced || rim === 0
+          m.reduced || rim === 0 || beyond === 1
             ? "none"
             : `blur(${(HAZE * rim).toFixed(2)}px)`;
         // Centre-most on top. Without this the stacking order is source order
@@ -478,14 +503,39 @@ export function ReviewCarousel({ reviews }: { reviews: CarouselReview[] }) {
       lastT: performance.now(),
       moved: false,
     };
-    e.currentTarget.setPointerCapture(e.pointerId);
+    /**
+     * ⚠️  Pointer capture is deliberately NOT taken here, and taking it here is
+     * what stopped every plate navigating.
+     *
+     * A captured pointer has its pointerup delivered to the CAPTURING element
+     * rather than to whatever sits under the cursor — and the `click` the
+     * browser derives from that pointerup is retargeted with it. Capturing on
+     * pointerdown therefore aimed every click at this stage div, and the
+     * `<a href="/products/…">` wrapping the photograph, being a descendant,
+     * never saw one. Measured: pointerdown landed on IMG.review-shot, pointerup
+     * and click both on DIV.review-stage. The plate looked and felt like a
+     * link, said "Tap one to see the piece" above it, and did nothing.
+     *
+     * It is taken in onPointerMove instead, at the moment the gesture is known
+     * to be a drag. A click never crosses that threshold, so it keeps its real
+     * target; a drag captures within a few pixels of travel, long before the
+     * pointer can leave the stage, so tracking outside the element still works.
+     *
+     * Touch is unaffected either way: the spec gives touch pointers implicit
+     * capture to the pointerdown target, which is the plate itself.
+     */
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
     if (!motion.current.dragging || d.id !== e.pointerId) return;
     const dx = e.clientX - d.startX;
-    if (Math.abs(dx) > DRAG_SLOP) d.moved = true;
+    if (!d.moved && Math.abs(dx) > DRAG_SLOP) {
+      d.moved = true;
+      // Now that this is a drag and not a click, keep receiving moves even if
+      // the pointer leaves the stage. See the note in onPointerDown.
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
     // Dragging right brings the plate on the LEFT to centre, so the carriage
     // moves against the thumb.
     motion.current.carriage = d.startCarriage - dx / step;

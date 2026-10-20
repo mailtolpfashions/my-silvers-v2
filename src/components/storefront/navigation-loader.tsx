@@ -47,9 +47,14 @@ const SHOW_AFTER_MS = 260;
  * better served by a page with nothing on it than by a page still claiming to
  * be busy.
  *
- * Six seconds is safe again because the scrim no longer lasts that long — see
- * SCRIM_MS. What sits here after the first second and a half is a corner chip,
- * and six seconds of a chip is a curiosity rather than an outage.
+ * Six seconds is safe because the scrim does not last that long — see SCRIM_MS.
+ * What sits here for the last three seconds is a corner chip, and three seconds
+ * of a chip is a curiosity rather than an outage.
+ *
+ * ⚠️  This must stay comfortably ABOVE SCRIM_MS. If the two ever meet, the
+ * indicator gives up at the same moment it degrades and the corner chip becomes
+ * unreachable — the scrim would simply vanish, which is the one shape this
+ * whole file exists to avoid.
  */
 const GIVE_UP_AFTER_MS = 6_000;
 
@@ -61,14 +66,26 @@ const GIVE_UP_AFTER_MS = 6_000;
  * — and a full-bleed wash held for that whole window makes the shop look dead
  * rather than busy. Rather than choosing between "no scrim" and "an outage",
  * the scrim is simply time-boxed: it covers the common case, where a slow
- * navigation lands within a second or so, and then gets out of the way.
+ * navigation lands, and then gets out of the way.
  *
  * Past this point the shopper is looking at a page they can read, with a small
  * chip in the corner still saying something is happening. That is a far better
- * thing to be wrong about, which is also why GIVE_UP_AFTER_MS could go back to
+ * thing to be wrong about, which is also why GIVE_UP_AFTER_MS can be as long as
  * six seconds: the chip is cheap to leave up, the scrim is not.
+ *
+ * ── Why three seconds and not the 1,400ms this used to be ───────────────────
+ * The old value was tuned against the failure case alone and undershot the
+ * successful one. Adding SHOW_AFTER_MS, the centred mark only held from 260ms
+ * to about 1.66s after a click — so any navigation that took longer than that,
+ * which on a dev server is most of them while a route compiles, spent nearly
+ * all of its life as a corner chip. The centred loader was the design and the
+ * corner was the fallback, and in practice the fallback was what people saw.
+ *
+ * Three seconds covers a slow-but-fine navigation end to end, and a page that
+ * has not arrived in three seconds is genuinely in trouble rather than merely
+ * slow — which is exactly when handing the page back is the right thing to do.
  */
-const SCRIM_MS = 1_400;
+const SCRIM_MS = 3_000;
 
 export function NavigationLoader() {
   const pathname = usePathname();
