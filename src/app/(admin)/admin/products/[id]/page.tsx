@@ -3,6 +3,7 @@ import { prisma } from "@/server/db";
 import { ProductForm, type ProductFormValues } from "@/components/admin/product-form";
 import { PageHeader } from "@/components/layout/page-header";
 import { BreadcrumbLabel } from "@/components/layout/breadcrumb-label";
+import { listVendors } from "@/server/products/admin";
 
 /**
  * A deliberately blocking route.
@@ -31,12 +32,13 @@ export default async function EditProductPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [product, categories] = await Promise.all([
+  const [product, categories, vendors] = await Promise.all([
     prisma.product.findUnique({ where: { id }, include: { variants: true } }),
     prisma.category.findMany({
       orderBy: { sortOrder: "asc" },
       select: { id: true, name: true },
     }),
+    listVendors(),
   ]);
   if (!product) notFound();
 
@@ -47,6 +49,7 @@ export default async function EditProductPage({
     price: product.price.toString(),
     compareAtPrice: product.compareAtPrice?.toString() ?? "",
     costPrice: product.costPrice?.toString() ?? "",
+    vendor: product.vendor ?? "",
     images: product.images,
     videoUrl: product.videoUrl,
     categoryId: product.categoryId,
@@ -81,7 +84,12 @@ export default async function EditProductPage({
         backHref="/admin/products"
         backLabel="All products"
       />
-      <ProductForm productId={product.id} initial={initial} categories={categories} />
+      <ProductForm
+        productId={product.id}
+        initial={initial}
+        categories={categories}
+        vendors={vendors}
+      />
     </div>
   );
 }

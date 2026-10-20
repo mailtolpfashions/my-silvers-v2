@@ -10,6 +10,7 @@ import {
   archiveProduct,
   restoreProduct,
   bulkImportProducts,
+  normalizeVendor,
   type CsvRow,
 } from "@/server/products/admin";
 
@@ -20,6 +21,7 @@ const productSchema = z.object({
   price: z.number().min(0),
   compareAtPrice: z.number().min(0).nullable().optional(),
   costPrice: z.number().min(0).nullable().optional(),
+  vendor: z.string().trim().max(120).nullable().optional().or(z.literal("")),
   images: z.array(z.string().url()).max(6),
   videoUrl: z.string().url().nullable().optional().or(z.literal("")),
   categoryId: z.string().min(1),
@@ -58,6 +60,7 @@ function toInput(data: z.infer<typeof productSchema>) {
     videoUrl: data.videoUrl || null,
     compareAtPrice: data.compareAtPrice ?? null,
     costPrice: data.costPrice ?? null,
+    vendor: data.vendor || null,
     weight: data.weight ?? null,
   };
 }
@@ -229,6 +232,36 @@ export async function setProductsTagAction(
 }
 
 /** Move a selection into another category. */
+/**
+ * Sets (or clears, with a blank name) the vendor on many products at once.
+ *
+ * The way to fill vendors in for a catalogue that predates the field — the CSV
+ * import only creates new products, so it cannot. Normalised exactly as a
+ * single save is, so a bulk-typed "ravi silvers" joins the existing
+ * "Ravi Silvers" rather than starting a second supplier.
+ */
+export async function setProductsVendorAction(
+  ids: string[],
+  vendorName: string
+): Promise<AdminActionResult & { count?: number }> {
+  await requireRole("admin");
+  const check = cleanIds(ids);
+  if (!check.ok) return check;
+  if (vendorName.length > 120) return { ok: false, error: "Vendor name is too long." };
+
+  try {
+    const vendor = await normalizeVendor(vendorName);
+    const result = await prisma.product.updateMany({
+      where: { id: { in: check.ids } },
+      data: { vendor },
+    });
+    revalidatePath("/admin/products");
+    return { ok: true, count: result.count };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Failed to set vendor." };
+  }
+}
+
 export async function setProductsCategoryAction(
   ids: string[],
   categoryId: string

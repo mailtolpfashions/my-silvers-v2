@@ -29,11 +29,12 @@ import {
   setProductsFlagAction,
   setProductsOfferAction,
   setProductsTagAction,
+  setProductsVendorAction,
 } from "@/actions/admin-product-actions";
 
 type Category = { id: string; name: string };
 /** Which prompt is open. Only one can be, so this is a single value. */
-type Prompt = null | "add-tag" | "remove-tag" | "offer";
+type Prompt = null | "add-tag" | "remove-tag" | "offer" | "vendor";
 
 /**
  * The bar that appears once rows are ticked.
@@ -54,9 +55,12 @@ type Prompt = null | "add-tag" | "remove-tag" | "offer";
  */
 export function ProductBulkBar({
   categories,
+  vendors = [],
   variant = "header",
 }: {
   categories: Category[];
+  /** Vendor names already in use, suggested in the Set vendor prompt. */
+  vendors?: string[];
   /**
    * Only `header` is used.
    *
@@ -74,6 +78,7 @@ export function ProductBulkBar({
   const [prompt, setPrompt] = useState<Prompt>(null);
   const [tag, setTag] = useState("");
   const [percent, setPercent] = useState("10");
+  const [vendor, setVendor] = useState("");
 
   const count = selected.size;
   if (count === 0) return null;
@@ -123,6 +128,9 @@ export function ProductBulkBar({
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setPrompt("remove-tag")}>
                   Remove a tag…
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setPrompt("vendor")}>
+                  Set vendor…
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
@@ -300,6 +308,51 @@ export function ProductBulkBar({
                   }
                 >
                   Apply
+                </Button>
+              </DialogFooter>
+            </>
+          ) : prompt === "vendor" ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Set vendor</DialogTitle>
+                <DialogDescription>
+                  Who {count === 1 ? "this piece was" : "these pieces were"} bought from. Internal
+                  only — it feeds Sales by vendor in Finance and is never shown to customers. Leave
+                  blank to clear it on {plural(count)}.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2">
+                <Label htmlFor="bulk-vendor">Vendor</Label>
+                <Input
+                  id="bulk-vendor"
+                  list="bulk-vendor-suggestions"
+                  value={vendor}
+                  onChange={(e) => setVendor(e.target.value)}
+                  autoComplete="off"
+                />
+                <datalist id="bulk-vendor-suggestions">
+                  {vendors.map((v) => (
+                    <option key={v} value={v} />
+                  ))}
+                </datalist>
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setPrompt(null)} disabled={isPending}>
+                  Cancel
+                </Button>
+                <Button
+                  disabled={isPending}
+                  onClick={() =>
+                    run(
+                      (ids) => setProductsVendorAction(ids, vendor),
+                      (n) =>
+                        vendor.trim()
+                          ? `Vendor set on ${plural(n)}.`
+                          : `Vendor cleared on ${plural(n)}.`
+                    )
+                  }
+                >
+                  {vendor.trim() ? "Set vendor" : "Clear vendor"}
                 </Button>
               </DialogFooter>
             </>

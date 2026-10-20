@@ -7,7 +7,9 @@ import {
   getLatestOrderForUser,
   getInStockProduct,
   getOrderItemsWithCatalogPrice,
+  getOrderItemVendors,
   resetStoreSettings,
+  setProductVendor,
 } from "./helpers/db";
 
 /**
@@ -208,6 +210,11 @@ test.describe("cash on delivery, end to end", () => {
     const email = `${E2E_EMAIL_PREFIX}cod-${Date.now()}@example.test`;
     const customer = await createTestUser({ email, password: TEST_PASSWORD, role: "customer" });
 
+    // The vendor snapshot is taken here, at order creation, before any payment
+    // — so this COD order is the one place a test can see it written.
+    const vendor = `E2E Checkout Vendor ${Date.now()}`;
+    const previousVendor = await setProductVendor(product!.slug, vendor);
+
     try {
       await signIn(page, email);
 
@@ -384,7 +391,14 @@ test.describe("cash on delivery, end to end", () => {
       // COD stays 'pending' by design — money has not moved, and the refund
       // sweep must never touch it.
       expect(order!.paymentStatus).toBe("pending");
+
+      // The product's vendor was copied onto its line. Other lines in the cart
+      // carry their own products' vendors, so this checks for the one we set
+      // rather than asserting every line.
+      const vendors = (await getOrderItemVendors(order!.orderNumber)).map((r) => r.vendor);
+      expect(vendors, "the vendor was not snapshotted onto the order line").toContain(vendor);
     } finally {
+      await setProductVendor(product!.slug, previousVendor).catch(() => {});
       await deleteOrdersForUser(customer.id).catch(() => {});
       await deleteUser(customer.id).catch(() => {});
       await withAdmin(browser, async (adminPage) => {

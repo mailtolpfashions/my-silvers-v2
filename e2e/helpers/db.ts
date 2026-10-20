@@ -167,3 +167,88 @@ export async function getOrderItemsWithCatalogPrice(orderNumber: string): Promis
 export async function resetStoreSettings(): Promise<void> {
   await getPool().query(`DELETE FROM "StoreSetting" WHERE "key" = 'store'`);
 }
+
+// ─── Vendor ─────────────────────────────────────────────────────────────────
+
+/** Sets a product's vendor by slug and returns what it was, for restoring. */
+export async function setProductVendor(slug: string, vendor: string | null): Promise<string | null> {
+  const { rows } = await getPool().query(
+    `UPDATE "Product" p SET "vendor" = $2
+       FROM (SELECT "id", "vendor" AS old FROM "Product" WHERE "slug" = $1) prev
+      WHERE p."id" = prev."id"
+      RETURNING prev.old`,
+    [slug, vendor]
+  );
+  return rows[0]?.old ?? null;
+}
+
+export async function getProductVendor(slug: string): Promise<string | null> {
+  const { rows } = await getPool().query(`SELECT "vendor" FROM "Product" WHERE "slug" = $1`, [slug]);
+  return rows[0]?.vendor ?? null;
+}
+
+/** Two active products, for tests that need a pair. Sized or not. */
+export async function getTwoActiveProducts(): Promise<
+  Array<{ id: string; slug: string; name: string; price: string }>
+> {
+  const { rows } = await getPool().query(
+    `SELECT "id", "slug", "name", "price"::text FROM "Product"
+      WHERE "isActive" = true ORDER BY "createdAt" ASC LIMIT 2`
+  );
+  return rows;
+}
+
+/** The vendor snapshot on each line of an order. */
+export async function getOrderItemVendors(orderNumber: string): Promise<Array<{ vendor: string | null }>> {
+  const { rows } = await getPool().query(
+    `SELECT oi."vendor" FROM "OrderItem" oi JOIN "Order" o ON o."id" = oi."orderId"
+      WHERE o."orderNumber" = $1`,
+    [orderNumber]
+  );
+  return rows;
+}
+
+/**
+ * A PAID order with one line, written straight to the tables.
+ *
+ * Only for report tests: a real paid order needs Razorpay to confirm the
+ * payment, which no test can do. The checkout path that SETS the snapshot is
+ * covered separately in commerce.spec.ts; this exists to check what the
+ * report does with one. Removed by deleteOrdersForUser.
+ */
+export async function insertPaidOrder(opts: {
+  userId: string;
+  productId: string;
+  name: string;
+  price: number;
+  costPrice: number | null;
+  quantity: number;
+  vendor: string | null;
+}): Promise<string> {
+  const orderId = `e2e_${crypto.randomBytes(12).toString("hex")}`;
+  const orderNumber = `E2E-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
+  const total = opts.price * opts.quantity;
+
+  await getPool().query(
+    `INSERT INTO "Order" ("id", "orderNumber", "userId", "shippingAddress", "paymentMethod",
+                          "paymentStatus", "subtotal", "shippingCharge", "totalAmount", "updatedAt")
+     VALUES ($1, $2, $3, '{}'::jsonb, 'razorpay', 'paid', $4, 0, $4, NOW())`,
+    [orderId, orderNumber, opts.userId, total]
+  );
+  await getPool().query(
+    `INSERT INTO "OrderItem" ("id", "orderId", "productId", "name", "price", "costPrice",
+                              "quantity", "vendor")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [
+      `e2e_${crypto.randomBytes(12).toString("hex")}`,
+      orderId,
+      opts.productId,
+      opts.name,
+      opts.price,
+      opts.costPrice,
+      opts.quantity,
+      opts.vendor,
+    ]
+  );
+  return orderNumber;
+}

@@ -270,3 +270,151 @@ export async function costCoverage() {
   ]);
   return { total, withCost, missing: total - withCost };
 }
+
+// ─── Sales by vendor ────────────────────────────────────────────────────────
+
+/** The bucket for sold lines with no vendor snapshot. */
+export const NO_VENDOR_LABEL = "No vendor";
+
+export type VendorSalesRow = {
+  /** null for lines sold with no vendor recorded. */
+  vendor: string | null;
+  units: number;
+  revenue: number;
+  /** Cost of the lines that carry one. See `linesMissingCost`. */
+  cost: number;
+  profit: number;
+  /** Sold lines with no cost snapshot — profit is overstated by their cost. */
+  linesMissingCost: number;
+  /** Active products naming this vendor TODAY, and how many are sold out. */
+  catalogue: number;
+  soldOut: number;
+};
+
+export type ProductSalesRow = {
+  /** null when the product has since been deleted; the name is the snapshot. */
+  productId: string | null;
+  name: string;
+  vendor: string | null;
+  units: number;
+  revenue: number;
+  /** Current stock, or null if the product no longer exists. */
+  stockNow: number | null;
+};
+
+/**
+ * What sold in a period, by vendor and by product.
+ *
+ * ── Read from the order-line snapshots, never the live product ───────────────
+ * Vendor, price and cost all come from OrderItem, which captured them at the
+ * moment of sale. A product that changes supplier next month must not move
+ * this month's sales to the new one — same rule as cost of goods above.
+ *
+ * ── Revenue here is line value, before refunds ───────────────────────────────
+ * price × quantity on paid orders, the measure of what SOLD. Refunds are
+ * reported once, at order level, in the summary above; apportioning them to
+ * lines would need a refund-per-line record that does not exist.
+ *
+ * Aggregated in memory: a month of a small shop's order lines is hundreds of
+ * rows, and grouping by a nullable snapshot plus a product name is clearer
+ * here than in a groupBy that would still need a second pass for names.
+ */
+export async function salesByVendor(
+  period: Period,
+  vendor?: string | null,
+): Promise<{ vendors: VendorSalesRow[]; products: ProductSalesRow[] }> {
+  await requireRole("admin");
+
+  const [lines, catalogue, soldOut] = await Promise.all([
+    prisma.orderItem.findMany({
+      where: {
+        order: { paymentStatus: "paid", createdAt: { gte: period.from, lt: period.to } },
+      },
+      select: {
+        productId: true,
+        name: true,
+        vendor: true,
+        price: true,
+        costPrice: true,
+        quantity: true,
+        product: { select: { stock: true } },
+      },
+    }),
+    prisma.product.groupBy({
+      by: ["vendor"],
+      where: { isActive: true },
+      _count: true,
+    }),
+    prisma.product.groupBy({
+      by: ["vendor"],
+      where: { isActive: true, stock: 0 },
+      _count: true,
+    }),
+  ]);
+
+  const key = (v: string | null) => v ?? "";
+  const vendors = new Map<string, VendorSalesRow>();
+  const blank = (v: string | null): VendorSalesRow => ({
+    vendor: v,
+    units: 0,
+    revenue: 0,
+    cost: 0,
+    profit: 0,
+    linesMissingCost: 0,
+    catalogue: 0,
+    soldOut: 0,
+  });
+
+  for (const line of lines) {
+    const row = vendors.get(key(line.vendor)) ?? blank(line.vendor);
+    const value = money(line.price) * line.quantity;
+    row.units += line.quantity;
+    row.revenue += value;
+    if (line.costPrice === null) row.linesMissingCost += 1;
+    else row.cost += money(line.costPrice) * line.quantity;
+    vendors.set(key(line.vendor), row);
+  }
+
+  // Catalogue counts are by the product's CURRENT vendor — "how much of this
+  // supplier's range is on sale, and how much has run out" is a question about
+  // now, not about the month. A vendor with stock but no sales still appears,
+  // which is the point: it is the one to ask why.
+  for (const c of catalogue) {
+    const row = vendors.get(key(c.vendor)) ?? blank(c.vendor);
+    row.catalogue = c._count;
+    vendors.set(key(c.vendor), row);
+  }
+  for (const s of soldOut) {
+    const row = vendors.get(key(s.vendor));
+    if (row) row.soldOut = s._count;
+  }
+  for (const row of vendors.values()) row.profit = row.revenue - row.cost;
+
+  // Products: one row per product (or per snapshot name, for deleted ones),
+  // optionally narrowed to one vendor. `vendor === null` here means "the
+  // No vendor bucket", while `undefined` means "every vendor".
+  const products = new Map<string, ProductSalesRow>();
+  for (const line of lines) {
+    if (vendor !== undefined && key(line.vendor) !== key(vendor)) continue;
+    const id = line.productId ?? `deleted:${line.name}`;
+    const row = products.get(id) ?? {
+      productId: line.productId,
+      name: line.name,
+      vendor: line.vendor,
+      units: 0,
+      revenue: 0,
+      stockNow: line.product?.stock ?? null,
+    };
+    row.units += line.quantity;
+    row.revenue += money(line.price) * line.quantity;
+    products.set(id, row);
+  }
+
+  const byUnits = <T extends { units: number; revenue: number }>(a: T, b: T) =>
+    b.units - a.units || b.revenue - a.revenue;
+
+  return {
+    vendors: [...vendors.values()].sort(byUnits),
+    products: [...products.values()].sort(byUnits),
+  };
+}

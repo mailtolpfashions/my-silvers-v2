@@ -216,6 +216,13 @@ model Product {
   /// simply excluded from margin figures rather than counted as free, and the
   /// finance screens say how many are missing. Never show this to a shopper.
   costPrice        Decimal? @db.Decimal(10, 2)
+  /// Who we bought this piece from. Free text, admin-only — same rule as
+  /// costPrice: never shown to a shopper (getProductBySlug strips it).
+  ///
+  /// Spelling is normalised on save to match an existing vendor
+  /// case-insensitively (see normalizeVendor), so "ravi silvers" does not
+  /// split one supplier's sales across two rows of the vendor report.
+  vendor           String?
   images           String[] // Cloudinary URLs only — validated in server layer
   videoUrl         String?
   category         Category @relation(fields: [categoryId], references: [id])
@@ -267,6 +274,7 @@ model Product {
   @@index([createdAt(sort: Desc)])
   @@index([isActive, isFeatured])
   @@index([isActive, isBestseller])
+  @@index([vendor])
 }
 
 // ─── Cart / Wishlist / Reviews ─────────────────────────────────────────────
@@ -485,6 +493,10 @@ model OrderItem {
   /// Product instead would mean re-pricing your stock next year silently
   /// rewrites last year's profit. Same reasoning as `price` above.
   costPrice Decimal? @db.Decimal(10, 2) // snapshot
+  /// Snapshot of Product.vendor at the moment of sale, for the same reason as
+  /// costPrice: changing a product's supplier later must not move its past
+  /// sales to the new one. NULL on lines sold before vendors were recorded.
+  vendor    String? // snapshot
   quantity  Int
   weight    Decimal? @db.Decimal(10, 3) // snapshot
   /// Snapshot of the chosen size. Empty for unsized pieces. This is what

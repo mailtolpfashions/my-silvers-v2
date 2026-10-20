@@ -29,8 +29,10 @@ import { useBulkSelect } from "@/components/admin/bulk-select";
  */
 export function ProductHeaderActions({
   categories,
+  vendors = [],
 }: {
   categories: Array<{ id: string; name: string }>;
+  vendors?: string[];
 }) {
   const { selected, clear } = useBulkSelect();
   const count = selected.size;
@@ -48,7 +50,7 @@ export function ProductHeaderActions({
             Clear
           </button>
         </span>
-        <ProductBulkBar variant="header" categories={categories} />
+        <ProductBulkBar variant="header" categories={categories} vendors={vendors} />
         <ProductExportButtons />
       </div>
     );

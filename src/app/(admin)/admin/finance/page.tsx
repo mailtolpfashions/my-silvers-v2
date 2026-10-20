@@ -9,7 +9,12 @@ import {
   listExpenses,
   listInvestments,
   monthPeriod,
+  salesByVendor,
+  NO_VENDOR_LABEL,
+  type ProductSalesRow,
+  type VendorSalesRow,
 } from "@/server/admin/finance";
+import { NO_VENDOR } from "@/lib/vendor";
 import { formatINR } from "@/lib/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +23,7 @@ import {
   TableBody,
   TableCell,
   TableFooter,
+  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
@@ -94,7 +100,7 @@ type SplitRow = {
 export default async function AdminFinancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ m?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ m?: string; sort?: string; dir?: string; v?: string }>;
 }) {
   // getCurrentRole(), not the token: these are the most sensitive figures in
   // the application, and a role revoked an hour ago must close this page now
@@ -110,13 +116,18 @@ export default async function AdminFinancePage({
   const monthIndex = parsed ? Number(parsed[2]) - 1 : now.getMonth();
   const period = monthPeriod(year, monthIndex);
 
-  const [summary, split, expenses, byCategory, investments, coverage] = await Promise.all([
+  // `v` picks one vendor's product breakdown: absent is every vendor, NO_VENDOR
+  // is the bucket of lines sold with none recorded.
+  const selectedVendor = sp.v === undefined ? undefined : sp.v === NO_VENDOR ? null : sp.v;
+
+  const [summary, split, expenses, byCategory, investments, coverage, sales] = await Promise.all([
     getFinanceSummary(period),
     getProfitSplit(period),
     listExpenses(period),
     expensesByCategory(period),
     listInvestments(),
     costCoverage(),
+    salesByVendor(period, selectedVendor),
   ]);
 
   const monthLabel = period.from.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
@@ -181,6 +192,14 @@ export default async function AdminFinancePage({
           <Aside label="Gross profit" value={summary.grossProfit} note="Revenue less refunds and cost of goods, before expenses." />
         </div>
       </section>
+
+      <VendorSales
+        vendors={sales.vendors}
+        products={sales.products}
+        selected={selectedVendor}
+        monthLabel={monthLabel}
+        month={sp.m}
+      />
 
       <section className="space-y-4">
         <h2 className="text-base font-medium">Each partner&apos;s share of {monthLabel}</h2>
@@ -360,6 +379,187 @@ function Figure({
         {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Sales by vendor, and the products behind them.
+ *
+ * Vendors first, ranked by units sold. Each name is a link that narrows the
+ * product table beneath to that vendor; with none chosen, it ranks every
+ * product — the "what sells" question as well as "who supplies what sells".
+ *
+ * Links rather than client-side expansion: the breakdown is a different query
+ * result, the month is already in the URL the same way, and a link can be
+ * bookmarked or sent to a partner.
+ */
+function VendorSales({
+  vendors,
+  products,
+  selected,
+  monthLabel,
+  month,
+}: {
+  vendors: VendorSalesRow[];
+  products: ProductSalesRow[];
+  /** undefined = every vendor; null = the "No vendor" bucket. */
+  selected: string | null | undefined;
+  monthLabel: string;
+  month?: string;
+}) {
+  const href = (v: string | null | undefined) => {
+    const q = new URLSearchParams();
+    if (month) q.set("m", month);
+    if (v !== undefined) q.set("v", v === null ? NO_VENDOR : v);
+    const s = q.toString();
+    // The anchor keeps the report in view instead of jumping to the page top.
+    return `/admin/finance${s ? `?${s}` : ""}#vendor-sales`;
+  };
+  const vendorName = (v: string | null) => v ?? NO_VENDOR_LABEL;
+  const sold = vendors.filter((v) => v.units > 0);
+  const missingCost = sold.some((v) => v.linesMissingCost > 0);
+  const productsTitle =
+    selected === undefined ? "Top products" : `Products from ${vendorName(selected)}`;
+
+  return (
+    <section id="vendor-sales" className="scroll-mt-20 space-y-4">
+      <div>
+        <h2 className="text-base font-medium">Sales by vendor — {monthLabel}</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Paid orders only, credited to the vendor recorded when each piece sold. Revenue is before
+          refunds. Catalogue counts are today&apos;s active products.
+        </p>
+      </div>
+
+      {vendors.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            Nothing sold this month, and no products have a vendor yet. Set one on each product,
+            or select several in Products and use Organise → Set vendor.
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="overflow-x-auto p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead className="text-right">Units sold</TableHead>
+                  <TableHead className="text-right">Revenue</TableHead>
+                  <TableHead className="text-right">Cost</TableHead>
+                  <TableHead className="text-right">Profit</TableHead>
+                  <TableHead className="text-right">Sold out / in catalogue</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {vendors.map((row) => {
+                  const isSelected = selected !== undefined && selected === row.vendor;
+                  return (
+                    <TableRow key={row.vendor ?? NO_VENDOR} data-state={isSelected ? "selected" : undefined}>
+                      <TableCell>
+                        <Link
+                          href={href(isSelected ? undefined : row.vendor)}
+                          className={`underline-offset-4 hover:underline ${
+                            row.vendor === null ? "text-muted-foreground" : "font-medium"
+                          }`}
+                        >
+                          {vendorName(row.vendor)}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-right">{row.units}</TableCell>
+                      <TableCell className="text-right">{formatINR(row.revenue)}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {formatINR(row.cost)}
+                        {row.linesMissingCost > 0 && " *"}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {row.units > 0 ? formatINR(row.profit) : "—"}
+                        {row.linesMissingCost > 0 && " *"}
+                      </TableCell>
+                      <TableCell
+                        className={`text-right ${row.soldOut > 0 ? "text-destructive" : "text-muted-foreground"}`}
+                      >
+                        {row.catalogue > 0 ? `${row.soldOut} / ${row.catalogue}` : "—"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {missingCost && (
+        <p className="text-xs text-muted-foreground">
+          * Some pieces sold without a cost price, so that vendor&apos;s cost is understated and its
+          profit overstated.
+        </p>
+      )}
+
+      {sold.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between gap-4">
+            <h3 className="text-sm font-medium">{productsTitle}</h3>
+            {selected !== undefined && (
+              <Link href={href(undefined)} className="text-xs underline underline-offset-4">
+                Show all vendors
+              </Link>
+            )}
+          </div>
+          {products.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nothing from this vendor sold in {monthLabel}.</p>
+          ) : (
+            <Card>
+              <CardContent className="overflow-x-auto p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      {selected === undefined && <TableHead>Vendor</TableHead>}
+                      <TableHead className="text-right">Units sold</TableHead>
+                      <TableHead className="text-right">Revenue</TableHead>
+                      <TableHead className="text-right">In stock now</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {/* Top 20 across every vendor; one vendor's list is short
+                        enough to show whole. */}
+                    {(selected === undefined ? products.slice(0, 20) : products).map((p) => (
+                      <TableRow key={p.productId ?? `deleted:${p.name}`}>
+                        <TableCell>
+                          {p.productId ? (
+                            <Link
+                              href={`/admin/products/${p.productId}`}
+                              className="underline-offset-4 hover:underline"
+                            >
+                              {p.name}
+                            </Link>
+                          ) : (
+                            <span className="text-muted-foreground">{p.name} (deleted)</span>
+                          )}
+                        </TableCell>
+                        {selected === undefined && (
+                          <TableCell className="text-muted-foreground">{vendorName(p.vendor)}</TableCell>
+                        )}
+                        <TableCell className="text-right font-medium">{p.units}</TableCell>
+                        <TableCell className="text-right">{formatINR(p.revenue)}</TableCell>
+                        <TableCell
+                          className={`text-right ${p.stockNow === 0 ? "text-destructive" : ""}`}
+                        >
+                          {p.stockNow === null ? "—" : p.stockNow === 0 ? "Sold out" : p.stockNow}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getAdminProducts } from "@/server/products/admin";
+import { getAdminProducts, listVendors } from "@/server/products/admin";
 import { prisma } from "@/server/db";
 import { formatINR } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,7 @@ export const instant = false;
 type SearchParams = Promise<{
   q?: string;
   category?: string;
+  vendor?: string;
   active?: string;
   stock?: string;
   flag?: string;
@@ -65,10 +66,11 @@ export default async function AdminProductsPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  const [{ products, total, page, pageSize }, categories] = await Promise.all([
+  const [{ products, total, page, pageSize }, categories, vendors] = await Promise.all([
     getAdminProducts({
       q: params.q,
       categoryId: params.category,
+      vendor: params.vendor,
       active: params.active as "active" | "inactive" | undefined,
       stock: params.stock as "in" | "out" | undefined,
       flag: params.flag as "featured" | "bestseller" | undefined,
@@ -77,6 +79,7 @@ export default async function AdminProductsPage({
       dir: params.dir,
     }),
     prisma.category.findMany({ orderBy: { sortOrder: "asc" } }),
+    listVendors(),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -90,7 +93,7 @@ export default async function AdminProductsPage({
   // can cause an empty result, so offering "clear filters" for them would point
   // at the wrong culprit.
   const hasFilters = Boolean(
-    params.q || params.category || params.active || params.stock || params.flag
+    params.q || params.category || params.vendor || params.active || params.stock || params.flag
   );
 
   return (
@@ -107,12 +110,14 @@ export default async function AdminProductsPage({
           // place the bulk actions appear — see the component.
           <ProductHeaderActions
             categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+            vendors={vendors}
           />
         }
       />
 
       <AdminProductFilters
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+        vendors={vendors}
         current={params}
       />
 
@@ -235,7 +240,15 @@ export default async function AdminProductsPage({
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="text-sm">{product.sku}</TableCell>
+                <TableCell className="text-sm">
+                  {product.sku}
+                  {/* Under the SKU rather than a column of its own: both are
+                      internal identifiers, and a mostly-empty column on a new
+                      catalogue would widen a table that already scrolls. */}
+                  {product.vendor && (
+                    <div className="text-xs text-muted-foreground">{product.vendor}</div>
+                  )}
+                </TableCell>
                 <TableCell className="text-sm">{product.category.name}</TableCell>
                 <TableCell className="text-sm">{formatINR(product.price.toString())}</TableCell>
                 <TableCell>

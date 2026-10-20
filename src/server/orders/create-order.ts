@@ -59,6 +59,12 @@ type ResolvedItem = {
    * are excluded from margin rather than counted as free.
    */
   costPricePaise: number | null;
+  /**
+   * Who we bought it from, snapshotted for the same reason as cost: the
+   * "Sales by vendor" report must credit the supplier this piece actually
+   * came from, not whoever the product names after a later edit.
+   */
+  vendor: string | null;
   /** Snapshotted onto the OrderItem — this is what fulfilment picks. */
   size: string;
 };
@@ -160,6 +166,7 @@ async function resolveItems(
       quantity: line.quantity,
       weight: p.weight?.toString() ?? null,
       costPricePaise: p.costPrice === null ? null : toPaise(p.costPrice),
+      vendor: p.vendor,
       size: p.sizes.length > 0 ? line.size : "",
     };
   });
@@ -305,6 +312,7 @@ export async function createOrder(input: {
               weight: i.weight,
               costPrice:
                 i.costPricePaise === null ? null : paiseToRupeeString(i.costPricePaise),
+              vendor: i.vendor,
               size: i.size,
             })),
           },

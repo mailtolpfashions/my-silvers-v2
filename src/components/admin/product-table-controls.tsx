@@ -16,15 +16,25 @@ import {
   archiveProductAction,
   restoreProductAction,
 } from "@/actions/admin-product-actions";
+import { NO_VENDOR } from "@/lib/vendor";
 
 const ANY = "__any__";
 
 export function AdminProductFilters({
   categories,
+  vendors = [],
   current,
 }: {
   categories: Array<{ id: string; name: string }>;
-  current: { q?: string; category?: string; active?: string; stock?: string; flag?: string };
+  vendors?: string[];
+  current: {
+    q?: string;
+    category?: string;
+    vendor?: string;
+    active?: string;
+    stock?: string;
+    flag?: string;
+  };
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -40,7 +50,7 @@ export function AdminProductFilters({
   }
 
   const select = (
-    key: "category" | "active" | "stock" | "flag",
+    key: "category" | "vendor" | "active" | "stock" | "flag",
     placeholder: string,
     options: Array<[string, string]>
   ) => (
@@ -75,6 +85,12 @@ export function AdminProductFilters({
         />
       </form>
       {select("category", "All categories", categories.map((c) => [c.id, c.name]))}
+      {/* "No vendor set" is listed first so the gaps are one click away —
+          the vendor report can only credit what has been filled in. */}
+      {select("vendor", "All vendors", [
+        [NO_VENDOR, "No vendor set"],
+        ...vendors.map((v): [string, string] => [v, v]),
+      ])}
       {select("active", "Any status", [
         ["active", "Active"],
         ["inactive", "Archived"],
