@@ -544,3 +544,95 @@ test.describe("cash on delivery, end to end", () => {
 test.afterAll(async () => {
   await resetStoreSettings().catch(() => {});
 });
+
+/**
+ * The header's finish and occasion links, edited in the same settings form.
+ *
+ * Here and not in a file of its own for the reason at the top of this file:
+ * it saves store settings, and in its own file it ran in parallel with the
+ * COD tests above and each save reverted the other's — the failure moved
+ * between the two suites from one run to the next.
+ *
+ * The round trip is what matters: a save must reach the header on the next
+ * request (the header reads these lists through the settings cache, which the
+ * save expires), and an emptied list must drop its column rather than leave a
+ * heading with nothing under it. Both lists are put back exactly as found.
+ */
+test.describe("header menu lists come from store settings", () => {
+  const FINISHES = "Jewellery → By finish";
+  const OCCASIONS = "Gifting → By occasion";
+  type Row = { label: string; query: string };
+
+  async function readRows(page: Page, title: string): Promise<Row[]> {
+    const rows: Row[] = [];
+    for (let i = 1; ; i++) {
+      const label = page.getByLabel(`${title} ${i}: label`, { exact: true });
+      if ((await label.count()) === 0) return rows;
+      rows.push({
+        label: await label.inputValue(),
+        query: await page.getByLabel(`${title} ${i}: search word`, { exact: true }).inputValue(),
+      });
+    }
+  }
+
+  /** Replaces one list in the form. `which` is its "Add link" button: 0 finishes, 1 occasions. */
+  async function writeRows(page: Page, title: string, which: 0 | 1, rows: Row[]) {
+    // The row is the label input's parent, which also holds its buttons.
+    while ((await page.getByLabel(`${title} 1: label`, { exact: true }).count()) > 0) {
+      const row = page.getByLabel(`${title} 1: label`, { exact: true }).locator("xpath=..");
+      await row.getByRole("button", { name: /^Remove/ }).click();
+    }
+    for (const [i, r] of rows.entries()) {
+      await page.getByRole("button", { name: "Add link" }).nth(which).click();
+      await page.getByLabel(`${title} ${i + 1}: label`, { exact: true }).fill(r.label);
+      await page.getByLabel(`${title} ${i + 1}: search word`, { exact: true }).fill(r.query);
+    }
+  }
+
+  const headerHtml = async (page: Page) => (await page.request.get(`/?t=${Date.now()}`)).text();
+
+  test("a finish added in settings reaches the header, and an emptied list hides its column", async ({
+    page,
+  }) => {
+    const admin = await signInAs(page, "admin", "navmenu");
+    const stamp = Date.now();
+    const label = `E2E Antique ${stamp}`;
+    const query = `e2e-antique-${stamp}`;
+
+    await openSettings(page);
+    const originalFinishes = await readRows(page, FINISHES);
+    const originalOccasions = await readRows(page, OCCASIONS);
+
+    try {
+      // The search word follows the label until edited, so typing the label
+      // alone already produces its lowercase form.
+      await page.getByRole("button", { name: "Add link" }).nth(0).click();
+      const n = originalFinishes.length + 1;
+      await page.getByLabel(`${FINISHES} ${n}: label`, { exact: true }).fill(label);
+      await expect(page.getByLabel(`${FINISHES} ${n}: search word`, { exact: true })).toHaveValue(
+        label.toLowerCase()
+      );
+      await page.getByLabel(`${FINISHES} ${n}: search word`, { exact: true }).fill(query);
+
+      await writeRows(page, OCCASIONS, 1, []);
+      await saveSettings(page);
+
+      const html = await headerHtml(page);
+      expect(html, "the new finish is not in the header").toContain(`/products?q=${query}`);
+      expect(html, "the new finish's label is not in the header").toContain(label);
+      expect(html, "an emptied occasion list still renders its column").not.toContain("By occasion");
+    } finally {
+      await openSettings(page);
+      await writeRows(page, FINISHES, 0, originalFinishes);
+      await writeRows(page, OCCASIONS, 1, originalOccasions);
+      await saveSettings(page);
+      await admin.dispose();
+    }
+
+    const restored = await headerHtml(page);
+    expect(restored, "the test finish was not removed").not.toContain(query);
+    if (originalOccasions.length > 0) {
+      expect(restored, "the occasion column did not come back").toContain("By occasion");
+    }
+  });
+});

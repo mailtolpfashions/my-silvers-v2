@@ -52,6 +52,8 @@ export default async function AdminSettingsPage() {
           handlingTimeMaxDays: settings.handlingTimeMaxDays,
           transitTimeMinDays: settings.transitTimeMinDays,
           transitTimeMaxDays: settings.transitTimeMaxDays,
+          navFinishes: settings.navFinishes,
+          navOccasions: settings.navOccasions,
         }}
       />
     </>

@@ -2,6 +2,7 @@ import { getActiveCategories } from "@/server/products/search";
 import { getCollections } from "@/server/cms/collections";
 import { listPublishedEntries } from "@/server/cms/entries";
 import { PRICE_BUCKETS } from "@/lib/price-buckets";
+import { getNavMenuSettings, type NavFilter } from "@/server/settings/store-settings";
 
 /**
  * The navigation model: five "worlds" rather than a flat list of ten peers.
@@ -60,30 +61,20 @@ function priceHref(min?: number, max?: number): string {
 }
 
 /**
- * Finish tags that exist in the catalogue today. Kept as an explicit list
- * rather than derived from a tag census, because a census would surface every
- * stray tag an admin ever typed — including gemstone names and category
- * duplicates — and the nav is a curated surface, not a report.
+ * An admin-edited header list (finishes, occasions) as nav links.
  *
- * If a tag here stops matching any product the link still resolves; it just
- * lands on an empty result page. Worth a periodic check rather than a
- * per-request query on every page of the site.
+ * These were hardcoded here, so adding a finish meant a deploy, and a finish
+ * the catalogue did not carry was a link to an empty page in every header.
+ * They now live in store settings (/admin/settings → Header menu). Each is a
+ * full-text search, the same one the search box runs — see the note at the
+ * top of this file on why `?q=` reaches tags.
  */
-const FINISHES: NavLink[] = [
-  { label: "Oxidised", href: "/products?q=oxidised" },
-  { label: "Polished", href: "/products?q=polished" },
-  { label: "Matte", href: "/products?q=matte" },
-  { label: "Rhodium plated", href: "/products?q=rhodium-plated" },
-  { label: "Rose gold plated", href: "/products?q=rose-gold-plated" },
-];
-
-const OCCASIONS: NavLink[] = [
-  { label: "Bridal", href: "/products?q=bridal" },
-  { label: "Festive", href: "/products?q=festive" },
-  { label: "Party", href: "/products?q=party" },
-  { label: "Office", href: "/products?q=office" },
-  { label: "Everyday", href: "/products?q=everyday" },
-];
+function searchLinks(filters: NavFilter[]): NavLink[] {
+  return filters.map((f) => ({
+    label: f.label,
+    href: `/products?q=${encodeURIComponent(f.query)}`,
+  }));
+}
 
 /**
  * Builds the whole nav in one pass.
@@ -94,10 +85,16 @@ const OCCASIONS: NavLink[] = [
  * visitor, which is what lets the header stay out of the account island.
  */
 export async function buildNav(): Promise<NavWorld[]> {
-  const [categories, collections] = await Promise.all([
+  // The lists alone, under their own cache tag — NOT getStoreSettings, whose
+  // tag every settings save expires; see getNavMenuSettings for why that
+  // matters on a component that is on every page.
+  const [categories, collections, settings] = await Promise.all([
     getActiveCategories(),
     getCollections({ take: 6 }),
+    getNavMenuSettings(),
   ]);
+  const finishLinks = searchLinks(settings.navFinishes);
+  const occasionLinks = searchLinks(settings.navOccasions);
 
   const categoryLinks: NavLink[] = categories.map((c) => ({
     label: c.name,
@@ -124,7 +121,9 @@ export async function buildNav(): Promise<NavWorld[]> {
         // catch-all first, so browsing everything is the first choice offered.
         { heading: "By category", links: [{ label: "All jewellery", href: "/products" }, ...categoryLinks] },
         { heading: "By price", links: priceLinks },
-        { heading: "By finish", links: FINISHES },
+        // An emptied list drops the column rather than showing a heading
+        // with nothing under it.
+        ...(finishLinks.length > 0 ? [{ heading: "By finish", links: finishLinks }] : []),
       ],
       tiles: featured
         ? [
@@ -172,7 +171,7 @@ export async function buildNav(): Promise<NavWorld[]> {
     // a real page with real results rather than a 404 waiting to happen.
     href: "/products?q=gifting",
     columns: [
-      { heading: "By occasion", links: OCCASIONS },
+      ...(occasionLinks.length > 0 ? [{ heading: "By occasion", links: occasionLinks }] : []),
       { heading: "By budget", links: priceLinks },
     ],
     tiles: featured
