@@ -120,7 +120,9 @@ export async function buildNav(): Promise<NavWorld[]> {
       // A category page and a product page are both "inside" Jewellery.
       activePaths: ["/category", "/products/"],
       columns: [
-        { heading: "By category", links: [...categoryLinks, { label: "All jewellery", href: "/products" }] },
+        // "All jewellery" leads rather than trails: the shop asked for the
+        // catch-all first, so browsing everything is the first choice offered.
+        { heading: "By category", links: [{ label: "All jewellery", href: "/products" }, ...categoryLinks] },
         { heading: "By price", links: priceLinks },
         { heading: "By finish", links: FINISHES },
       ],
