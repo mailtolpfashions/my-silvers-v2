@@ -77,11 +77,16 @@ function CategoryFormDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{category ? "Edit category" : "New category"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Two columns in a wider dialog: the words and the ordering on the
+              left, the picture and the menu icon on the right — the two
+              things that show up as visuals. Stacks below sm. */}
+          <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="cat-name" required>Name</Label>
             <Input
@@ -99,6 +104,28 @@ function CategoryFormDialog({
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             />
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="cat-sort">Sort order</Label>
+              <Input
+                id="cat-sort"
+                type="number"
+                min={0}
+                value={form.sortOrder}
+                onChange={(e) => setForm((f) => ({ ...f, sortOrder: e.target.value }))}
+              />
+            </div>
+            <label className="flex items-end gap-2 pb-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
+              />
+              Active
+            </label>
+          </div>
+          </div>
+          <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>Image</Label>
             <ImagesUploader
@@ -124,25 +151,7 @@ function CategoryFormDialog({
               award, heart, star, gift…) or an emoji. Leave blank for text only.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="cat-sort">Sort order</Label>
-              <Input
-                id="cat-sort"
-                type="number"
-                min={0}
-                value={form.sortOrder}
-                onChange={(e) => setForm((f) => ({ ...f, sortOrder: e.target.value }))}
-              />
-            </div>
-            <label className="flex items-end gap-2 pb-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.isActive}
-                onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
-              />
-              Active
-            </label>
+          </div>
           </div>
           <Button type="submit" disabled={saving} className="w-full">
             {saving ? "Saving…" : "Save category"}
