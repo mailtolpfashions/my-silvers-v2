@@ -142,7 +142,10 @@ Set every one of these in Vercel → Settings → Environment Variables, scoped 
 
 4. **`CRON_SECRET`** must be set and must match what Vercel Cron sends. The
    auto-refund sweep issues real refunds; the secret is all that stands between
-   that endpoint and the internet.
+   that endpoint and the internet. It must be **at least 16 characters** and
+   not the `your-…` placeholder, or the sweep refuses to run at all (503, and
+   `[cron] CRON_SECRET is unset` in the logs). Generate one with
+   `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
 
 5. **`ALLOW_PLACEHOLDER_IMAGES` must be UNSET.** Setting it to `1` lets
    `next/image` load `placehold.co`. That is for demo deployments only.
