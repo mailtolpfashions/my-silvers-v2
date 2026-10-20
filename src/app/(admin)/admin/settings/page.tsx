@@ -44,6 +44,14 @@ export default async function AdminSettingsPage() {
           freeShippingThreshold: settings.freeShippingThresholdPaise / 100,
           giftWrapEnabled: settings.giftWrapEnabled,
           giftWrapCharge: settings.giftWrapChargePaise / 100,
+          // Days are already the storage unit — no conversion, unlike the money
+          // above.
+          returnWindowDays: settings.returnWindowDays,
+          returnShippingPaidBy: settings.returnShippingPaidBy,
+          handlingTimeMinDays: settings.handlingTimeMinDays,
+          handlingTimeMaxDays: settings.handlingTimeMaxDays,
+          transitTimeMinDays: settings.transitTimeMinDays,
+          transitTimeMaxDays: settings.transitTimeMaxDays,
         }}
       />
     </>

@@ -1,6 +1,14 @@
+/**
+ * Structure only — safe to run against the PRODUCTION database.
+ *
+ *   npm run db:seed
+ *
+ * Creates the CMS content types and a starter homepage, and nothing else. No
+ * products, no categories, no users: anything here lands on the live shop, so
+ * sample data belongs in seed-demo.ts and the first admin comes from
+ * `npm run admin:create`.
+ */
 import "dotenv/config";
-import crypto from "node:crypto";
-import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { systemContentTypes } from "./content-types";
@@ -18,81 +26,6 @@ async function seedContentTypes() {
     });
   }
   console.log(`Seeded ${systemContentTypes.length} system content types.`);
-}
-
-// ─── Admin user ─────────────────────────────────────────────────────────────
-
-async function seedAdminUser() {
-  const email = "admin@mysilvers.in";
-  const password = crypto.randomBytes(18).toString("base64url");
-  const passwordHash = await bcrypt.hash(password, 12);
-
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    console.log(`Admin user ${email} already exists — leaving password unchanged.`);
-    return;
-  }
-
-  await prisma.user.create({
-    data: { email, name: "Admin", passwordHash, role: "admin" },
-  });
-
-  console.log("\n✅ Admin user created:");
-  console.log(`   Email:    ${email}`);
-  console.log(`   Password: ${password}`);
-  console.log("   (save this now — it will not be shown again)\n");
-}
-
-// ─── Sample catalog ─────────────────────────────────────────────────────────
-
-async function seedCatalog() {
-  const category = await prisma.category.upsert({
-    where: { slug: "rings" },
-    update: {},
-    create: {
-      name: "Rings",
-      slug: "rings",
-      description: "Sterling silver rings for everyday wear and special occasions.",
-      // Header nav icon, editable in /admin/categories. Resolved through
-      // CmsIcon, which falls back to rendering the value as text.
-      icon: "circle",
-      sortOrder: 1,
-    },
-  });
-
-  await prisma.product.upsert({
-    where: { sku: "MYS-RING-001" },
-    update: {},
-    create: {
-      name: "Classic Band Ring",
-      slug: "classic-band-ring",
-      description:
-        "A timeless 925 sterling silver band ring, hand-finished with a high polish shine.",
-      shortDescription: "Timeless sterling silver band ring.",
-      price: 1499,
-      compareAtPrice: 1899,
-      images: [],
-      categoryId: category.id,
-      weight: 3.2,
-      sizes: ["6", "7", "8", "9"],
-      // Sums to the 25 below — Product.stock is the maintained total.
-      variants: {
-        create: [
-          { size: "6", stock: 7 },
-          { size: "7", stock: 6 },
-          { size: "8", stock: 6 },
-          { size: "9", stock: 6 },
-        ],
-      },
-      material: "925 Sterling Silver",
-      stock: 25,
-      sku: "MYS-RING-001",
-      isFeatured: true,
-      tags: ["rings", "bestseller", "everyday"],
-    },
-  });
-
-  console.log("Seeded sample category + product.");
 }
 
 // ─── Default homepage entry ────────────────────────────────────────────────
@@ -184,8 +117,6 @@ async function seedDefaultHomepage() {
 async function main() {
   await seedContentTypes();
   await seedDefaultHomepage();
-  await seedAdminUser();
-  await seedCatalog();
 }
 
 main()

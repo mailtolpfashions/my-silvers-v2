@@ -60,6 +60,39 @@ export type StoreSettings = {
    * to invent a prohibitive charge instead.
    */
   giftWrapEnabled: boolean;
+
+  /**
+   * How many days after delivery a piece may be sent back.
+   *
+   * ⚠️  Zero means "the shop has not stated a return window", NOT "returns are
+   * accepted for zero days". Nothing published to a shopper or to a search
+   * engine may be rendered from a zero — see the `hasMerchantReturnPolicy`
+   * branch in components/storefront/structured-data.tsx, which omits the whole
+   * node rather than claiming a 0-day policy.
+   *
+   * This exists as a number, separate from the returns copy in the CMS
+   * `product-info` singleton, because Google's merchant listings need a machine
+   * readable figure and rich text cannot supply one. The two must agree; the
+   * prose remains the authority a shopper reads.
+   */
+  returnWindowDays: number;
+
+  /** Who pays to post a return. Only consulted when returnWindowDays > 0. */
+  returnShippingPaidBy: "customer" | "merchant";
+
+  /**
+   * Days between an order being placed and it leaving the shop, as a range.
+   *
+   * Zero on either end means unstated, and suppresses the delivery estimate in
+   * structured data entirely — a guessed dispatch time is a promise the shop
+   * did not make, and it is the kind of promise a shopper measures you against.
+   */
+  handlingTimeMinDays: number;
+  handlingTimeMaxDays: number;
+
+  /** Days in transit once dispatched, as a range. Zero means unstated. */
+  transitTimeMinDays: number;
+  transitTimeMaxDays: number;
 };
 
 /**
@@ -79,6 +112,24 @@ export const STORE_SETTING_DEFAULTS: StoreSettings = {
   // product. A number a shopper in this market has already seen.
   giftWrapChargePaise: 50 * 100,
   giftWrapEnabled: true,
+
+  /**
+   * ⚠️  These five default to "unstated", which is the one exception to the
+   * note above about defaults being live production values. They are the only
+   * settings that become a PUBLIC CLAIM the moment they are non-zero — a return
+   * window and a delivery estimate published to Google as structured data.
+   *
+   * A default of 7 days here would have an unconfigured shop promising a return
+   * policy nobody agreed to, in a format a search engine quotes verbatim. Silent
+   * is the only safe starting state; the admin fills these in once the policy
+   * is decided, and the markup appears at that point and not before.
+   */
+  returnWindowDays: 0,
+  returnShippingPaidBy: "customer",
+  handlingTimeMinDays: 0,
+  handlingTimeMaxDays: 0,
+  transitTimeMinDays: 0,
+  transitTimeMaxDays: 0,
 };
 
 /** Cache tag for every settings read. Invalidated by the admin save action. */
@@ -102,23 +153,37 @@ function parse(raw: unknown): StoreSettings {
 
   const bool = (x: unknown, fallback: boolean) => (typeof x === "boolean" ? x : fallback);
   /**
-   * Non-negative integers only. A negative shipping charge would pay the
-   * customer to order, and a fractional paise value would break the integer
-   * money arithmetic every total in the app depends on.
+   * Non-negative integers only — used for both the money fields and the day
+   * counts. A negative shipping charge would pay the customer to order, a
+   * fractional paise value would break the integer money arithmetic every total
+   * in the app depends on, and a negative return window is not a thing.
    */
-  const paise = (x: unknown, fallback: number) =>
+  const whole = (x: unknown, fallback: number) =>
     typeof x === "number" && Number.isSafeInteger(x) && x >= 0 ? x : fallback;
+  /** A string constrained to a known set, or the default. */
+  const oneOf = <T extends string>(x: unknown, allowed: readonly T[], fallback: T) =>
+    typeof x === "string" && (allowed as readonly string[]).includes(x) ? (x as T) : fallback;
 
   return {
     codEnabled: bool(v.codEnabled, d.codEnabled),
     guestCheckoutEnabled: bool(v.guestCheckoutEnabled, d.guestCheckoutEnabled),
-    shippingChargePaise: paise(v.shippingChargePaise, d.shippingChargePaise),
-    freeShippingThresholdPaise: paise(
+    shippingChargePaise: whole(v.shippingChargePaise, d.shippingChargePaise),
+    freeShippingThresholdPaise: whole(
       v.freeShippingThresholdPaise,
       d.freeShippingThresholdPaise
     ),
-    giftWrapChargePaise: paise(v.giftWrapChargePaise, d.giftWrapChargePaise),
+    giftWrapChargePaise: whole(v.giftWrapChargePaise, d.giftWrapChargePaise),
     giftWrapEnabled: bool(v.giftWrapEnabled, d.giftWrapEnabled),
+    returnWindowDays: whole(v.returnWindowDays, d.returnWindowDays),
+    returnShippingPaidBy: oneOf(
+      v.returnShippingPaidBy,
+      ["customer", "merchant"] as const,
+      d.returnShippingPaidBy
+    ),
+    handlingTimeMinDays: whole(v.handlingTimeMinDays, d.handlingTimeMinDays),
+    handlingTimeMaxDays: whole(v.handlingTimeMaxDays, d.handlingTimeMaxDays),
+    transitTimeMinDays: whole(v.transitTimeMinDays, d.transitTimeMinDays),
+    transitTimeMaxDays: whole(v.transitTimeMaxDays, d.transitTimeMaxDays),
   };
 }
 

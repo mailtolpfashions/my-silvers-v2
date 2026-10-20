@@ -44,6 +44,9 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   return {
     title: collection.seo.metaTitle ?? d.title,
     description: collection.seo.metaDescription ?? d.description,
+    // An editor's own canonical wins; otherwise this page is its own, which
+    // collapses the sort variants the CollectionSort control produces.
+    alternates: { canonical: collection.seo.canonicalUrl ?? `/collections/${slug}` },
   };
 }
 

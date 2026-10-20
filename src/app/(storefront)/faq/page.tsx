@@ -29,6 +29,7 @@ export const metadata: Metadata = {
   title: "Frequently asked questions",
   description:
     "Answers to common questions about ordering, delivery, returns, sizing and caring for sterling silver.",
+  alternates: { canonical: "/faq" },
 };
 
 export default function FaqPage() {

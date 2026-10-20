@@ -25,14 +25,46 @@ const rupees = z
     message: "Amounts can have at most two decimal places.",
   });
 
-const settingsSchema = z.object({
-  codEnabled: z.boolean(),
-  guestCheckoutEnabled: z.boolean(),
-  shippingCharge: rupees,
-  freeShippingThreshold: rupees,
-  giftWrapEnabled: z.boolean(),
-  giftWrapCharge: rupees,
-});
+/**
+ * A count of days. Whole numbers only, and capped at a year — these are typed
+ * into a form and then published to Google as a return window or a delivery
+ * estimate, where a stray digit becomes a public promise of a 70-day dispatch.
+ */
+const days = z
+  .number({ message: "Enter a whole number of days." })
+  .int("Days must be a whole number.")
+  .min(0, "Days cannot be negative.")
+  .max(365, "That looks too large — enter a number of days.");
+
+const settingsSchema = z
+  .object({
+    codEnabled: z.boolean(),
+    guestCheckoutEnabled: z.boolean(),
+    shippingCharge: rupees,
+    freeShippingThreshold: rupees,
+    giftWrapEnabled: z.boolean(),
+    giftWrapCharge: rupees,
+    returnWindowDays: days,
+    returnShippingPaidBy: z.enum(["customer", "merchant"]),
+    handlingTimeMinDays: days,
+    handlingTimeMaxDays: days,
+    transitTimeMinDays: days,
+    transitTimeMaxDays: days,
+  })
+  /**
+   * A range whose maximum is below its minimum is not a slow estimate, it is a
+   * typo — and one that structured data would publish as an impossible delivery
+   * window. Caught here rather than normalised silently: swapping the two for
+   * the admin would hide the mistake in the one place they could still see it.
+   */
+  .refine((v) => v.handlingTimeMaxDays >= v.handlingTimeMinDays, {
+    message: "Dispatch: the maximum cannot be less than the minimum.",
+    path: ["handlingTimeMaxDays"],
+  })
+  .refine((v) => v.transitTimeMaxDays >= v.transitTimeMinDays, {
+    message: "Delivery: the maximum cannot be less than the minimum.",
+    path: ["transitTimeMaxDays"],
+  });
 
 export type SettingsActionResult = { ok: true } | { ok: false; error: string };
 
@@ -62,6 +94,12 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
     freeShippingThresholdPaise: Math.round(data.freeShippingThreshold * 100),
     giftWrapEnabled: data.giftWrapEnabled,
     giftWrapChargePaise: Math.round(data.giftWrapCharge * 100),
+    returnWindowDays: data.returnWindowDays,
+    returnShippingPaidBy: data.returnShippingPaidBy,
+    handlingTimeMinDays: data.handlingTimeMinDays,
+    handlingTimeMaxDays: data.handlingTimeMaxDays,
+    transitTimeMinDays: data.transitTimeMinDays,
+    transitTimeMaxDays: data.transitTimeMaxDays,
   };
 
   try {
@@ -78,6 +116,11 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
   revalidatePath("/cart");
   revalidatePath("/checkout");
   revalidatePath("/admin/settings");
+  // Product pages now build their JSON-LD shipping and return nodes from these
+  // values, so a policy change has to reach their rendered HTML too — the tag
+  // above only covers the settings read itself. "layout" sweeps every
+  // /products/[slug] rather than the listing alone.
+  revalidatePath("/products", "layout");
 
   return { ok: true };
 }

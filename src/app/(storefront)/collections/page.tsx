@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   title: "Collections",
   description:
     "Explore MY Silvers collections — bridal, everyday, office and oxidised sterling silver jewellery.",
+  alternates: { canonical: "/collections" },
 };
 
 export default async function CollectionsPage() {

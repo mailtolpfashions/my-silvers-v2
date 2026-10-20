@@ -66,8 +66,11 @@ SELECT count(*) FROM "Product" WHERE "searchVector" IS NOT NULL;
 ### 1.3 Seed the structure, not the demo content
 
 ```bash
-npm run db:seed          # content types + categories. Required.
+npm run db:seed          # content types + starter homepage. Required.
 ```
+
+That is all it creates — no categories, no products, no users. Categories and
+products are added in `/admin`.
 
 Do **not** run `db:seed:demo`. That is the 120-product placeholder catalogue.
 
@@ -83,6 +86,21 @@ an argument, which leaves it in your shell history.
 ---
 
 ## 2. Content before launch
+
+- [ ] Create these CMS **pages** (`/cms` → Pages). The footer links to each by
+      slug, so the slug must match exactly or the link is a 404. None of them
+      exist on a fresh database. Razorpay checks for the first five before it
+      activates live payments.
+
+      | Slug         | Page                  | Must include                                      |
+      | ------------ | --------------------- | ------------------------------------------------- |
+      | `contact`    | Contact us            | Legal business name, address, phone, email        |
+      | `privacy`    | Privacy policy        | What you collect, why, who it is shared with      |
+      | `terms`      | Terms & conditions    | Terms of sale, governing law                      |
+      | `returns`    | Returns & exchanges   | Refund / cancellation policy and timelines        |
+      | `shipping`   | Shipping & delivery   | Where you ship, how long, what it costs           |
+      | `about`      | Our story             |                                                   |
+      | `care-guide` | Silver care guide     |                                                   |
 
 - [ ] Rewrite every FAQ answer. The seeded ones are prefixed
       `"Sample answer —"` and will go live verbatim otherwise.

@@ -1,4 +1,5 @@
 import { getProductReviews } from "@/server/products/reviews";
+import { getStoreSettings } from "@/server/settings/store-settings";
 
 /**
  * JSON-LD for the storefront.
@@ -13,6 +14,14 @@ import { getProductReviews } from "@/server/products/reviews";
  * In particular `aggregateRating` is emitted ONLY when real reviews exist. A
  * hardcoded 4.8/127 is the single most common piece of e-commerce SEO fraud and
  * a manual-action risk; a product with no reviews simply has no rating node.
+ *
+ * The same rule governs `hasMerchantReturnPolicy` and the `deliveryTime` inside
+ * `shippingDetails`, which arrived later and are the two nodes most likely to
+ * tempt someone into a default. Both come from store settings, where zero means
+ * "the shop has not stated this", and both are omitted whole rather than filled
+ * with a sensible-looking 7 or 30. Google renders a return window directly in
+ * the search result: a number invented here is a promise the shop is then held
+ * to by a shopper who read it there.
  */
 
 /** metadataBase in app/layout.tsx — kept in step by hand, it is one string. */
@@ -84,6 +93,105 @@ export function SiteJsonLd() {
 }
 
 /**
+ * `OfferShippingDetails` for a product, from the configured shipping rate.
+ *
+ * ⚠️  The rate quoted is the flat charge, NOT zero, even though orders above
+ * the free-delivery threshold ship free. `shippingRate` is a single
+ * MonetaryAmount with nowhere to hang a threshold, so one of the two numbers
+ * has to be the one published — and it has to be the higher one. Quoting free
+ * delivery to a shopper who then pays ₹49 at checkout is the failure that
+ * matters; quoting ₹49 to one who pays nothing is a pleasant surprise. The
+ * threshold itself is still shown on the cart, where it can be explained.
+ *
+ * `deliveryTime` appears only when all four day counts are set. A dispatch or
+ * transit estimate is a promise, and a partially-configured one — "dispatched
+ * in 0 days" — is a worse promise than none.
+ */
+function shippingDetails(settings: {
+  shippingChargePaise: number;
+  handlingTimeMinDays: number;
+  handlingTimeMaxDays: number;
+  transitTimeMinDays: number;
+  transitTimeMaxDays: number;
+}) {
+  const {
+    shippingChargePaise,
+    handlingTimeMinDays,
+    handlingTimeMaxDays,
+    transitTimeMinDays,
+    transitTimeMaxDays,
+  } = settings;
+
+  const hasEstimate =
+    handlingTimeMinDays > 0 &&
+    handlingTimeMaxDays > 0 &&
+    transitTimeMinDays > 0 &&
+    transitTimeMaxDays > 0;
+
+  return {
+    "@type": "OfferShippingDetails",
+    shippingRate: {
+      "@type": "MonetaryAmount",
+      // Rupees, not paise — schema.org money is in the currency's major unit.
+      value: (shippingChargePaise / 100).toFixed(2),
+      currency: "INR",
+    },
+    // The shop ships within India only.
+    shippingDestination: { "@type": "DefinedRegion", addressCountry: "IN" },
+    ...(hasEstimate
+      ? {
+          deliveryTime: {
+            "@type": "ShippingDeliveryTime",
+            handlingTime: {
+              "@type": "QuantitativeValue",
+              minValue: handlingTimeMinDays,
+              maxValue: handlingTimeMaxDays,
+              unitCode: "DAY",
+            },
+            transitTime: {
+              "@type": "QuantitativeValue",
+              minValue: transitTimeMinDays,
+              maxValue: transitTimeMaxDays,
+              unitCode: "DAY",
+            },
+          },
+        }
+      : {}),
+  };
+}
+
+/**
+ * `MerchantReturnPolicy`, or nothing at all.
+ *
+ * Returns null on an unset window, and that is the whole contract — see the
+ * note at the top of this file. Google prints "30-day returns" straight into
+ * the search result, so a default here would be the shop making a promise in
+ * public that nobody in the shop agreed to.
+ *
+ * ⚠️  `returnFees` is emitted only for free returns. When the shopper pays the
+ * postage, Google wants `returnShippingFeesAmount` alongside it and the shop
+ * has no such figure configured — so the field is omitted rather than paired
+ * with a guessed amount. Adding a `returnShippingFeePaise` setting is what it
+ * would take to state it; until then, unspecified is the honest answer.
+ */
+function merchantReturnPolicy(settings: {
+  returnWindowDays: number;
+  returnShippingPaidBy: "customer" | "merchant";
+}) {
+  if (settings.returnWindowDays <= 0) return null;
+
+  return {
+    "@type": "MerchantReturnPolicy",
+    applicableCountry: "IN",
+    returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+    merchantReturnDays: settings.returnWindowDays,
+    ...(settings.returnShippingPaidBy === "merchant"
+      ? { returnFees: "https://schema.org/FreeReturn" }
+      : {}),
+  };
+}
+
+/**
  * Product + Offer + BreadcrumbList for a product page.
  *
  * Async because the rating has to be looked up: the alternative is emitting no
@@ -109,8 +217,16 @@ export async function ProductJsonLd({
     category: { name: string; slug: string };
   };
 }) {
-  const { averageRating, count } = await getProductReviews(product.id);
+  // Both self-served rather than passed in, for the reason in this component's
+  // doc comment: it must be impossible to call with someone else's numbers.
+  // getStoreSettings is cached and already read on the cart and checkout, so
+  // this is a cache hit on every product page.
+  const [{ averageRating, count }, settings] = await Promise.all([
+    getProductReviews(product.id),
+    getStoreSettings(),
+  ]);
   const url = `${SITE_URL}/products/${product.slug}`;
+  const returnPolicy = merchantReturnPolicy(settings);
 
   return (
     <>
@@ -141,6 +257,11 @@ export async function ProductJsonLd({
                 ? "https://schema.org/InStock"
                 : "https://schema.org/OutOfStock",
             itemCondition: "https://schema.org/NewCondition",
+            // What lifts this from a plain Product result to a merchant listing
+            // — the format that carries price, delivery and returns into the
+            // search result itself.
+            shippingDetails: shippingDetails(settings),
+            ...(returnPolicy ? { hasMerchantReturnPolicy: returnPolicy } : {}),
           },
           // Only when it is real. See the note at the top of this file.
           ...(count > 0
@@ -207,6 +328,7 @@ export function ArticleJsonLd({
   image,
   author,
   publishedAt,
+  modifiedAt,
 }: {
   title: string;
   slug: string;
@@ -214,6 +336,7 @@ export function ArticleJsonLd({
   image?: string;
   author?: string;
   publishedAt?: string;
+  modifiedAt?: string;
 }) {
   return (
     <>
@@ -227,6 +350,12 @@ export function ArticleJsonLd({
           ...(image ? { image: [image] } : {}),
           ...(author ? { author: { "@type": "Person", name: author } } : {}),
           ...(publishedAt ? { datePublished: publishedAt } : {}),
+          // Freshness is a real input to whether an answer engine quotes a
+          // page. Omitted when it would only repeat datePublished — an
+          // untouched post claiming a modification is noise.
+          ...(modifiedAt && modifiedAt !== publishedAt
+            ? { dateModified: modifiedAt }
+            : {}),
           publisher: {
             "@type": "Organization",
             name: "MY Silvers",
