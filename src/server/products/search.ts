@@ -1,4 +1,5 @@
 import { cacheLife, cacheTag } from "next/cache";
+import { CATEGORY_ORDER } from "@/server/products/category-order";
 import { prisma } from "@/server/db";
 import { withBlurPlaceholders } from "@/server/media/blur";
 
@@ -294,6 +295,6 @@ export async function getActiveCategories() {
 
   return prisma.category.findMany({
     where: { isActive: true },
-    orderBy: { sortOrder: "asc" },
+    orderBy: CATEGORY_ORDER,
   });
 }

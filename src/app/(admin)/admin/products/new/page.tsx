@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { CATEGORY_ORDER } from "@/server/products/category-order";
 import { ProductForm, EMPTY_PRODUCT_FORM } from "@/components/admin/product-form";
 import { PageHeader } from "@/components/layout/page-header";
 import { listVendors } from "@/server/products/admin";
@@ -16,7 +17,7 @@ export default async function NewProductPage() {
   const [categories, vendors] = await Promise.all([
     prisma.category.findMany({
       where: { isActive: true },
-      orderBy: { sortOrder: "asc" },
+      orderBy: CATEGORY_ORDER,
       select: { id: true, name: true },
     }),
     listVendors(),

@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { CATEGORY_ORDER } from "@/server/products/category-order";
 import { CategoryManager } from "@/components/admin/category-manager";
 import { PageHeader } from "@/components/layout/page-header";
 
@@ -7,7 +8,7 @@ export const instant = false;
 
 export default async function AdminCategoriesPage() {
   const categories = await prisma.category.findMany({
-    orderBy: { sortOrder: "asc" },
+    orderBy: CATEGORY_ORDER,
     include: { _count: { select: { products: true } } },
   });
 
