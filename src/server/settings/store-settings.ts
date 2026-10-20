@@ -93,7 +93,27 @@ export type StoreSettings = {
   /** Days in transit once dispatched, as a range. Zero means unstated. */
   transitTimeMinDays: number;
   transitTimeMaxDays: number;
+
+  /**
+   * The header's "By finish" links (Jewellery menu), in display order.
+   *
+   * Each is a SEARCH, not a filter: `query` runs the same full-text search as
+   * the search box, which covers name, description and tags. So a piece
+   * appears under "Oxidised" when any of those mention it — tagging is the
+   * dependable way. An empty list hides the column, which is the honest
+   * state for a catalogue that has not been tagged yet.
+   */
+  navFinishes: NavFilter[];
+
+  /** The header's "By occasion" links (Gifting menu). Same rules as above. */
+  navOccasions: NavFilter[];
 };
+
+/** One editable header-menu link: what a shopper reads, and what it searches. */
+export type NavFilter = { label: string; query: string };
+
+/** Hard limits, shared by the parser and the admin action. */
+export const NAV_FILTER_LIMITS = { items: 12, label: 40, query: 60 } as const;
 
 /**
  * What the shop does when nothing has been configured.
@@ -130,6 +150,24 @@ export const STORE_SETTING_DEFAULTS: StoreSettings = {
   handlingTimeMaxDays: 0,
   transitTimeMinDays: 0,
   transitTimeMaxDays: 0,
+
+  // What the header shipped with when these lists were hardcoded, so a shop
+  // that never opens this setting sees no change. Edit or empty them in
+  // /admin/settings.
+  navFinishes: [
+    { label: "Oxidised", query: "oxidised" },
+    { label: "Polished", query: "polished" },
+    { label: "Matte", query: "matte" },
+    { label: "Rhodium plated", query: "rhodium-plated" },
+    { label: "Rose gold plated", query: "rose-gold-plated" },
+  ],
+  navOccasions: [
+    { label: "Bridal", query: "bridal" },
+    { label: "Festive", query: "festive" },
+    { label: "Party", query: "party" },
+    { label: "Office", query: "office" },
+    { label: "Everyday", query: "everyday" },
+  ],
 };
 
 /** Cache tag for every settings read. Invalidated by the admin save action. */
@@ -163,6 +201,25 @@ function parse(raw: unknown): StoreSettings {
   /** A string constrained to a known set, or the default. */
   const oneOf = <T extends string>(x: unknown, allowed: readonly T[], fallback: T) =>
     typeof x === "string" && (allowed as readonly string[]).includes(x) ? (x as T) : fallback;
+  /**
+   * A header-menu list. Not an array at all means "never saved" and takes the
+   * default; an EMPTY array is a deliberate choice to hide the column and is
+   * kept. Malformed rows are dropped rather than failing the whole list, and
+   * everything is trimmed and capped — these strings end up in every page's
+   * header.
+   */
+  const filters = (x: unknown, fallback: NavFilter[]): NavFilter[] => {
+    if (!Array.isArray(x)) return fallback;
+    const L = NAV_FILTER_LIMITS;
+    return x
+      .filter((r): r is Record<string, unknown> => typeof r === "object" && r !== null)
+      .map((r) => ({
+        label: typeof r.label === "string" ? r.label.trim().slice(0, L.label) : "",
+        query: typeof r.query === "string" ? r.query.trim().slice(0, L.query) : "",
+      }))
+      .filter((r) => r.label && r.query)
+      .slice(0, L.items);
+  };
 
   return {
     codEnabled: bool(v.codEnabled, d.codEnabled),
@@ -184,6 +241,8 @@ function parse(raw: unknown): StoreSettings {
     handlingTimeMaxDays: whole(v.handlingTimeMaxDays, d.handlingTimeMaxDays),
     transitTimeMinDays: whole(v.transitTimeMinDays, d.transitTimeMinDays),
     transitTimeMaxDays: whole(v.transitTimeMaxDays, d.transitTimeMaxDays),
+    navFinishes: filters(v.navFinishes, d.navFinishes),
+    navOccasions: filters(v.navOccasions, d.navOccasions),
   };
 }
 
@@ -237,6 +296,48 @@ async function readStoreSettings(): Promise<StoreSettings> {
 
   const row = await prisma.storeSetting.findUnique({ where: { key: SETTINGS_KEY } });
   return parse(row?.value);
+}
+
+/** Cache tag for the header-menu lists alone. See getNavMenuSettings. */
+export const NAV_MENU_TAG = "settings:nav";
+
+/**
+ * Just the header-menu lists, cached under their OWN tag.
+ *
+ * ⚠️  Not getStoreSettings, deliberately. The header is on every page, so
+ * whatever cache tag it reads is attached to every page on the site. Reading
+ * the full settings put STORE_SETTINGS_TAG there — and that tag is expired by
+ * EVERY settings save, so switching COD off made every page rebuild its
+ * header from cold on its next visit. Measured: in the e2e suite, the COD test
+ * saves settings and then opens a product page and the checkout, both cold,
+ * and ran out of time under parallel load.
+ *
+ * Under its own tag, which the save expires only when these lists actually
+ * change (see saveStoreSettingsAction), a COD or shipping save leaves the
+ * header — and so every other page — alone.
+ */
+export async function getNavMenuSettings(): Promise<Pick<StoreSettings, "navFinishes" | "navOccasions">> {
+  try {
+    return await readNavMenuSettings();
+  } catch (err) {
+    // Same reasoning as getStoreSettings: a failed read is per-request, never
+    // cached, and never a reason for the header to break.
+    console.error("getNavMenuSettings failed — falling back to defaults", err);
+    const { navFinishes, navOccasions } = STORE_SETTING_DEFAULTS;
+    return { navFinishes, navOccasions };
+  }
+}
+
+async function readNavMenuSettings(): Promise<Pick<StoreSettings, "navFinishes" | "navOccasions">> {
+  "use cache";
+  // Long-lived: the save expires it by tag the moment a list changes, so the
+  // window only matters for a row edited outside the app.
+  cacheLife("days");
+  cacheTag(NAV_MENU_TAG);
+
+  const row = await prisma.storeSetting.findUnique({ where: { key: SETTINGS_KEY } });
+  const { navFinishes, navOccasions } = parse(row?.value);
+  return { navFinishes, navOccasions };
 }
 
 /**

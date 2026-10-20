@@ -23,7 +23,139 @@ export type StoreSettingsFormValues = {
   handlingTimeMaxDays: number;
   transitTimeMinDays: number;
   transitTimeMaxDays: number;
+  navFinishes: NavRow[];
+  navOccasions: NavRow[];
 };
+
+/** One header-menu link as edited here: a label, and the words it searches. */
+type NavRow = { label: string; query: string };
+
+/**
+ * An ordered, editable list of header-menu links.
+ *
+ * The search word follows the label as it is typed ("Rose gold" → "rose
+ * gold") until the admin edits the search word themselves — most rows want
+ * exactly that, and the ones that do not ("Rhodium plated" searching
+ * "rhodium") are one edit away. Nothing is filled in silently on save: what
+ * is in the boxes is what gets published.
+ */
+function NavListEditor({
+  id,
+  title,
+  description,
+  rows,
+  onChange,
+  disabled,
+  placeholder,
+}: {
+  id: string;
+  title: string;
+  description: string;
+  rows: NavRow[];
+  onChange: (rows: NavRow[]) => void;
+  disabled?: boolean;
+  placeholder: string;
+}) {
+  const update = (i: number, patch: Partial<NavRow>) =>
+    onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+
+  const move = (i: number, by: -1 | 1) => {
+    const next = [...rows];
+    [next[i], next[i + by]] = [next[i + by], next[i]];
+    onChange(next);
+  };
+
+  return (
+    <div className="border-b py-5">
+      <p className="text-sm font-medium">{title}</p>
+      <p className="mt-1 mb-4 text-sm text-muted-foreground">{description}</p>
+
+      {rows.length === 0 ? (
+        <p className="mb-3 text-sm text-muted-foreground">
+          Empty — this column is hidden from the menu.
+        </p>
+      ) : (
+        <div className="mb-3 space-y-2">
+          <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs text-muted-foreground">
+            <span>Shown in menu</span>
+            <span>Searches for</span>
+            <span className="w-[7.5rem]" />
+          </div>
+          {rows.map((row, i) => (
+            // Index as key: rows have no id, and keying on the label would
+            // remount the input on every keystroke and drop focus.
+            <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
+              <Input
+                id={i === 0 ? `${id}-label` : undefined}
+                aria-label={`${title} ${i + 1}: label`}
+                value={row.label}
+                placeholder={placeholder}
+                maxLength={40}
+                disabled={disabled}
+                onChange={(e) => {
+                  const label = e.target.value;
+                  // Follow the label only while the search word still matches
+                  // what following would have produced — i.e. untouched.
+                  const following = row.query === row.label.trim().toLowerCase();
+                  update(i, following ? { label, query: label.trim().toLowerCase() } : { label });
+                }}
+              />
+              <Input
+                aria-label={`${title} ${i + 1}: search word`}
+                value={row.query}
+                maxLength={60}
+                disabled={disabled}
+                onChange={(e) => update(i, { query: e.target.value })}
+              />
+              <div className="flex w-[7.5rem] justify-end gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Move up"
+                  disabled={disabled || i === 0}
+                  onClick={() => move(i, -1)}
+                >
+                  ↑
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Move down"
+                  disabled={disabled || i === rows.length - 1}
+                  onClick={() => move(i, 1)}
+                >
+                  ↓
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Remove ${row.label || "row"}`}
+                  disabled={disabled}
+                  onClick={() => onChange(rows.filter((_, j) => j !== i))}
+                >
+                  ✕
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={disabled || rows.length >= 12}
+        onClick={() => onChange([...rows, { label: "", query: "" }])}
+      >
+        Add link
+      </Button>
+    </div>
+  );
+}
 
 /**
  * A labelled switch with the sentence explaining what it does.
@@ -151,6 +283,8 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
       giftWrapCharge: wrap,
       returnShippingPaidBy: form.returnShippingPaidBy,
       ...dayValues,
+      navFinishes: form.navFinishes,
+      navOccasions: form.navOccasions,
     });
     setSaving(false);
 
@@ -334,6 +468,35 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
           transit after that. Any of the four left at 0 and no delivery estimate
           is published.
         </p>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="label-eyebrow mb-1">Header menu</h2>
+        <p className="mb-2 text-sm text-muted-foreground">
+          Each link searches product names, descriptions and tags for its search word. The
+          dependable way to put a piece under a link is to give it that word as a tag — in
+          Products, tick pieces and use Organise → Add a tag. A link nothing matches shows an
+          empty page, so only list what you stock.
+        </p>
+
+        <NavListEditor
+          id="navFinishes"
+          title="Jewellery → By finish"
+          description="Shown in the Jewellery menu."
+          placeholder="e.g. Oxidised"
+          rows={form.navFinishes}
+          onChange={(navFinishes) => setForm((f) => ({ ...f, navFinishes }))}
+          disabled={saving}
+        />
+        <NavListEditor
+          id="navOccasions"
+          title="Gifting → By occasion"
+          description="Shown in the Gifting menu."
+          placeholder="e.g. Bridal"
+          rows={form.navOccasions}
+          onChange={(navOccasions) => setForm((f) => ({ ...f, navOccasions }))}
+          disabled={saving}
+        />
       </section>
 
       <Button type="submit" disabled={saving} className="mt-8">

@@ -4,10 +4,40 @@ import { z } from "zod";
 import { revalidatePath, updateTag } from "next/cache";
 import { requireRole } from "@/server/auth/require-role";
 import {
+  getStoreSettings,
+  NAV_FILTER_LIMITS,
+  NAV_MENU_TAG,
   saveStoreSettings,
   STORE_SETTINGS_TAG,
   type StoreSettings,
 } from "@/server/settings/store-settings";
+
+/**
+ * A header-menu list as the form sends it. Rows with both halves blank are
+ * dropped (an untouched "Add" row); a row with only one half filled is an
+ * error, because guessing the other half would publish a link the admin never
+ * saw. Duplicate labels are refused — two "Oxidised" links side by side is a
+ * typo, not a choice.
+ */
+const navFilters = (what: string) =>
+  z
+    .array(
+      z.object({
+        label: z.string().trim().max(NAV_FILTER_LIMITS.label, `${what}: a label is too long.`),
+        query: z.string().trim().max(NAV_FILTER_LIMITS.query, `${what}: a search word is too long.`),
+      })
+    )
+    .transform((rows) => rows.filter((r) => r.label || r.query))
+    .refine((rows) => rows.every((r) => r.label && r.query), {
+      message: `${what}: every row needs both a label and a search word.`,
+    })
+    .refine((rows) => rows.length <= NAV_FILTER_LIMITS.items, {
+      message: `${what}: at most ${NAV_FILTER_LIMITS.items} links.`,
+    })
+    .refine(
+      (rows) => new Set(rows.map((r) => r.label.toLowerCase())).size === rows.length,
+      { message: `${what}: the same label appears twice.` }
+    );
 
 /**
  * Rupees, not paise, because that is what the admin types into the form.
@@ -50,6 +80,8 @@ const settingsSchema = z
     handlingTimeMaxDays: days,
     transitTimeMinDays: days,
     transitTimeMaxDays: days,
+    navFinishes: navFilters("Finishes"),
+    navOccasions: navFilters("Occasions"),
   })
   /**
    * A range whose maximum is below its minimum is not a slow estimate, it is a
@@ -100,7 +132,12 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
     handlingTimeMaxDays: data.handlingTimeMaxDays,
     transitTimeMinDays: data.transitTimeMinDays,
     transitTimeMaxDays: data.transitTimeMaxDays,
+    navFinishes: data.navFinishes,
+    navOccasions: data.navOccasions,
   };
+
+  // Read before writing, to tell whether the header lists changed — see below.
+  const before = await getStoreSettings();
 
   try {
     await saveStoreSettings(next);
@@ -110,6 +147,18 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
   }
 
   updateTag(STORE_SETTINGS_TAG);
+
+  /**
+   * The header lists have their own tag, expired ONLY when they changed.
+   *
+   * The header is on every page, so expiring its tag rebuilds every page's
+   * header on its next visit. Doing that on a COD or shipping save — the
+   * common case — is pure cost; see getNavMenuSettings.
+   */
+  const listsChanged =
+    JSON.stringify([before.navFinishes, before.navOccasions]) !==
+    JSON.stringify([next.navFinishes, next.navOccasions]);
+  if (listsChanged) updateTag(NAV_MENU_TAG);
   // The cart and checkout quote the shipping charge, so a rate change has to
   // reach their rendered output too — the tag covers the settings read, these
   // cover the pages built from it.
