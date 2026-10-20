@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label, RequiredMark } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -551,7 +551,7 @@ export function FieldInput({
       <div className="space-y-0.5">
         <Label className="flex items-center gap-1">
           {title}
-          {field.required && <span className="text-destructive">*</span>}
+          {field.required && <RequiredMark />}
         </Label>
         {/* The explanation half of the label, set as help text rather than as
             more bold type — see splitLabel. */}

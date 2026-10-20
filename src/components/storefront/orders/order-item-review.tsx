@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { RequiredMark } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -114,7 +115,9 @@ export function OrderItemReview({
           )}
 
           <div>
-            <p className="mb-1.5 text-sm font-medium">Your rating</p>
+            <p className="mb-1.5 text-sm font-medium">
+              Your rating <RequiredMark />
+            </p>
             <div className="flex gap-1" onMouseLeave={() => setHovered(0)}>
               {[1, 2, 3, 4, 5].map((value) => (
                 <button

@@ -134,7 +134,7 @@ export function ExpenseManager({
       <CardContent className="space-y-6 p-4">
         <div className="grid gap-3 sm:grid-cols-[auto_auto_1fr_auto] sm:items-end">
           <div className="space-y-1.5">
-            <Label htmlFor="expense-date">Date</Label>
+            <Label htmlFor="expense-date" required>Date</Label>
             <Input
               id="expense-date"
               type="date"
@@ -145,7 +145,7 @@ export function ExpenseManager({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="expense-amount">Amount (₹)</Label>
+            <Label htmlFor="expense-amount" required>Amount (₹)</Label>
             <Input
               id="expense-amount"
               type="number"
@@ -158,7 +158,7 @@ export function ExpenseManager({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="expense-category">Category</Label>
+            <Label htmlFor="expense-category" required>Category</Label>
             <div className="flex gap-2">
               <select
                 id="expense-category"

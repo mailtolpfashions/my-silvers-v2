@@ -42,7 +42,7 @@ export function ResetPasswordForm() {
         </p>
       )}
       <div className="space-y-1.5">
-        <Label htmlFor="password">New password</Label>
+        <Label htmlFor="password" required>New password</Label>
         <Input
           id="password"
           name="password"

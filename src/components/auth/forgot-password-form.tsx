@@ -15,7 +15,7 @@ export function ForgotPasswordForm() {
         <p className="rounded-md bg-muted px-3 py-2 text-sm">{message}</p>
       )}
       <div className="space-y-1.5">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email" required>Email</Label>
         <Input id="email" name="email" type="email" required autoComplete="email" />
       </div>
       <Button type="submit" className="w-full" disabled={isPending}>
