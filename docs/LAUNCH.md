@@ -66,8 +66,11 @@ SELECT count(*) FROM "Product" WHERE "searchVector" IS NOT NULL;
 ### 1.3 Seed the structure, not the demo content
 
 ```bash
-npm run db:seed          # content types + categories. Required.
+npm run db:seed          # content types + starter homepage. Required.
 ```
+
+That is all it creates — no categories, no products, no users. Categories and
+products are added in `/admin`.
 
 Do **not** run `db:seed:demo`. That is the 120-product placeholder catalogue.
 

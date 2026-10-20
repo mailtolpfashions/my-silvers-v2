@@ -25,7 +25,7 @@ missing invoice fields render as blanks rather than erroring).
 ### Demo data
 
 ```bash
-npm run db:seed           # content types + categories. Required.
+npm run db:seed           # content types + starter homepage. Required. Production-safe.
 npm run db:seed:demo      # ~120 placeholder products. Development only.
 npm run admin:create -- you@example.com
 ```
@@ -110,7 +110,7 @@ variables that will bite you, and what to watch in the first week.
 | `npm run build` | `prisma generate && next build` |
 | `npm run lint` | ESLint |
 | `npm run test:e2e` | Playwright suite |
-| `npm run db:seed` | Content types and categories |
+| `npm run db:seed` | Content types and starter homepage (no products, no users) |
 | `npm run db:seed:demo` | Demo catalogue (development only) |
 | `npm run db:clear:demo` | Remove demo data |
 | `npm run admin:create` | Create or promote an admin/editor |
