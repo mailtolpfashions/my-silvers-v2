@@ -26,7 +26,20 @@ export async function requestPasswordReset(email: string) {
     },
   });
 
-  await sendPasswordResetEmail(user.email, rawToken);
+  /**
+   * Caught and logged, never rethrown.
+   *
+   * ⚠️  Not tidiness — enumeration. This line only runs when the account
+   * EXISTS. Letting a send failure reach the page would show an error for
+   * registered emails and the usual "if an account exists…" for everyone else,
+   * which hands an outsider the answer the neutral message exists to withhold.
+   * The log is how the shop finds out instead.
+   */
+  try {
+    await sendPasswordResetEmail(user.email, rawToken);
+  } catch (err) {
+    console.error("[email] password-reset failed", err);
+  }
 }
 
 export async function resetPassword(rawToken: string, newPassword: string) {

@@ -8,6 +8,28 @@ const from = process.env.RESEND_FROM_EMAIL ?? "MY Silvers <orders@mysilvers.in>"
  * order confirmation bounced. support@ is a real mailbox (Zoho).
  */
 const replyTo = process.env.RESEND_REPLY_TO || "support@mysilvers.in";
+
+type SendPayload = Parameters<typeof resend.emails.send>[0];
+
+/**
+ * Sends, and THROWS if Resend refuses.
+ *
+ * ⚠️  The Resend SDK does not throw on an API error — it RESOLVES with
+ * `{ data: null, error }`. Every caller here was written as though it threw:
+ * each wraps the send in try/catch and logs the failure. So a bad API key, an
+ * unverified domain or a rate limit was silently swallowed, and the logs said
+ * nothing. That is exactly how a wrong production key went unnoticed until a
+ * password reset never arrived.
+ *
+ * Converting it to an exception makes those existing catches do their job.
+ * `kind` names the email in the message, so a log line says which one failed.
+ */
+async function deliver(kind: string, payload: SendPayload): Promise<void> {
+  const { error } = await resend.emails.send(payload);
+  if (error) {
+    throw new Error(`Resend refused the ${kind} email: ${error.name}: ${error.message}`);
+  }
+}
 const appBaseUrl = process.env.APP_BASE_URL ?? "http://localhost:3000";
 
 export async function sendOrderConfirmationEmail(params: {
@@ -15,7 +37,7 @@ export async function sendOrderConfirmationEmail(params: {
   orderNumber: string;
   totalAmount: number | string;
 }) {
-  await resend.emails.send({
+  await deliver("order-confirmation", {
     from,
     replyTo,
     to: params.to,
@@ -31,7 +53,7 @@ export async function sendOrderConfirmationEmail(params: {
 
 export async function sendPasswordResetEmail(to: string, rawToken: string) {
   const resetUrl = `${appBaseUrl}/reset-password?token=${rawToken}`;
-  await resend.emails.send({
+  await deliver("password-reset", {
     from,
     replyTo,
     to,
@@ -61,7 +83,7 @@ export async function sendBackInStockEmail(params: {
   const url = `${appBaseUrl}/products/${params.productSlug}`;
   const sized = params.size ? ` (size ${params.size})` : "";
 
-  await resend.emails.send({
+  await deliver("back-in-stock", {
     from,
     replyTo,
     to: params.to,
