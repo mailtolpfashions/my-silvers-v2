@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
+import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,6 +53,16 @@ export function ConfirmDialog({
   destructive = true,
   /** Usually the caller's `isPending`, so the action cannot be double-fired. */
   disabled,
+  /**
+   * A word the admin must type before the button unlocks — for deletes that
+   * cannot be undone. Compared case-insensitively and trimmed: the point is a
+   * deliberate pause, not a spelling test.
+   *
+   * Leave unset for ordinary confirmations. Asking someone to type on every
+   * small delete trains them to type without reading, which defeats it on the
+   * one occasion it matters.
+   */
+  typeToConfirm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -63,21 +74,49 @@ export function ConfirmDialog({
   onConfirm: () => void;
   destructive?: boolean;
   disabled?: boolean;
+  typeToConfirm?: string;
 }) {
+  const inputId = useId();
+  const [typed, setTyped] = useState("");
+  const matches =
+    !typeToConfirm || typed.trim().toLowerCase() === typeToConfirm.toLowerCase();
+
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        // Cleared on every open/close, so a second delete never starts with
+        // the word already filled in from the first.
+        setTyped("");
+        onOpenChange(next);
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        {typeToConfirm && (
+          <div className="space-y-1.5">
+            <label htmlFor={inputId} className="text-sm">
+              Type <strong>{typeToConfirm}</strong> to continue
+            </label>
+            <Input
+              id={inputId}
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+        )}
         <AlertDialogFooter>
           {/* Cancel first in the DOM. Radix focuses the cancel control on open,
               so the safe option is what a stray Enter hits. */}
           <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction
             variant={destructive ? "destructive" : "default"}
-            disabled={disabled}
+            disabled={disabled || !matches}
             onClick={onConfirm}
           >
             {confirmLabel}

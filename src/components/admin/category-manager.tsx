@@ -19,7 +19,9 @@ import { ImagesUploader } from "@/components/admin/media-uploader";
 import {
   saveCategoryAction,
   setCategoryActiveAction,
+  deleteCategoryAction,
 } from "@/actions/admin-category-actions";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export type CategoryRow = {
   id: string;
@@ -164,6 +166,24 @@ function CategoryFormDialog({
 
 export function CategoryManager({ categories }: { categories: CategoryRow[] }) {
   const [isPending, startTransition] = useTransition();
+  // The row is kept after closing, separately from `open`, so the dialog's
+  // text doesn't blank out while its close animation is still on screen.
+  const [deleting, setDeleting] = useState<CategoryRow | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  // Only empty categories can go — see deleteCategoryAction. The server
+  // re-checks; this just stops the dialog asking for a word it would refuse.
+  const deletable = deleting !== null && deleting.productCount === 0;
+
+  function remove(category: CategoryRow) {
+    startTransition(async () => {
+      const result = await deleteCategoryAction(category.id);
+      if (result.ok) {
+        toast.success(`"${category.name}" deleted.`);
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
 
   function toggleActive(category: CategoryRow) {
     startTransition(async () => {
@@ -218,6 +238,18 @@ export function CategoryManager({ categories }: { categories: CategoryRow[] }) {
               >
                 {category.isActive ? "Archive" : "Restore"}
               </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                disabled={isPending}
+                onClick={() => {
+                  setDeleting(category);
+                  setDeleteOpen(true);
+                }}
+              >
+                Delete
+              </Button>
             </div>
           </div>
         ))}
@@ -225,6 +257,32 @@ export function CategoryManager({ categories }: { categories: CategoryRow[] }) {
           <p className="py-8 text-center text-sm text-muted-foreground">No categories yet.</p>
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={deletable ? `Delete "${deleting?.name}"?` : `"${deleting?.name}" still has products`}
+        description={
+          deletable ? (
+            <>
+              This removes the category for good. <strong>This cannot be undone</strong>{" "}
+              — use Archive if you only want to hide it from the shop.
+            </>
+          ) : (
+            <>
+              It has {deleting?.productCount} product
+              {deleting?.productCount === 1 ? "" : "s"}, including archived ones. Move
+              them to another category or delete them first, then come back.
+            </>
+          )
+        }
+        confirmLabel="Delete category"
+        // A category with products gets an explanation and a locked button
+        // instead of a box to type into for an action the server refuses.
+        typeToConfirm={deletable ? "confirm" : undefined}
+        disabled={isPending || !deletable}
+        onConfirm={() => deleting && remove(deleting)}
+      />
     </div>
   );
 }

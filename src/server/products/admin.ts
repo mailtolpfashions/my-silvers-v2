@@ -264,6 +264,22 @@ export async function restoreProduct(id: string) {
   await prisma.product.update({ where: { id }, data: { isActive: true } });
 }
 
+/**
+ * Permanently removes a product. Archive is the reversible option; this is for
+ * mistakes and test pieces.
+ *
+ * Past orders are safe: OrderItem snapshots name, image, price and size, and
+ * its productId is `onDelete: SetNull`, so the order keeps every line and only
+ * loses the link back. Everything else that hangs off the product — sizes,
+ * reviews, cart lines, wishlist entries, back-in-stock requests — is removed
+ * with it by the schema's cascades.
+ *
+ * Images stay in Cloudinary; the media library is where those are cleared.
+ */
+export async function deleteProduct(id: string) {
+  await prisma.product.delete({ where: { id } });
+}
+
 // ─── Admin listing ──────────────────────────────────────────────────────────
 
 /**

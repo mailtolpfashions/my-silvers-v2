@@ -19,13 +19,20 @@ import { notifyWhenBackAction } from "@/actions/stock-notification-actions";
  * Renders nothing while a sized product has no size chosen yet: there is no
  * question to answer until the shopper has pointed at one.
  */
-export function NotifyWhenBackForSelection({ productId }: { productId: string }) {
+export function NotifyWhenBackForSelection({
+  productId,
+  stock,
+}: {
+  productId: string;
+  /** Product-level stock — the only measure for an unsized piece. */
+  stock: number;
+}) {
   const { sizes, stockBySize, selected } = useSize();
   const requiresSize = sizes.length > 0;
 
   if (requiresSize && !selected) return null;
 
-  const soldOut = requiresSize ? (stockBySize[selected] ?? 0) <= 0 : true;
+  const soldOut = requiresSize ? (stockBySize[selected] ?? 0) <= 0 : stock <= 0;
   if (!soldOut) return null;
 
   return (
