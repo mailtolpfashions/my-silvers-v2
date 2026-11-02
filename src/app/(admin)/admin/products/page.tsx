@@ -20,7 +20,10 @@ import {
 } from "@/components/admin/product-table-controls";
 import { SortableHeader } from "@/components/admin/sortable-header";
 import { PageHeader } from "@/components/layout/page-header";
-import { ProductHeaderActions } from "@/components/admin/product-header-actions";
+import {
+  ProductHeaderActions,
+  type ProductListFilters,
+} from "@/components/admin/product-header-actions";
 import {
   BulkSelectProvider,
   BulkSelectAll,
@@ -67,14 +70,18 @@ export default async function AdminProductsPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
+  // One object, so the table and "Select all matching" can't disagree.
+  const filters: ProductListFilters = {
+    q: params.q,
+    categoryId: params.category,
+    vendor: params.vendor,
+    active: params.active as "active" | "inactive" | undefined,
+    stock: params.stock as "in" | "out" | undefined,
+    flag: params.flag as "featured" | "bestseller" | undefined,
+  };
   const [{ products, total, page, pageSize }, categories, vendors] = await Promise.all([
     getAdminProducts({
-      q: params.q,
-      categoryId: params.category,
-      vendor: params.vendor,
-      active: params.active as "active" | "inactive" | undefined,
-      stock: params.stock as "in" | "out" | undefined,
-      flag: params.flag as "featured" | "bestseller" | undefined,
+      ...filters,
       page: params.page ? Number(params.page) || 1 : 1,
       sort: params.sort,
       dir: params.dir,
@@ -112,6 +119,8 @@ export default async function AdminProductsPage({
           <ProductHeaderActions
             categories={categories.map((c) => ({ id: c.id, name: c.name }))}
             vendors={vendors}
+            total={total}
+            filters={filters}
           />
         }
       />

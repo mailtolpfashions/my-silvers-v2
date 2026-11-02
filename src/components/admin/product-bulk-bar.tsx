@@ -30,7 +30,9 @@ import {
   setProductsOfferAction,
   setProductsTagAction,
   setProductsVendorAction,
+  deleteProductsAction,
 } from "@/actions/admin-product-actions";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type Category = { id: string; name: string };
 /** Which prompt is open. Only one can be, so this is a single value. */
@@ -48,10 +50,12 @@ type Prompt = null | "add-tag" | "remove-tag" | "offer" | "vendor";
  * Grouping by what the action DOES keeps the bar one line and puts the
  * destructive-ish ones behind a deliberate second click.
  *
- * ── What is NOT here ────────────────────────────────────────────────────────
- * Bulk delete. It is the only operation with no undo, and a mis-click with
- * twenty rows ticked is unrecoverable. Archiving hides a product from the
- * storefront and is reversible from this same bar, which covers the real need.
+ * ── Delete ──────────────────────────────────────────────────────────────────
+ * The only operation here with no undo, so it was left out at first — Archive
+ * covers hiding. It is here now because clearing out test or discontinued
+ * pieces one row at a time is not a real option. The guard is the typed
+ * "confirm" and the count in the dialog's title, which is the number the
+ * server will act on.
  */
 export function ProductBulkBar({
   categories,
@@ -79,6 +83,7 @@ export function ProductBulkBar({
   const [tag, setTag] = useState("");
   const [percent, setPercent] = useState("10");
   const [vendor, setVendor] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const count = selected.size;
   if (count === 0) return null;
@@ -239,6 +244,38 @@ export function ProductBulkBar({
       >
         Archive
       </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-destructive hover:text-destructive"
+        disabled={isPending}
+        onClick={() => setConfirmDelete(true)}
+      >
+        Delete
+      </Button>
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title={`Delete ${plural(count)}?`}
+        description={
+          <>
+            This removes {count === 1 ? "it" : `all ${count}`} for good, along with
+            their sizes, reviews and any wishlist or cart entries. Past orders keep
+            their details. <strong>This cannot be undone</strong> — use Archive if
+            you only want to hide them from the shop.
+          </>
+        }
+        confirmLabel={`Delete ${plural(count)}`}
+        typeToConfirm="confirm"
+        disabled={isPending}
+        onConfirm={() =>
+          run(deleteProductsAction, (n, asked) =>
+            n === asked
+              ? `${plural(n)} deleted.`
+              : `${n} of ${asked} deleted — the rest were already gone.`
+          )
+        }
+      />
     </div>
   );
 

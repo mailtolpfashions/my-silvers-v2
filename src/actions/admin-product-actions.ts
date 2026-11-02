@@ -10,6 +10,9 @@ import {
   archiveProduct,
   restoreProduct,
   deleteProduct,
+  deleteProducts,
+  getAdminProductIds,
+  BULK_LIMIT,
   bulkImportProducts,
   normalizeVendor,
   type CsvRow,
@@ -132,6 +135,48 @@ export async function deleteProductAction(id: string): Promise<AdminActionResult
 }
 
 /**
+ * Permanently delete several products. The bulk bar asks for a typed
+ * "confirm" first; this is the half a crafted request also has to get past,
+ * so it re-checks the role and bounds the batch like every bulk action.
+ */
+export async function deleteProductsAction(
+  ids: string[]
+): Promise<AdminActionResult & { count?: number }> {
+  await requireRole("admin");
+  const check = cleanIds(ids);
+  if (!check.ok) return check;
+
+  try {
+    const count = await deleteProducts(check.ids);
+    revalidatePath("/admin/products");
+    updateTag("products");
+    return { ok: true, count };
+  } catch (err) {
+    console.error("deleteProductsAction failed", err);
+    return { ok: false, error: "Could not delete those products. Nothing was removed — try again." };
+  }
+}
+
+const filtersSchema = z.object({
+  q: z.string().max(200).optional(),
+  categoryId: z.string().max(100).optional(),
+  vendor: z.string().max(200).optional(),
+  active: z.enum(["active", "inactive"]).optional(),
+  stock: z.enum(["in", "out"]).optional(),
+  flag: z.enum(["featured", "bestseller"]).optional(),
+});
+
+/** The ids behind "Select all N matching" — see getAdminProductIds. */
+export async function listMatchingProductIdsAction(
+  filters: unknown
+): Promise<{ ok: true; ids: string[]; total: number } | { ok: false; error: string }> {
+  await requireRole("admin");
+  const parsed = filtersSchema.safeParse(filters);
+  if (!parsed.success) return { ok: false, error: "Invalid filters." };
+  return { ok: true, ...(await getAdminProductIds(parsed.data)) };
+}
+
+/**
  * Archive or restore several products at once.
  *
  * ── Why this exists rather than the client looping ──────────────────────────
@@ -183,7 +228,9 @@ export async function setProductsActiveAction(
 function cleanIds(ids: string[]): { ok: true; ids: string[] } | { ok: false; error: string } {
   const clean = [...new Set(ids)].filter((id) => typeof id === "string" && id.length > 0);
   if (clean.length === 0) return { ok: false, error: "Nothing selected." };
-  if (clean.length > 200) return { ok: false, error: "Too many products selected at once." };
+  if (clean.length > BULK_LIMIT) {
+    return { ok: false, error: `At most ${BULK_LIMIT} products at once.` };
+  }
   return { ok: true, ids: clean };
 }
 
@@ -204,7 +251,7 @@ function normaliseTag(tag: string) {
  * `push` with Prisma's array update rather than read-modify-write, so two
  * admins tagging overlapping selections cannot clobber each other. Removal has
  * no array-remove operator, so it reads and writes per row — bounded by the
- * 200-row cap above.
+ * BULK_LIMIT cap above.
  */
 export async function setProductsTagAction(
   ids: string[],
