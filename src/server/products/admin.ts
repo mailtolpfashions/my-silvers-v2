@@ -331,21 +331,83 @@ export function isProductSortKey(value: unknown): value is ProductSortKey {
   return typeof value === "string" && (PRODUCT_SORT_KEYS as string[]).includes(value);
 }
 
-export async function getAdminProducts(params: {
+/** The admin product list's filters — what the URL's search params carry. */
+export type AdminProductFilters = {
   q?: string;
   categoryId?: string;
   vendor?: string;
   active?: "active" | "inactive";
   stock?: "in" | "out";
   flag?: "featured" | "bestseller";
-  page?: number;
-  sort?: string;
-  dir?: string;
-}) {
+};
+
+/**
+ * The most products one bulk action may touch. Also how many "Select all
+ * matching" will pick — the two must agree, or it would select more than any
+ * action then accepts.
+ */
+export const BULK_LIMIT = 1000;
+
+/**
+ * Every product id matching the list's filters, for "Select all matching".
+ *
+ * Built from the SAME where clause as the table, so the selection is exactly
+ * the products the admin is looking at across all pages — never a broader
+ * guess. Capped at BULK_LIMIT; `total` says when that cut something off.
+ */
+export async function getAdminProductIds(filters: AdminProductFilters) {
+  const where = adminProductWhere(filters);
+  const [rows, total] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      select: { id: true },
+      orderBy: { createdAt: "desc" },
+      take: BULK_LIMIT,
+    }),
+    prisma.product.count({ where }),
+  ]);
+  return { ids: rows.map((r) => r.id), total };
+}
+
+/**
+ * Permanently removes several products. Same consequences as deleteProduct —
+ * orders keep their snapshots, everything else hanging off the product goes
+ * with it — and returns how many were actually removed.
+ */
+export async function deleteProducts(ids: string[]) {
+  const result = await prisma.product.deleteMany({ where: { id: { in: ids } } });
+  return result.count;
+}
+
+export async function getAdminProducts(
+  params: AdminProductFilters & { page?: number; sort?: string; dir?: string }
+) {
   const page = Math.max(1, params.page ?? 1);
   const pageSize = 20;
 
-  const where = {
+  const where = adminProductWhere(params);
+
+  // Newest first stays the default: it is what an admin adding stock wants to
+  // see, and it is the only column with a stable, meaningful "latest".
+  const sortKey: ProductSortKey = isProductSortKey(params.sort) ? params.sort : "created";
+  const dir: SortDir = params.dir === "asc" ? "asc" : "desc";
+
+  const [products, total] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      include: { category: { select: { name: true } } },
+      orderBy: PRODUCT_SORTS[sortKey](dir),
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.product.count({ where }),
+  ]);
+
+  return { products, total, page, pageSize };
+}
+
+function adminProductWhere(params: AdminProductFilters) {
+  return {
     ...(params.q
       ? {
           OR: [
@@ -369,24 +431,6 @@ export async function getAdminProducts(params: {
     ...(params.flag === "featured" ? { isFeatured: true } : {}),
     ...(params.flag === "bestseller" ? { isBestseller: true } : {}),
   };
-
-  // Newest first stays the default: it is what an admin adding stock wants to
-  // see, and it is the only column with a stable, meaningful "latest".
-  const sortKey: ProductSortKey = isProductSortKey(params.sort) ? params.sort : "created";
-  const dir: SortDir = params.dir === "asc" ? "asc" : "desc";
-
-  const [products, total] = await Promise.all([
-    prisma.product.findMany({
-      where,
-      include: { category: { select: { name: true } } },
-      orderBy: PRODUCT_SORTS[sortKey](dir),
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    prisma.product.count({ where }),
-  ]);
-
-  return { products, total, page, pageSize };
 }
 
 // ─── CSV bulk import ────────────────────────────────────────────────────────
