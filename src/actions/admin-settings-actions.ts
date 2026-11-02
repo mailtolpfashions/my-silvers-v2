@@ -19,17 +19,17 @@ import {
  * saw. Duplicate labels are refused — two "Oxidised" links side by side is a
  * typo, not a choice.
  */
-const navFilters = (what: string) =>
+const navFilters = (what: string, target = "search word") =>
   z
     .array(
       z.object({
         label: z.string().trim().max(NAV_FILTER_LIMITS.label, `${what}: a label is too long.`),
-        query: z.string().trim().max(NAV_FILTER_LIMITS.query, `${what}: a search word is too long.`),
+        query: z.string().trim().max(NAV_FILTER_LIMITS.query, `${what}: a ${target} is too long.`),
       })
     )
     .transform((rows) => rows.filter((r) => r.label || r.query))
     .refine((rows) => rows.every((r) => r.label && r.query), {
-      message: `${what}: every row needs both a label and a search word.`,
+      message: `${what}: every row needs both a label and a ${target}.`,
     })
     .refine((rows) => rows.length <= NAV_FILTER_LIMITS.items, {
       message: `${what}: at most ${NAV_FILTER_LIMITS.items} links.`,
@@ -82,6 +82,7 @@ const settingsSchema = z
     transitTimeMaxDays: days,
     navFinishes: navFilters("Finishes"),
     navOccasions: navFilters("Occasions"),
+    navShopFor: navFilters("Shop for", "collection"),
   })
   /**
    * A range whose maximum is below its minimum is not a slow estimate, it is a
@@ -134,6 +135,7 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
     transitTimeMaxDays: data.transitTimeMaxDays,
     navFinishes: data.navFinishes,
     navOccasions: data.navOccasions,
+    navShopFor: data.navShopFor,
   };
 
   // Read before writing, to tell whether the header lists changed — see below.
@@ -156,8 +158,8 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
    * common case — is pure cost; see getNavMenuSettings.
    */
   const listsChanged =
-    JSON.stringify([before.navFinishes, before.navOccasions]) !==
-    JSON.stringify([next.navFinishes, next.navOccasions]);
+    JSON.stringify([before.navFinishes, before.navOccasions, before.navShopFor]) !==
+    JSON.stringify([next.navFinishes, next.navOccasions, next.navShopFor]);
   if (listsChanged) updateTag(NAV_MENU_TAG);
   // The cart and checkout quote the shipping charge, so a rate change has to
   // reach their rendered output too — the tag covers the settings read, these

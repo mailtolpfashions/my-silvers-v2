@@ -233,7 +233,9 @@ function NavItem({
               <div
                 className="grid gap-x-12 gap-y-8"
                 style={{
-                  gridTemplateColumns: `repeat(${Math.min(world.columns.length, 3)}, minmax(0, 1fr))`,
+                  // Up to four across — Jewellery can now carry category,
+                  // shop for, price and finish side by side.
+                  gridTemplateColumns: `repeat(${Math.min(world.columns.length, 4)}, minmax(0, 1fr))`,
                 }}
               >
                 {world.columns.map((column) => (

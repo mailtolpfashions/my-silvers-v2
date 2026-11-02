@@ -410,7 +410,8 @@ function parseList(v: string | undefined): string[] {
 
 /**
  * Updates an existing product from a CSV row, changing ONLY the cells that are
- * filled in.
+ * filled in. The one exception is `tags`, which adds rather than replaces —
+ * see below.
  *
  * ── Why blank means "leave it" ──────────────────────────────────────────────
  * The point is a file with just `sku,price` to fill prices in later. If a blank
@@ -487,7 +488,11 @@ async function updateFromCsvRow(
     material: text("material") ?? p.material ?? undefined,
     stock: stock ?? p.stock,
     sku: p.sku,
-    tags: list("tags") ?? p.tags,
+    // ADDED to the product's tags, never replacing them. Tags are how a piece
+    // gets into collections (Men, Devotional…), so a file tagging pieces "men"
+    // must not quietly pull them out of every other collection. Removing a tag
+    // is the bulk bar's Remove tag, or the product page.
+    tags: [...new Set([...p.tags, ...(list("tags") ?? []).map((t) => t.toLowerCase())])],
     isFeatured: bool("isFeatured") ?? p.isFeatured,
     isBestseller: bool("isBestseller") ?? p.isBestseller,
     isActive: bool("isActive") ?? p.isActive,
