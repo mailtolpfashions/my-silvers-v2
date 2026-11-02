@@ -139,6 +139,16 @@ async function resolveItems(
 
   return lines.map((line) => {
     const p = byId.get(line.productId)!;
+    // A ₹0 product is a price that was never set, not a free gift. The admin
+    // refuses to make one active, but rows saved before that rule — and the
+    // demo catalogue — can still be live, so the order is refused here too.
+    // Otherwise Cash on Delivery would sell the piece for the shipping fee.
+    if (toPaise(p.price) <= 0) {
+      throw new OrderError(
+        "PRODUCT_UNAVAILABLE",
+        `"${p.name}" isn't available to order right now. Please remove it from your cart.`,
+      );
+    }
     // A size that is no longer offered would send an unfulfillable line to the
     // packer, so it is rejected rather than quietly dropped.
     if (p.sizes.length > 0 && !p.sizes.includes(line.size)) {

@@ -219,7 +219,7 @@ export function ProductBulkBar({
                 run(
                   (ids) => setProductsActiveAction(ids, true),
                   (n, asked) =>
-                    n === asked ? `${plural(n)} restored.` : `${n} of ${asked} restored — the rest had changed.`
+                    n === asked ? `${plural(n)} restored.` : `${n} of ${asked} restored — the rest are priced ₹0 and stay archived.`
                 )
               }
             >

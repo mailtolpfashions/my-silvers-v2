@@ -100,6 +100,24 @@ export async function listVendors(): Promise<string[]> {
   return rows.map((r) => r.vendor).filter((v): v is string => !!v);
 }
 
+/**
+ * A product cannot be live at ₹0.
+ *
+ * Checkout charges whatever the product row says, so an active piece with no
+ * price could be ordered on Cash on Delivery for nothing but shipping. A ₹0
+ * price is almost always "not set yet", which is what a draft is for — so it is
+ * allowed only while the product is archived.
+ *
+ * `isActive` undefined counts as active: a save that doesn't say must not slip
+ * a ₹0 price past this onto a product that is already live.
+ */
+export const ZERO_PRICE_ERROR =
+  "A product can't be active at ₹0. Set a price, or untick Active to keep it as a draft.";
+
+function assertSellablePrice(input: Pick<ProductInput, "price" | "isActive">) {
+  if (input.isActive !== false && !(input.price > 0)) throw new Error(ZERO_PRICE_ERROR);
+}
+
 function validateMedia(input: Pick<ProductInput, "images" | "videoUrl">) {
   if (input.images.length > 6) throw new Error("A product may have at most 6 images.");
   assertAllowedMediaUrls(input.images, "Image");
@@ -140,6 +158,7 @@ function splitVariants(input: ProductInput) {
 }
 
 export async function createProduct(input: ProductInput) {
+  assertSellablePrice(input);
   validateMedia(input);
   const slug = await uniqueProductSlug(input.name);
   const { columns, variants } = splitVariants(input);
@@ -161,6 +180,7 @@ export async function createProduct(input: ProductInput) {
 }
 
 export async function updateProduct(id: string, input: ProductInput) {
+  assertSellablePrice(input);
   validateMedia(input);
   const { columns, variants } = splitVariants(input);
 
@@ -261,6 +281,8 @@ export async function archiveProduct(id: string) {
 }
 
 export async function restoreProduct(id: string) {
+  const product = await prisma.product.findUnique({ where: { id }, select: { price: true } });
+  if (product && !(Number(product.price) > 0)) throw new Error(ZERO_PRICE_ERROR);
   await prisma.product.update({ where: { id }, data: { isActive: true } });
 }
 
