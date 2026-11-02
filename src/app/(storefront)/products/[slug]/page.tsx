@@ -439,7 +439,7 @@ async function ProductDetailContent({ params }: { params: Promise<{ slug: string
             {/* Inside the provider, because for a sized piece the question is
                 whether the CHOSEN size is sold out — not the product. It
                 renders nothing at all when there is stock. */}
-            <NotifyWhenBackForSelection productId={product.id} />
+            <NotifyWhenBackForSelection productId={product.id} stock={product.stock} />
           </SizeProvider>
 
           {/* Expandable rows. The per-product measurements come from the
