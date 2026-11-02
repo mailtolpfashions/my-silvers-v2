@@ -9,6 +9,7 @@ import {
   unpublishEntry,
   deleteEntry,
   restoreVersion,
+  restoreDefaultHomepage,
   CmsError,
 } from "@/server/cms/entries";
 import {
@@ -107,10 +108,16 @@ export async function unpublishEntryAction(
   typeName: string
 ): Promise<CmsActionResult> {
   const session = await requireRole("admin");
-  const { slug } = await unpublishEntry(entryId, session.user.id);
-  revalidatePath(`/cms/content/${typeName}`);
-  revalidateForType(typeName, slug);
-  return { ok: true };
+  try {
+    const { slug } = await unpublishEntry(entryId, session.user.id);
+    revalidatePath(`/cms/content/${typeName}`);
+    revalidateForType(typeName, slug);
+    return { ok: true };
+  } catch (err) {
+    // CmsError carries the refusal for the homepage — say it, don't crash.
+    if (err instanceof CmsError) return { ok: false, error: err.message };
+    throw err;
+  }
 }
 
 /** Admin-only. */
@@ -119,10 +126,31 @@ export async function deleteEntryAction(
   typeName: string
 ): Promise<CmsActionResult> {
   await requireRole("admin");
-  const { slug } = await deleteEntry(entryId);
-  revalidatePath(`/cms/content/${typeName}`);
-  revalidateForType(typeName, slug);
-  return { ok: true };
+  try {
+    const { slug } = await deleteEntry(entryId);
+    revalidatePath(`/cms/content/${typeName}`);
+    revalidateForType(typeName, slug);
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof CmsError) return { ok: false, error: err.message };
+    throw err;
+  }
+}
+
+/** Admin-only. Puts a deleted homepage back — see restoreDefaultHomepage. */
+export async function restoreHomepageAction(): Promise<CmsActionResult> {
+  const session = await requireRole("admin");
+  try {
+    const { slug } = await restoreDefaultHomepage(session.user.id);
+    revalidatePath("/cms/content/homepage");
+    revalidatePath("/");
+    revalidateForType("homepage", slug);
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof CmsError) return { ok: false, error: err.message };
+    console.error("restoreHomepageAction failed", err);
+    return { ok: false, error: "Could not restore the homepage. Please try again." };
+  }
 }
 
 /** Admin-only. */

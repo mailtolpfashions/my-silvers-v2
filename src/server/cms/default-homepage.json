@@ -1,0 +1,240 @@
+{
+  "_source": "prisma/backup-homepage-1786479685780.json (12 Aug 2026, the last snapshot before the homepage was deleted)",
+  "data": {
+    "slides": [
+      {
+        "media": "https://res.cloudinary.com/zpygwn4j/image/upload/v1/mysilvers/samples/mood-hero-1?_a=BAMAPqkS0",
+        "ctaHref": "/products",
+        "eyebrow": "925 Sterling Silver",
+        "subline": "BIS hallmarked sterling silver — rings, earrings and everyday pieces made to be worn, not saved for occasions.",
+        "ctaLabel": "Shop the collection",
+        "headline": "Silver that\nlives with you.",
+        "isActive": true,
+        "secondaryHref": "/products",
+        "overlayOpacity": 60,
+        "secondaryLabel": "View all"
+      },
+      {
+        "media": "https://res.cloudinary.com/zpygwn4j/image/upload/v1/mysilvers/samples/mood-bridal-2?_a=BAMAPqkS0",
+        "ctaHref": "/products?q=jhumka",
+        "eyebrow": "Wedding season",
+        "subline": "Jhumkas, layered chains and temple-work cuffs — traditional silhouettes, light enough to wear all day.",
+        "ctaLabel": "Shop bridal",
+        "headline": "The Bridal Edit\nis here.",
+        "isActive": true,
+        "secondaryHref": "/products",
+        "overlayOpacity": 55,
+        "secondaryLabel": "See the story"
+      },
+      {
+        "media": "https://res.cloudinary.com/zpygwn4j/image/upload/v1785785284/mysilvers/cms/krd5ihrnpgwyzhhai2n9.jpg",
+        "ctaHref": "/products?q=oxidised",
+        "eyebrow": "New in",
+        "subline": "Darkened recesses throw the pattern forward. Traditional technique, contemporary scale. For Testing",
+        "ctaLabel": "Shop Now",
+        "headline": "Oxidised,\nreimagined.",
+        "isActive": true,
+        "secondaryHref": "",
+        "overlayOpacity": 50,
+        "secondaryLabel": ""
+      }
+    ],
+    "heroCta": "Shop the collection",
+    "heroLink": "/products",
+    "sections": [
+      {
+        "type": "categoryTiles",
+        "limit": 3,
+        "isActive": true,
+        "pinnedReveal": true
+      },
+      {
+        "type": "story",
+        "image": "https://res.cloudinary.com/zpygwn4j/image/upload/v1786429629/mysilvers/samples/mood-everyday-2.jpg",
+        "items": [
+          {
+            "text": "Every piece begins as 925 sterling silver, hallmarked before it is ever shaped."
+          },
+          {
+            "text": "It is finished by hand. The polish that catches the light is nobody's machine."
+          },
+          {
+            "text": "And it is made to be worn daily, not saved for an occasion that never comes."
+          }
+        ],
+        "title": "The making of a piece",
+        "ctaHref": "/products",
+        "eyebrow": "The craft",
+        "ctaLabel": "See the collection",
+        "isActive": true,
+        "pinnedReveal": true
+      },
+      {
+        "type": "worldTiles",
+        "items": [
+          {
+            "href": "/category/anklets",
+            "image": "https://res.cloudinary.com/zpygwn4j/image/upload/v1/mysilvers/samples/anklets-0?_a=BAMAPqkS0",
+            "title": "Anklets"
+          },
+          {
+            "href": "/category/bracelets",
+            "image": "https://res.cloudinary.com/zpygwn4j/image/upload/v1/mysilvers/samples/bracelets-0?_a=BAMAPqkS0",
+            "title": "Bracelets"
+          },
+          {
+            "href": "/category/earrings",
+            "image": "https://res.cloudinary.com/zpygwn4j/image/upload/v1/mysilvers/samples/earrings-0?_a=BAMAPqkS0",
+            "title": "Earrings"
+          },
+          {
+            "href": "/category/necklaces",
+            "image": "https://res.cloudinary.com/zpygwn4j/image/upload/v1/mysilvers/samples/necklaces-0?_a=BAMAPqkS0",
+            "title": "Necklaces"
+          }
+        ],
+        "title": "Inspired by Love",
+        "eyebrow": "The edit",
+        "isActive": true,
+        "subtitle": "Four ways to say it in silver."
+      },
+      {
+        "type": "editorialPair",
+        "items": [
+          {
+            "href": "/collections/everyday",
+            "text": "Explore everyday",
+            "image": "https://res.cloudinary.com/zpygwn4j/image/upload/v1786429626/mysilvers/samples/mood-everyday-0.jpg",
+            "title": "Everyday Silver"
+          },
+          {
+            "href": "/collections/bridal",
+            "text": "Explore bridal",
+            "image": "https://res.cloudinary.com/zpygwn4j/image/upload/v1786429627/mysilvers/samples/mood-everyday-1.jpg",
+            "title": "The Bridal Edit"
+          }
+        ],
+        "title": "Gifts that say it for you",
+        "eyebrow": "Inspired by love",
+        "isActive": true,
+        "subtitle": "Two ways into the collection, chosen for the people you buy for."
+      },
+      {
+        "type": "products",
+        "limit": 8,
+        "title": "New in",
+        "source": "newest",
+        "eyebrow": "Just arrived",
+        "isActive": true,
+        "viewAllHref": "/products?sort=newest"
+      },
+      {
+        "type": "collections",
+        "limit": 3,
+        "title": "The collections",
+        "eyebrow": "Curated",
+        "isActive": true,
+        "subtitle": "Each one built around a single idea.",
+        "viewAllHref": "/collections",
+        "featuredOnly": true
+      },
+      {
+        "type": "products",
+        "limit": 8,
+        "title": "Bestsellers",
+        "source": "bestseller",
+        "eyebrow": "Most loved",
+        "isActive": true,
+        "viewAllHref": "/products?sort=featured"
+      },
+      {
+        "type": "worldTiles",
+        "items": [
+          {
+            "href": "/category/pendants",
+            "image": "https://res.cloudinary.com/zpygwn4j/image/upload/v1/mysilvers/samples/pendants-0?_a=BAMAPqkS0",
+            "title": "Pendants"
+          },
+          {
+            "href": "/category/rings",
+            "image": "https://res.cloudinary.com/zpygwn4j/image/upload/v1/mysilvers/samples/rings-0?_a=BAMAPqkS0",
+            "title": "Rings"
+          },
+          {
+            "href": "/category/anklets",
+            "image": "https://res.cloudinary.com/zpygwn4j/image/upload/v1/mysilvers/samples/anklets-0?_a=BAMAPqkS0",
+            "title": "Anklets"
+          },
+          {
+            "href": "/category/bracelets",
+            "image": "https://res.cloudinary.com/zpygwn4j/image/upload/v1/mysilvers/samples/bracelets-0?_a=BAMAPqkS0",
+            "title": "Bracelets"
+          }
+        ],
+        "title": "Made for the occasion",
+        "layout": "stagger",
+        "eyebrow": "The world of MY Silvers",
+        "isActive": true,
+        "subtitle": "A companion for every occasion."
+      },
+      {
+        "type": "editorialPair",
+        "items": [
+          {
+            "href": "/blog/everyday-stack-guide",
+            "text": "Read more",
+            "image": "https://res.cloudinary.com/zpygwn4j/image/upload/v1/mysilvers/samples/mood-everyday-2?_a=BAMAPqkS0",
+            "title": "Building an everyday stack"
+          },
+          {
+            "href": "/blog/oxidised-silver-explained",
+            "text": "Read more",
+            "image": "https://res.cloudinary.com/zpygwn4j/image/upload/v1/mysilvers/samples/mood-oxidised-4?_a=BAMAPqkS0",
+            "title": "Oxidised silver, explained"
+          }
+        ],
+        "title": "From the journal",
+        "eyebrow": "Notes on silver",
+        "isActive": true
+      },
+      {
+        "type": "usp",
+        "items": [],
+        "title": "Why 925",
+        "eyebrow": "The craft",
+        "isActive": true
+      }
+    ],
+    "heroImage": "https://res.cloudinary.com/zpygwn4j/image/upload/v1786429602/mysilvers/samples/mood-hero-0.jpg",
+    "heroTitle": "Silver that lives with you.",
+    "trustItems": [],
+    "heroSubtitle": "BIS hallmarked 925 sterling silver — rings, earrings and everyday pieces made to be worn, not saved for occasions.",
+    "testimonials": [
+      {
+        "name": "Divya R., Chennai",
+        "quote": "Wore the twisted band every single day for four months — no tarnish, no green finger. Exactly what I wanted.",
+        "rating": 5
+      },
+      {
+        "name": "Aarthi S., Coimbatore",
+        "quote": "Ordered the jhumkas for my sister's wedding. The finish is far better than the price suggests.",
+        "rating": 5
+      },
+      {
+        "name": "Meera K., Bengaluru",
+        "quote": "Packaging was lovely and it arrived in three days. The anklet is delicate but doesn't feel flimsy.",
+        "rating": 4
+      }
+    ],
+    "heroBackground": "#FFFDF8",
+    "announcementText": "Free shipping on orders above ₹999",
+    "searchPlaceholders": []
+  },
+  "seo": {
+    "metaTitle": "MY Silvers — 925 Sterling Silver Jewellery",
+    "metaDescription": "BIS hallmarked 925 sterling silver jewellery, crafted for everyday wear. Free shipping above ₹999.",
+    "ogImage": null,
+    "canonicalUrl": null,
+    "noIndex": false
+  }
+}

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/layout/empty-state";
+import { RestoreHomepageButton } from "@/components/cms/restore-homepage-button";
 import {
   Table,
   TableBody,
@@ -118,14 +119,33 @@ export default async function ContentListPage({
               </Button>
             </div>
           ) : (
-            <div className="text-center">
-              <p className="mb-4 text-sm text-muted-foreground">
-                No {type.label.toLowerCase()} content yet.
-              </p>
-              <Button asChild>
-                <Link href={`/cms/content/${typeName}/new`}>Create {type.label}</Link>
-              </Button>
-            </div>
+            typeName === "homepage" ? (
+              // A missing homepage means the shop's front page is blank right
+              // now, so the first offer is to put the full design back — not
+              // an empty form to rebuild it from scratch.
+              <div className="text-center">
+                <p className="mb-1 text-sm font-medium">The shop has no homepage right now.</p>
+                <p className="mb-4 text-sm text-muted-foreground">
+                  Restore puts back the full homepage — hero slides and every section —
+                  published straight away. Then edit it as usual.
+                </p>
+                <div className="flex justify-center gap-2">
+                  <RestoreHomepageButton />
+                  <Button asChild variant="outline">
+                    <Link href={`/cms/content/${typeName}/new`}>Start from blank</Link>
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center">
+                <p className="mb-4 text-sm text-muted-foreground">
+                  No {type.label.toLowerCase()} content yet.
+                </p>
+                <Button asChild>
+                  <Link href={`/cms/content/${typeName}/new`}>Create {type.label}</Link>
+                </Button>
+              </div>
+            )
           )}
         </div>
       </div>
