@@ -5,21 +5,35 @@ import Image from "next/image";
 import { X, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { uploadToCloudinary } from "@/lib/cloudinary-upload";
+import { uploadProductImages, uploadToCloudinary } from "@/lib/cloudinary-upload";
 
 export function ImagesUploader({
   images,
   onChange,
   max = 6,
   folder = "mysilvers/products",
+  naming,
 }: {
   images: string[];
   onChange: (images: string[]) => void;
   max?: number;
   folder?: string;
+  /**
+   * Product photos: name each upload `<SKU>_<n>` and file it in the
+   * category's folder instead of `folder`. Both must be filled in first — the
+   * uploader says so rather than falling back to a random name, which is
+   * exactly what this exists to stop.
+   */
+  naming?: { sku: string; categoryId: string };
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+
+  const missing = naming
+    ? [!naming.sku.trim() && "SKU", !naming.categoryId && "category"].filter(Boolean)
+    : [];
+  const blockedReason =
+    missing.length > 0 ? `Enter the ${missing.join(" and ")} first — photos are named after them.` : null;
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -31,11 +45,19 @@ export function ImagesUploader({
     }
     setUploading(true);
     try {
-      const urls: string[] = [];
-      for (const file of selected) {
-        urls.push(await uploadToCloudinary(file, folder));
+      let urls: string[] = [];
+      if (naming) {
+        const result = await uploadProductImages(selected, naming);
+        // Whatever made it is kept even when a later file failed.
+        if (result.urls.length > 0) onChange([...images, ...result.urls]);
+        if (result.error) throw new Error(result.error);
+        urls = result.urls;
+      } else {
+        for (const file of selected) {
+          urls.push(await uploadToCloudinary(file, folder));
+        }
+        onChange([...images, ...urls]);
       }
-      onChange([...images, ...urls]);
       // Uploading only reported FAILURE before. A slow upload that worked
       // looked identical to one that had not started — the thumbnail appearing
       // was the only confirmation, and on a large file that is many seconds of
@@ -70,9 +92,9 @@ export function ImagesUploader({
         {images.length < max && (
           <button
             type="button"
-            disabled={uploading}
+            disabled={uploading || blockedReason !== null}
             onClick={() => inputRef.current?.click()}
-            className="flex h-24 w-24 flex-col items-center justify-center gap-1 rounded-md border border-dashed text-xs text-muted-foreground hover:bg-muted"
+            className="flex h-24 w-24 flex-col items-center justify-center gap-1 rounded-md border border-dashed text-xs text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
           >
             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             {uploading ? "Uploading…" : "Add image"}
@@ -89,7 +111,13 @@ export function ImagesUploader({
       />
       <p className="mt-1.5 text-xs text-muted-foreground">
         {images.length}/{max} images
+        {naming && !blockedReason && images.length < max && (
+          <> · saved as {naming.sku.trim()}_1, _2… in the category&apos;s folder</>
+        )}
       </p>
+      {blockedReason && images.length < max && (
+        <p className="mt-1 text-xs font-medium">{blockedReason}</p>
+      )}
     </div>
   );
 }

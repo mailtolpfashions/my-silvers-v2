@@ -234,7 +234,13 @@ export function ProductForm({
           <Section title="Media">
             <div className="space-y-1.5">
               <Label>Images (up to 6)</Label>
-              <ImagesUploader images={form.images} onChange={(images) => set("images", images)} />
+              <ImagesUploader
+                images={form.images}
+                onChange={(images) => set("images", images)}
+                // Named <SKU>_<n> in the category's Cloudinary folder, so a
+                // photo can be found from the product and vice versa.
+                naming={{ sku: form.sku, categoryId: form.categoryId }}
+              />
             </div>
 
             <div className="space-y-1.5">

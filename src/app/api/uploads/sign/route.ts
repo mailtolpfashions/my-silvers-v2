@@ -4,6 +4,7 @@ import { auth } from "@/server/auth/auth";
 import { getCurrentRole } from "@/server/auth/require-role";
 import { checkRateLimit, RATE_LIMIT_MESSAGE } from "@/server/rate-limit/limiter";
 import { ALLOWED_REVIEW_IMAGE_FORMATS, REVIEW_MEDIA_FOLDER } from "@/lib/review-media";
+import { signProductImageUploads } from "@/server/media/product-image-names";
 
 /**
  * Cloudinary signed-upload signatures. The browser uploads file bytes
@@ -48,11 +49,47 @@ const REVIEW_ALLOWED_FORMATS = ALLOWED_REVIEW_IMAGE_FORMATS.join(",");
 
 export async function POST(req: NextRequest) {
   let requested = "mysilvers/products";
+  let body: Record<string, unknown> = {};
   try {
-    const body = await req.json();
-    if (typeof body?.folder === "string") requested = body.folder;
+    body = (await req.json()) ?? {};
+    if (typeof body.folder === "string") requested = body.folder;
   } catch {
     // No body — default folder.
+  }
+
+  /**
+   * Product photos, named `<SKU>_<n>` and filed in their category's folder —
+   * see server/media/product-image-names.ts. Staff only, like every folder
+   * other than reviews. Returns one signed slot per file, because the public
+   * id is part of each signature.
+   */
+  if (body.kind === "product") {
+    const role = await getCurrentRole();
+    if (role !== "admin" && role !== "editor") {
+      return new Response("Forbidden", { status: 403 });
+    }
+    try {
+      const { slots, folder } = await signProductImageUploads({
+        sku: typeof body.sku === "string" ? body.sku : "",
+        categoryId: typeof body.categoryId === "string" ? body.categoryId : "",
+        count: typeof body.count === "number" ? body.count : 1,
+      });
+      return Response.json({
+        slots,
+        folder,
+        apiKey: process.env.CLOUDINARY_API_KEY!,
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME!,
+      });
+    } catch (err) {
+      // Our own sentences (missing SKU or category) are worth showing; a
+      // Cloudinary API failure is not, and is logged instead.
+      const known = err instanceof Error && /before adding photos/.test(err.message);
+      if (!known) console.error("product image signing failed", err);
+      return new Response(
+        known ? (err as Error).message : "Could not prepare the upload. Please try again.",
+        { status: 400 }
+      );
+    }
   }
 
   const isReviewUpload = requested === REVIEW_MEDIA_FOLDER;
