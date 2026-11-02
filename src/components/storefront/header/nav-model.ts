@@ -88,13 +88,24 @@ export async function buildNav(): Promise<NavWorld[]> {
   // The lists alone, under their own cache tag — NOT getStoreSettings, whose
   // tag every settings save expires; see getNavMenuSettings for why that
   // matters on a component that is on every page.
-  const [categories, collections, settings] = await Promise.all([
+  // Every published collection, not just the six the Collections panel shows:
+  // "Shop for" can point at any of them.
+  const [categories, allCollections, settings] = await Promise.all([
     getActiveCategories(),
-    getCollections({ take: 6 }),
+    getCollections(),
     getNavMenuSettings(),
   ]);
+  const collections = allCollections.slice(0, 6);
   const finishLinks = searchLinks(settings.navFinishes);
   const occasionLinks = searchLinks(settings.navOccasions);
+
+  // Kept only while the collection is published. Unpublishing "Kids" in the
+  // CMS then takes it out of the menu by itself, instead of leaving a link to
+  // a not-found page in every header until someone edits settings too.
+  const published = new Set(allCollections.map((c) => c.slug));
+  const shopForLinks: NavLink[] = settings.navShopFor
+    .filter((f) => published.has(f.query))
+    .map((f) => ({ label: f.label, href: `/collections/${f.query}` }));
 
   const categoryLinks: NavLink[] = categories.map((c) => ({
     label: c.name,
@@ -120,6 +131,8 @@ export async function buildNav(): Promise<NavWorld[]> {
         // "All jewellery" leads rather than trails: the shop asked for the
         // catch-all first, so browsing everything is the first choice offered.
         { heading: "By category", links: [{ label: "All jewellery", href: "/products" }, ...categoryLinks] },
+        // Second, beside category: "who is it for" is how many shoppers start.
+        ...(shopForLinks.length > 0 ? [{ heading: "Shop for", links: shopForLinks }] : []),
         { heading: "By price", links: priceLinks },
         // An emptied list drops the column rather than showing a heading
         // with nothing under it.

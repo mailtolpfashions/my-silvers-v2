@@ -25,7 +25,12 @@ export type StoreSettingsFormValues = {
   transitTimeMaxDays: number;
   navFinishes: NavRow[];
   navOccasions: NavRow[];
+  /** `query` is a collection slug here — see StoreSettings.navShopFor. */
+  navShopFor: NavRow[];
 };
+
+/** A published collection, as offered in the "Shop for" picker. */
+type CollectionOption = { slug: string; title: string };
 
 /** Each settings group's card — the same treatment as the product form's sections. */
 const CARD = "rounded-lg border bg-background p-5";
@@ -50,6 +55,7 @@ function NavListEditor({
   onChange,
   disabled,
   placeholder,
+  collections,
 }: {
   id: string;
   title: string;
@@ -58,6 +64,12 @@ function NavListEditor({
   onChange: (rows: NavRow[]) => void;
   disabled?: boolean;
   placeholder: string;
+  /**
+   * When given, each row links to one of these collections, picked from a
+   * list, instead of searching for a typed word. A list rather than a slug box
+   * because a mistyped slug is a link to nowhere.
+   */
+  collections?: CollectionOption[];
 }) {
   const update = (i: number, patch: Partial<NavRow>) =>
     onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -81,7 +93,7 @@ function NavListEditor({
         <div className="mb-3 space-y-2">
           <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs text-muted-foreground">
             <span>Shown in menu</span>
-            <span>Searches for</span>
+            <span>{collections ? "Opens collection" : "Searches for"}</span>
             <span className="w-[7.5rem]" />
           </div>
           {rows.map((row, i) => (
@@ -97,19 +109,51 @@ function NavListEditor({
                 disabled={disabled}
                 onChange={(e) => {
                   const label = e.target.value;
+                  if (collections) return update(i, { label });
                   // Follow the label only while the search word still matches
                   // what following would have produced — i.e. untouched.
                   const following = row.query === row.label.trim().toLowerCase();
                   update(i, following ? { label, query: label.trim().toLowerCase() } : { label });
                 }}
               />
-              <Input
-                aria-label={`${title} ${i + 1}: search word`}
-                value={row.query}
-                maxLength={60}
-                disabled={disabled}
-                onChange={(e) => update(i, { query: e.target.value })}
-              />
+              {collections ? (
+                <select
+                  aria-label={`${title} ${i + 1}: collection`}
+                  value={row.query}
+                  disabled={disabled}
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                  onChange={(e) => {
+                    const picked = collections.find((c) => c.slug === e.target.value);
+                    // An empty label takes the collection's title, the common
+                    // case; one already typed is left alone.
+                    update(i, {
+                      query: e.target.value,
+                      ...(!row.label.trim() && picked ? { label: picked.title } : {}),
+                    });
+                  }}
+                >
+                  <option value="">Choose a collection…</option>
+                  {/* A saved slug whose collection has since been unpublished
+                      stays selectable, labelled, so saving doesn't silently
+                      drop it — the menu already hides it. */}
+                  {row.query && !collections.some((c) => c.slug === row.query) && (
+                    <option value={row.query}>{row.query} (not published)</option>
+                  )}
+                  {collections.map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.title}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input
+                  aria-label={`${title} ${i + 1}: search word`}
+                  value={row.query}
+                  maxLength={60}
+                  disabled={disabled}
+                  onChange={(e) => update(i, { query: e.target.value })}
+                />
+              )}
               <div className="flex w-[7.5rem] justify-end gap-1">
                 <Button
                   type="button"
@@ -229,7 +273,14 @@ function DayField({
   );
 }
 
-export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValues }) {
+export function StoreSettingsForm({
+  initial,
+  collections,
+}: {
+  initial: StoreSettingsFormValues;
+  /** Published collections, for the "Shop for" picker. */
+  collections: CollectionOption[];
+}) {
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
 
@@ -288,6 +339,7 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
       ...dayValues,
       navFinishes: form.navFinishes,
       navOccasions: form.navOccasions,
+      navShopFor: form.navShopFor,
     });
     setSaving(false);
 
@@ -491,6 +543,20 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValue
           empty page, so only list what you stock.
         </p>
 
+        <NavListEditor
+          id="navShopFor"
+          title="Jewellery → Shop for"
+          description={
+            collections.length > 0
+              ? "Men, Women, Kids, Devotional… Each link opens a collection — create one in CMS → Collections with a product tag (say “men”), then tag the pieces. A collection you unpublish drops out of the menu by itself."
+              : "Men, Women, Kids, Devotional… Each link opens a collection, and none are published yet. Create one in CMS → Collections with a product tag (say “men”), tag the pieces, then come back here."
+          }
+          placeholder="e.g. Men"
+          rows={form.navShopFor}
+          onChange={(navShopFor) => setForm((f) => ({ ...f, navShopFor }))}
+          disabled={saving}
+          collections={collections}
+        />
         <NavListEditor
           id="navFinishes"
           title="Jewellery → By finish"

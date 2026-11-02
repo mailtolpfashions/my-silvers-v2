@@ -107,7 +107,25 @@ export type StoreSettings = {
 
   /** The header's "By occasion" links (Gifting menu). Same rules as above. */
   navOccasions: NavFilter[];
+
+  /**
+   * The header's "Shop for" links (Jewellery menu): Men, Women, Kids,
+   * Devotional and the like.
+   *
+   * Unlike the two lists above, `query` here is a COLLECTION SLUG, not a
+   * search. These are groupings the shop curates — a piece is in "Men" because
+   * someone tagged it so, not because the word appears in its description — and
+   * a collection is that curation with a proper landing page. A link whose
+   * collection is unpublished or deleted is dropped from the menu rather than
+   * left pointing at a 404 (see buildNav).
+   *
+   * Defaults to empty: no such collections exist until the shop makes them.
+   */
+  navShopFor: NavFilter[];
 };
+
+/** The header-menu lists, as one shape — what getNavMenuSettings returns. */
+export type NavMenuSettings = Pick<StoreSettings, "navFinishes" | "navOccasions" | "navShopFor">;
 
 /** One editable header-menu link: what a shopper reads, and what it searches. */
 export type NavFilter = { label: string; query: string };
@@ -168,6 +186,7 @@ export const STORE_SETTING_DEFAULTS: StoreSettings = {
     { label: "Office", query: "office" },
     { label: "Everyday", query: "everyday" },
   ],
+  navShopFor: [],
 };
 
 /** Cache tag for every settings read. Invalidated by the admin save action. */
@@ -243,6 +262,7 @@ function parse(raw: unknown): StoreSettings {
     transitTimeMaxDays: whole(v.transitTimeMaxDays, d.transitTimeMaxDays),
     navFinishes: filters(v.navFinishes, d.navFinishes),
     navOccasions: filters(v.navOccasions, d.navOccasions),
+    navShopFor: filters(v.navShopFor, d.navShopFor),
   };
 }
 
@@ -316,19 +336,19 @@ export const NAV_MENU_TAG = "settings:nav";
  * change (see saveStoreSettingsAction), a COD or shipping save leaves the
  * header — and so every other page — alone.
  */
-export async function getNavMenuSettings(): Promise<Pick<StoreSettings, "navFinishes" | "navOccasions">> {
+export async function getNavMenuSettings(): Promise<NavMenuSettings> {
   try {
     return await readNavMenuSettings();
   } catch (err) {
     // Same reasoning as getStoreSettings: a failed read is per-request, never
     // cached, and never a reason for the header to break.
     console.error("getNavMenuSettings failed — falling back to defaults", err);
-    const { navFinishes, navOccasions } = STORE_SETTING_DEFAULTS;
-    return { navFinishes, navOccasions };
+    const { navFinishes, navOccasions, navShopFor } = STORE_SETTING_DEFAULTS;
+    return { navFinishes, navOccasions, navShopFor };
   }
 }
 
-async function readNavMenuSettings(): Promise<Pick<StoreSettings, "navFinishes" | "navOccasions">> {
+async function readNavMenuSettings(): Promise<NavMenuSettings> {
   "use cache";
   // Long-lived: the save expires it by tag the moment a list changes, so the
   // window only matters for a row edited outside the app.
@@ -336,8 +356,8 @@ async function readNavMenuSettings(): Promise<Pick<StoreSettings, "navFinishes" 
   cacheTag(NAV_MENU_TAG);
 
   const row = await prisma.storeSetting.findUnique({ where: { key: SETTINGS_KEY } });
-  const { navFinishes, navOccasions } = parse(row?.value);
-  return { navFinishes, navOccasions };
+  const { navFinishes, navOccasions, navShopFor } = parse(row?.value);
+  return { navFinishes, navOccasions, navShopFor };
 }
 
 /**

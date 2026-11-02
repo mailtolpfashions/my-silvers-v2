@@ -2,6 +2,7 @@ import { requireRole } from "@/server/auth/require-role";
 import { PageHeader } from "@/components/layout/page-header";
 import { getStoreSettings } from "@/server/settings/store-settings";
 import { StoreSettingsForm } from "@/components/admin/store-settings-form";
+import { getCollections } from "@/server/cms/collections";
 
 /**
  * The shop's operational switches.
@@ -26,7 +27,7 @@ export const instant = false;
 export default async function AdminSettingsPage() {
   await requireRole("admin");
 
-  const settings = await getStoreSettings();
+  const [settings, collections] = await Promise.all([getStoreSettings(), getCollections()]);
 
   return (
     <>
@@ -54,7 +55,9 @@ export default async function AdminSettingsPage() {
           transitTimeMaxDays: settings.transitTimeMaxDays,
           navFinishes: settings.navFinishes,
           navOccasions: settings.navOccasions,
+          navShopFor: settings.navShopFor,
         }}
+        collections={collections.map((c) => ({ slug: c.slug, title: c.title }))}
       />
     </>
   );
