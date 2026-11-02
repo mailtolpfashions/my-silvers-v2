@@ -43,7 +43,10 @@ async function exportProducts(rawIds: string[] | null, asJson: boolean) {
 
   const products = await prisma.product.findMany({
     where: ids && ids.length > 0 ? { id: { in: ids } } : undefined,
-    include: { category: { select: { name: true } } },
+    include: {
+      category: { select: { name: true } },
+      variants: { select: { size: true, stock: true } },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -89,7 +92,12 @@ async function exportProducts(rawIds: string[] | null, asJson: boolean) {
         weight: p.weight?.toString() ?? "",
         purity: p.purity,
         dimensions: p.dimensions ?? "",
-        sizes: p.sizes.join(","),
+        // "5:2, 6:1, 7:4" — each size with its own stock, in display order, so
+        // re-importing this file keeps per-size stock exactly. Labels alone
+        // would make the import split the total evenly instead.
+        sizes: p.sizes
+          .map((size) => `${size}:${p.variants.find((v) => v.size === size)?.stock ?? 0}`)
+          .join(", "),
         material: p.material ?? "",
         stock: p.stock,
         sku: p.sku,
