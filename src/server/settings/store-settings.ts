@@ -1,5 +1,6 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { prisma } from "@/server/db";
+import type { CharmStyle } from "@/lib/charm-price";
 
 /**
  * The shop's operational switches.
@@ -122,6 +123,17 @@ export type StoreSettings = {
    * Defaults to empty: no such collections exist until the shop makes them.
    */
   navShopFor: NavFilter[];
+
+  /**
+   * Round prices as they are saved — ₹1,000 → ₹999 — or "off".
+   *
+   * Applies to a price the admin TYPES: the product form, a CSV cell that
+   * carries a price, and the reduced price an Offer computes. Never to a price
+   * nobody touched, so turning this on does not quietly reprice the catalogue —
+   * that is what the bulk "Charm prices" action is for, with a preview.
+   * Default off, so no price changes without someone choosing it.
+   */
+  charmPricing: "off" | CharmStyle;
 };
 
 /** The header-menu lists, as one shape — what getNavMenuSettings returns. */
@@ -187,6 +199,7 @@ export const STORE_SETTING_DEFAULTS: StoreSettings = {
     { label: "Everyday", query: "everyday" },
   ],
   navShopFor: [],
+  charmPricing: "off",
 };
 
 /** Cache tag for every settings read. Invalidated by the admin save action. */
@@ -263,6 +276,7 @@ function parse(raw: unknown): StoreSettings {
     navFinishes: filters(v.navFinishes, d.navFinishes),
     navOccasions: filters(v.navOccasions, d.navOccasions),
     navShopFor: filters(v.navShopFor, d.navShopFor),
+    charmPricing: oneOf(v.charmPricing, ["off", "99", "49-99"] as const, d.charmPricing),
   };
 }
 

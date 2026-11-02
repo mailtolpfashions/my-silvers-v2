@@ -56,6 +56,7 @@ export default async function AdminSettingsPage() {
           navFinishes: settings.navFinishes,
           navOccasions: settings.navOccasions,
           navShopFor: settings.navShopFor,
+          charmPricing: settings.charmPricing,
         }}
         collections={collections.map((c) => ({ slug: c.slug, title: c.title }))}
       />

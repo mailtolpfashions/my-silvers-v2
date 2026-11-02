@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,12 +31,17 @@ import {
   setProductsTagAction,
   setProductsVendorAction,
   deleteProductsAction,
+  previewCharmPricesAction,
+  applyCharmPricesAction,
 } from "@/actions/admin-product-actions";
+import type { CharmChange } from "@/server/products/admin";
+import { CHARM_STYLES, type CharmStyle } from "@/lib/charm-price";
+import { formatINR } from "@/lib/format";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type Category = { id: string; name: string };
 /** Which prompt is open. Only one can be, so this is a single value. */
-type Prompt = null | "add-tag" | "remove-tag" | "offer" | "vendor";
+type Prompt = null | "add-tag" | "remove-tag" | "offer" | "vendor" | "charm";
 
 /**
  * The bar that appears once rows are ticked.
@@ -84,6 +89,27 @@ export function ProductBulkBar({
   const [percent, setPercent] = useState("10");
   const [vendor, setVendor] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [charmStyle, setCharmStyle] = useState<CharmStyle>("99");
+  const latestCharmStyle = useRef<CharmStyle>("99");
+  const [charmPreview, setCharmPreview] = useState<{
+    sample: CharmChange[];
+    total: number;
+  } | null>(null);
+
+  /** Opens the charm dialog (or switches its style) and fetches the preview. */
+  function openCharm(style: CharmStyle) {
+    setCharmStyle(style);
+    setCharmPreview(null);
+    setPrompt("charm");
+    latestCharmStyle.current = style;
+    const ids = [...selected];
+    void previewCharmPricesAction(ids, style).then((result) => {
+      // Switching style quickly can land an older answer last; ignore it.
+      if (latestCharmStyle.current !== style) return;
+      if (result.ok) setCharmPreview({ sample: result.sample, total: result.total });
+      else toast.error(result.error);
+    });
+  }
 
   const count = selected.size;
   if (count === 0) return null;
@@ -188,14 +214,18 @@ export function ProductBulkBar({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* ── Offers ── */}
+            {/* ── Pricing: offers and charm rounding ── */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" disabled={isPending}>
-                  Offer <ChevronDown className="size-3.5" aria-hidden />
+                  Pricing <ChevronDown className="size-3.5" aria-hidden />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onSelect={() => openCharm(charmStyle)}>
+                  Charm prices (₹999)…
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => setPrompt("offer")}>
                   Apply a discount…
                 </DropdownMenuItem>
@@ -310,7 +340,80 @@ export function ProductBulkBar({
           dialog stays closed. */}
       <Dialog open={prompt !== null} onOpenChange={(open) => !open && setPrompt(null)}>
         <DialogContent className="sm:max-w-md">
-          {prompt === "offer" ? (
+          {prompt === "charm" ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Charm prices</DialogTitle>
+                <DialogDescription>
+                  Rounds the selling price of {plural(count)} down — never up. Prices
+                  already in the style are left alone, and an offer&apos;s struck-through
+                  original stays as it is.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2" role="radiogroup" aria-label="Rounding style">
+                {CHARM_STYLES.map((option) => (
+                  <label key={option.value} className="flex items-start gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="bulk-charm-style"
+                      className="mt-1"
+                      checked={charmStyle === option.value}
+                      onChange={() => openCharm(option.value)}
+                    />
+                    <span>
+                      {option.label}
+                      <span className="block text-xs text-muted-foreground">{option.example}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {/* The preview is the server's own calculation over these exact
+                  products, so what it lists is what Apply will write. */}
+              <div className="rounded-md bg-muted p-3 text-sm">
+                {charmPreview === null ? (
+                  <p className="text-muted-foreground">Working out the new prices…</p>
+                ) : charmPreview.total === 0 ? (
+                  <p>Nothing to change — these prices already fit this style.</p>
+                ) : (
+                  <>
+                    <ul className="space-y-1">
+                      {charmPreview.sample.map((c) => (
+                        <li key={c.id} className="flex justify-between gap-3">
+                          <span className="truncate">{c.name}</span>
+                          <span className="shrink-0 tabular-nums">
+                            {formatINR(c.from)} → <strong>{formatINR(c.to)}</strong>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {charmPreview.total > charmPreview.sample.length && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        …and {charmPreview.total - charmPreview.sample.length} more.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setPrompt(null)} disabled={isPending}>
+                  Cancel
+                </Button>
+                <Button
+                  disabled={isPending || !charmPreview || charmPreview.total === 0}
+                  onClick={() =>
+                    run(
+                      (ids) => applyCharmPricesAction(ids, charmStyle),
+                      (n) => (n === 0 ? "No prices needed changing." : `${plural(n)} repriced.`)
+                    )
+                  }
+                >
+                  {charmPreview && charmPreview.total > 0
+                    ? `Update ${charmPreview.total} price${charmPreview.total === 1 ? "" : "s"}`
+                    : "Update prices"}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : prompt === "offer" ? (
             <>
               <DialogHeader>
                 <DialogTitle>Apply a discount</DialogTitle>

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { saveStoreSettingsAction } from "@/actions/admin-settings-actions";
+import { CHARM_STYLES, type CharmStyle } from "@/lib/charm-price";
 
 export type StoreSettingsFormValues = {
   codEnabled: boolean;
@@ -27,6 +28,7 @@ export type StoreSettingsFormValues = {
   navOccasions: NavRow[];
   /** `query` is a collection slug here — see StoreSettings.navShopFor. */
   navShopFor: NavRow[];
+  charmPricing: "off" | CharmStyle;
 };
 
 /** A published collection, as offered in the "Shop for" picker. */
@@ -340,6 +342,7 @@ export function StoreSettingsForm({
       navFinishes: form.navFinishes,
       navOccasions: form.navOccasions,
       navShopFor: form.navShopFor,
+      charmPricing: form.charmPricing,
     });
     setSaving(false);
 
@@ -410,6 +413,37 @@ export function StoreSettingsForm({
               Orders at or above this subtotal ship free.
             </p>
           </div>
+        </div>
+      </section>
+
+      <section className={CARD}>
+        <h2 className="label-eyebrow mb-1">Pricing</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Round prices down as they are saved, so ₹1,500 is saved as ₹1,499 and
+          shows under “Under ₹1,500”. Applies to prices typed on the product
+          page, prices in a CSV, and Offer prices. Existing prices only change
+          when you use Pricing → Charm prices on the products list.
+        </p>
+        <div className="space-y-2" role="radiogroup" aria-label="Round prices">
+          {[{ value: "off" as const, label: "Off", example: "Prices are saved exactly as typed" }, ...CHARM_STYLES].map(
+            (option) => (
+              <label key={option.value} className="flex items-start gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="charmPricing"
+                  className="mt-1"
+                  value={option.value}
+                  checked={form.charmPricing === option.value}
+                  disabled={saving}
+                  onChange={() => setForm((f) => ({ ...f, charmPricing: option.value }))}
+                />
+                <span>
+                  {option.label}
+                  <span className="block text-xs text-muted-foreground">{option.example}</span>
+                </span>
+              </label>
+            )
+          )}
         </div>
       </section>
 
