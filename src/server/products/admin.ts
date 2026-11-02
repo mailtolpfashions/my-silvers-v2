@@ -1,3 +1,4 @@
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db";
 import { notifyBackInStock } from "@/server/products/stock-notifications";
 import { assertAllowedMediaUrls } from "@/server/media/url-allowlist";
@@ -100,6 +101,24 @@ export async function listVendors(): Promise<string[]> {
   return rows.map((r) => r.vendor).filter((v): v is string => !!v);
 }
 
+/**
+ * A product cannot be live at ₹0.
+ *
+ * Checkout charges whatever the product row says, so an active piece with no
+ * price could be ordered on Cash on Delivery for nothing but shipping. A ₹0
+ * price is almost always "not set yet", which is what a draft is for — so it is
+ * allowed only while the product is archived.
+ *
+ * `isActive` undefined counts as active: a save that doesn't say must not slip
+ * a ₹0 price past this onto a product that is already live.
+ */
+export const ZERO_PRICE_ERROR =
+  "A product can't be active at ₹0. Set a price, or untick Active to keep it as a draft.";
+
+function assertSellablePrice(input: Pick<ProductInput, "price" | "isActive">) {
+  if (input.isActive !== false && !(input.price > 0)) throw new Error(ZERO_PRICE_ERROR);
+}
+
 function validateMedia(input: Pick<ProductInput, "images" | "videoUrl">) {
   if (input.images.length > 6) throw new Error("A product may have at most 6 images.");
   assertAllowedMediaUrls(input.images, "Image");
@@ -140,6 +159,7 @@ function splitVariants(input: ProductInput) {
 }
 
 export async function createProduct(input: ProductInput) {
+  assertSellablePrice(input);
   validateMedia(input);
   const slug = await uniqueProductSlug(input.name);
   const { columns, variants } = splitVariants(input);
@@ -161,6 +181,7 @@ export async function createProduct(input: ProductInput) {
 }
 
 export async function updateProduct(id: string, input: ProductInput) {
+  assertSellablePrice(input);
   validateMedia(input);
   const { columns, variants } = splitVariants(input);
 
@@ -261,6 +282,8 @@ export async function archiveProduct(id: string) {
 }
 
 export async function restoreProduct(id: string) {
+  const product = await prisma.product.findUnique({ where: { id }, select: { price: true } });
+  if (product && !(Number(product.price) > 0)) throw new Error(ZERO_PRICE_ERROR);
   await prisma.product.update({ where: { id }, data: { isActive: true } });
 }
 
@@ -386,17 +409,109 @@ function parseList(v: string | undefined): string[] {
 }
 
 /**
- * Partial-success bulk import: valid rows are created, invalid rows are
- * reported per-row without failing the batch. Duplicate SKUs are rejected
- * both within the batch and against existing products. Max 500 rows.
+ * Updates an existing product from a CSV row, changing ONLY the cells that are
+ * filled in.
+ *
+ * ── Why blank means "leave it" ──────────────────────────────────────────────
+ * The point is a file with just `sku,price` to fill prices in later. If a blank
+ * cell meant "clear this", that file would wipe every name, image and
+ * description it didn't mention. So there is no way to blank a field from a
+ * CSV; that is done on the product page.
+ *
+ * Goes through updateProduct rather than writing directly, so an update gets
+ * the same checks as a save from the form: no ₹0 while active, media
+ * allowlist, sizes kept in step with stock, and back-in-stock emails when a
+ * sold-out piece gets stock again.
+ *
+ * Stock follows the import's existing rule: one figure, split evenly across
+ * the sizes (the file's sizes if given, else the product's current ones). A
+ * file that touches neither leaves the per-size stock exactly as it was.
+ */
+async function updateFromCsvRow(
+  id: string,
+  row: CsvRow,
+  categoryByKey: Map<string, string>,
+) {
+  const p = await prisma.product.findUniqueOrThrow({
+    where: { id },
+    include: { variants: true },
+  });
+
+  const text = (key: string) => (row[key] ?? "").trim() || undefined;
+  const num = (key: string, integer = false) => {
+    const raw = text(key);
+    if (raw === undefined) return undefined;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0 || (integer && !Number.isInteger(n))) {
+      throw new Error(`${key} must be ${integer ? "an integer" : "a number"} ≥ 0`);
+    }
+    return n;
+  };
+  const list = (key: string) => (text(key) === undefined ? undefined : parseList(row[key]));
+  const bool = (key: string) => (text(key) === undefined ? undefined : parseBool(row[key]));
+  const decimal = (v: Prisma.Decimal | null) => (v === null ? null : Number(v));
+
+  let categoryId = p.categoryId;
+  const categoryKey = text("category");
+  if (categoryKey) {
+    const found = categoryByKey.get(categoryKey.toLowerCase());
+    if (!found) throw new Error(`unknown category "${categoryKey}"`);
+    categoryId = found;
+  }
+
+  const stock = num("stock", true);
+  const sizes = list("sizes");
+  const sizeStock =
+    stock === undefined && sizes === undefined
+      ? p.sizes.map((size) => ({
+          size,
+          stock: p.variants.find((v) => v.size === size)?.stock ?? 0,
+        }))
+      : splitStockEvenly(sizes ?? p.sizes, stock ?? p.stock);
+
+  await updateProduct(id, {
+    name: text("name") ?? p.name,
+    description: text("description") ?? p.description ?? undefined,
+    shortDescription: text("shortDescription") ?? p.shortDescription ?? undefined,
+    price: num("price") ?? Number(p.price),
+    compareAtPrice: num("compareAtPrice") ?? decimal(p.compareAtPrice),
+    costPrice: num("costPrice") ?? decimal(p.costPrice),
+    vendor: text("vendor") ?? p.vendor,
+    images: list("images") ?? p.images,
+    videoUrl: p.videoUrl,
+    categoryId,
+    weight: num("weight") ?? decimal(p.weight),
+    purity: text("purity") ?? p.purity,
+    dimensions: text("dimensions") ?? p.dimensions ?? undefined,
+    sizeStock,
+    material: text("material") ?? p.material ?? undefined,
+    stock: stock ?? p.stock,
+    sku: p.sku,
+    tags: list("tags") ?? p.tags,
+    isFeatured: bool("isFeatured") ?? p.isFeatured,
+    isBestseller: bool("isBestseller") ?? p.isBestseller,
+    isActive: bool("isActive") ?? p.isActive,
+  });
+}
+
+/**
+ * Partial-success bulk import, matched on SKU: a new SKU creates a product, a
+ * SKU already in the shop updates that product from the cells filled in (see
+ * updateFromCsvRow). Invalid rows are reported per-row without failing the
+ * batch. A SKU repeated within one file is refused, since which row should win
+ * is a guess. Max 500 rows.
+ *
+ * Matched on SKU, never name: names repeat and get edited, so a typo would
+ * quietly create a duplicate instead of updating.
  */
 export async function bulkImportProducts(rows: CsvRow[]): Promise<{
   created: number;
+  updated: number;
   errors: RowError[];
 }> {
-  if (rows.length === 0) return { created: 0, errors: [] };
+  if (rows.length === 0) return { created: 0, updated: 0, errors: [] };
   if (rows.length > 500) {
-    return { created: 0, errors: [{ row: 0, error: "Maximum 500 rows per import." }] };
+    return { created: 0, updated: 0, errors: [{ row: 0, error: "Maximum 500 rows per import." }] };
   }
 
   const categories = await prisma.category.findMany();
@@ -406,18 +521,34 @@ export async function bulkImportProducts(rows: CsvRow[]): Promise<{
     categoryByKey.set(c.slug.toLowerCase(), c.id);
   }
 
-  const existingSkus = new Set(
-    (await prisma.product.findMany({ select: { sku: true } })).map((p) => p.sku.toLowerCase())
+  const existingSkus = new Map(
+    (await prisma.product.findMany({ select: { id: true, sku: true } })).map((p) => [
+      p.sku.toLowerCase(),
+      p.id,
+    ])
   );
   const batchSkus = new Set<string>();
 
   const errors: RowError[] = [];
   let created = 0;
+  let updated = 0;
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNum = i + 2; // 1-based + header row, matching what users see in a spreadsheet
     try {
+      const skuKey = (row.sku ?? "").trim().toLowerCase();
+      if (!skuKey) throw new Error("sku is required");
+      if (batchSkus.has(skuKey)) throw new Error(`SKU "${row.sku.trim()}" is duplicated in this file`);
+      batchSkus.add(skuKey);
+
+      const existingId = existingSkus.get(skuKey);
+      if (existingId) {
+        await updateFromCsvRow(existingId, row, categoryByKey);
+        updated++;
+        continue;
+      }
+
       const name = (row.name ?? "").trim();
       const sku = (row.sku ?? "").trim();
       const price = Number(row.price);
@@ -439,10 +570,6 @@ export async function bulkImportProducts(rows: CsvRow[]): Promise<{
 
       const categoryId = categoryByKey.get(categoryKey);
       if (!categoryId) throw new Error(`unknown category "${row.category}"`);
-
-      const skuKey = sku.toLowerCase();
-      if (existingSkus.has(skuKey)) throw new Error(`SKU "${sku}" already exists`);
-      if (batchSkus.has(skuKey)) throw new Error(`SKU "${sku}" is duplicated in this file`);
 
       await createProduct({
         name,
@@ -470,12 +597,11 @@ export async function bulkImportProducts(rows: CsvRow[]): Promise<{
         isActive: row.isActive === undefined || row.isActive === "" ? true : parseBool(row.isActive),
       });
 
-      batchSkus.add(skuKey);
       created++;
     } catch (err) {
       errors.push({ row: rowNum, error: err instanceof Error ? err.message : "invalid row" });
     }
   }
 
-  return { created, errors };
+  return { created, updated, errors };
 }

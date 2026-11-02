@@ -108,7 +108,11 @@ export async function archiveProductAction(id: string): Promise<AdminActionResul
 
 export async function restoreProductAction(id: string): Promise<AdminActionResult> {
   await requireRole("admin");
-  await restoreProduct(id);
+  try {
+    await restoreProduct(id);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Failed to restore product." };
+  }
   revalidatePath("/admin/products");
   updateTag("products");
   return { ok: true };
@@ -153,7 +157,9 @@ export async function setProductsActiveAction(
 
   try {
     const result = await prisma.product.updateMany({
-      where: { id: { in: check.ids } },
+      // Restoring skips anything priced ₹0 — see assertSellablePrice. The
+      // count then comes back short, which the bulk bar reports.
+      where: { id: { in: check.ids }, ...(isActive ? { price: { gt: 0 } } : {}) },
       data: { isActive },
     });
     revalidatePath("/admin/products");

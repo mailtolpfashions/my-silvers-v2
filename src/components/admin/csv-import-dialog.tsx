@@ -32,6 +32,7 @@ export function CsvImportDialog() {
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<{
     created: number;
+    updated: number;
     errors: Array<{ row: number; error: string }>;
   } | null>(null);
 
@@ -47,7 +48,9 @@ export function CsvImportDialog() {
         try {
           const res = await bulkImportProductsAction(parsed.data);
           setResult(res);
-          if (res.created > 0) toast.success(`Imported ${res.created} products.`);
+          if (res.created + res.updated > 0) {
+            toast.success(`${res.created} added, ${res.updated} updated.`);
+          }
           if (res.errors.length > 0) toast.warning(`${res.errors.length} rows were skipped.`);
         } catch {
           toast.error("Import failed. Please check the file and try again.");
@@ -80,8 +83,10 @@ export function CsvImportDialog() {
         <DialogHeader>
           <DialogTitle>Bulk import products</DialogTitle>
           <DialogDescription>
-            Upload a CSV (max 500 rows). Valid rows are imported; invalid rows
-            are reported without failing the batch.
+            Upload a CSV (max 500 rows). A new SKU adds a product; a SKU already
+            in the shop updates it, changing only the cells you filled in — so a
+            file with just sku and price updates prices. Invalid rows are listed
+            without stopping the rest.
           </DialogDescription>
         </DialogHeader>
 
@@ -112,7 +117,7 @@ export function CsvImportDialog() {
           {result && (
             <div className="rounded-md bg-muted p-3 text-sm">
               <p>
-                {result.created} imported · {result.errors.length} skipped
+                {result.created} added · {result.updated} updated · {result.errors.length} skipped
               </p>
               {result.errors.length > 0 && (
                 <>
