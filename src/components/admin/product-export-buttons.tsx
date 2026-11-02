@@ -26,25 +26,41 @@ export function ProductExportButtons() {
   const ids = [...selected];
   const scoped = ids.length > 0;
 
-  // The API takes ?ids= and falls back to the full catalogue without it, so one
-  // endpoint serves both cases.
+  // The PDF builder still sends ids in the URL, which only holds so many — so
+  // a large selection offers the CSV (sent as a form, no limit) and says so.
+  const pdfLimit = 200;
   const query = scoped ? `?ids=${ids.join(",")}` : "";
 
   return (
     <>
-      <Button asChild variant="outline" size="sm">
-        <a href={`/api/admin/export/products${query}`}>
-          {scoped ? `Export ${ids.length} as CSV` : "Export CSV"}
-        </a>
-      </Button>
-      <PdfExportButton
-        // PdfExportButton adds its own `format=json`, joining with `&` when a
-        // query is already present — it had to be taught to do that, see the
-        // note there.
-        endpoint={`/api/admin/export/products${query}`}
-        filename="products.pdf"
-        label={scoped ? `Export ${ids.length} as PDF` : "Export PDF"}
-      />
+      {scoped ? (
+        // A form POST rather than ?ids= in a link: a selection can now run to
+        // 1,000 rows, far past what a URL holds. See the export route.
+        <form method="post" action="/api/admin/export/products">
+          <input type="hidden" name="ids" value={ids.join(",")} />
+          <Button type="submit" variant="outline" size="sm">
+            Export {ids.length} as CSV
+          </Button>
+        </form>
+      ) : (
+        <Button asChild variant="outline" size="sm">
+          <a href="/api/admin/export/products">Export CSV</a>
+        </Button>
+      )}
+      {ids.length <= pdfLimit ? (
+        <PdfExportButton
+          // PdfExportButton adds its own `format=json`, joining with `&` when a
+          // query is already present — it had to be taught to do that, see the
+          // note there.
+          endpoint={`/api/admin/export/products${query}`}
+          filename="products.pdf"
+          label={scoped ? `Export ${ids.length} as PDF` : "Export PDF"}
+        />
+      ) : (
+        <Button variant="outline" size="sm" disabled title={`PDF export takes up to ${pdfLimit} products — use CSV for more.`}>
+          PDF: {pdfLimit} max
+        </Button>
+      )}
     </>
   );
 }

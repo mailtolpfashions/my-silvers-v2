@@ -31,4 +31,11 @@ export const CSV_TEMPLATE_HEADERS = [
   "isBestseller",
   "isActive",
   "images",
+  "videoUrl",
 ] as const;
+
+/**
+ * Read-only columns the EXPORT adds after the template's. The import ignores
+ * any column it doesn't know, so an exported file re-imports as it stands.
+ */
+export const CSV_EXPORT_EXTRA_HEADERS = ["slug", "createdAt"] as const;
