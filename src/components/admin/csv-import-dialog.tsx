@@ -86,8 +86,10 @@ export function CsvImportDialog() {
             Upload a CSV (max 500 rows). A new SKU adds a product; a SKU already
             in the shop updates it, changing only the cells you filled in — so a
             file with just sku and price updates prices. Tags are added to the
-            ones a product already has, never replacing them. Invalid rows are
-            listed without stopping the rest.
+            ones a product already has, never replacing them. For sizes, write
+            each with its stock — &ldquo;5:2, 6:1, 7:4&rdquo; — and leave stock
+            blank; it is added up for you. Invalid rows are listed without
+            stopping the rest.
           </DialogDescription>
         </DialogHeader>
 

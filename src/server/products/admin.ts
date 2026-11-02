@@ -474,6 +474,67 @@ function parseBool(v: string | undefined): boolean {
   return ["true", "1", "yes"].includes((v ?? "").trim().toLowerCase());
 }
 
+/**
+ * A `sizes` cell, in either of its two forms:
+ *
+ *   "5:2, 6:1, 7:4"   each size with its own stock — exact, nothing to add up
+ *   "5, 6, 7"         labels only; the row's `stock` is then split evenly
+ *
+ * Returns the labels, plus the per-size stock when the cell carries it.
+ *
+ * Mixing the two in one cell ("5:2, 6, 7:4") is refused rather than guessed:
+ * a size with no number could mean 0 or "split the rest", and stock is the one
+ * figure that must not be guessed. The split is at the LAST colon, so a label
+ * that itself contains one still parses.
+ */
+export function parseSizesCell(cell: string | undefined): {
+  sizes: string[];
+  perSize: Array<{ size: string; stock: number }> | null;
+} {
+  const items = parseList(cell);
+  const counted = items.filter((i) => i.includes(":"));
+  if (counted.length === 0) return { sizes: items, perSize: null };
+
+  if (counted.length !== items.length) {
+    const bare = items.find((i) => !i.includes(":"));
+    throw new Error(`size "${bare}" has no stock — write every size like "5:2, 6:1"`);
+  }
+
+  const seen = new Set<string>();
+  const perSize = items.map((item) => {
+    const at = item.lastIndexOf(":");
+    const size = item.slice(0, at).trim();
+    const raw = item.slice(at + 1).trim();
+    const stock = Number(raw);
+    if (!size) throw new Error(`"${item}" is missing the size before the colon`);
+    if (raw === "" || !Number.isInteger(stock) || stock < 0) {
+      throw new Error(`stock for size ${size} must be a whole number ≥ 0 (got "${raw}")`);
+    }
+    if (seen.has(size)) throw new Error(`size ${size} is listed twice`);
+    seen.add(size);
+    return { size, stock };
+  });
+  return { sizes: perSize.map((s) => s.size), perSize };
+}
+
+/**
+ * Per-size stock wins over the `stock` column, which is then only a check: a
+ * filled-in total that disagrees with the sizes is one of the two being wrong,
+ * and saving either would be a guess.
+ */
+function totalFromPerSize(
+  perSize: Array<{ stock: number }>,
+  stockCell: number | undefined,
+): number {
+  const total = perSize.reduce((sum, s) => sum + s.stock, 0);
+  if (stockCell !== undefined && stockCell !== total) {
+    throw new Error(
+      `stock is ${stockCell} but the sizes add up to ${total} — leave stock blank or make them match`,
+    );
+  }
+  return total;
+}
+
 function parseList(v: string | undefined): string[] {
   return (v ?? "")
     .split(",")
@@ -535,15 +596,24 @@ async function updateFromCsvRow(
   }
 
   const price = num("price");
-  const stock = num("stock", true);
-  const sizes = list("sizes");
-  const sizeStock =
-    stock === undefined && sizes === undefined
-      ? p.sizes.map((size) => ({
-          size,
-          stock: p.variants.find((v) => v.size === size)?.stock ?? 0,
-        }))
-      : splitStockEvenly(sizes ?? p.sizes, stock ?? p.stock);
+  const stockCell = num("stock", true);
+  const sizesCell = text("sizes") === undefined ? undefined : parseSizesCell(row.sizes);
+
+  let sizeStock: Array<{ size: string; stock: number }>;
+  let stock = stockCell;
+  if (sizesCell?.perSize) {
+    // "5:2, 6:1" — exactly as written.
+    sizeStock = sizesCell.perSize;
+    stock = totalFromPerSize(sizesCell.perSize, stockCell);
+  } else if (stockCell === undefined && sizesCell === undefined) {
+    // Neither touched: per-size stock stays exactly as it was.
+    sizeStock = p.sizes.map((size) => ({
+      size,
+      stock: p.variants.find((v) => v.size === size)?.stock ?? 0,
+    }));
+  } else {
+    sizeStock = splitStockEvenly(sizesCell?.sizes ?? p.sizes, stockCell ?? p.stock);
+  }
 
   await updateProduct(id, {
     name: text("name") ?? p.name,
@@ -637,7 +707,13 @@ export async function bulkImportProducts(rows: CsvRow[]): Promise<{
       const name = (row.name ?? "").trim();
       const sku = (row.sku ?? "").trim();
       const price = Number(row.price);
-      const stock = Number(row.stock ?? 0);
+      const stockCell = (row.stock ?? "").trim();
+      const sizesCell = parseSizesCell(row.sizes);
+      // Per-size stock gives the total itself; a stock cell beside it is only
+      // checked against it (see totalFromPerSize).
+      const stock = sizesCell.perSize
+        ? totalFromPerSize(sizesCell.perSize, stockCell === "" ? undefined : Number(stockCell))
+        : Number(stockCell || 0);
       const weight = row.weight ? Number(row.weight) : null;
       const compareAtPrice = row.compareAtPrice ? Number(row.compareAtPrice) : null;
       // Optional, like compareAtPrice: an import that omits the column leaves
@@ -670,10 +746,11 @@ export async function bulkImportProducts(rows: CsvRow[]): Promise<{
         weight,
         purity: (row.purity ?? "").trim() || undefined,
         dimensions: (row.dimensions ?? "").trim() || undefined,
-        // A CSV carries one stock figure and a list of sizes, so it is split
-        // evenly with the remainder to the earliest sizes — the same rule the
-        // 20260805190000 migration used, so imports and backfills agree.
-        sizeStock: splitStockEvenly(parseList(row.sizes), stock),
+        // "5:2, 6:1" is used as written. Labels alone ("5, 6") share the one
+        // stock figure, split evenly with the remainder to the earliest sizes
+        // — the same rule the 20260805190000 migration used, so imports and
+        // backfills agree.
+        sizeStock: sizesCell.perSize ?? splitStockEvenly(sizesCell.sizes, stock),
         material: (row.material ?? "").trim() || undefined,
         stock,
         sku,
