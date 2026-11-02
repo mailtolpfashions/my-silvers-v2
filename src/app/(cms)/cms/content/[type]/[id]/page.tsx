@@ -63,6 +63,7 @@ export default async function EntryEditorPage({
         status={null}
         versions={[]}
         isAdmin={isAdmin}
+        isSingleton={type.isSingleton}
       />
     );
   }
@@ -108,6 +109,7 @@ export default async function EntryEditorPage({
         savedAt: v.savedAt.toISOString(),
       }))}
       isAdmin={isAdmin}
+      isSingleton={type.isSingleton}
     />
     </>
   );

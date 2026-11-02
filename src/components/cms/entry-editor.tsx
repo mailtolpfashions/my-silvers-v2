@@ -59,6 +59,7 @@ export function EntryEditor({
   status,
   versions,
   isAdmin,
+  isSingleton = false,
 }: {
   typeName: string;
   typeLabel: string;
@@ -75,6 +76,11 @@ export function EntryEditor({
   status: "draft" | "published" | "archived" | null;
   versions: VersionSummary[];
   isAdmin: boolean;
+  /**
+   * One-entry types (homepage, FAQ…). They get no Delete: deleting the only
+   * entry deletes the page. The server refuses as well — see deleteEntry.
+   */
+  isSingleton?: boolean;
 }) {
   const router = useRouter();
   const [data, setData] = useState<EntryData>(initialData);
@@ -382,12 +388,14 @@ export function EntryEditor({
             <Button size="sm" disabled={isPending} onClick={handlePublish}>
               {status === "published" ? "Re-publish" : "Publish"}
             </Button>
-            {isAdmin && status === "published" && (
+            {/* No Unpublish on the homepage — it would leave the shop's front
+                page blank. The server refuses it too (unpublishEntry). */}
+            {isAdmin && status === "published" && typeName !== "homepage" && (
               <Button variant="outline" size="sm" disabled={isPending} onClick={handleUnpublish}>
                 Unpublish
               </Button>
             )}
-            {isAdmin && currentId && (
+            {isAdmin && currentId && !isSingleton && (
               <>
                 <Button
                   variant="destructive"

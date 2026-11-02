@@ -4,6 +4,7 @@ import type { Prisma, ContentEntry } from "@/generated/prisma/client";
 import { slugify } from "@/server/products/admin";
 import { sanitizeEntryData } from "@/server/cms/sanitize";
 import { parseFields, type EntryData, type SeoInput } from "@/server/cms/types";
+import defaultHomepage from "@/server/cms/default-homepage.json";
 
 const MAX_VERSIONS = 15;
 
@@ -170,8 +171,24 @@ export async function publishEntry(entryId: string, userId: string) {
   return { slug: entry.slug };
 }
 
+/**
+ * Content types the storefront cannot do without. Unpublishing one empties the
+ * page it drives — the homepage renders nothing at all without its entry — so
+ * it can be edited and re-published, but never taken down.
+ */
+const ALWAYS_PUBLISHED_TYPES = new Set(["homepage"]);
+
 /** Admin-only. Reverts status; publishedData is retained for reference. */
 export async function unpublishEntry(entryId: string, userId: string) {
+  const existing = await prisma.contentEntry.findUnique({
+    where: { id: entryId },
+    select: { contentType: { select: { name: true, label: true } } },
+  });
+  if (existing && ALWAYS_PUBLISHED_TYPES.has(existing.contentType.name)) {
+    throw new CmsError(
+      `The ${existing.contentType.label.toLowerCase()} can't be unpublished — the shop would show a blank page. Edit it and publish again instead.`
+    );
+  }
   const entry = await prisma.contentEntry.update({
     where: { id: entryId },
     data: { status: "draft", updatedById: userId },
@@ -179,10 +196,64 @@ export async function unpublishEntry(entryId: string, userId: string) {
   return { slug: entry.slug };
 }
 
-/** Admin-only. */
+/**
+ * Admin-only.
+ *
+ * ⚠️  Refuses single-entry types (homepage, FAQ, product info…). There is only
+ * ever ONE entry of those, so deleting it is deleting the page: the homepage
+ * went blank exactly this way, with its whole version history gone too, since
+ * versions are removed with their entry. Edit it instead; for the homepage,
+ * restoreDefaultHomepage is the way back.
+ */
 export async function deleteEntry(entryId: string) {
+  const existing = await prisma.contentEntry.findUnique({
+    where: { id: entryId },
+    select: { contentType: { select: { isSingleton: true, label: true } } },
+  });
+  if (existing?.contentType.isSingleton) {
+    throw new CmsError(
+      `The ${existing.contentType.label.toLowerCase()} can't be deleted — the site needs it. Edit it instead.`
+    );
+  }
   const entry = await prisma.contentEntry.delete({ where: { id: entryId } });
   return { slug: entry.slug };
+}
+
+/**
+ * Recreates a missing homepage from the bundled copy (default-homepage.json),
+ * published, so the shop has a front page again straight away.
+ *
+ * Only when there is NO homepage entry — it never overwrites one, published
+ * or draft. The copy is the last snapshot taken before the original was
+ * deleted; edits made after it have to be redone in the CMS.
+ */
+export async function restoreDefaultHomepage(userId: string) {
+  const type = await prisma.contentType.findUnique({ where: { name: "homepage" } });
+  if (!type) throw new CmsError("The homepage content type is missing — run the seed first.");
+
+  const existing = await prisma.contentEntry.findFirst({ where: { contentTypeId: type.id } });
+  if (existing) throw new CmsError("A homepage already exists — open it and edit it instead.");
+
+  const data = defaultHomepage.data as Prisma.InputJsonValue;
+  await prisma.contentEntry.create({
+    data: {
+      contentTypeId: type.id,
+      slug: "homepage",
+      status: "published",
+      data,
+      publishedData: data,
+      seoMetaTitle: defaultHomepage.seo.metaTitle ?? null,
+      seoMetaDescription: defaultHomepage.seo.metaDescription ?? null,
+      seoOgImage: defaultHomepage.seo.ogImage ?? null,
+      seoCanonicalUrl: defaultHomepage.seo.canonicalUrl ?? null,
+      seoNoIndex: defaultHomepage.seo.noIndex ?? false,
+      publishedAt: new Date(),
+      publishedById: userId,
+      createdById: userId,
+      updatedById: userId,
+    },
+  });
+  return { slug: "homepage" };
 }
 
 /** Admin-only. Restores a version's data as the working draft. */
