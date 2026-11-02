@@ -47,6 +47,7 @@ export function FormSaveBar({
   onDiscard,
   onCancel,
   extra,
+  primary,
 }: {
   dirty: boolean;
   saving: boolean;
@@ -65,6 +66,12 @@ export function FormSaveBar({
   onCancel?: () => void;
   /** Secondary controls — publish, delete, preview. */
   extra?: React.ReactNode;
+  /**
+   * A button that outranks Save and sits after it, at the end of the row —
+   * the CMS editor's Publish. When given, Save drops to an outline button so
+   * the row has one primary action, not two.
+   */
+  primary?: React.ReactNode;
 }) {
   return (
     <div className="sticky bottom-0 z-10 -mx-4 -mb-4 mt-6 border-t bg-background/95 px-4 py-3 backdrop-blur-sm sm:-mx-6 sm:-mb-6 sm:px-6">
@@ -95,11 +102,13 @@ export function FormSaveBar({
           <Button
             type={onSave ? "button" : "submit"}
             size="sm"
+            variant={primary ? "outline" : "default"}
             disabled={saving}
             onClick={onSave}
           >
             {saving ? "Saving…" : saveLabel}
           </Button>
+          {primary}
         </div>
       </div>
     </div>
