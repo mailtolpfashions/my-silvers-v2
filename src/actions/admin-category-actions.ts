@@ -71,6 +71,38 @@ export async function saveCategoryAction(
   }
 }
 
+/**
+ * Permanently removes an EMPTY category.
+ *
+ * Refused while any product — active or archived — still points at it.
+ * Product.categoryId is required, so the database would refuse anyway; this
+ * says why in words the admin can act on, rather than a foreign-key error.
+ * Moving products out is a decision about each piece, so it is not done here.
+ */
+export async function deleteCategoryAction(id: string): Promise<CategoryActionResult> {
+  await requireRole("admin");
+
+  const count = await prisma.product.count({ where: { categoryId: id } });
+  if (count > 0) {
+    return {
+      ok: false,
+      error: `This category still has ${count} product${count === 1 ? "" : "s"} (including archived ones). Move or delete them first.`,
+    };
+  }
+
+  try {
+    await prisma.category.delete({ where: { id } });
+  } catch (err) {
+    console.error("deleteCategoryAction failed", err);
+    return { ok: false, error: "Could not delete this category. Refresh the page and try again." };
+  }
+
+  revalidatePath("/admin/categories");
+  updateTag("categories");
+  updateTag("products");
+  return { ok: true };
+}
+
 export async function setCategoryActiveAction(id: string, isActive: boolean): Promise<CategoryActionResult> {
   await requireRole("admin");
   await prisma.category.update({ where: { id }, data: { isActive } });

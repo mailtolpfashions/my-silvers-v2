@@ -273,7 +273,11 @@ export default async function AdminProductsPage({
                     <Button asChild variant="ghost" size="sm">
                       <Link href={`/admin/products/${product.id}`}>Edit</Link>
                     </Button>
-                    <ProductRowActions productId={product.id} isActive={product.isActive} />
+                    <ProductRowActions
+                      productId={product.id}
+                      productName={product.name}
+                      isActive={product.isActive}
+                    />
                   </div>
                 </TableCell>
               </TableRow>

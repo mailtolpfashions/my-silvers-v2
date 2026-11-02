@@ -15,7 +15,9 @@ import {
 import {
   archiveProductAction,
   restoreProductAction,
+  deleteProductAction,
 } from "@/actions/admin-product-actions";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { NO_VENDOR } from "@/lib/vendor";
 
 const ANY = "__any__";
@@ -109,12 +111,26 @@ export function AdminProductFilters({
 
 export function ProductRowActions({
   productId,
+  productName,
   isActive,
 }: {
   productId: string;
+  productName: string;
   isActive: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  function remove() {
+    startTransition(async () => {
+      const result = await deleteProductAction(productId);
+      if (result.ok) {
+        toast.success(`"${productName}" deleted.`);
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
 
   function toggle() {
     startTransition(async () => {
@@ -130,8 +146,36 @@ export function ProductRowActions({
   }
 
   return (
-    <Button variant="outline" size="sm" disabled={isPending} onClick={toggle}>
-      {isActive ? "Archive" : "Restore"}
-    </Button>
+    <>
+      <Button variant="outline" size="sm" disabled={isPending} onClick={toggle}>
+        {isActive ? "Archive" : "Restore"}
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-destructive hover:text-destructive"
+        disabled={isPending}
+        onClick={() => setConfirmDelete(true)}
+      >
+        Delete
+      </Button>
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title={`Delete "${productName}"?`}
+        description={
+          <>
+            This removes the product for good, along with its sizes, reviews and
+            any wishlist or cart entries. Past orders keep their details.{" "}
+            <strong>This cannot be undone</strong> — use Archive if you only want
+            to hide it from the shop.
+          </>
+        }
+        confirmLabel="Delete product"
+        typeToConfirm="confirm"
+        disabled={isPending}
+        onConfirm={remove}
+      />
+    </>
   );
 }

@@ -9,6 +9,7 @@ import {
   updateProduct,
   archiveProduct,
   restoreProduct,
+  deleteProduct,
   bulkImportProducts,
   normalizeVendor,
   type CsvRow,
@@ -108,6 +109,19 @@ export async function archiveProductAction(id: string): Promise<AdminActionResul
 export async function restoreProductAction(id: string): Promise<AdminActionResult> {
   await requireRole("admin");
   await restoreProduct(id);
+  revalidatePath("/admin/products");
+  updateTag("products");
+  return { ok: true };
+}
+
+export async function deleteProductAction(id: string): Promise<AdminActionResult> {
+  await requireRole("admin");
+  try {
+    await deleteProduct(id);
+  } catch (err) {
+    console.error("deleteProductAction failed", err);
+    return { ok: false, error: "Could not delete this product. It may already be gone — refresh the page." };
+  }
   revalidatePath("/admin/products");
   updateTag("products");
   return { ok: true };
