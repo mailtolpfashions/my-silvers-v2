@@ -382,12 +382,10 @@ export function EntryEditor({
               {showPreview ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               {showPreview ? "Hide preview" : "Preview"}
             </Button>
-            <Button variant="outline" size="sm" disabled={isPending} onClick={handleSaveDraft}>
-              Save draft
-            </Button>
-            <Button size="sm" disabled={isPending} onClick={handlePublish}>
-              {status === "published" ? "Re-publish" : "Publish"}
-            </Button>
+            {/* Save draft and Publish live in the save bar at the foot only.
+                They were here as well, so Save draft appeared twice on one
+                screen — and Publish, the step that actually changes the live
+                site, sat away from the button you had just used. */}
             {/* No Unpublish on the homepage — it would leave the shop's front
                 page blank. The server refuses it too (unpublishEntry). */}
             {isAdmin && status === "published" && typeName !== "homepage" && (
@@ -450,14 +448,18 @@ export function EntryEditor({
         )}
 
         {/* onSave rather than a submit: this editor drives server actions from
-            click handlers and has no <form> around it. Publish stays in the
-            header — the bar is about not losing work, and publishing is a
-            separate, deliberate decision. */}
+            click handlers and has no <form> around it. Publish sits last, as
+            the primary button — save a draft, then publish, left to right. */}
         <FormSaveBar
           dirty={dirty}
           saving={isPending}
           saveLabel="Save draft"
           onSave={handleSaveDraft}
+          primary={
+            <Button type="button" size="sm" disabled={isPending} onClick={handlePublish}>
+              {status === "published" ? "Re-publish" : "Publish"}
+            </Button>
+          }
           onDiscard={() => {
             setData(baseline.data);
             setSeo(baseline.seo);
