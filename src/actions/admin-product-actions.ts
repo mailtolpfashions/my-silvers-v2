@@ -15,8 +15,12 @@ import {
   BULK_LIMIT,
   bulkImportProducts,
   normalizeVendor,
+  autoCharmStyle,
+  planCharmPrices,
+  type CharmChange,
   type CsvRow,
 } from "@/server/products/admin";
+import { charmPrice, isCharmStyle } from "@/lib/charm-price";
 
 const productSchema = z.object({
   name: z.string().trim().min(2).max(200),
@@ -76,7 +80,10 @@ export async function createProductAction(input: unknown): Promise<AdminActionRe
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid product data." };
   }
   try {
-    await createProduct(toInput(parsed.data));
+    const style = await autoCharmStyle();
+    const input = toInput(parsed.data);
+    if (style) input.price = charmPrice(input.price, style);
+    await createProduct(input);
     revalidatePath("/admin/products");
     updateTag("products");
     return { ok: true };
@@ -92,7 +99,18 @@ export async function updateProductAction(id: string, input: unknown): Promise<A
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid product data." };
   }
   try {
-    await updateProduct(id, toInput(parsed.data));
+    const input = toInput(parsed.data);
+    // Only a price the admin CHANGED is rounded. The form posts every field
+    // on every save, so without this, fixing a typo in a description would
+    // quietly reprice a piece that was saved before rounding was turned on.
+    const style = await autoCharmStyle();
+    if (style) {
+      const current = await prisma.product.findUnique({ where: { id }, select: { price: true } });
+      if (!current || Number(current.price) !== input.price) {
+        input.price = charmPrice(input.price, style);
+      }
+    }
+    await updateProduct(id, input);
     revalidatePath("/admin/products");
     updateTag("products");
     return { ok: true };
@@ -174,6 +192,55 @@ export async function listMatchingProductIdsAction(
   const parsed = filtersSchema.safeParse(filters);
   if (!parsed.success) return { ok: false, error: "Invalid filters." };
   return { ok: true, ...(await getAdminProductIds(parsed.data)) };
+}
+
+/**
+ * What "Charm prices" would do to a selection — the preview the dialog shows
+ * before anything is written. Returns the first few changes and the total.
+ */
+export async function previewCharmPricesAction(
+  ids: string[],
+  style: unknown
+): Promise<{ ok: true; sample: CharmChange[]; total: number } | { ok: false; error: string }> {
+  await requireRole("admin");
+  const check = cleanIds(ids);
+  if (!check.ok) return check;
+  if (!isCharmStyle(style)) return { ok: false, error: "Choose a rounding style." };
+
+  const changes = await planCharmPrices(check.ids, style);
+  return { ok: true, sample: changes.slice(0, 5), total: changes.length };
+}
+
+/**
+ * Rounds a selection's prices — ₹1,000 → ₹999.
+ *
+ * Recomputed here rather than trusting the preview's numbers from the
+ * browser, so a price edited between preview and apply is rounded from what
+ * is stored now. compareAtPrice (the struck-through original on an offer) is
+ * left alone: rounding the "was" price would shrink the saving the shopper
+ * is shown.
+ */
+export async function applyCharmPricesAction(
+  ids: string[],
+  style: unknown
+): Promise<AdminActionResult & { count?: number }> {
+  await requireRole("admin");
+  const check = cleanIds(ids);
+  if (!check.ok) return check;
+  if (!isCharmStyle(style)) return { ok: false, error: "Choose a rounding style." };
+
+  try {
+    const changes = await planCharmPrices(check.ids, style);
+    await prisma.$transaction(
+      changes.map((c) => prisma.product.update({ where: { id: c.id }, data: { price: c.to } }))
+    );
+    revalidatePath("/admin/products");
+    updateTag("products");
+    return { ok: true, count: changes.length };
+  } catch (err) {
+    console.error("applyCharmPricesAction failed", err);
+    return { ok: false, error: "Could not update those prices. Nothing was changed." };
+  }
 }
 
 /**
@@ -413,10 +480,13 @@ export async function setProductsOfferAction(
   }
 
   try {
-    const products = await prisma.product.findMany({
-      where: { id: { in: check.ids } },
-      select: { id: true, price: true, compareAtPrice: true },
-    });
+    const [products, style] = await Promise.all([
+      prisma.product.findMany({
+        where: { id: { in: check.ids } },
+        select: { id: true, price: true, compareAtPrice: true },
+      }),
+      autoCharmStyle(),
+    ]);
 
     const updates = products
       .map((p) => {
@@ -432,7 +502,10 @@ export async function setProductsOfferAction(
           });
         }
 
-        const next = Math.round(original * (1 - percent / 100));
+        const rounded = Math.round(original * (1 - percent / 100));
+        // 20% off ₹1,500 is ₹1,200; with rounding on it goes out as ₹1,199.
+        // The struck-through original is left exactly as it was.
+        const next = style ? charmPrice(rounded, style) : rounded;
         if (next <= 0) return null;
         return prisma.product.update({
           where: { id: p.id },

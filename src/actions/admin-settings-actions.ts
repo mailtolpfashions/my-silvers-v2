@@ -83,6 +83,7 @@ const settingsSchema = z
     navFinishes: navFilters("Finishes"),
     navOccasions: navFilters("Occasions"),
     navShopFor: navFilters("Shop for", "collection"),
+    charmPricing: z.enum(["off", "99", "49-99"]),
   })
   /**
    * A range whose maximum is below its minimum is not a slow estimate, it is a
@@ -136,6 +137,7 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
     navFinishes: data.navFinishes,
     navOccasions: data.navOccasions,
     navShopFor: data.navShopFor,
+    charmPricing: data.charmPricing,
   };
 
   // Read before writing, to tell whether the header lists changed — see below.

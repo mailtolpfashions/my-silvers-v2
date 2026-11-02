@@ -12,9 +12,14 @@ export type PriceBucket = {
 };
 
 export const PRICE_BUCKETS: PriceBucket[] = [
-  { label: "Under ₹1,500", max: 1500 },
-  { label: "₹1,500 – ₹3,000", min: 1500, max: 3000 },
-  { label: "₹3,000 – ₹5,000", min: 3000, max: 5000 },
+  // Each max is one rupee under the next range's min. The price filter's
+  // bounds are inclusive, so with max 1500 a ₹1,500 piece was listed under
+  // "Under ₹1,500" AND in "₹1,500 – ₹3,000" — "under" that wasn't, and the same
+  // piece in two places. Prices are whole rupees, so 1499 loses nothing, and a
+  // charm-priced ₹1,499 now sits only where its label says.
+  { label: "Under ₹1,500", max: 1499 },
+  { label: "₹1,500 – ₹3,000", min: 1500, max: 2999 },
+  { label: "₹3,000 – ₹5,000", min: 3000, max: 4999 },
   { label: "Over ₹5,000", min: 5000 },
 ];
 
