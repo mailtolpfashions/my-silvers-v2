@@ -24,8 +24,20 @@ interface RazorpayCheckoutOptions {
   theme?: { color?: string };
 }
 
+/** Payload of Checkout.js's "payment.failed" event. */
+interface RazorpayPaymentFailedResponse {
+  error: {
+    code?: string;
+    /** Shopper-readable, e.g. "Your payment has been declined by your bank". */
+    description?: string;
+    reason?: string;
+    metadata?: { order_id?: string; payment_id?: string };
+  };
+}
+
 interface RazorpayCheckoutInstance {
   open: () => void;
+  on: (event: "payment.failed", handler: (response: RazorpayPaymentFailedResponse) => void) => void;
 }
 
 interface Window {

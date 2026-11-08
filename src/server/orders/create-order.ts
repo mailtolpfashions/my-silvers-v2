@@ -269,10 +269,23 @@ export async function createOrder(input: {
   // If the DB write below fails, the gateway order is simply never paid. ──
   let razorpayOrderId: string | undefined;
   if (input.paymentMethod === "razorpay") {
+    // Razorpay's floor is ₹1 (100 paise); below it their API rejects the order.
+    if (totalPaise < 100) {
+      throw new OrderError("PAYMENT_GATEWAY_ERROR", "Online payment needs an order of at least ₹1.");
+    }
     try {
       const rpOrder = await createRazorpayOrder(totalPaise);
       razorpayOrderId = rpOrder.id;
-    } catch {
+    } catch (err) {
+      // The shopper gets the generic line; the log gets Razorpay's actual
+      // reason (bad key, amount over the account limit…). Swallowing it left a
+      // failed checkout with nothing to diagnose it from.
+      const e = err as { statusCode?: number; error?: unknown };
+      console.error("[checkout] Razorpay order failed", {
+        amountPaise: totalPaise,
+        statusCode: e?.statusCode,
+        error: e?.error ?? err,
+      });
       throw new OrderError("PAYMENT_GATEWAY_ERROR", "Could not reach the payment gateway. Please try again.");
     }
   }
