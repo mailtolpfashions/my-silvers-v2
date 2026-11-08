@@ -199,7 +199,7 @@ async function main() {
       limit: 8,
       title: "Bestsellers",
       eyebrow: "Most loved",
-      viewAllHref: "/products?sort=featured",
+      viewAllHref: "/products?sort=bestseller",
       isActive: true,
     },
 

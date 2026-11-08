@@ -41,10 +41,17 @@ export type ProductListItem = {
   blurDataUrl?: string;
 };
 
+/**
+ * The shop's sort orders. "bestseller" exists so the homepage's Bestsellers
+ * section has somewhere honest for its "View all" link to go — it used to point
+ * at "featured", which is a different flag.
+ */
+export type ProductSort = "newest" | "price-asc" | "price-desc" | "featured" | "bestseller";
+
 export async function searchProducts(params: {
   q?: string;
   categorySlug?: string;
-  sort?: "newest" | "price-asc" | "price-desc" | "featured";
+  sort?: ProductSort;
   /** Rupees, inclusive. Ignored when not a finite non-negative number. */
   minPrice?: number;
   maxPrice?: number;
@@ -64,7 +71,9 @@ export async function searchProducts(params: {
         ? `p."price" DESC`
         : params.sort === "featured"
           ? `p."isFeatured" DESC, p."createdAt" DESC`
-          : `p."createdAt" DESC`;
+          : params.sort === "bestseller"
+            ? `p."isBestseller" DESC, p."createdAt" DESC`
+            : `p."createdAt" DESC`;
 
   // Raw SQL is required here: full-text search against the generated
   // `searchVector` tsvector column (not represented in schema.prisma — see

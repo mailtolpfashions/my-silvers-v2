@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getCategoryBanner } from "@/server/cms/banners";
 import { prisma } from "@/server/db";
-import { searchProducts } from "@/server/products/search";
+import { searchProducts, type ProductSort } from "@/server/products/search";
 import { ProductCard, productMorphName, PRODUCT_GRID_CLASS } from "@/components/storefront/product-card";
 import { ProductFilters } from "@/components/storefront/product-filters";
 import { PageHeader } from "@/components/storefront/page-header";
@@ -53,7 +53,7 @@ export default async function CategoryPage({
     searchProducts({
       categorySlug: slug,
       q: sp.q,
-      sort: sp.sort as "newest" | "price-asc" | "price-desc" | "featured" | undefined,
+      sort: sp.sort as ProductSort | undefined,
       minPrice: sp.minPrice ? Number(sp.minPrice) : undefined,
       maxPrice: sp.maxPrice ? Number(sp.maxPrice) : undefined,
     }),

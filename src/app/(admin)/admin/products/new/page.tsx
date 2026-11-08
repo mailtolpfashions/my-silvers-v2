@@ -2,6 +2,7 @@ import { prisma } from "@/server/db";
 import { CATEGORY_ORDER } from "@/server/products/category-order";
 import { ProductForm, EMPTY_PRODUCT_FORM } from "@/components/admin/product-form";
 import { PageHeader } from "@/components/layout/page-header";
+import { FreshOnNavigate } from "@/components/layout/fresh-on-navigate";
 import { listVendors } from "@/server/products/admin";
 
 /**
@@ -31,7 +32,10 @@ export default async function NewProductPage() {
         backHref="/admin/products"
         backLabel="All products"
       />
-      <ProductForm initial={EMPTY_PRODUCT_FORM} categories={categories} vendors={vendors} />
+      {/* Blank on every "Add product" click — see FreshOnNavigate. */}
+      <FreshOnNavigate>
+        <ProductForm initial={EMPTY_PRODUCT_FORM} categories={categories} vendors={vendors} />
+      </FreshOnNavigate>
     </div>
   );
 }

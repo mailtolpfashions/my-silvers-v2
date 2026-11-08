@@ -145,7 +145,7 @@
         "source": "bestseller",
         "eyebrow": "Most loved",
         "isActive": true,
-        "viewAllHref": "/products?sort=featured"
+        "viewAllHref": "/products?sort=bestseller"
       },
       {
         "type": "worldTiles",
@@ -199,7 +199,28 @@
       },
       {
         "type": "usp",
-        "items": [],
+        "items": [
+          {
+            "icon": "shield-check",
+            "title": "Hallmarked 925 silver",
+            "text": "Every piece is sterling silver, hallmarked before it is shaped."
+          },
+          {
+            "icon": "sparkles",
+            "title": "Finished by hand",
+            "text": "Polished by craftspeople, not by a machine."
+          },
+          {
+            "icon": "truck",
+            "title": "Delivery",
+            "text": "Sample — state your delivery promise here before launch."
+          },
+          {
+            "icon": "rotate-ccw",
+            "title": "Returns",
+            "text": "Sample — state your returns window here before launch."
+          }
+        ],
         "title": "Why 925",
         "eyebrow": "The craft",
         "isActive": true

@@ -107,7 +107,7 @@ const homepage: EntrySpec = {
         eyebrow: "Our picks",
         source: "featured",
         limit: 8,
-        viewAllHref: "/products?sort=featured",
+        viewAllHref: "/products?sort=bestseller",
         isActive: true,
       },
       {

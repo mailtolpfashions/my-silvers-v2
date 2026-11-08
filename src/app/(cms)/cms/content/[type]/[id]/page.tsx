@@ -4,6 +4,7 @@ import { getContentType, getEntryForEdit, CmsError } from "@/server/cms/entries"
 import { parseFields, type EntryData } from "@/server/cms/types";
 import { EntryEditor } from "@/components/cms/entry-editor";
 import { BreadcrumbLabel } from "@/components/layout/breadcrumb-label";
+import { FreshOnNavigate } from "@/components/layout/fresh-on-navigate";
 
 /**
  * A deliberately blocking route.
@@ -46,7 +47,10 @@ export default async function EntryEditorPage({
   const fields = parseFields(type.fields);
 
   if (id === "new") {
+    // Fresh on every "New entry" click — otherwise the hidden instance from
+    // the last visit comes back holding the entry it created. See the component.
     return (
+      <FreshOnNavigate>
       <EntryEditor
         typeName={type.name}
         typeLabel={type.label}
@@ -65,6 +69,7 @@ export default async function EntryEditorPage({
         isAdmin={isAdmin}
         isSingleton={type.isSingleton}
       />
+      </FreshOnNavigate>
     );
   }
 
