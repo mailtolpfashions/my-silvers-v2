@@ -20,6 +20,7 @@ const ALL_CATEGORIES = "__all__";
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest" },
   { value: "featured", label: "Featured" },
+  { value: "bestseller", label: "Bestsellers" },
   { value: "price-asc", label: "Price: Low to High" },
   { value: "price-desc", label: "Price: High to Low" },
 ];

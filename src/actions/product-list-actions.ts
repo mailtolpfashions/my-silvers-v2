@@ -1,6 +1,6 @@
 "use server";
 
-import { searchProducts, type ProductListItem } from "@/server/products/search";
+import { searchProducts, type ProductListItem, type ProductSort } from "@/server/products/search";
 import { PRODUCT_PAGE_SIZE } from "@/lib/product-page-size";
 
 /**
@@ -21,7 +21,7 @@ export async function loadMoreProducts(input: {
   const { items, total } = await searchProducts({
     q: input.q,
     categorySlug: input.category,
-    sort: input.sort as "newest" | "price-asc" | "price-desc" | "featured" | undefined,
+    sort: input.sort as ProductSort | undefined,
     // Must carry through, or scrolling silently drops the price filter and
     // starts appending products outside the chosen range.
     minPrice: input.minPrice ? Number(input.minPrice) : undefined,

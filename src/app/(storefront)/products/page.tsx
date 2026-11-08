@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { searchProducts, getActiveCategories } from "@/server/products/search";
+import { searchProducts, getActiveCategories, type ProductSort } from "@/server/products/search";
 import { getLiveBanner } from "@/server/cms/banners";
 import { PageHeader } from "@/components/storefront/page-header";
 import { ProductFilters } from "@/components/storefront/product-filters";
@@ -137,7 +137,7 @@ async function Results({ searchParams }: { searchParams: SearchParams }) {
     searchProducts({
       q: params.q,
       categorySlug: params.category,
-      sort: params.sort as "newest" | "price-asc" | "price-desc" | "featured" | undefined,
+      sort: params.sort as ProductSort | undefined,
       minPrice: params.minPrice ? Number(params.minPrice) : undefined,
       maxPrice: params.maxPrice ? Number(params.maxPrice) : undefined,
       page: 1,
