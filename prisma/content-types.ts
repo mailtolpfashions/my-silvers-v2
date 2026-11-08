@@ -465,13 +465,15 @@ export const systemContentTypes = [
         // `catalogue` is the header artwork on /products; `catalogue-mid` is
         // the editorial break dropped in after the third row of that grid.
         // Both are optional — with nothing published the catalogue falls back
-        // to its plain header and an uninterrupted grid.
+        // to its plain header and an uninterrupted grid. `auth` is the artwork
+        // beside the sign-in and register forms (components/auth/auth-showcase).
         options: [
           "homepage-hero",
           "homepage-mid",
           "category",
           "catalogue",
           "catalogue-mid",
+          "auth",
         ],
       },
       {

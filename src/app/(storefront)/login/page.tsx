@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { LoginForm } from "@/components/auth/login-form";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { AuthShowcase, AuthShowcaseSkeleton } from "@/components/auth/auth-showcase";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
@@ -18,6 +19,11 @@ export default function LoginPage({
       eyebrow="Account"
       title="Sign in"
       description="Your orders, addresses and wishlist, kept together."
+      aside={
+        <Suspense fallback={<AuthShowcaseSkeleton />}>
+          <AuthShowcase />
+        </Suspense>
+      }
     >
       <Suspense fallback={<Skeleton className="h-11 w-full" />}>
         <GoogleButton searchParams={searchParams} />
