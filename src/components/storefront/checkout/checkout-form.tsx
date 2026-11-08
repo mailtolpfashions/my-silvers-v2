@@ -440,6 +440,17 @@ export function CheckoutForm({
         ondismiss: () => setPaymentDismissed(true),
       },
     });
+    // A declined card or failed UPI attempt. Razorpay's window stays open and
+    // offers a retry itself, so this only leaves the bank's reason on the form
+    // for when the shopper closes it. Nothing is marked paid client-side — the
+    // order is settled by the verify action or the webhook, never here.
+    rzp.on("payment.failed", (resp) => {
+      setError(
+        resp.error?.description
+          ? `Payment failed: ${resp.error.description}. You can try again.`
+          : "Payment failed. You can try again with another method."
+      );
+    });
     rzp.open();
   }
 
