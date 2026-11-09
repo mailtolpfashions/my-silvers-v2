@@ -42,6 +42,7 @@ const couponSchema = z
     usageLimit: optionalNumber.pipe(z.number().int().positive().nullable()),
     onePerCustomer: z.boolean(),
     firstOrderOnly: z.boolean(),
+    showToShoppers: z.boolean(),
     active: z.boolean(),
   })
   .refine((c) => c.type !== "percent" || c.value <= 90, {
@@ -79,6 +80,7 @@ export async function saveCouponAction(id: string | null, input: unknown): Promi
     usageLimit: c.usageLimit,
     onePerCustomer: c.onePerCustomer,
     firstOrderOnly: c.firstOrderOnly,
+    showToShoppers: c.showToShoppers,
     active: c.active,
   };
 

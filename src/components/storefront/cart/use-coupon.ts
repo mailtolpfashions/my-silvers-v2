@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { previewCouponAction } from "@/actions/coupon-actions";
+import { previewCouponAction, listOffersAction } from "@/actions/coupon-actions";
+import type { Offer } from "@/server/coupons/coupons";
 
 /**
  * The applied coupon code, shared by the cart and checkout.
@@ -56,6 +57,8 @@ export type CouponState = {
   pending: boolean;
   apply: (code: string) => Promise<boolean>;
   remove: () => void;
+  /** The shop's listed coupons for this cart — see listOffers. */
+  offers: Offer[];
 };
 
 export function useCoupon(
@@ -118,8 +121,32 @@ export function useCoupon(
     write("");
   }, []);
 
+  /**
+   * The offers list, refetched when the cart total or the contact details
+   * change — a bigger cart can unlock an offer, and a mobile number typed at
+   * checkout can rule out a first-order one. Debounced like the check above.
+   */
+  const offersKey = `${subtotalPaise}|${email}|${phone}`;
+  const [offers, setOffers] = useState<{ key: string; list: Offer[] }>({ key: "", list: [] });
+  useEffect(() => {
+    if (subtotalPaise <= 0) return;
+    let alive = true;
+    const t = setTimeout(() => {
+      listOffersAction({ subtotalPaise, email, phone })
+        .then((list) => alive && setOffers({ key: offersKey, list }))
+        .catch(() => {});
+    }, 400);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [offersKey, subtotalPaise, email, phone]);
+
   const current = code && result?.key === key ? result : null;
   return {
+    // The last list fetched, even while a newer one loads, so the panel does
+    // not flicker empty on every quantity change.
+    offers: subtotalPaise > 0 ? offers.list : [],
     code,
     discountPaise: current?.discountPaise ?? 0,
     error: current?.error ?? null,

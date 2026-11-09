@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { auth } from "@/server/auth/auth";
-import { evaluateCoupon, CouponError } from "@/server/coupons/coupons";
+import { evaluateCoupon, listOffers, CouponError, type Offer } from "@/server/coupons/coupons";
 import { checkIpRateLimit, RATE_LIMIT_MESSAGE } from "@/server/rate-limit/limiter";
 
 const schema = z.object({
@@ -46,5 +46,31 @@ export async function previewCouponAction(input: unknown): Promise<CouponPreview
     if (err instanceof CouponError) return { ok: false, error: err.message };
     console.error("previewCouponAction failed", err);
     return { ok: false, error: "Couldn't check that code. Please try again." };
+  }
+}
+
+const offersSchema = schema.omit({ code: true });
+
+/**
+ * The coupons the shop lists to shoppers, checked against this cart — see
+ * listOffers. Like the preview, it is display only; nothing here is charged.
+ * Fails soft to an empty list: a missing offers panel must never stop a sale.
+ */
+export async function listOffersAction(input: unknown): Promise<Offer[]> {
+  if (!(await checkIpRateLimit("offers"))) return [];
+  const parsed = offersSchema.safeParse(input);
+  if (!parsed.success) return [];
+  const { subtotalPaise, email, phone } = parsed.data;
+  if (subtotalPaise <= 0) return [];
+  const session = await auth();
+  try {
+    return await listOffers(subtotalPaise, {
+      userId: session?.user?.id ?? null,
+      email: email || session?.user?.email || null,
+      phone: phone || null,
+    });
+  } catch (err) {
+    console.error("listOffersAction failed", err);
+    return [];
   }
 }

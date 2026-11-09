@@ -672,7 +672,7 @@ test.describe("coupons on a real order", () => {
   }
 
   async function applyCode(page: Page, code: string) {
-    const opener = page.getByRole("button", { name: /have a coupon code/i });
+    const opener = page.getByRole("button", { name: /have a (coupon|different) code/i });
     const input = page.getByLabel("Coupon code");
     await expect(opener.or(input).first()).toBeVisible({ timeout: 20_000 });
     if (await opener.isVisible()) await opener.click();

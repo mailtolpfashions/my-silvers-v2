@@ -55,6 +55,7 @@ export default async function AdminCouponsPage() {
       usageLimit: c.usageLimit,
       onePerCustomer: c.onePerCustomer,
       firstOrderOnly: c.firstOrderOnly,
+      showToShoppers: c.showToShoppers,
       active: c.active,
       used,
       given: Number(u?._sum.discount ?? 0),

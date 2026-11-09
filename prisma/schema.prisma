@@ -342,6 +342,9 @@ model Coupon {
   onePerCustomer   Boolean    @default(true)
   /// No earlier order from this email OR this mobile number.
   firstOrderOnly   Boolean    @default(false)
+  /// Listed under "Available offers" in the cart and checkout. Off = the code
+  /// works only when typed (a private code for an influencer, say).
+  showToShoppers   Boolean    @default(false)
   active           Boolean    @default(true)
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt

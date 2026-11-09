@@ -23,7 +23,7 @@ async function addToCartAndOpen(page: Page, slug: string) {
 async function applyCode(page: Page, code: string) {
   // The guest cart renders nothing until its products arrive, so wait for the
   // box to exist in one of its two shapes before deciding which it is.
-  const opener = page.getByRole("button", { name: /have a coupon code/i });
+  const opener = page.getByRole("button", { name: /have a (coupon|different) code/i });
   const input = page.getByLabel("Coupon code");
   await expect(opener.or(input).first()).toBeVisible({ timeout: 20_000 });
   if (await opener.isVisible()) await opener.click();
@@ -57,5 +57,48 @@ test("the cart previews a valid code and explains an invalid one", async ({ page
   } finally {
     await deleteCoupon(code);
     await deleteCoupon(tooBig);
+  }
+});
+
+test("listed coupons appear as offers; a private one does not", async ({ page }) => {
+  test.slow();
+  const product = await getInStockProduct();
+  test.skip(!product, "no in-stock, single-variant product in this database");
+
+  const listed = `E2EOFFER${stamp()}`;
+  const locked = `E2ELOCK${stamp()}`;
+  const hidden = `E2EPRIV${stamp()}`;
+  await createCoupon({ code: listed, type: "flat", value: 50, showToShoppers: true });
+  await createCoupon({
+    code: locked,
+    type: "percent",
+    value: 20,
+    minOrderValue: 9_999_999,
+    showToShoppers: true,
+  });
+  await createCoupon({ code: hidden, type: "flat", value: 75, showToShoppers: false });
+  try {
+    await addToCartAndOpen(page, product!.slug);
+
+    const offers = page.getByRole("region", { name: /available offers/i });
+    await expect(offers.getByText(listed)).toBeVisible({ timeout: 20_000 });
+    // A bigger cart would unlock it — shown, with the nudge, and no button.
+    await expect(offers.getByText(locked)).toBeVisible();
+    await expect(offers.getByText(/more to unlock/i)).toBeVisible();
+    await expect(offers.getByRole("button", { name: `Apply ${locked}` })).toHaveCount(0);
+    // Private codes are never listed.
+    await expect(page.getByText(hidden)).toHaveCount(0);
+
+    await offers.getByRole("button", { name: `Apply ${listed}` }).click();
+    await expect(page.getByText(/applied — you save ₹50/i)).toBeVisible({ timeout: 15_000 });
+
+    // A private code still works when typed.
+    await page.getByRole("button", { name: `Remove coupon ${listed}` }).click();
+    await applyCode(page, hidden);
+    await expect(page.getByText(/applied — you save ₹75/i)).toBeVisible({ timeout: 15_000 });
+  } finally {
+    await deleteCoupon(listed);
+    await deleteCoupon(locked);
+    await deleteCoupon(hidden);
   }
 });
