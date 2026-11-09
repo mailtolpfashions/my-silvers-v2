@@ -30,6 +30,7 @@ const ADMIN_NAV: NavGroup[] = [
       { href: "/admin/reviews", label: "Reviews", icon: "reviews" },
       { href: "/admin/carts", label: "Abandoned carts", icon: "carts" },
       { href: "/admin/payments", label: "Payments", icon: "payments" },
+      { href: "/admin/coupons", label: "Coupons", icon: "coupons" },
     ],
   },
   {

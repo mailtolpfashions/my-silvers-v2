@@ -76,6 +76,7 @@ const placeOrderSchema = z.object({
    */
   giftMessage: z.string().trim().max(200, "A gift message can be up to 200 characters.").optional().or(z.literal("")),
   idempotencyKey: z.string().uuid(),
+  couponCode: z.string().trim().max(40).optional().or(z.literal("")),
   guestEmail: z.string().trim().email().optional(),
   guestItems: z
     .array(z.object({ productId: z.string().min(1), quantity: z.number().int().min(1).max(10) }))
@@ -181,6 +182,7 @@ export async function placeOrderAction(input: unknown): Promise<PlaceOrderResult
       isGift: data.isGift === true,
       giftMessage: data.isGift ? data.giftMessage || undefined : undefined,
       idempotencyKey: data.idempotencyKey,
+      couponCode: data.couponCode || undefined,
     });
 
     revalidatePath("/cart");

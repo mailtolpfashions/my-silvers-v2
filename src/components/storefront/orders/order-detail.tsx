@@ -239,6 +239,14 @@ export function OrderDetail({
               <span className="text-muted-foreground">Subtotal</span>
               <span className="figures">{formatINR(order.subtotal.toString())}</span>
             </div>
+            {Number(order.discount) > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Coupon{order.couponCode ? ` (${order.couponCode})` : ""}
+                </span>
+                <span className="figures">−{formatINR(order.discount.toString())}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Shipping</span>
               <span>

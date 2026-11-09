@@ -88,6 +88,9 @@ export type InvoiceLine = {
   quantity: number;
   /** Unit price as charged, GST inclusive. */
   unitPaise: number;
+  /** This line's share of the coupon; 0 without one. */
+  discountPaise: number;
+  /** unit × quantity − discount: the value GST is charged on. */
   grossPaise: number;
   taxablePaise: number;
   taxPaise: number;
@@ -126,6 +129,9 @@ export type Invoice = {
   igstPaise: number;
   totalTaxPaise: number;
   totalPaise: number;
+  /** Coupon discount already taken off the lines above; 0 without one. */
+  discountPaise: number;
+  couponCode: string | null;
   paymentMethod: string;
   paymentStatus: string;
 };
@@ -196,9 +202,27 @@ export async function buildInvoice(order: OrderWithItems): Promise<Invoice> {
   const hsn = getHsnCode();
   const address = (order.shippingAddress ?? {}) as ShippingAddress;
 
-  const lines: InvoiceLine[] = order.items.map((item) => {
+  /**
+   * A coupon is a discount given at the time of sale and shown on the invoice,
+   * so GST is charged on the price AFTER it (CGST Act s.15(3)(a)). It is spread
+   * across the lines in proportion to their value — the last line takes the
+   * rounding remainder, so the line discounts sum to exactly the order's.
+   */
+  const discountTotalPaise = toPaise(order.discount);
+  const itemsGrossPaise = order.items.reduce((s, i) => s + toPaise(i.price) * i.quantity, 0);
+  let discountLeftPaise = discountTotalPaise;
+
+  const lines: InvoiceLine[] = order.items.map((item, index) => {
     const unitPaise = toPaise(item.price);
-    const grossPaise = unitPaise * item.quantity;
+    const listPaise = unitPaise * item.quantity;
+    const lineDiscountPaise =
+      index === order.items.length - 1
+        ? discountLeftPaise
+        : itemsGrossPaise > 0
+          ? Math.floor((discountTotalPaise * listPaise) / itemsGrossPaise)
+          : 0;
+    discountLeftPaise -= lineDiscountPaise;
+    const grossPaise = listPaise - lineDiscountPaise;
     const { taxablePaise, taxPaise } = splitInclusive(grossPaise, rate);
     return {
       name: item.name,
@@ -206,6 +230,7 @@ export async function buildInvoice(order: OrderWithItems): Promise<Invoice> {
       size: item.size,
       quantity: item.quantity,
       unitPaise,
+      discountPaise: lineDiscountPaise,
       grossPaise,
       taxablePaise,
       taxPaise,
@@ -285,6 +310,8 @@ export async function buildInvoice(order: OrderWithItems): Promise<Invoice> {
     igstPaise,
     totalTaxPaise,
     totalPaise: toPaise(order.totalAmount),
+    discountPaise: discountTotalPaise,
+    couponCode: order.couponCode,
     paymentMethod: order.paymentMethod === "cod" ? "Cash on delivery" : "Prepaid (Razorpay)",
     paymentStatus: order.paymentStatus,
   };

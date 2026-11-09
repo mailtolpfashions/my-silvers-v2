@@ -23,6 +23,7 @@ import {
   Tags,
   Users,
   type LucideIcon,
+  TicketPercent,
 } from "lucide-react";
 
 /**
@@ -37,6 +38,7 @@ const ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
   products: Package,
   categories: Tags,
+  coupons: TicketPercent,
   orders: Receipt,
   customers: Users,
   finance: PiggyBank,

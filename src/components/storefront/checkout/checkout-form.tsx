@@ -20,6 +20,8 @@ import {
   type PaymentStage,
 } from "@/components/storefront/checkout/payment-processing-overlay";
 import { readGuestCart, clearGuestCart } from "@/lib/guest-cart";
+import { useCoupon, clearAppliedCoupon } from "@/components/storefront/cart/use-coupon";
+import { CouponBox } from "@/components/storefront/cart/coupon-box";
 import { suggestEmailFix } from "@/lib/email-typo";
 import { formatINRPaise } from "@/lib/format";
 import {
@@ -342,19 +344,32 @@ export function CheckoutForm({
     });
   }, [form, selectedAddressId]);
 
+  // Above the early returns below: a hook must run on every render.
+  const subtotalPaise = (lines ?? []).reduce((s, l) => s + l.pricePaise * l.quantity, 0);
+  /**
+   * The coupon carried over from the cart (or applied here). Checked against
+   * the email and mobile being typed, so a first-order code is refused on this
+   * page rather than at the pay button. Shown, not charged — create-order.ts
+   * decides the real discount.
+   */
+  const coupon = useCoupon(subtotalPaise, {
+    email: isAuthed ? undefined : form.email,
+    phone: form.phone.replace(/\D/g, "").replace(/^(91|0)(?=\d{10}$)/, ""),
+  });
+
   if (lines === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (lines.length === 0) {
     return <p className="rhythm-transactional text-center text-muted-foreground">Your cart is empty.</p>;
   }
 
-  const subtotalPaise = lines.reduce((s, l) => s + l.pricePaise * l.quantity, 0);
   const shippingPaise = shippingChargePaise(subtotalPaise, rates);
   /**
    * Shown, not charged. create-order.ts recomputes this from the settings at
    * the moment of sale and snapshots the result — see giftWrapChargePaise.
    */
   const giftWrapPaise = giftWrapChargePaise(form.isGift, gifting);
-  const totalPaise = subtotalPaise + shippingPaise + giftWrapPaise;
+  const couponPaise = coupon.error ? 0 : coupon.discountPaise;
+  const totalPaise = subtotalPaise - couponPaise + shippingPaise + giftWrapPaise;
 
   function successUrl(orderId: string, token: string | null) {
     return isAuthed
@@ -411,6 +426,7 @@ export function CheckoutForm({
 
         if (result.ok) {
           if (!isAuthed) clearGuestCart();
+          clearAppliedCoupon();
           router.push(successUrl(payment.orderId, payment.confirmationToken));
           // router.push resolves when the transition is committed, so this
           // measures the wait for the order page rather than just the call.
@@ -503,6 +519,7 @@ export function CheckoutForm({
         // through a message typed and then thought better of.
         giftMessage: form.isGift ? form.giftMessage : "",
         idempotencyKey,
+        couponCode: coupon.code && !coupon.error ? coupon.code : undefined,
         guestEmail: isAuthed ? undefined : form.email,
         guestItems: isAuthed
           ? undefined
@@ -550,6 +567,7 @@ export function CheckoutForm({
       } else {
         // COD — order is final immediately.
         if (!isAuthed) clearGuestCart();
+        clearAppliedCoupon();
         toast.success(`Order ${result.orderNumber} placed!`);
         router.push(successUrl(result.orderId, result.confirmationToken));
       }
@@ -1073,7 +1091,13 @@ export function CheckoutForm({
                 <span className="figures">{formatINRPaise(line.pricePaise * line.quantity)}</span>
               </div>
             ))}
-            <div className="flex justify-between border-t pt-3 text-sm">
+            {couponPaise > 0 && (
+              <div className="flex justify-between border-t pt-3 text-sm">
+                <span className="text-muted-foreground">Coupon ({coupon.code})</span>
+                <span className="figures">−{formatINRPaise(couponPaise)}</span>
+              </div>
+            )}
+            <div className={`flex justify-between text-sm ${couponPaise > 0 ? "" : "border-t pt-3"}`}>
               <span className="text-muted-foreground">Shipping</span>
               <span className="figures">{shippingPaise === 0 ? "Free" : formatINRPaise(shippingPaise)}</span>
             </div>
@@ -1091,6 +1115,11 @@ export function CheckoutForm({
               <span>Total</span>
               <span className="figures">{formatINRPaise(totalPaise)}</span>
             </div>
+          </div>
+          {/* Outside the checkout <form> on purpose: the coupon box is its own
+              little form, and forms cannot nest. */}
+          <div className="mt-5">
+            <CouponBox coupon={coupon} />
           </div>
         </div>
       </div>

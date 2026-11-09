@@ -141,6 +141,12 @@ export const TIERS = {
    */
   trackOrder: { tokens: 5, window: "15 m", prefix: "rl:trackorder" },
   /**
+   * "Apply coupon", keyed by IP. Generous for a shopper fumbling a code or
+   * re-checking as the cart changes; tight enough that guessing codes by
+   * brute force is pointless. Loose-ish for the CGNAT reason in guestOrderIp.
+   */
+  coupon: { tokens: 30, window: "10 m", prefix: "rl:coupon" },
+  /**
    * The backstop for the above, keyed by IP: stops a script walking order
    * numbers with a list of phone numbers. Loose for the same CGNAT reason as
    * `guestOrderIp` — Jio/Airtel put thousands of shoppers behind one address.
