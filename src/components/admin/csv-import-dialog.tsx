@@ -44,6 +44,10 @@ export function CsvImportDialog() {
     Papa.parse<Record<string, string>>(file, {
       header: true,
       skipEmptyLines: true,
+      // Undo the export's formula guard (server/admin/csv.ts): a cell it wrote
+      // as '=… or '-… comes back as the original text, so an export re-imported
+      // as-is does not gain apostrophes.
+      transform: (value) => (/^'[=+\-@\t\r]/.test(value) ? value.slice(1) : value),
       complete: async (parsed) => {
         try {
           const res = await bulkImportProductsAction(parsed.data);
