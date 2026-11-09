@@ -37,7 +37,8 @@ import {
   pincodeMatchesState,
 } from "@/lib/validation/account";
 import { saveCheckoutAddressAction } from "@/actions/account-actions";
-import { checkPincodeAction, type PincodeCheck } from "@/actions/shipping-actions";
+// A fetch, not a Server Action — see app/api/shipping/pincode/route.ts.
+import { fetchPincodeCheck, type PincodeCheck } from "@/lib/pincode-check";
 import { UseMyLocationButton } from "@/components/storefront/checkout/use-my-location-button";
 
 export type CheckoutLine = { name: string; quantity: number; pricePaise: number };
@@ -234,7 +235,7 @@ export function CheckoutForm({
 
     let cancelled = false;
     const timer = setTimeout(async () => {
-      const result = await checkPincodeAction(formPincode, wantCod);
+      const result = await fetchPincodeCheck(formPincode, wantCod);
       if (!cancelled) setPincodeAnswer({ pincode: formPincode, cod: wantCod, result });
     }, 450);
 
