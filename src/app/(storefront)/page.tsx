@@ -43,7 +43,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     // undefined, not a fallback string — it lets the root layout's default
     // title and description apply untouched.
-    title: homepage?.seo.metaTitle ?? undefined,
+    // `absolute`: the CMS title is the whole title and already carries the
+    // brand. Through the layout's "%s | MY Silvers" template it read
+    // "MY Silvers — 925 Sterling Silver Jewellery | MY Silvers" in Google.
+    title: homepage?.seo.metaTitle ? { absolute: homepage.seo.metaTitle } : undefined,
     description: homepage?.seo.metaDescription ?? undefined,
     // The site root. Spelled out because a shop is reached by enough tagged
     // links — utm_source, an Instagram bio, a WhatsApp forward — that the

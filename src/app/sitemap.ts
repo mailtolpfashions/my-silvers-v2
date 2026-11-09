@@ -29,7 +29,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       orderBy: { updatedAt: "desc" },
     }),
     prisma.category.findMany({
-      where: { isActive: true },
+      // Only categories with something in them: an empty listing is a thin
+      // page, and the category page marks itself noindex in that state —
+      // listing it here would contradict that.
+      where: { isActive: true, products: { some: { isActive: true } } },
       select: { slug: true, updatedAt: true },
     }),
     listPublishedEntries("blog", 200),

@@ -17,12 +17,27 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const category = await prisma.category.findFirst({ where: { slug, isActive: true } });
+  const category = await prisma.category.findFirst({
+    where: { slug, isActive: true },
+    include: { _count: { select: { products: { where: { isActive: true } } } } },
+  });
   // noindex for unknown slugs — see the note in collections/[slug]/page.tsx.
   if (!category) return { title: "Not found", robots: { index: false, follow: false } };
+  const name = category.name;
+  // "Silver Toe Rings", not "Toe Rings": the words people actually search,
+  // without doubling up a name that already says silver.
+  const searchName = /silver/i.test(name) ? name : `Silver ${name}`;
   return {
-    title: category.name,
-    description: category.description ?? undefined,
+    title: `${searchName} — 925 Sterling Silver`,
+    // The category's own intro when written (Admin → Categories); otherwise
+    // a plain, true sentence rather than none — Google invents one from the
+    // page chrome when a description is missing.
+    description:
+      category.description?.trim() ||
+      `Shop ${searchName.toLowerCase()} in 925 BIS hallmarked sterling silver at MY Silvers. Prices in rupees, delivered across India.`,
+    // An active category with nothing in it is an empty page: kept reachable
+    // for shoppers, but out of search results until it has stock to show.
+    ...(category._count.products === 0 ? { robots: { index: false, follow: true } } : {}),
     // The sort and price filters produce query-string variants of this page;
     // all of them are the same listing.
     alternates: { canonical: `/category/${category.slug}` },
