@@ -127,6 +127,33 @@ export async function saveCheckoutAddressAction(input: {
     const parsed = addressSchema.safeParse({ ...input, label: "", isDefault: false });
     if (!parsed.success) return { saved: false };
 
+    /**
+     * Never save the same address twice.
+     *
+     * This runs on every press of Pay with "Deliver to a different address"
+     * selected — so a payment that failed and was tried again, or a second
+     * order to the same place, used to add a fresh copy each time and fill the
+     * address book with duplicates. Compared after the schema's normalising
+     * (phone to 10 digits, trimming), and loosely on case and spacing, which is
+     * how a person would judge "the same address".
+     */
+    const same = (a: string | null | undefined, b: string | null | undefined) =>
+      (a ?? "").trim().replace(/\s+/g, " ").toLowerCase() ===
+      (b ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+    const existing = await prisma.address.findMany({ where: { userId } });
+    const a = parsed.data;
+    const duplicate = existing.some(
+      (e) =>
+        same(e.fullName, a.fullName) &&
+        same(e.phone, a.phone) &&
+        same(e.addressLine1, a.addressLine1) &&
+        same(e.addressLine2, a.addressLine2) &&
+        same(e.city, a.city) &&
+        same(e.state, a.state) &&
+        same(e.pincode, a.pincode),
+    );
+    if (duplicate) return { saved: false };
+
     await insertAddress(userId, parsed.data);
     revalidatePath("/account/addresses");
     return { saved: true };
