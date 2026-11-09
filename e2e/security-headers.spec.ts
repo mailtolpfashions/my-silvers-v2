@@ -62,6 +62,9 @@ test.describe("security headers", () => {
     // in the browser, at the payment step, for real customers.
     expect(csp).toContain("https://checkout.razorpay.com");
     expect(csp).toContain("https://api.razorpay.com");
+    // checkout.js pulls its risk-detection script from here before the modal
+    // opens; without it the payment step breaks under the enforced policy.
+    expect(csp).toContain("https://cdn.razorpay.com");
     expect(csp).toContain("https://res.cloudinary.com");
   });
 
