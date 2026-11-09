@@ -12,6 +12,8 @@ import {
   getGuestCartServerSnapshot,
   setGuestCartQuantity,
   removeFromGuestCart,
+  readGuestCart,
+  guestLineKey,
 } from "@/lib/guest-cart";
 import { formatINR, savingPaise } from "@/lib/format";
 import { EmptyCart } from "@/components/storefront/cart/empty-cart";
@@ -39,6 +41,9 @@ export function GuestCartView({ rates }: { rates: ShippingRates }) {
     () => false
   );
   const [products, setProducts] = useState<Map<string, Summary>>(new Map());
+  // Lines this visit trimmed down to live stock, so each can say why its
+  // quantity changed. Keyed by guestLineKey.
+  const [trimmed, setTrimmed] = useState<Set<string>>(new Set());
 
   const idsKey = items.map((i) => i.productId).join(",");
 
@@ -49,7 +54,25 @@ export function GuestCartView({ rates }: { rates: ShippingRates }) {
       try {
         const res = await fetch(`/api/products/summaries?ids=${encodeURIComponent(idsKey)}`);
         const data = (await res.json()) as { products: Summary[] };
-        if (alive) setProducts(new Map(data.products.map((p) => [p.id, p])));
+        if (!alive) return;
+        const byId = new Map(data.products.map((p) => [p.id, p]));
+        setProducts(byId);
+
+        // A guest add never asks the server about stock — it only knows the
+        // number the product page was rendered with. So this is the first
+        // moment the guest cart sees live stock: bring any line that asks for
+        // more than exists down to what does. A line at zero is left as is and
+        // flagged "Now out of stock" below, rather than vanishing unexplained.
+        // Checkout still re-validates; this just stops the surprise there.
+        const cut = new Set<string>();
+        for (const item of readGuestCart()) {
+          const stock = byId.get(item.productId)?.stock;
+          if (stock !== undefined && stock > 0 && item.quantity > stock) {
+            setGuestCartQuantity(item.productId, item.size, stock);
+            cut.add(guestLineKey(item.productId, item.size));
+          }
+        }
+        if (cut.size > 0) setTrimmed((prev) => new Set([...prev, ...cut]));
       } catch {
         // Keep whatever we had; the page still renders.
       }
@@ -133,12 +156,18 @@ export function GuestCartView({ rates }: { rates: ShippingRates }) {
                 {/* No count, matching src/lib/stock-label.ts and the signed-in
                     cart — this row said "Only 2 left" while every other surface
                     on the site deliberately refuses to state a number. */}
-                {product.stock < item.quantity && (
+                {product.stock < item.quantity ? (
                   <p className="mt-2 text-xs text-destructive">
                     {product.stock === 0
                       ? "Now out of stock"
                       : "We have fewer of these than you've added"}
                   </p>
+                ) : (
+                  trimmed.has(guestLineKey(product.id, item.size)) && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Updated to the quantity we have available.
+                    </p>
+                  )
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-2">
