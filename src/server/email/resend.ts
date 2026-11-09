@@ -36,7 +36,17 @@ export async function sendOrderConfirmationEmail(params: {
   to: string;
   orderNumber: string;
   totalAmount: number | string;
+  orderId: string;
+  /**
+   * Set for guest orders. A guest has no password, so the old "View your
+   * orders" link to /account/orders led to a sign-in page they could not get
+   * past — the tokenised order page is the only door they have.
+   */
+  confirmationToken: string | null;
 }) {
+  const orderUrl = params.confirmationToken
+    ? `${appBaseUrl}/orders/${params.orderId}?ot=${params.confirmationToken}`
+    : `${appBaseUrl}/account/orders/${params.orderId}`;
   await deliver("order-confirmation", {
     from,
     replyTo,
@@ -46,7 +56,8 @@ export async function sendOrderConfirmationEmail(params: {
       <p>Thank you for your order!</p>
       <p>Your order <strong>${params.orderNumber}</strong> has been confirmed.</p>
       <p>Total: ₹${params.totalAmount}</p>
-      <p><a href="${appBaseUrl}/account/orders">View your orders</a></p>
+      <p><a href="${orderUrl}">View your order</a></p>
+      <p>You can also track it any time at <a href="${appBaseUrl}/track-order">${appBaseUrl.replace(/^https?:\/\//, "")}/track-order</a> with your order number and the mobile number you ordered with.</p>
     `,
   });
 }

@@ -242,5 +242,5 @@ export async function buildUtilityLinks(): Promise<NavLink[]> {
   ].filter((l) => slugs.has(l.href.replace("/p/", "")));
 
   // Always available — a real route, not CMS content.
-  return [...cmsLinks.slice(0, 3), { label: "Track order", href: "/account/orders" }];
+  return [...cmsLinks.slice(0, 3), { label: "Track order", href: "/track-order" }];
 }

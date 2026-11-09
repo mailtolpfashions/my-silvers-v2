@@ -134,6 +134,8 @@ export async function fulfillOrder(input: {
           to: user.email,
           orderNumber: order.orderNumber,
           totalAmount: order.totalAmount.toString(),
+          orderId: order.id,
+          confirmationToken: order.confirmationToken,
         });
       }
     } catch (err) {

@@ -350,6 +350,22 @@ function asPaymentStatus(value: unknown): PaymentStatus | undefined {
     : undefined;
 }
 
+/**
+ * Phone clauses for the admin order search, only when the query looks like a
+ * phone number. Stored numbers are bare 10 digits (phoneSchema), so "+91 98765
+ * 43210" is reduced to its last ten digits first; a partial number (5+ digits)
+ * still matches, since an admin may be reading one off a call log.
+ */
+function phoneSearch(q: string) {
+  if (!/^[\d\s+\-()]+$/.test(q.trim())) return [];
+  const digits = q.replace(/\D/g, "").replace(/^(91|0)(?=\d{10}$)/, "");
+  if (digits.length < 5) return [];
+  return [
+    { shippingAddress: { path: ["phone"], string_contains: digits } },
+    { user: { phone: { contains: digits } } },
+  ];
+}
+
 export async function getAdminOrders(params: {
   status?: OrderStatus;
   payment?: PaymentStatus;
@@ -367,14 +383,17 @@ export async function getAdminOrders(params: {
   const where = {
     ...(status ? { orderStatus: status } : {}),
     ...(payment ? { paymentStatus: payment } : {}),
-    // Matches the order number or the customer's name/email — the three things
-    // an admin has to hand when someone gets in touch about an order.
+    // Matches the order number, the customer's name/email, or the mobile the
+    // order shipped to — what an admin has to hand when someone gets in touch.
+    // Mobile matters most for guests: one who mistyped their email at checkout
+    // never got the confirmation, and their phone is all they can give us.
     ...(params.q
       ? {
           OR: [
             { orderNumber: { contains: params.q, mode: "insensitive" as const } },
             { user: { name: { contains: params.q, mode: "insensitive" as const } } },
             { user: { email: { contains: params.q, mode: "insensitive" as const } } },
+            ...phoneSearch(params.q),
           ],
         }
       : {}),

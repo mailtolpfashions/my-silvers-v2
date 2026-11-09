@@ -20,6 +20,7 @@ import {
   type PaymentStage,
 } from "@/components/storefront/checkout/payment-processing-overlay";
 import { readGuestCart, clearGuestCart } from "@/lib/guest-cart";
+import { suggestEmailFix } from "@/lib/email-typo";
 import { formatINRPaise } from "@/lib/format";
 import {
   shippingChargePaise,
@@ -558,6 +559,10 @@ export function CheckoutForm({
   }
 
 
+  // Derived, like the banner below: it disappears the moment the address is
+  // corrected, by hand or by tapping the suggestion.
+  const emailSuggestion = isAuthed ? null : suggestEmailFix(form.email);
+
   /**
    * The banner, derived rather than stored — which is the whole fix. A stored
    * string has to be remembered about and cleared; this cannot outlive the
@@ -645,13 +650,31 @@ export function CheckoutForm({
             </div>
           )}
 
-          {!isAuthed &&
-            field("email", "Email", {
-              type: "email",
-              required: true,
-              autoComplete: "email",
-              placeholder: "Enter your email address",
-            })}
+          {!isAuthed && (
+            <div className="space-y-1.5">
+              {field("email", "Email", {
+                type: "email",
+                required: true,
+                autoComplete: "email",
+                placeholder: "Enter your email address",
+              })}
+              {/* Guest emails are not verified, so a typo here means the order
+                  confirmation goes nowhere. See lib/email-typo.ts. */}
+              {emailSuggestion && (
+                <p className="text-sm text-muted-foreground" aria-live="polite">
+                  Did you mean{" "}
+                  <button
+                    type="button"
+                    className="font-medium text-foreground underline underline-offset-4"
+                    onClick={() => setForm((f) => ({ ...f, email: emailSuggestion }))}
+                  >
+                    {emailSuggestion}
+                  </button>
+                  ?
+                </p>
+              )}
+            </div>
+          )}
 
           <fieldset className="space-y-4">
             <legend className="label-eyebrow mb-1">Shipping address</legend>

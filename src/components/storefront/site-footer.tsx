@@ -100,7 +100,7 @@ const FOOTER_LINKS: Record<string, { label: string; href: string }[]> = {
   "Customer care": [
     { label: "Contact us", href: "/p/contact" },
     { label: "FAQ", href: "/faq" },
-    { label: "Track your order", href: "/account/orders" },
+    { label: "Track your order", href: "/track-order" },
     { label: "Shipping & delivery", href: "/p/shipping" },
     { label: "Returns & exchanges", href: "/p/returns" },
     { label: "Silver care guide", href: "/p/care-guide" },

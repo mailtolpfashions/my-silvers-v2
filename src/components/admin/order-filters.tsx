@@ -72,7 +72,7 @@ export function AdminOrderFilters({
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Order number, name or email"
+          placeholder="Order number, name, email or phone"
           aria-label="Search orders"
           className="w-64 pl-8"
         />
