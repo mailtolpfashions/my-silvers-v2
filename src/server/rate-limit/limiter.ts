@@ -118,6 +118,21 @@ export const TIERS = {
    * cap set in the Google Cloud console; see docs/geolocation.md.
    */
   geocode: { tokens: 10, window: "15 m", prefix: "rl:geocode" },
+  /**
+   * "Track order" lookups, keyed by ORDER NUMBER.
+   *
+   * The lookup needs an order number plus the email or mobile it was placed
+   * with. Order numbers are sequential, so the thing to stop is someone holding
+   * one number and guessing the contact detail. An honest shopper gets it right
+   * in one or two tries — mistyping their own phone at most — so five is ample.
+   */
+  trackOrder: { tokens: 5, window: "15 m", prefix: "rl:trackorder" },
+  /**
+   * The backstop for the above, keyed by IP: stops a script walking order
+   * numbers with a list of phone numbers. Loose for the same CGNAT reason as
+   * `guestOrderIp` — Jio/Airtel put thousands of shoppers behind one address.
+   */
+  trackOrderIp: { tokens: 30, window: "15 m", prefix: "rl:trackorderip" },
   newsletter: { tokens: 3, window: "15 m", prefix: "rl:newsletter" },
   review: { tokens: 5, window: "15 m", prefix: "rl:review" },
   /**

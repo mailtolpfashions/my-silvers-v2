@@ -387,6 +387,8 @@ export async function createOrder(input: {
         to: email,
         orderNumber: order.orderNumber,
         totalAmount: order.totalAmount.toString(),
+        orderId: order.id,
+        confirmationToken: order.confirmationToken,
       });
     } catch (err) {
       console.error("order-confirmation email failed", order.orderNumber, err);

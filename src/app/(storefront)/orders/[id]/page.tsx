@@ -1,6 +1,9 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getPublicOrderByToken } from "@/server/orders/queries";
+import { getClaimableAccountEmail } from "@/server/orders/guest-account";
+import { prisma } from "@/server/db";
+import { GuestOrderHelp } from "@/components/storefront/orders/guest-order-help";
 import { OrderDetail } from "@/components/storefront/orders/order-detail";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -42,16 +45,21 @@ async function GuestOrder({
   const { ot, placed } = await searchParams;
 
   const order = ot ? await getPublicOrderByToken(id, ot) : null;
-  if (!order) notFound();
+  if (!order || !ot) notFound();
+
+  const [user, claimEmail] = await Promise.all([
+    prisma.user.findUnique({ where: { id: order.userId }, select: { email: true } }),
+    getClaimableAccountEmail(order.id, ot),
+  ]);
 
   return (
     <>
-      {placed && (
-        <p className="mb-6 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800">
-          Thank you! Your order has been placed successfully. Bookmark this page
-          to check your order later — the link is unique to you.
-        </p>
-      )}
+      <GuestOrderHelp
+        orderNumber={order.orderNumber}
+        email={user?.email ?? ""}
+        placed={!!placed}
+        claim={claimEmail ? { orderId: order.id, token: ot, email: claimEmail } : null}
+      />
       <OrderDetail order={order} />
     </>
   );
