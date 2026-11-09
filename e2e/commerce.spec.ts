@@ -49,7 +49,10 @@ With all my love.`;
 
 async function saveSettings(page: Page) {
   await page.getByRole("button", { name: /^save/i }).click();
-  await expect(page.getByText(/saved|updated/i).first()).toBeVisible({ timeout: 15_000 });
+  // The exact toast, not /saved|updated/: the form's own copy says "Round
+  // prices down as they are saved" and "Unsaved changes", so the loose pattern
+  // matched before the click had done anything and the test raced the save.
+  await expect(page.getByText("Settings saved.").first()).toBeVisible({ timeout: 15_000 });
 }
 
 async function openSettings(page: Page) {
