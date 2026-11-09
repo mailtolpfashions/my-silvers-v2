@@ -282,3 +282,45 @@ export async function setPassword(userId: string, password: string): Promise<voi
   const passwordHash = await bcrypt.hash(password, 12);
   await getPool().query(`UPDATE "User" SET "passwordHash" = $2 WHERE "id" = $1`, [userId, passwordHash]);
 }
+
+/** A coupon straight into the table. Remove with deleteCoupon. */
+export async function createCoupon(opts: {
+  code: string;
+  type: "percent" | "flat";
+  value: number;
+  minOrderValue?: number | null;
+  maxDiscount?: number | null;
+  firstOrderOnly?: boolean;
+  onePerCustomer?: boolean;
+}): Promise<void> {
+  await getPool().query(
+    `INSERT INTO "Coupon" ("id", "code", "type", "value", "minOrderValue", "maxDiscount",
+                           "firstOrderOnly", "onePerCustomer", "updatedAt")
+     VALUES ($1, $2, $3::"CouponType", $4, $5, $6, $7, $8, NOW())`,
+    [
+      `e2e_${crypto.randomBytes(12).toString("hex")}`,
+      opts.code,
+      opts.type,
+      opts.value,
+      opts.minOrderValue ?? null,
+      opts.maxDiscount ?? null,
+      opts.firstOrderOnly ?? false,
+      opts.onePerCustomer ?? true,
+    ]
+  );
+}
+
+/** Orders that used it keep their couponCode; the FK is SET NULL. */
+export async function deleteCoupon(code: string): Promise<void> {
+  await getPool().query(`DELETE FROM "Coupon" WHERE "code" = $1`, [code]);
+}
+
+export async function getOrderDiscount(
+  orderNumber: string
+): Promise<{ discount: string; couponCode: string | null } | null> {
+  const { rows } = await getPool().query(
+    `SELECT "discount"::text, "couponCode" FROM "Order" WHERE "orderNumber" = $1`,
+    [orderNumber]
+  );
+  return rows[0] ?? null;
+}

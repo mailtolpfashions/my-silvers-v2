@@ -13,6 +13,7 @@ import {
 } from "@/server/orders/money";
 import { createRazorpayOrder } from "@/server/payments/razorpay";
 import { getStoreSettings } from "@/server/settings/store-settings";
+import { evaluateCoupon, CouponError } from "@/server/coupons/coupons";
 import { sendOrderConfirmationEmail } from "@/server/email/resend";
 
 export class OrderError extends Error {
@@ -24,7 +25,8 @@ export class OrderError extends Error {
       | "GUEST_EMAIL_REQUIRED"
       | "PAYMENT_GATEWAY_ERROR"
       | "PAYMENT_METHOD_UNAVAILABLE"
-      | "GUEST_CHECKOUT_DISABLED",
+      | "GUEST_CHECKOUT_DISABLED"
+      | "COUPON_INVALID",
     message: string
   ) {
     super(message);
@@ -202,6 +204,8 @@ export async function createOrder(input: {
   isGift?: boolean;
   giftMessage?: string;
   idempotencyKey?: string;
+  /** A coupon code as typed. Re-validated here; the preview the shopper saw is not trusted. */
+  couponCode?: string;
 }): Promise<CreateOrderResult> {
   // ── Store settings gate ──
   //
@@ -254,7 +258,30 @@ export async function createOrder(input: {
   // ── Totals in integer paise ──
   const subtotalPaise = items.reduce((sum, i) => sum + i.pricePaise * i.quantity, 0);
   // Charged from the settings read above, not from whatever the client showed.
+  // On the PRE-discount subtotal, deliberately — see server/coupons/coupons.ts.
   const shippingPaise = shippingChargePaise(subtotalPaise, settings);
+
+  /**
+   * The coupon, re-checked now with database prices and the email and mobile
+   * this order is actually being placed with. The cart's preview could not
+   * know the mobile, and a first-order code has to see it.
+   */
+  let coupon: { id: string; code: string } | null = null;
+  let discountPaise = 0;
+  if (input.couponCode?.trim()) {
+    try {
+      const result = await evaluateCoupon(input.couponCode, subtotalPaise, {
+        userId,
+        email,
+        phone: input.shippingAddress.phone,
+      });
+      coupon = { id: result.coupon.id, code: result.coupon.code };
+      discountPaise = result.discountPaise;
+    } catch (err) {
+      if (err instanceof CouponError) throw new OrderError("COUPON_INVALID", err.message);
+      throw err;
+    }
+  }
   /**
    * Recomputed here from the settings, never taken from the request.
    *
@@ -263,7 +290,7 @@ export async function createOrder(input: {
    * the line prices — see the note at the top of this function.
    */
   const giftWrapPaise = giftWrapChargePaise(input.isGift === true, settings);
-  const totalPaise = subtotalPaise + shippingPaise + giftWrapPaise;
+  const totalPaise = subtotalPaise - discountPaise + shippingPaise + giftWrapPaise;
 
   // ── Razorpay order first (external call — never inside the DB transaction).
   // If the DB write below fails, the gateway order is simply never paid. ──
@@ -319,6 +346,9 @@ export async function createOrder(input: {
           subtotal: paiseToRupeeString(subtotalPaise),
           shippingCharge: paiseToRupeeString(shippingPaise),
           giftWrapCharge: paiseToRupeeString(giftWrapPaise),
+          discount: paiseToRupeeString(discountPaise),
+          couponCode: coupon?.code ?? null,
+          couponId: coupon?.id ?? null,
           totalAmount: paiseToRupeeString(totalPaise),
           notes: input.notes || null,
           isGift: input.isGift === true,

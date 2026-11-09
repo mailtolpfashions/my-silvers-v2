@@ -10,6 +10,9 @@ import {
   getOrderItemVendors,
   resetStoreSettings,
   setProductVendor,
+  createCoupon,
+  deleteCoupon,
+  getOrderDiscount,
 } from "./helpers/db";
 
 /**
@@ -578,8 +581,13 @@ test.describe("header menu lists come from store settings", () => {
     }
   }
 
-  /** Replaces one list in the form. `which` is its "Add link" button: 0 finishes, 1 occasions. */
-  async function writeRows(page: Page, title: string, which: 0 | 1, rows: Row[]) {
+  /**
+   * Replaces one list in the form. `which` is its "Add link" button, counted
+   * down the page: 0 is "Shop for" (added 2026-11-02 — before then finishes
+   * was 0, and this test clicked the wrong list until it was re-indexed),
+   * 1 finishes, 2 occasions.
+   */
+  async function writeRows(page: Page, title: string, which: 1 | 2, rows: Row[]) {
     // The row is the label input's parent, which also holds its buttons.
     while ((await page.getByLabel(`${title} 1: label`, { exact: true }).count()) > 0) {
       const row = page.getByLabel(`${title} 1: label`, { exact: true }).locator("xpath=..");
@@ -612,7 +620,7 @@ test.describe("header menu lists come from store settings", () => {
     try {
       // The search word follows the label until edited, so typing the label
       // alone already produces its lowercase form.
-      await page.getByRole("button", { name: "Add link" }).nth(0).click();
+      await page.getByRole("button", { name: "Add link" }).nth(1).click(); // finishes — see writeRows
       const n = originalFinishes.length + 1;
       await page.getByLabel(`${FINISHES} ${n}: label`, { exact: true }).fill(label);
       await expect(page.getByLabel(`${FINISHES} ${n}: search word`, { exact: true })).toHaveValue(
@@ -620,7 +628,7 @@ test.describe("header menu lists come from store settings", () => {
       );
       await page.getByLabel(`${FINISHES} ${n}: search word`, { exact: true }).fill(query);
 
-      await writeRows(page, OCCASIONS, 1, []);
+      await writeRows(page, OCCASIONS, 2, []);
       await saveSettings(page);
 
       const html = await headerHtml(page);
@@ -629,8 +637,8 @@ test.describe("header menu lists come from store settings", () => {
       expect(html, "an emptied occasion list still renders its column").not.toContain("By occasion");
     } finally {
       await openSettings(page);
-      await writeRows(page, FINISHES, 0, originalFinishes);
-      await writeRows(page, OCCASIONS, 1, originalOccasions);
+      await writeRows(page, FINISHES, 1, originalFinishes);
+      await writeRows(page, OCCASIONS, 2, originalOccasions);
       await saveSettings(page);
       await admin.dispose();
     }
@@ -639,6 +647,104 @@ test.describe("header menu lists come from store settings", () => {
     expect(restored, "the test finish was not removed").not.toContain(query);
     if (originalOccasions.length > 0) {
       expect(restored, "the occasion column did not come back").toContain("By occasion");
+    }
+  });
+});
+
+/**
+ * A coupon on a real order. Lives in THIS file, not coupons.spec.ts, because it
+ * switches COD on — and this file runs serially precisely so that tests which
+ * change shop settings cannot pull them out from under each other. In its own
+ * file it ran in parallel with the COD tests above and broke them.
+ */
+test.describe("coupons on a real order", () => {
+  const stamp = () =>
+    `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`.toUpperCase();
+  const paise = (s: string) => Math.round(Number(s) * 100);
+
+  async function addToCartAndOpen(page: Page, slug: string) {
+    await page.goto(`/products/${slug}`);
+    const add = page.getByRole("button", { name: /add to (cart|bag)/i }).locator("visible=true");
+    await expect(add.first()).toBeVisible({ timeout: 20_000 });
+    await add.first().click();
+    await expect(page.getByText(/added to cart/i).first()).toBeVisible({ timeout: 15_000 });
+    await page.goto("/cart");
+  }
+
+  async function applyCode(page: Page, code: string) {
+    const opener = page.getByRole("button", { name: /have a coupon code/i });
+    const input = page.getByLabel("Coupon code");
+    await expect(opener.or(input).first()).toBeVisible({ timeout: 20_000 });
+    if (await opener.isVisible()) await opener.click();
+    await input.fill(code);
+    await page.getByRole("button", { name: /^apply$/i }).click();
+  }
+
+  test("a COD order stores the server's discount, and a first-order code works once", async ({
+    page,
+    browser,
+  }) => {
+    test.slow();
+    const product = await getInStockProduct();
+    test.skip(!product, "no in-stock, single-variant product in this database");
+
+    await withAdmin(browser, async (adminPage) => {
+      await openSettings(adminPage);
+      await setToggle(adminPage, "codEnabled", true);
+      await saveSettings(adminPage);
+    });
+
+    const code = `E2EFIRST${stamp()}`;
+    await createCoupon({ code, type: "percent", value: 10, firstOrderOnly: true });
+    const email = `${E2E_EMAIL_PREFIX}coupon-${Date.now()}@example.test`;
+    const customer = await createTestUser({ email, password: TEST_PASSWORD, role: "customer" });
+
+    try {
+      await signIn(page, email);
+      await addToCartAndOpen(page, product!.slug);
+      await applyCode(page, code);
+      await expect(page.getByText(/applied — you save/i)).toBeVisible({ timeout: 15_000 });
+
+      // The code travels to checkout on its own.
+      await page.goto("/checkout");
+      await expect(page.locator("#fullName")).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText(`Coupon (${code})`)).toBeVisible({ timeout: 15_000 });
+
+      await page.locator("#fullName").fill("E2E Coupon Buyer");
+      await page.locator("#phone").fill("9876501234");
+      await page.locator("#addressLine1").fill("12 Test Street");
+      await page.locator("#city").fill("Coimbatore");
+      await page.locator("#state").selectOption("Tamil Nadu");
+      await page.locator("#pincode").fill("641001");
+      await page.locator('input[name="paymentMethod"][value="cod"]').check({ force: true });
+      const placeOrder = page
+        .getByRole("button", { name: /place order/i })
+        .locator("visible=true")
+        .first();
+      await expect(placeOrder).toBeEnabled({ timeout: 20_000 });
+      await placeOrder.click();
+      await page.waitForURL(/\/account\/orders\//, { timeout: 30_000 });
+
+      const order = await getLatestOrderForUser(customer.id);
+      expect(order, "no order was created").toBeTruthy();
+      const stored = await getOrderDiscount(order!.orderNumber);
+      expect(stored?.couponCode).toBe(code);
+
+      // 10% of the products, floored to the paisa — and taken off the total.
+      const expected = Math.floor(paise(order!.subtotal) / 10);
+      expect(paise(stored!.discount), "the server did not apply 10%").toBe(expected);
+      expect(paise(order!.totalAmount)).toBe(
+        paise(order!.subtotal) - expected + paise(order!.shippingCharge) + paise(order!.giftWrapCharge),
+      );
+
+      // Second time round, the same shopper is no longer on a first order.
+      await addToCartAndOpen(page, product!.slug);
+      await applyCode(page, code);
+      await expect(page.getByText(/first orders only/i)).toBeVisible({ timeout: 15_000 });
+    } finally {
+      await deleteOrdersForUser(customer.id).catch(() => {});
+      await deleteUser(customer.id).catch(() => {});
+      await deleteCoupon(code);
     }
   });
 });

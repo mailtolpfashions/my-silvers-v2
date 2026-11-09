@@ -111,6 +111,13 @@ export function InvoiceDocument({ invoice }: { invoice: Invoice }) {
               <td className="py-2.5 pr-3">
                 {line.name}
                 {line.size && <span className="text-black/50"> · {line.size}</span>}
+                {/* Discount at the time of sale, shown on the line it reduces:
+                    GST is charged on the value after it. */}
+                {line.discountPaise > 0 && (
+                  <span className="block text-xs text-black/50">
+                    Less coupon discount {formatINRPaise(line.discountPaise)}
+                  </span>
+                )}
               </td>
               <td className="py-2.5 text-black/70">{line.hsn}</td>
               <td className="py-2.5 text-right">{line.quantity}</td>
@@ -152,6 +159,14 @@ export function InvoiceDocument({ invoice }: { invoice: Invoice }) {
       </table>
 
       <section className="ml-auto mt-6 w-full max-w-xs space-y-1.5">
+        {invoice.discountPaise > 0 && (
+          <Row
+            // Already taken off the item lines above — this row says how much,
+            // it does not subtract again.
+            label={`Coupon${invoice.couponCode ? ` ${invoice.couponCode}` : ""} (deducted above)`}
+            value={formatINRPaise(invoice.discountPaise)}
+          />
+        )}
         <Row label="Taxable value" value={formatINRPaise(invoice.taxablePaise)} />
         {/* Intra-state splits into two equal halves; anything crossing a state
             border is a single IGST line at the full rate. */}

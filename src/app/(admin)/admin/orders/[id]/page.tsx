@@ -272,6 +272,12 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <Row label="Subtotal" value={formatINR(order.subtotal.toString())} />
+              {Number(order.discount) > 0 && (
+                <Row
+                  label={`Coupon${order.couponCode ? ` (${order.couponCode})` : ""}`}
+                  value={`−${formatINR(order.discount.toString())}`}
+                />
+              )}
               <Row
                 label="Shipping"
                 value={

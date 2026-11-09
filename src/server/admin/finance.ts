@@ -89,7 +89,7 @@ export async function getFinanceSummary(period: Period): Promise<FinanceSummary>
   const [orderTotals, refunds, lines, expenseTotal] = await Promise.all([
     prisma.order.aggregate({
       where: paidInPeriod,
-      _sum: { subtotal: true, shippingCharge: true },
+      _sum: { subtotal: true, shippingCharge: true, discount: true },
       _count: true,
     }),
     // Grouped on refundProcessedAt, NOT createdAt: a refund belongs to the
@@ -118,7 +118,9 @@ export async function getFinanceSummary(period: Period): Promise<FinanceSummary>
     costOfGoods += money(line.costPrice) * line.quantity;
   }
 
-  const productRevenue = money(orderTotals._sum.subtotal);
+  // Net of coupon discounts: revenue is the money actually received for the
+  // products, and a coupon is money never received — not an expense.
+  const productRevenue = money(orderTotals._sum.subtotal) - money(orderTotals._sum.discount);
   const shippingCollected = money(orderTotals._sum.shippingCharge);
   const refunded = money(refunds._sum.refundAmount);
   const expenses = money(expenseTotal._sum.amount);

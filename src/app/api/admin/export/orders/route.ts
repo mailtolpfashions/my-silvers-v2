@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   const csv = toCsv(
     [
       "orderNumber", "date", "customer", "email", "items", "subtotal",
-      "shipping", "total", "paymentMethod", "paymentStatus", "orderStatus",
+      "shipping", "discount", "coupon", "total", "paymentMethod", "paymentStatus", "orderStatus",
       "trackingNumber", "courier",
     ],
     orders.map((o) => [
@@ -44,6 +44,8 @@ export async function GET(req: NextRequest) {
       o.items.map((i) => `${i.name} x${i.quantity}`).join("; "),
       o.subtotal.toString(),
       o.shippingCharge.toString(),
+      o.discount.toString(),
+      o.couponCode ?? "",
       o.totalAmount.toString(),
       o.paymentMethod,
       o.paymentStatus,

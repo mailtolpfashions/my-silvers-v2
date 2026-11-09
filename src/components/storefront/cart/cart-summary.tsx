@@ -1,8 +1,12 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { StickyActionBar } from "@/components/storefront/sticky-action-bar";
 import { formatINRPaise } from "@/lib/format";
 import { shippingChargePaise, type ShippingRates } from "@/server/orders/money";
+import { useCoupon } from "@/components/storefront/cart/use-coupon";
+import { CouponBox } from "@/components/storefront/cart/coupon-box";
 
 /**
  * The order summary.
@@ -33,8 +37,12 @@ export function CartSummary({
   savedPaise?: number;
   rates: ShippingRates;
 }) {
+  // Shipping is judged on the subtotal BEFORE any coupon — see
+  // server/coupons/coupons.ts — so applying a code never adds a delivery charge.
   const shippingPaise = shippingChargePaise(subtotalPaise, rates);
-  const totalPaise = subtotalPaise + shippingPaise;
+  const coupon = useCoupon(subtotalPaise);
+  const couponPaise = coupon.discountPaise;
+  const totalPaise = subtotalPaise - couponPaise + shippingPaise;
   const remainingForFree = rates.freeShippingThresholdPaise - subtotalPaise;
 
   /**
@@ -66,7 +74,7 @@ export function CartSummary({
    * adding up the strikes would land on a bigger number than the total claims
    * and conclude one of them is wrong. Every figure in this block reconciles.
    */
-  const totalSavedPaise = savedPaise + shippingSavedPaise;
+  const totalSavedPaise = savedPaise + shippingSavedPaise + couponPaise;
 
   return (
     <>
@@ -121,6 +129,15 @@ export function CartSummary({
               </span>
             </dd>
           </div>
+          {/* The coupon as its own line, not folded into the subtotal: the
+              subtotal's strike is the SALE saving, and the two are different
+              promises a shopper may want to check separately. */}
+          {couponPaise > 0 && (
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Coupon ({coupon.code})</dt>
+              <dd className="figures">−{formatINRPaise(couponPaise)}</dd>
+            </div>
+          )}
           {/* Two different jobs, so never both at once.
               Under the threshold the shopper can still act, and the actionable
               form of this fact is what is missing rather than what the rule is.
@@ -158,6 +175,10 @@ export function CartSummary({
         {totalSavedPaise > 0 && (
           <p className="saving mt-3">You saved {formatINRPaise(totalSavedPaise)} on this order</p>
         )}
+
+        <div className="mt-5">
+          <CouponBox coupon={coupon} />
+        </div>
 
         {/* Hidden on mobile — the sticky bar is the button there, and two
             checkout buttons on one screen is a question, not a shortcut. */}

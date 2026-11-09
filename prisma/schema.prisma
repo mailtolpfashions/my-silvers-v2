@@ -316,6 +316,39 @@ model CartItem {
   @@unique([cartId, productId, size])
 }
 
+enum CouponType {
+  percent
+  flat
+}
+
+/// A discount code — see src/server/coupons/coupons.ts for the rules.
+model Coupon {
+  id               String     @id @default(cuid())
+  /// Stored upper-case; matched case-insensitively by upper-casing the input.
+  code             String     @unique
+  /// Admin-only note ("Launch offer, Instagram").
+  description      String?
+  type             CouponType
+  /// Percent (1–90) for `percent`; rupees for `flat`.
+  value            Decimal    @db.Decimal(10, 2)
+  /// Product subtotal needed, in rupees, before the discount.
+  minOrderValue    Decimal?   @db.Decimal(10, 2)
+  /// Cap on a percent discount, in rupees ("10% off, up to ₹500").
+  maxDiscount      Decimal?   @db.Decimal(10, 2)
+  startsAt         DateTime?
+  endsAt           DateTime?
+  /// Total uses across all customers. Null = unlimited.
+  usageLimit       Int?
+  onePerCustomer   Boolean    @default(true)
+  /// No earlier order from this email OR this mobile number.
+  firstOrderOnly   Boolean    @default(false)
+  active           Boolean    @default(true)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  orders Order[]
+}
+
 /// Who to email when a sold-out piece comes back.
 model StockNotification {
   id        String   @id @default(cuid())
@@ -465,9 +498,18 @@ model Order {
   invoicedAt           DateTime?
   /// Snapshot, so a future rate change cannot reprint old invoices differently.
   gstRatePercent       Decimal?      @db.Decimal(5, 2)
+  /// Coupon discount on the PRODUCTS (never shipping or gift wrap), already
+  /// subtracted in totalAmount. Zero on orders without a coupon.
+  discount             Decimal       @default(0) @db.Decimal(10, 2)
+  /// The code as applied — a snapshot, so the order still says LAUNCH10 after
+  /// the coupon is edited or deleted.
+  couponCode           String?
+  coupon               Coupon?       @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  couponId             String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
+  @@index([couponId])
   @@unique([userId, idempotencyKey])
   @@index([razorpayOrderId])
   @@index([paymentStatus, createdAt]) // for the 24h stale-pending cron sweep
