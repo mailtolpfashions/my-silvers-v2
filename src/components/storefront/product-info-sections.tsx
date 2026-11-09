@@ -30,6 +30,8 @@ export async function ProductInfoSections({
   product,
 }: {
   product: {
+    /** Plain text; blank lines separate paragraphs (as the CSV import writes it). */
+    description: string | null;
     purity: string;
     weight: { toString(): string } | null;
     material: string | null;
@@ -67,6 +69,27 @@ export async function ProductInfoSections({
 
   return (
     <div className="mt-10 border-t">
+      {/* The piece in words. It was stored on every product but shown nowhere —
+          only the one-line short description under the title reached the page,
+          and Google saw the long text in metadata alone. Open by default: it
+          is the most specific thing on the page about THIS piece, and visible
+          text is what search engines and AI assistants actually read.
+          Plain text, not HTML — paragraphs split on blank lines, so nothing a
+          CSV row contains can inject markup. */}
+      {product.description?.trim() && (
+        <Expandable title="Description" defaultOpen>
+          <div className="space-y-3 leading-relaxed">
+            {product.description
+              .split(/\n\s*\n/)
+              .map((p) => p.trim())
+              .filter(Boolean)
+              .map((p, i) => (
+                <p key={i}>{p}</p>
+              ))}
+          </div>
+        </Expandable>
+      )}
+
       {/* Open by default: measurements are the one thing a shopper reliably
           wants before buying jewellery online, and a closed row means everyone
           pays a click for it. */}
