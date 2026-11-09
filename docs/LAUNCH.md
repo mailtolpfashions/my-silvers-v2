@@ -52,6 +52,20 @@ migrations hang forever, or the app exhausts connection slots under load.
 DIRECT_URL="<direct connection string>" npx prisma migrate deploy
 ```
 
+**Day to day, use `.env.live` instead.** `.env` always holds the DEV database
+(the dev server, the e2e suite and the demo scripts read it — and the e2e suite
+writes). The live `DATABASE_URL`, `DIRECT_URL` and Upstash values go in
+`.env.live`, which git ignores and Next.js never loads, and are used only by:
+
+```bash
+npm run db:live:status     # which migrations live is missing (read-only)
+npm run db:live:migrate    # apply them
+npm run live -- <command>  # any one-off command against live
+```
+
+`scripts/with-live-env.mjs` refuses to run if `.env.live` points at the dev
+project, and never prints a connection string.
+
 Then confirm the two things migrations alone do not guarantee:
 
 ```sql
