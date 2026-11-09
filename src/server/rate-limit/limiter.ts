@@ -87,7 +87,20 @@ export const TIERS = {
   guestOrderIp: { tokens: 40, window: "30 m", prefix: "rl:guestorderip" },
   order: { tokens: 10, window: "15 m", prefix: "rl:order" },
   orderOps: { tokens: 15, window: "15 m", prefix: "rl:orderops" },
-  webhook: { tokens: 10, window: "1 m", prefix: "rl:webhook" },
+  /**
+   * Razorpay webhooks, keyed by IP.
+   *
+   * ⚠️  Was 10/min. Razorpay sends every webhook from a small fixed set of
+   * addresses, so this is effectively a ceiling on the WHOLE SHOP's payment
+   * confirmations, not on one caller — a festive-sale minute with a dozen
+   * payments would 429 the rest. Razorpay retries, so nothing was lost, but
+   * confirmation emails and stock decrements lagged behind real payments.
+   *
+   * 120/min, matching Shiprocket's tier below. The route verifies an HMAC on
+   * every body before doing any work, so this limit exists only to bound how
+   * much hashing a flood can cause — not to keep forgeries out.
+   */
+  webhook: { tokens: 120, window: "1 m", prefix: "rl:webhook" },
   /**
    * Courier tracking, which is a different shape of traffic from payments.
    *
