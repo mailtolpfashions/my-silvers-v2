@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/server/db";
 import { auth } from "@/server/auth/auth";
+import { sendEmailConfirmation } from "@/server/auth/email-verification";
+import { checkRateLimit, RATE_LIMIT_MESSAGE } from "@/server/rate-limit/limiter";
 import {
   addressSchema,
   profileSchema,
@@ -307,4 +309,23 @@ export async function setDefaultAddressAction(
 
   revalidatePath("/account/addresses");
   return { success: "Default address updated." };
+}
+
+/**
+ * "Resend link" on the account banner. Rate limited per account: each call
+ * sends a real email, and Resend bills by the message.
+ */
+export async function resendEmailConfirmationAction(): Promise<{ ok: boolean; message: string }> {
+  const id = await requireUserId();
+  if (!(await checkRateLimit("auth", `resend-confirm:${id}`))) {
+    return { ok: false, message: RATE_LIMIT_MESSAGE };
+  }
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { email: true, name: true, emailVerified: true },
+  });
+  if (!user) return { ok: false, message: "Please sign in again." };
+  if (user.emailVerified) return { ok: true, message: "Your email is already confirmed." };
+  await sendEmailConfirmation(user);
+  return { ok: true, message: `We've sent a new link to ${user.email}.` };
 }

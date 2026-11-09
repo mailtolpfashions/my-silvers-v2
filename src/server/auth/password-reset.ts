@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/server/db";
-import { sendPasswordResetEmail } from "@/server/email/resend";
+import { sendPasswordResetEmail, sendPasswordSetupEmail } from "@/server/email/resend";
 
 const RESET_TOKEN_EXPIRY_MS = 30 * 60 * 1000;
 
@@ -12,10 +12,22 @@ function hashToken(token: string) {
 /**
  * Always resolves without revealing whether the email exists — callers
  * should show the same "check your email" message either way.
+ *
+ * Three kinds of row behind an email:
+ *   - a password account → the usual reset link;
+ *   - a GUEST row (no password, no Google sign-in) → a "set your password"
+ *     link. These used to get nothing, so anyone who had ever checked out as a
+ *     guest could neither register ("already exists") nor reset — a dead end;
+ *   - Google-only → nothing; they sign in with Google.
  */
 export async function requestPasswordReset(email: string) {
-  const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-  if (!user || !user.passwordHash) return; // no account, or OAuth-only account
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+    select: { id: true, email: true, passwordHash: true, _count: { select: { accounts: true } } },
+  });
+  if (!user) return;
+  const isGuestRow = !user.passwordHash && user._count.accounts === 0;
+  if (!user.passwordHash && !isGuestRow) return; // Google-only account
 
   const rawToken = crypto.randomBytes(32).toString("hex");
   await prisma.user.update({
@@ -36,7 +48,8 @@ export async function requestPasswordReset(email: string) {
    * The log is how the shop finds out instead.
    */
   try {
-    await sendPasswordResetEmail(user.email, rawToken);
+    if (isGuestRow) await sendPasswordSetupEmail(user.email, rawToken);
+    else await sendPasswordResetEmail(user.email, rawToken);
   } catch (err) {
     console.error("[email] password-reset failed", err);
   }
@@ -61,6 +74,9 @@ export async function resetPassword(rawToken: string, newPassword: string) {
       passwordResetExpiresAt: null,
       failedLoginAttempts: 0,
       lockedUntil: null,
+      // The link reached this inbox, so the address is proven — the same proof
+      // the confirmation link gives. See server/auth/email-verification.ts.
+      emailVerified: user.emailVerified ?? new Date(),
     },
   });
 }

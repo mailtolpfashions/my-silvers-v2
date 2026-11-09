@@ -10,11 +10,16 @@ declare module "@auth/core/types" {
     user: {
       id: string;
       role: Role;
+      /** See server/auth/password-fingerprint.ts. Absent on sessions issued
+       *  before it existed. */
+      pwf?: string;
     } & DefaultSession["user"];
   }
 
   interface User {
     role: Role;
+    pwf?: string;
+    passwordHash?: string | null;
   }
 }
 
@@ -22,5 +27,6 @@ declare module "@auth/core/jwt" {
   interface JWT {
     id: string;
     role: Role;
+    pwf?: string;
   }
 }

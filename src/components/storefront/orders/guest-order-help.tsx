@@ -99,7 +99,8 @@ function SaveToAccount({ claim }: { claim: { orderId: string; token: string; ema
       <input type="hidden" name="orderId" value={claim.orderId} />
       <input type="hidden" name="token" value={claim.token} />
       <p className="text-sm">
-        You&apos;ll sign in with <span className="font-medium">{claim.email}</span>.
+        You&apos;ll sign in with <span className="font-medium">{claim.email}</span>. We&apos;ll
+        email you a link to confirm it — after that, this order shows in your account.
       </p>
       {message && <p className="text-sm text-destructive">{message}</p>}
       <div className="space-y-1.5">

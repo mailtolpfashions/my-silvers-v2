@@ -29,7 +29,7 @@ async function OrdersList() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login?redirect=/account/orders");
 
-  const orders = await getUserOrders(session.user.id);
+  const orders = await getUserOrders(session.user);
 
   if (orders.length === 0) {
     return (

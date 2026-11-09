@@ -7,6 +7,7 @@ import { buildInvoice } from "@/server/orders/invoice";
 import { InvoiceDocument } from "@/components/orders/invoice-document";
 import { PrintButton } from "@/components/orders/print-button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { accountOrderScope } from "@/server/auth/email-verification";
 
 export const metadata = { title: "Tax invoice" };
 
@@ -41,7 +42,9 @@ async function Invoice({ params }: { params: Promise<{ id: string }> }) {
   if (!session?.user?.id) redirect(`/login?redirect=/account/orders/${id}/invoice`);
 
   const order = await prisma.order.findFirst({
-    where: { id, userId: session.user.id },
+    // accountOrderScope, not a bare userId: an unconfirmed account must not
+    // print an invoice — name, address, phone — for a guest order.
+    where: { id, ...(await accountOrderScope(session.user)) },
     include: { items: true, user: true },
   });
   if (!order) notFound();

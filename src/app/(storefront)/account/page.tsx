@@ -5,6 +5,8 @@ import { ChevronRight } from "lucide-react";
 import { auth } from "@/server/auth/auth";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { isUserEmailConfirmed } from "@/server/auth/email-verification";
+import { ConfirmEmailBanner } from "@/components/storefront/account/confirm-email-banner";
 
 /**
  * The account hub.
@@ -71,6 +73,8 @@ async function Greeting() {
   const session = await auth();
   if (!session?.user) redirect("/login?redirect=/account");
 
+  const confirmed = await isUserEmailConfirmed(session.user.id);
+
   return (
     <>
       <h1 className="text-h1">
@@ -79,6 +83,7 @@ async function Greeting() {
         {session.user.name ? `Hello, ${session.user.name.split(" ")[0]}` : "Your account"}
       </h1>
       <p className="mt-3 text-sm text-muted-foreground">{session.user.email}</p>
+      {!confirmed && session.user.email && <ConfirmEmailBanner email={session.user.email} />}
     </>
   );
 }

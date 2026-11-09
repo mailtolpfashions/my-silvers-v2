@@ -41,6 +41,7 @@ export async function submitReviewAction(input: unknown) {
 
     await upsertReview({
       userId: session.user.id,
+      pwf: session.user.pwf,
       productId: parsed.data.productId,
       rating: parsed.data.rating,
       title: parsed.data.title || undefined,

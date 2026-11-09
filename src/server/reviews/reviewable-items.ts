@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { accountOrderScope } from "@/server/auth/email-verification";
 import type { ReviewStatus } from "@/generated/prisma/enums";
 
 export type ReviewableItem = {
@@ -35,10 +36,11 @@ export type ReviewableItem = {
  */
 export async function getReviewableItems(
   orderId: string,
-  userId: string
+  owner: { id: string; pwf?: string }
 ): Promise<Map<string, ReviewableItem>> {
+  const userId = owner.id;
   const order = await prisma.order.findFirst({
-    where: { id: orderId, userId, orderStatus: "delivered" },
+    where: { id: orderId, ...(await accountOrderScope(owner)), orderStatus: "delivered" },
     select: { items: { select: { id: true, productId: true } } },
   });
   if (!order) return new Map();

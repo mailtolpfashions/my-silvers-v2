@@ -13,7 +13,15 @@ export function RegisterForm() {
   return (
     <form action={formAction} className="space-y-4">
       {error && (
-        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        // The action returns one string for both outcomes; "We've emailed…"
+        // (a past guest finishing their account) is news, not an error.
+        <p
+          className={
+            error.startsWith("We've emailed")
+              ? "rounded-md bg-muted px-3 py-2 text-sm"
+              : "rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          }
+        >
           {error}
         </p>
       )}

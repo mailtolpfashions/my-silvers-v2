@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { accountOrderScope } from "@/server/auth/email-verification";
 import type { OrderStatus } from "@/generated/prisma/client";
 import { restoreStock } from "@/server/products/stock";
 import type { SortDir } from "@/server/products/admin";
@@ -207,9 +208,14 @@ export async function schedulePickupForOrder(orderId: string) {
 }
 
 /** Customer-side: request a return — only from 'delivered'. */
-export async function requestReturn(orderId: string, userId: string, reason: string) {
+export async function requestReturn(
+  orderId: string,
+  owner: { id: string; pwf?: string },
+  reason: string,
+) {
   const claim = await prisma.order.updateMany({
-    where: { id: orderId, userId, orderStatus: "delivered" },
+    // Scoped like every customer-side order action — see accountOrderScope.
+    where: { id: orderId, ...(await accountOrderScope(owner)), orderStatus: "delivered" },
     data: {
       orderStatus: "return_requested",
       returnReason: reason,

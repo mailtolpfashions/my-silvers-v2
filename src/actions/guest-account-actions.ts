@@ -4,6 +4,7 @@ import { AuthError } from "next-auth";
 import { signIn } from "@/server/auth/auth";
 import { claimGuestAccount, GuestAccountError } from "@/server/orders/guest-account";
 import { checkIpRateLimit, RATE_LIMIT_MESSAGE } from "@/server/rate-limit/limiter";
+import { sendEmailConfirmation } from "@/server/auth/email-verification";
 
 /** Returns an error message, or nothing — success redirects. */
 export async function saveOrderToAccountAction(
@@ -28,11 +29,17 @@ export async function saveOrderToAccountAction(
     throw error;
   }
 
+  // The order link proves possession of this ORDER, not of the inbox, so the
+  // account starts unconfirmed: its guest orders (this one included) stay out
+  // of /account until the emailed link is clicked. Hence the redirect back to
+  // the order's own page rather than /account/orders/…, which would 404.
+  await sendEmailConfirmation({ email });
+
   try {
     await signIn("credentials", {
       email,
       password,
-      redirectTo: `/account/orders/${orderId}`,
+      redirectTo: `/orders/${orderId}?ot=${token}`,
     });
   } catch (error) {
     // signIn redirects by throwing; only a real AuthError is a failure.

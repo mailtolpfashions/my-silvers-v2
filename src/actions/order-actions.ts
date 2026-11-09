@@ -252,7 +252,7 @@ export async function requestReturnAction(orderId: string, reason: string) {
   }
 
   try {
-    await requestReturn(orderId, session.user.id, trimmed.slice(0, 500));
+    await requestReturn(orderId, session.user, trimmed.slice(0, 500));
     revalidatePath(`/account/orders/${orderId}`);
     return { ok: true as const };
   } catch (err) {
@@ -270,7 +270,7 @@ export async function cancelOrderAction(orderId: string) {
   }
 
   try {
-    const result = await cancelOrder({ orderId, userId: session.user.id });
+    const result = await cancelOrder({ orderId, owner: session.user });
     revalidatePath("/account/orders");
     revalidatePath(`/account/orders/${orderId}`);
     return { ok: true as const, refunded: result.refunded };
