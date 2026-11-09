@@ -523,7 +523,12 @@ export function CheckoutForm({
         guestEmail: isAuthed ? undefined : form.email,
         guestItems: isAuthed
           ? undefined
-          : readGuestCart().map((i) => ({ productId: i.productId, quantity: i.quantity })),
+          : // The size goes too — without it every ring or bangle was refused.
+            readGuestCart().map((i) => ({
+              productId: i.productId,
+              quantity: i.quantity,
+              size: i.size,
+            })),
       });
 
       if (!result.ok) {

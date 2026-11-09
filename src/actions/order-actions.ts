@@ -78,8 +78,23 @@ const placeOrderSchema = z.object({
   idempotencyKey: z.string().uuid(),
   couponCode: z.string().trim().max(40).optional().or(z.literal("")),
   guestEmail: z.string().trim().email().optional(),
+  /**
+   * ⚠️  `size` must be here. It was missing, so zod stripped it, and every
+   * guest order for a sized piece (rings, bangles) reached create-order with
+   * no size and was refused as "no longer available in that size" — while
+   * the shopper had chosen one and the stock was there. Signed-in checkout
+   * reads the DB cart, which keeps the size, so only guests hit it.
+   */
   guestItems: z
-    .array(z.object({ productId: z.string().min(1), quantity: z.number().int().min(1).max(10) }))
+    .array(
+      z.object({
+        productId: z.string().min(1),
+        quantity: z.number().int().min(1).max(10),
+        // "" for an unsized piece. create-order checks it against the
+        // product's real sizes, so a forged value is refused there.
+        size: z.string().trim().max(30).optional(),
+      }),
+    )
     .max(50)
     .optional(),
 });
