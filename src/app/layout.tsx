@@ -66,6 +66,21 @@ const dmMono = DM_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.mysilvers.in"),
+  /**
+   * Search-console ownership tags, from Vercel env vars so a code can be
+   * added or changed without a code change. Each is optional; an unset one
+   * emits nothing. (DNS verification works too and needs none of this.)
+   *   GOOGLE_SITE_VERIFICATION — Google Search Console, "HTML tag" method
+   *   BING_SITE_VERIFICATION   — Bing Webmaster Tools, "Meta tag" method.
+   *     Bing's index is what ChatGPT's web search reads, so this one matters
+   *     for AI assistants as much as for Bing itself.
+   */
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
+    other: process.env.BING_SITE_VERIFICATION
+      ? { "msvalidate.01": process.env.BING_SITE_VERIFICATION }
+      : undefined,
+  },
   title: {
     default: "MY Silvers | Luxury 925 Sterling Silver Jewellery",
     template: "%s | MY Silvers",
