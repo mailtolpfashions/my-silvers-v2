@@ -23,6 +23,8 @@
  * and refreshed after eight, with a single re-login retry on a 401 so an early
  * expiry costs one extra round trip rather than a failed shipment.
  */
+import { kvGet, kvSet, kvDelete } from "@/server/cache/kv";
+
 const BASE = "https://apiv2.shiprocket.in/v1/external";
 const TOKEN_TTL_MS = 8 * 24 * 60 * 60 * 1000;
 
@@ -136,11 +138,30 @@ async function login(): Promise<string> {
   return data.token;
 }
 
+/**
+ * The token is also kept in the shared cache (server/cache/kv.ts).
+ *
+ * ⚠️  In-module alone was not enough: on Vercel most requests land on a fresh
+ * serverless instance with an empty module, so most pincode checks paid for a
+ * full Shiprocket login (~1–2s) before the lookup itself — on the checkout
+ * page, while the shopper waited. One login now serves every instance for
+ * eight days, and fewer logins also means less risk of the account lock
+ * described above.
+ */
+const TOKEN_KV_KEY = "shiprocket:token";
+
 async function getToken(): Promise<string> {
   if (cachedToken && Date.now() - cachedToken.fetchedAt < TOKEN_TTL_MS) {
     return cachedToken.token;
   }
-  return login();
+  const shared = await kvGet<{ token: string; fetchedAt: number }>(TOKEN_KV_KEY);
+  if (shared && Date.now() - shared.fetchedAt < TOKEN_TTL_MS) {
+    cachedToken = shared;
+    return shared.token;
+  }
+  const token = await login();
+  await kvSet(TOKEN_KV_KEY, cachedToken, Math.floor(TOKEN_TTL_MS / 1000));
+  return token;
 }
 
 /**
@@ -165,6 +186,7 @@ async function srFetch(
 
   if (res.status === 401 && !retried) {
     cachedToken = null; // token expired early — re-login once
+    await kvDelete(TOKEN_KV_KEY);
     return srFetch(path, body, true);
   }
 
@@ -473,4 +495,32 @@ export async function checkServiceability(input: {
     cheapestRate: couriers[0]?.rate ?? null,
     couriers,
   };
+}
+
+/**
+ * checkServiceability for the SHOPPER's delivery estimate, remembered for six
+ * hours per pincode in the shared cache.
+ *
+ * A pincode's couriers and transit days barely move within a day, and the
+ * same handful of pincodes are asked about over and over (every checkout, every
+ * product page delivery check, every re-type). Uncached, each one was a
+ * Shiprocket round trip on the checkout page. Anything that BOOKS a courier
+ * must call checkServiceability directly for live rates — this is for display.
+ *
+ * Failures are not cached: an outage should be retried on the next check, not
+ * remembered for six hours.
+ */
+const SERVICEABILITY_TTL_SECONDS = 6 * 60 * 60;
+
+export async function checkServiceabilityCached(input: {
+  deliveryPincode: string;
+  weightKg: number;
+  cod: boolean;
+}): Promise<Serviceability> {
+  const key = `shiprocket:svc:${process.env.SHIPROCKET_PICKUP_PINCODE ?? ""}:${input.deliveryPincode}:${input.weightKg}:${input.cod ? 1 : 0}`;
+  const hit = await kvGet<Serviceability>(key);
+  if (hit) return hit;
+  const fresh = await checkServiceability(input);
+  await kvSet(key, fresh, SERVICEABILITY_TTL_SECONDS);
+  return fresh;
 }

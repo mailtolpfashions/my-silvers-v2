@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { prisma } from "@/server/db";
 import type { Order } from "@/generated/prisma/client";
 import { decrementStock } from "@/server/products/stock";
@@ -127,21 +128,26 @@ export async function fulfillOrder(input: {
       console.error("cart clear failed after payment", order.orderNumber, err);
     }
     timer.step("cart-clear");
-    try {
-      const user = await prisma.user.findUnique({ where: { id: order.userId } });
-      if (user) {
-        await sendOrderConfirmationEmail({
-          to: user.email,
-          orderNumber: order.orderNumber,
-          totalAmount: order.totalAmount.toString(),
-          orderId: order.id,
-          confirmationToken: order.confirmationToken,
-        });
+    // The email goes out AFTER the response — the shopper waiting on "Confirming
+    // your payment" should not also wait on Resend. Both callers (the verify
+    // action and the Razorpay webhook) run inside a request, which after() needs.
+    after(async () => {
+      try {
+        const user = await prisma.user.findUnique({ where: { id: order.userId } });
+        if (user) {
+          await sendOrderConfirmationEmail({
+            to: user.email,
+            orderNumber: order.orderNumber,
+            totalAmount: order.totalAmount.toString(),
+            orderId: order.id,
+            confirmationToken: order.confirmationToken,
+          });
+        }
+      } catch (err) {
+        console.error("order-confirmation email failed", order.orderNumber, err);
       }
-    } catch (err) {
-      console.error("order-confirmation email failed", order.orderNumber, err);
-    }
-    timer.step("email");
+    });
+    timer.step("email-scheduled");
 
     timer.done(order.orderNumber, "fulfilled");
     return { alreadyHandled: false, order: updated };

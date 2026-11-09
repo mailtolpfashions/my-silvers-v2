@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import crypto from "node:crypto";
 import { prisma } from "@/server/db";
 import { Prisma } from "@/generated/prisma/client";
@@ -412,17 +413,23 @@ export async function createOrder(input: {
 
   // ── Post-commit side effects (never block or fail the order) ──
   if (input.paymentMethod === "cod") {
-    try {
-      await sendOrderConfirmationEmail({
-        to: email,
-        orderNumber: order.orderNumber,
-        totalAmount: order.totalAmount.toString(),
-        orderId: order.id,
-        confirmationToken: order.confirmationToken,
-      });
-    } catch (err) {
-      console.error("order-confirmation email failed", order.orderNumber, err);
-    }
+    // after(): sent once the response has gone, so the shopper reaches the
+    // thank-you page without waiting on Resend (~0.5s). The order is already
+    // committed; a failed send is logged, as before.
+    const placed = order;
+    after(async () => {
+      try {
+        await sendOrderConfirmationEmail({
+          to: email,
+          orderNumber: placed.orderNumber,
+          totalAmount: placed.totalAmount.toString(),
+          orderId: placed.id,
+          confirmationToken: placed.confirmationToken,
+        });
+      } catch (err) {
+        console.error("order-confirmation email failed", placed.orderNumber, err);
+      }
+    });
   }
 
   return {
