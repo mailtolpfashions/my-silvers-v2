@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+/**
+ * No JIT. Zod 4 probes for eval with `Function("")` the first time it parses,
+ * to compile faster validators. The site's Content Security Policy forbids
+ * eval, so in the browser that probe is refused (zod then falls back to this
+ * same mode) — but every refusal is logged as a CSP violation on checkout.
+ * Saying so up front skips the probe. Set here because this is the schema
+ * module the checkout and account forms load in the browser; the forms are
+ * small and the interpreted path is plenty fast.
+ */
+z.config({ jitless: true });
+
 /** A customer may keep at most this many saved delivery addresses. */
 export const MAX_ADDRESSES = 5;
 

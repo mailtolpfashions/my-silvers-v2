@@ -34,7 +34,7 @@ const allowPlaceholderImages =
  * `object-src 'none'`, `base-uri 'self'`, `form-action 'self'` and a locked
  * `frame-ancestors`, which close the escalation routes an XSS would reach for.
  *
- * Rolled out as Report-Only first (see the header key below). Watch the browser
+ * Rolled out as Report-Only first, then enforced (see the header key below). Watch the browser
  * console on checkout, the CMS editor and the media library — those are the
  * three places that load third-party origins — then switch the key to
  * `Content-Security-Policy` to enforce.
@@ -50,13 +50,16 @@ const csp = (frameAncestors: "'none'" | "'self'") => [
   "default-src 'self'",
   // 'unsafe-inline': see the note above. 'unsafe-eval' is dev-only — React uses
   // eval to rebuild server error stacks in the browser; production needs neither.
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://checkout.razorpay.com`,
+  // cdn.razorpay.com: checkout.js loads Razorpay's risk-detection bundle from
+  // there before opening the payment modal — found by opening the modal under
+  // the enforced policy, where it was the one thing refused.
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://checkout.razorpay.com https://cdn.razorpay.com`,
   // Tailwind ships a stylesheet, but Next still injects inline <style> during
   // streaming, and next/font writes inline @font-face blocks.
   "style-src 'self' 'unsafe-inline'",
   // blob: and data: are needed by next/image and the Cloudinary upload widget's
   // client-side preview before bytes leave the browser.
-  "img-src 'self' data: blob: https://res.cloudinary.com https://*.cdninstagram.com https://*.fbcdn.net https://placehold.co",
+  "img-src 'self' data: blob: https://res.cloudinary.com https://cdn.razorpay.com https://*.cdninstagram.com https://*.fbcdn.net https://placehold.co",
   // next/font/google self-hosts at build time, so no external font origin here.
   "font-src 'self' data:",
   // Razorpay's checkout posts telemetry to lumberjack; Cloudinary receives the
@@ -78,9 +81,17 @@ const csp = (frameAncestors: "'none'" | "'self'") => [
 const CSP = csp("'none'");
 
 const SECURITY_HEADERS = [
-  // Report-Only while the policy is validated against the real third parties.
-  // Rename to "Content-Security-Policy" to enforce.
-  { key: "Content-Security-Policy-Report-Only", value: CSP },
+  // ENFORCED since 2026-11-09. Before switching, every storefront page, guest
+  // checkout, Google sign-in and the admin/CMS screens (media library
+  // included) were walked in a browser with the Report-Only policy and showed
+  // no violations other than zod's eval probe, now disabled in
+  // lib/validation/account.ts. The Razorpay modal could not be opened locally
+  // (test keys rejected), so cdn.razorpay.com was added to img-src from
+  // Razorpay's docs; confirm the modal on the live site after any change here.
+  //
+  // To roll back in a hurry: rename this key to
+  // "Content-Security-Policy-Report-Only" (and the one in PREVIEW_HEADERS).
+  { key: "Content-Security-Policy", value: CSP },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -116,7 +127,7 @@ const SECURITY_HEADERS = [
 const PREVIEW_HEADERS = SECURITY_HEADERS.map((header) =>
   header.key === "X-Frame-Options"
     ? { key: header.key, value: "SAMEORIGIN" }
-    : header.key === "Content-Security-Policy-Report-Only"
+    : header.key === "Content-Security-Policy"
       ? { key: header.key, value: csp("'self'") }
       : header
 );
