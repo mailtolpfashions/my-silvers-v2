@@ -62,6 +62,53 @@ export async function sendOrderConfirmationEmail(params: {
   });
 }
 
+/**
+ * "Confirm your email" — sent at sign-up. Until it is clicked, the account
+ * still works but does not show orders placed as a GUEST with this address;
+ * see server/auth/email-verification.ts for why.
+ */
+export async function sendEmailVerificationEmail(to: string, rawToken: string, name: string | null) {
+  const url = `${appBaseUrl}/verify-email?token=${rawToken}`;
+  const hello = name ? `Hi ${escapeHtml(name.split(" ")[0])},` : "Hi,";
+  await deliver("email-verification", {
+    from,
+    replyTo,
+    to,
+    subject: "Confirm your email for MY Silvers",
+    html: `
+      <p>${hello}</p>
+      <p>Welcome to MY Silvers! Please confirm this is your email address:</p>
+      <p><a href="${url}">Confirm my email</a></p>
+      <p>Once confirmed, any orders you placed as a guest with this email will show in your account too.</p>
+      <p>This link works for 7 days. If you didn't create an account, you can ignore this email.</p>
+    `,
+  });
+}
+
+/**
+ * "Set your password" — for someone who has ordered as a guest and now wants
+ * an account. Same token and page as a reset; only the words differ, because
+ * "reset your password" to a person who never had one reads as a mistake.
+ */
+export async function sendPasswordSetupEmail(to: string, rawToken: string) {
+  const url = `${appBaseUrl}/reset-password?token=${rawToken}`;
+  await deliver("password-setup", {
+    from,
+    replyTo,
+    to,
+    subject: "Set your MY Silvers password",
+    html: `
+      <p>You've shopped with us before as a guest. Set a password to turn this email into a MY Silvers account:</p>
+      <p><a href="${url}">Set my password</a></p>
+      <p>Your past orders will be waiting in your account. This link expires in 30 minutes. If you didn't ask for this, you can ignore this email.</p>
+    `,
+  });
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+}
+
 export async function sendPasswordResetEmail(to: string, rawToken: string) {
   const resetUrl = `${appBaseUrl}/reset-password?token=${rawToken}`;
   await deliver("password-reset", {

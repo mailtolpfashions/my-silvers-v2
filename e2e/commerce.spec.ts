@@ -597,6 +597,9 @@ test.describe("header menu lists come from store settings", () => {
   test("a finish added in settings reaches the header, and an emptied list hides its column", async ({
     page,
   }) => {
+    // Two settings saves, a header check and a restore: over the default 30s
+    // now that saveSettings waits for the real toast instead of returning early.
+    test.slow();
     const admin = await signInAs(page, "admin", "navmenu");
     const stamp = Date.now();
     const label = `E2E Antique ${stamp}`;

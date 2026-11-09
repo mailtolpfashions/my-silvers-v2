@@ -252,3 +252,33 @@ export async function insertPaidOrder(opts: {
   );
   return orderNumber;
 }
+
+/**
+ * A bare order for the email-confirmation tests. `guest: true` gives it a
+ * confirmationToken, which is what marks an order as placed at guest checkout
+ * (see accountOrderScope). Removed by deleteOrdersForUser.
+ */
+export async function insertOrderForUser(userId: string, guest: boolean): Promise<string> {
+  const orderId = `e2e_${crypto.randomBytes(12).toString("hex")}`;
+  const orderNumber = `E2E-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
+  await getPool().query(
+    `INSERT INTO "Order" ("id", "orderNumber", "userId", "confirmationToken", "shippingAddress",
+                          "paymentMethod", "paymentStatus", "subtotal", "shippingCharge",
+                          "totalAmount", "updatedAt")
+     VALUES ($1, $2, $3, $4, '{}'::jsonb, 'cod', 'pending', 100, 0, 100, NOW())`,
+    [orderId, orderNumber, userId, guest ? crypto.randomBytes(24).toString("hex") : null]
+  );
+  return orderNumber;
+}
+
+export async function setEmailVerified(userId: string, verified: boolean): Promise<void> {
+  await getPool().query(`UPDATE "User" SET "emailVerified" = $2 WHERE "id" = $1`, [
+    userId,
+    verified ? new Date() : null,
+  ]);
+}
+
+export async function setPassword(userId: string, password: string): Promise<void> {
+  const passwordHash = await bcrypt.hash(password, 12);
+  await getPool().query(`UPDATE "User" SET "passwordHash" = $2 WHERE "id" = $1`, [userId, passwordHash]);
+}

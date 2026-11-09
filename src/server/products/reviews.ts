@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { accountOrderScope } from "@/server/auth/email-verification";
 import { destroyReviewMedia } from "@/server/reviews/media";
 
 /** Thrown when someone tries to review a product they have not had delivered. */
@@ -54,6 +55,8 @@ export async function getProductReviews(productId: string) {
  */
 export async function upsertReview(input: {
   userId: string;
+  /** The session's fingerprint — see accountOrderScope. */
+  pwf?: string;
   productId: string;
   rating: number;
   title?: string;
@@ -68,7 +71,9 @@ export async function upsertReview(input: {
 
   const deliveredOrder = await prisma.order.findFirst({
     where: {
-      userId: input.userId,
+      // A guest order counts as this account's purchase only once its email
+      // is confirmed — otherwise a squatter could review as a verified buyer.
+      ...(await accountOrderScope({ id: input.userId, pwf: input.pwf })),
       orderStatus: "delivered",
       items: { some: { productId: input.productId } },
     },

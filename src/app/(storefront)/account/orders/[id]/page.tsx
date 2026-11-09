@@ -57,10 +57,10 @@ async function OrderDetailContent({
   if (!session?.user?.id) redirect(`/login?redirect=/account/orders/${id}`);
 
   const [order, { placed }, reviewable] = await Promise.all([
-    getUserOrder(id, session.user.id),
+    getUserOrder(id, session.user),
     searchParams,
     // Empty unless this order is delivered — reviewing is gated on receipt.
-    getReviewableItems(id, session.user.id),
+    getReviewableItems(id, session.user),
   ]);
   if (!order) notFound();
 

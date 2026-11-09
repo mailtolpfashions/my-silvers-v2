@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { accountOrderScope } from "@/server/auth/email-verification";
 import { restoreStock } from "@/server/products/stock";
 import { toPaise } from "@/server/orders/money";
 import { createRefund } from "@/server/payments/razorpay";
@@ -21,9 +22,11 @@ export class CancelError extends Error {
  * triggers a full Razorpay refund — unlike the old site, which left paid
  * cancellations to the manual return flow.
  */
-export async function cancelOrder(input: { orderId: string; userId: string }) {
+export async function cancelOrder(input: { orderId: string; owner: { id: string; pwf?: string } }) {
   const order = await prisma.order.findFirst({
-    where: { id: input.orderId, userId: input.userId },
+    // accountOrderScope: an unconfirmed account must not be able to cancel —
+    // and refund — a guest order placed with its email by someone else.
+    where: { id: input.orderId, ...(await accountOrderScope(input.owner)) },
     include: { items: true },
   });
   if (!order) throw new CancelError("NOT_FOUND", "Order not found.");

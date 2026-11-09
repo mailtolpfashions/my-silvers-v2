@@ -5,6 +5,7 @@ import { AuthError } from "next-auth";
 import { prisma } from "@/server/db";
 import { signIn } from "@/server/auth/auth";
 import { requestPasswordReset, resetPassword } from "@/server/auth/password-reset";
+import { sendEmailConfirmation } from "@/server/auth/email-verification";
 import { checkIpRateLimit, RATE_LIMIT_MESSAGE } from "@/server/rate-limit/limiter";
 import {
   isDisposableEmail,
@@ -59,13 +60,34 @@ export async function registerAction(
     return DISPOSABLE_EMAIL_MESSAGE;
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
+  const existing = await prisma.user.findUnique({
+    where: { email },
+    select: { passwordHash: true, _count: { select: { accounts: true } } },
+  });
+  if (existing?.passwordHash) {
     return "An account with this email already exists.";
+  }
+  if (existing && existing._count.accounts > 0) {
+    return "This email signs in with Google — please use “Continue with Google”.";
+  }
+  if (existing) {
+    // A past GUEST: the row exists from checkout but has no password. This
+    // used to say "already exists" — a dead end, since forgot-password also
+    // ignored password-less rows. The password is NOT set from this form: the
+    // form proves nothing about the inbox. The emailed link does, and it
+    // confirms the email in the same step (resetPassword).
+    await requestPasswordReset(email);
+    return "We've emailed you a link to finish setting up your account. Please check your inbox.";
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
-  await prisma.user.create({ data: { name, email, passwordHash, role: "customer" } });
+  const user = await prisma.user.create({
+    data: { name, email, passwordHash, role: "customer" },
+    select: { email: true, name: true },
+  });
+  // Not awaited for the user's sake — it never throws — but awaited so the
+  // send is not cut off when the action returns on a serverless runtime.
+  await sendEmailConfirmation(user);
 
   try {
     await signIn("credentials", { email, password, redirectTo: "/" });
