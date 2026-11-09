@@ -147,6 +147,12 @@ export const TIERS = {
    */
   coupon: { tokens: 30, window: "10 m", prefix: "rl:coupon" },
   /**
+   * The "Available offers" list. Looser than `coupon`: it refetches on its own
+   * as the cart total or the checkout email/mobile change, and it reveals no
+   * more than the shop chose to list.
+   */
+  offers: { tokens: 60, window: "10 m", prefix: "rl:offers" },
+  /**
    * The backstop for the above, keyed by IP: stops a script walking order
    * numbers with a list of phone numbers. Loose for the same CGNAT reason as
    * `guestOrderIp` — Jio/Airtel put thousands of shoppers behind one address.

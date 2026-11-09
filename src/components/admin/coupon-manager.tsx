@@ -19,6 +19,8 @@ import {
   setCouponActiveAction,
   deleteCouponAction,
 } from "@/actions/admin-coupon-actions";
+// The same wording the shopper sees in "Available offers".
+import { describeCoupon } from "@/lib/coupon-text";
 
 export type CouponRow = {
   id: string;
@@ -34,6 +36,8 @@ export type CouponRow = {
   usageLimit: number | null;
   onePerCustomer: boolean;
   firstOrderOnly: boolean;
+  /** Listed under "Available offers" in the cart and checkout. */
+  showToShoppers: boolean;
   active: boolean;
   /** Orders that used it and were not cancelled or left unpaid. */
   used: number;
@@ -43,19 +47,6 @@ export type CouponRow = {
 };
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-
-/** "10% off, up to ₹500 · min ₹1,000 · first order only" */
-export function describeCoupon(c: Pick<CouponRow, "type" | "value" | "maxDiscount" | "minOrderValue" | "firstOrderOnly" | "onePerCustomer">) {
-  const parts = [
-    c.type === "percent"
-      ? `${c.value}% off${c.maxDiscount ? `, up to ${inr(c.maxDiscount)}` : ""}`
-      : `${inr(c.value)} off`,
-  ];
-  if (c.minOrderValue) parts.push(`min ${inr(c.minOrderValue)}`);
-  if (c.firstOrderOnly) parts.push("first order only");
-  else if (c.onePerCustomer) parts.push("once per customer");
-  return parts.join(" · ");
-}
 
 const STATUS_VARIANT: Record<CouponRow["status"], "secondary" | "outline" | "destructive"> = {
   live: "secondary",
@@ -80,6 +71,7 @@ function CouponFormDialog({ coupon, trigger }: { coupon: CouponRow | null; trigg
     usageLimit: coupon?.usageLimit != null ? String(coupon.usageLimit) : "",
     onePerCustomer: coupon?.onePerCustomer ?? true,
     firstOrderOnly: coupon?.firstOrderOnly ?? false,
+    showToShoppers: coupon?.showToShoppers ?? true,
     active: coupon?.active ?? true,
   });
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
@@ -226,6 +218,21 @@ function CouponFormDialog({ coupon, trigger }: { coupon: CouponRow | null; trigg
               <input type="checkbox" checked={form.onePerCustomer} onChange={(e) => set("onePerCustomer", e.target.checked)} />
               Once per customer
             </label>
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={form.showToShoppers}
+                onChange={(e) => set("showToShoppers", e.target.checked)}
+              />
+              <span>
+                Show to shoppers
+                <span className="block text-xs text-muted-foreground">
+                  Listed under “Available offers” in the cart and checkout, with an Apply button.
+                  Untick for a private code that only works when typed.
+                </span>
+              </span>
+            </label>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={form.active} onChange={(e) => set("active", e.target.checked)} />
               Switched on
@@ -267,6 +274,7 @@ export function CouponManager({ coupons }: { coupons: CouponRow[] }) {
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-mono text-sm font-semibold tracking-wide">{c.code}</p>
                 <Badge variant={STATUS_VARIANT[c.status]}>{c.status}</Badge>
+                <Badge variant="outline">{c.showToShoppers ? "shown to shoppers" : "private"}</Badge>
               </div>
               <p className="mt-1 text-sm">{describeCoupon(c)}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">

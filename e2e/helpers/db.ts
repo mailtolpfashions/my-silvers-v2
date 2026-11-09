@@ -292,11 +292,12 @@ export async function createCoupon(opts: {
   maxDiscount?: number | null;
   firstOrderOnly?: boolean;
   onePerCustomer?: boolean;
+  showToShoppers?: boolean;
 }): Promise<void> {
   await getPool().query(
     `INSERT INTO "Coupon" ("id", "code", "type", "value", "minOrderValue", "maxDiscount",
-                           "firstOrderOnly", "onePerCustomer", "updatedAt")
-     VALUES ($1, $2, $3::"CouponType", $4, $5, $6, $7, $8, NOW())`,
+                           "firstOrderOnly", "onePerCustomer", "showToShoppers", "updatedAt")
+     VALUES ($1, $2, $3::"CouponType", $4, $5, $6, $7, $8, $9, NOW())`,
     [
       `e2e_${crypto.randomBytes(12).toString("hex")}`,
       opts.code,
@@ -306,6 +307,7 @@ export async function createCoupon(opts: {
       opts.maxDiscount ?? null,
       opts.firstOrderOnly ?? false,
       opts.onePerCustomer ?? true,
+      opts.showToShoppers ?? false,
     ]
   );
 }
