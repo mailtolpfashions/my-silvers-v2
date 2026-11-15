@@ -401,3 +401,33 @@ export async function insertOrderInState(
   );
   return { id, orderNumber };
 }
+
+/** A user row as the owner-tools tests need to see it. */
+export async function getUserRow(id: string): Promise<{
+  email: string;
+  name: string | null;
+  phone: string | null;
+  role: string;
+  blockedAt: Date | null;
+} | null> {
+  const { rows } = await getPool().query(
+    `SELECT "email", "name", "phone", "role", "blockedAt" FROM "User" WHERE "id" = $1`,
+    [id]
+  );
+  return rows[0] ?? null;
+}
+
+export async function getUserIdByEmail(email: string): Promise<string | null> {
+  const { rows } = await getPool().query(`SELECT "id" FROM "User" WHERE "email" = $1`, [email]);
+  return rows[0]?.id ?? null;
+}
+
+export async function orderExists(id: string): Promise<boolean> {
+  const { rows } = await getPool().query(`SELECT 1 FROM "Order" WHERE "id" = $1`, [id]);
+  return rows.length > 0;
+}
+
+export async function getOrderNote(id: string): Promise<string | null> {
+  const { rows } = await getPool().query(`SELECT "adminNote" FROM "Order" WHERE "id" = $1`, [id]);
+  return rows[0]?.adminNote ?? null;
+}

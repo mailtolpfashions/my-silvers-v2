@@ -25,6 +25,9 @@ export async function loginAction(
     });
   } catch (error) {
     if (error instanceof AuthError) {
+      if (error.cause?.err?.message === "ACCOUNT_BLOCKED") {
+        return "This account has been closed. Please contact support@mysilvers.in if you think this is a mistake.";
+      }
       if (error.cause?.err?.message === "ACCOUNT_LOCKED") {
         return "Too many failed attempts. Your account is temporarily locked — try again in 15 minutes.";
       }

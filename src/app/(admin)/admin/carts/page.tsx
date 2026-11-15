@@ -1,3 +1,6 @@
+import { ConfirmAction } from "@/components/admin/confirm-action";
+import { viewerIsOwner } from "@/components/admin/owner-only";
+import { clearCartAction, clearOldCartsAction } from "@/actions/admin-list-actions";
 import Link from "next/link";
 import Image from "next/image";
 import { Mail, Phone } from "lucide-react";
@@ -49,7 +52,7 @@ export default async function AdminCartsPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
-  const carts = await listAbandonedCarts(q);
+  const [carts, owner] = await Promise.all([listAbandonedCarts(q), viewerIsOwner()]);
   const total = carts.reduce((sum, c) => sum + c.value, 0);
 
   return (
@@ -57,6 +60,18 @@ export default async function AdminCartsPage({
       <PageHeader
         title="Abandoned carts"
         description="Signed-in shoppers with items they never checked out, untouched for at least four hours."
+        actions={
+          owner ? (
+            <ConfirmAction
+              action={clearOldCartsAction.bind(null, 30)}
+              label="Clear carts older than 30 days"
+              title="Clear carts older than 30 days?"
+              description="Every basket nobody has touched for 30 days is emptied. The shoppers' accounts are untouched."
+              confirmLabel="Clear old carts"
+              success="Old carts cleared."
+            />
+          ) : undefined
+        }
       />
 
       {/* ── Stated up front, because the number is easy to misread ──────────
@@ -134,6 +149,17 @@ export default async function AdminCartsPage({
                         >
                           <Phone className="size-4" />
                         </a>
+                      )}
+                      {owner && (
+                        <ConfirmAction
+                          action={clearCartAction.bind(null, cart.cartId)}
+                          label="Clear"
+                          variant="ghost"
+                          title={`Clear ${cart.customerName}'s cart?`}
+                          description="The items are removed from their basket. Their account is untouched."
+                          confirmLabel="Clear cart"
+                          success="Cart cleared."
+                        />
                       )}
                     </div>
                   </div>

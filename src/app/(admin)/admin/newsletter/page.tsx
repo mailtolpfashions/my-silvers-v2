@@ -7,12 +7,17 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { CopyButton } from "@/components/admin/copy-button";
 import { AdminPagination } from "@/components/admin/admin-pagination";
 import { SortableHeader } from "@/components/admin/sortable-header";
+import { AddSubscriber } from "@/components/admin/add-subscriber";
+import { ConfirmAction } from "@/components/admin/confirm-action";
+import { viewerIsOwner } from "@/components/admin/owner-only";
+import { removeSubscriberAction } from "@/actions/admin-list-actions";
 
 /**
  * A deliberately blocking route.
@@ -68,6 +73,7 @@ export default async function AdminNewsletterPage({
   searchParams: Promise<{ q?: string; page?: string; sort?: string; dir?: string }>;
 }) {
   await requireRole("admin");
+  const owner = await viewerIsOwner();
 
   const params = await searchParams;
   const { q, page: rawPage } = params;
@@ -141,6 +147,8 @@ export default async function AdminNewsletterPage({
         }
       />
 
+      {owner && <AddSubscriber />}
+
       {/* GET form, so a search is a linkable URL rather than client state. */}
       <form action="/admin/newsletter" className="flex gap-2">
         <input
@@ -188,6 +196,11 @@ export default async function AdminNewsletterPage({
                       params={params}
                     />
                   ))}
+                  {owner && (
+                    <TableHead>
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -217,6 +230,19 @@ export default async function AdminNewsletterPage({
                         <span className="rounded bg-muted px-2 py-0.5 text-xs">Unsubscribed</span>
                       )}
                     </TableCell>
+                    {owner && (
+                      <TableCell className="text-right">
+                        <ConfirmAction
+                          action={removeSubscriberAction.bind(null, subscriber.id)}
+                          label="Remove"
+                          variant="ghost"
+                          title={`Remove ${subscriber.email}?`}
+                          description="They're deleted from the list entirely, not just unsubscribed."
+                          confirmLabel="Remove"
+                          success="Subscriber removed."
+                        />
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

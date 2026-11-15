@@ -80,3 +80,22 @@ export async function resetPassword(rawToken: string, newPassword: string) {
     },
   });
 }
+
+/**
+ * Issues a set-password link for a STAFF invite or an owner-sent reset, and
+ * returns the raw token for the caller's own email. Same token storage and
+ * same /reset-password page as a customer reset — only the lifetime differs:
+ * an invite has to survive until someone reads their email, so 7 days rather
+ * than 30 minutes. A newer token replaces any older one.
+ */
+export async function issuePasswordToken(userId: string, ttlMs: number): Promise<string> {
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      passwordResetTokenHash: hashToken(rawToken),
+      passwordResetExpiresAt: new Date(Date.now() + ttlMs),
+    },
+  });
+  return rawToken;
+}

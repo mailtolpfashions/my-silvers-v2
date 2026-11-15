@@ -6,6 +6,8 @@ import { prisma } from "@/server/db";
 import { requireOwner } from "@/server/auth/require-role";
 import { logActivity } from "@/server/activity/log";
 import { ROLE_LABELS } from "@/server/auth/roles";
+import { issuePasswordToken } from "@/server/auth/password-reset";
+import { sendStaffAccessEmail } from "@/server/email/resend";
 import type { Role } from "@/generated/prisma/enums";
 
 /**
@@ -103,4 +105,100 @@ export async function setStaffRoleAction(userId: string, role: string): Promise<
   });
   revalidatePath("/admin/staff");
   return { ok: true };
+}
+
+const INVITE_DAYS = 7;
+
+/**
+ * Create a staff login directly — for someone who doesn't have a shop account
+ * yet. The owner never chooses or sees the password: the new person gets an
+ * email with a 7-day link to set their own (sendStaffAccessEmail).
+ */
+export async function createStaffAction(input: {
+  name: string;
+  email: string;
+  role: string;
+}): Promise<StaffActionResult> {
+  const session = await requireOwner();
+  const name = String(input.name ?? "").trim();
+  if (name.length < 2 || name.length > 80) return { ok: false, error: "Enter their name." };
+  const email = z.string().trim().toLowerCase().email().safeParse(input.email);
+  if (!email.success) return { ok: false, error: "That email does not look right." };
+  const role = z.enum(["admin", "editor"]).safeParse(input.role);
+  if (!role.success) return { ok: false, error: "Choose Admin or Editor." };
+
+  const existing = await prisma.user.findUnique({ where: { email: email.data }, select: { role: true } });
+  if (existing) {
+    return {
+      ok: false,
+      error:
+        existing.role === "customer"
+          ? "That email already has a shop account — use “Add an existing account” instead."
+          : "That person is already staff.",
+    };
+  }
+
+  const user = await prisma.user.create({
+    data: { email: email.data, name, role: role.data },
+    select: { id: true },
+  });
+  const token = await issuePasswordToken(user.id, INVITE_DAYS * 24 * 60 * 60 * 1000);
+  let mailed = true;
+  try {
+    await sendStaffAccessEmail({
+      to: email.data,
+      name,
+      rawToken: token,
+      roleLabel: ROLE_LABELS[role.data],
+      kind: "invite",
+      days: INVITE_DAYS,
+    });
+  } catch (err) {
+    mailed = false;
+    console.error("[staff] invite email failed", err);
+  }
+
+  await logActivity(session, {
+    action: "staff.create",
+    target: { type: "user", id: user.id },
+    summary: `Created a ${ROLE_LABELS[role.data]} login for ${email.data}`,
+  });
+  revalidatePath("/admin/staff");
+  return mailed
+    ? { ok: true, message: `Invite sent to ${email.data}. The link works for ${INVITE_DAYS} days.` }
+    : {
+        ok: true,
+        message: `Login created, but the invite email failed. Use “Send password link” to try again.`,
+      };
+}
+
+/** Email a staff member a fresh link to set their password. */
+export async function sendStaffPasswordLinkAction(userId: string): Promise<StaffActionResult> {
+  const session = await requireOwner();
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, name: true, role: true },
+  });
+  if (!user || user.role === "customer") return { ok: false, error: "That isn't a staff account." };
+
+  const token = await issuePasswordToken(user.id, INVITE_DAYS * 24 * 60 * 60 * 1000);
+  try {
+    await sendStaffAccessEmail({
+      to: user.email,
+      name: user.name,
+      rawToken: token,
+      roleLabel: ROLE_LABELS[user.role],
+      kind: "reset",
+      days: INVITE_DAYS,
+    });
+  } catch (err) {
+    console.error("[staff] reset email failed", err);
+    return { ok: false, error: "The email could not be sent. Check the email service (Resend)." };
+  }
+  await logActivity(session, {
+    action: "staff.password",
+    target: { type: "user", id: user.id },
+    summary: `Sent a password link to ${user.email}`,
+  });
+  return { ok: true, message: `Password link sent to ${user.email}.` };
 }

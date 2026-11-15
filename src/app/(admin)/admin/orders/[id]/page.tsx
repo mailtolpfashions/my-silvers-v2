@@ -14,6 +14,9 @@ import {
   SchedulePickupButton,
 } from "@/components/admin/order-row-actions";
 import { CopyButton } from "@/components/admin/copy-button";
+import { OrderOwnerTools } from "@/components/admin/order-owner-tools";
+import { viewerIsOwner } from "@/components/admin/owner-only";
+import { orderDeletable } from "@/actions/admin-order-actions";
 import { BreadcrumbLabel } from "@/components/layout/breadcrumb-label";
 
 /**
@@ -59,6 +62,7 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
   if (!order) notFound();
 
   const address = (order.shippingAddress ?? {}) as ShippingAddress;
+  const owner = await viewerIsOwner();
 
   const addressLines = [
     address.fullName,
@@ -245,13 +249,49 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
         </div>
 
         <div className="space-y-6">
+          {/* ── Owner tools, or the shop's note for everyone else ───────── */}
+          {owner ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Owner tools</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <OrderOwnerTools
+                  orderId={order.id}
+                  orderNumber={order.orderNumber}
+                  address={address}
+                  note={order.adminNote}
+                  canEditAddress={
+                    !order.shipmentCreatedAt &&
+                    !order.shiprocketOrderId &&
+                    ["placed", "confirmed", "processing"].includes(order.orderStatus)
+                  }
+                  deletable={await orderDeletable(order)}
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            order.adminNote && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Shop note</CardTitle>
+                </CardHeader>
+                <CardContent className="whitespace-pre-wrap text-sm">{order.adminNote}</CardContent>
+              </Card>
+            )
+          )}
+
           {/* ── Who ordered ─────────────────────────────────────────────── */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Customer</CardTitle>
             </CardHeader>
             <CardContent className="space-y-1 text-sm">
-              <p className="font-medium">{order.user.name ?? "—"}</p>
+              <p className="font-medium">
+                <Link href={`/admin/customers/${order.user.id}`} className="hover:underline">
+                  {order.user.name ?? "—"}
+                </Link>
+              </p>
               <p>
                 <a href={`mailto:${order.user.email}`} className="underline">
                   {order.user.email}

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireOwner, requireRole } from "@/server/auth/require-role";
 import { logActivity } from "@/server/activity/log";
 import { prisma } from "@/server/db";
+import { addressSchema, PINCODE_STATE_MISMATCH, pincodeMatchesState } from "@/lib/validation/account";
 import { OrderStatus } from "@/generated/prisma/enums";
 import {
   updateOrderStatus,
@@ -155,4 +156,131 @@ export async function processReturnAction(
     console.error("processReturnAction failed", err);
     return { ok: false, error: "Could not process the return." };
   }
+}
+
+// ─── Owner tools ─────────────────────────────────────────────────────────────
+
+/**
+ * Whether an order may be DELETED: no money ever moved, and no stock was taken.
+ *   - no Razorpay payment id (nothing captured, nothing to refund);
+ *   - payment pending or failed — never paid, never refunded;
+ *   - online orders only, or a COD order already cancelled (a live COD order
+ *     took stock when it was placed; cancelling it first gives that back).
+ * Everything else is a financial record and must stay.
+ */
+export async function orderDeletable(o: {
+  razorpayPaymentId: string | null;
+  paymentStatus: string;
+  paymentMethod: string;
+  orderStatus: string;
+}) {
+  return (
+    !o.razorpayPaymentId &&
+    (o.paymentStatus === "pending" || o.paymentStatus === "failed") &&
+    (o.paymentMethod === "razorpay" || o.orderStatus === "cancelled")
+  );
+}
+
+const orderAddressSchema = addressSchema;
+
+/** Correct the delivery address / phone — only while nothing has been booked. */
+export async function updateOrderAddressAction(
+  orderId: string,
+  input: Record<string, unknown>
+): Promise<AdminOrderActionResult> {
+  const session = await requireOwner();
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { orderNumber: true, orderStatus: true, shipmentCreatedAt: true, shiprocketOrderId: true },
+  });
+  if (!order) return { ok: false, error: "Order not found." };
+  if (
+    order.shipmentCreatedAt ||
+    order.shiprocketOrderId ||
+    !["placed", "confirmed", "processing"].includes(order.orderStatus)
+  ) {
+    return {
+      ok: false,
+      error: "The shipment is already booked — change the address with the courier instead.",
+    };
+  }
+
+  const parsed = orderAddressSchema.safeParse({ ...input, label: "", isDefault: false });
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the address." };
+  const a = parsed.data;
+  if (!pincodeMatchesState(a.pincode, a.state)) return { ok: false, error: PINCODE_STATE_MISMATCH };
+
+  await prisma.order.update({
+    where: { id: orderId },
+    data: {
+      shippingAddress: {
+        fullName: a.fullName,
+        phone: a.phone,
+        addressLine1: a.addressLine1,
+        addressLine2: a.addressLine2 ?? "",
+        city: a.city,
+        state: a.state,
+        pincode: a.pincode,
+      },
+    },
+  });
+  await logActivity(session, {
+    action: "order.address",
+    target: { type: "order", id: orderId },
+    summary: `Changed the delivery address on order ${order.orderNumber}`,
+  });
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/orders");
+  return { ok: true };
+}
+
+/** A private note on the order — staff-only, never shown to the customer. */
+export async function saveOrderNoteAction(orderId: string, note: string): Promise<AdminOrderActionResult> {
+  const session = await requireOwner();
+  const clean = String(note ?? "").trim().slice(0, 2000);
+  const order = await prisma.order.update({
+    where: { id: orderId },
+    data: { adminNote: clean || null },
+    select: { orderNumber: true },
+  });
+  await logActivity(session, {
+    action: "order.note",
+    target: { type: "order", id: orderId },
+    summary: clean ? `Updated the note on order ${order.orderNumber}` : `Cleared the note on order ${order.orderNumber}`,
+  });
+  revalidatePath(`/admin/orders/${orderId}`);
+  return { ok: true };
+}
+
+/** Delete a junk / test order — refused for anything that touched money. */
+export async function deleteOrderAction(orderId: string): Promise<AdminOrderActionResult> {
+  const session = await requireOwner();
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      orderNumber: true,
+      razorpayPaymentId: true,
+      paymentStatus: true,
+      paymentMethod: true,
+      orderStatus: true,
+      totalAmount: true,
+    },
+  });
+  if (!order) return { ok: false, error: "Order not found." };
+  if (!(await orderDeletable(order))) {
+    return {
+      ok: false,
+      error:
+        "Only unpaid or cancelled orders can be deleted. Paid orders are financial records — cancel or refund instead.",
+    };
+  }
+  await prisma.order.delete({ where: { id: orderId } });
+  await logActivity(session, {
+    action: "order.delete",
+    target: { type: "order", id: orderId },
+    summary: `Deleted order ${order.orderNumber} (₹${Number(order.totalAmount).toLocaleString("en-IN")}, ${order.paymentStatus})`,
+  });
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin");
+  return { ok: true };
 }
