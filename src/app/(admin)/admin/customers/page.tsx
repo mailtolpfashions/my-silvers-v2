@@ -179,7 +179,16 @@ export default async function AdminCustomersPage({
           <TableBody>
             {customers.map((customer) => (
               <TableRow key={customer.id}>
-                <TableCell className="text-sm font-medium">{customer.name ?? "—"}</TableCell>
+                <TableCell className="text-sm font-medium">
+                  <Link href={`/admin/customers/${customer.id}`} className="hover:underline">
+                    {customer.name ?? "—"}
+                  </Link>
+                  {customer.blockedAt && (
+                    <span className="ml-2 rounded-full border border-destructive/40 px-2 py-0.5 text-xs text-destructive">
+                      Blocked
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell className="text-sm">{customer.email}</TableCell>
                 <TableCell className="text-sm">{customer.phone ?? "—"}</TableCell>
                 <TableCell className="text-sm">

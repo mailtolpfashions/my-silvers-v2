@@ -141,6 +141,41 @@ export async function sendNewOrderAlertEmail(params: {
   });
 }
 
+/**
+ * A staff invite or an owner-sent password reset. Links to the ordinary
+ * /reset-password page, which sets the password and signs nothing in.
+ */
+export async function sendStaffAccessEmail(params: {
+  to: string;
+  name: string | null;
+  rawToken: string;
+  roleLabel: string;
+  kind: "invite" | "reset";
+  days: number;
+}) {
+  const url = `${appBaseUrl}/reset-password?token=${params.rawToken}`;
+  const hello = params.name ? `Hi ${escapeHtml(params.name.split(" ")[0])},` : "Hi,";
+  await deliver(params.kind === "invite" ? "staff-invite" : "staff-reset", {
+    from,
+    replyTo,
+    to: params.to,
+    subject:
+      params.kind === "invite"
+        ? `You've been added to the MY Silvers admin`
+        : "Set a new password for the MY Silvers admin",
+    html: `
+      <p>${hello}</p>
+      <p>${
+        params.kind === "invite"
+          ? `You've been given <strong>${escapeHtml(params.roleLabel)}</strong> access to the MY Silvers admin. Choose a password to get started:`
+          : "The shop owner has sent you a link to set a new password:"
+      }</p>
+      <p><a href="${url}">Set my password</a></p>
+      <p>Then sign in at <a href="${appBaseUrl}/login">${appBaseUrl.replace(/^https?:\/\//, "")}/login</a> with this email. The link works for ${params.days} days.</p>
+    `,
+  });
+}
+
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }

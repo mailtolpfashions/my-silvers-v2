@@ -18,6 +18,9 @@ import { evaluateCoupon, CouponError } from "@/server/coupons/coupons";
 import { sendOrderConfirmationEmail } from "@/server/email/resend";
 import { alertOwnersOfNewOrder } from "@/server/orders/owner-alert";
 
+const BLOCKED_MESSAGE =
+  "We can't take orders from this account. Please contact support@mysilvers.in.";
+
 export class OrderError extends Error {
   constructor(
     public code:
@@ -28,7 +31,8 @@ export class OrderError extends Error {
       | "PAYMENT_GATEWAY_ERROR"
       | "PAYMENT_METHOD_UNAVAILABLE"
       | "GUEST_CHECKOUT_DISABLED"
-      | "COUPON_INVALID",
+      | "COUPON_INVALID"
+      | "ACCOUNT_BLOCKED",
     message: string
   ) {
     super(message);
@@ -236,9 +240,17 @@ export async function createOrder(input: {
 
   if (userId) {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    if (user.blockedAt) throw new OrderError("ACCOUNT_BLOCKED", BLOCKED_MESSAGE);
     email = user.email;
   } else {
     if (!input.guestEmail) throw new OrderError("GUEST_EMAIL_REQUIRED", "Email is required.");
+    // A blocked customer can't get round it by checking out as a guest with
+    // the same email — the order would land on the blocked account anyway.
+    const blocked = await prisma.user.findFirst({
+      where: { email: input.guestEmail.trim().toLowerCase(), blockedAt: { not: null } },
+      select: { id: true },
+    });
+    if (blocked) throw new OrderError("ACCOUNT_BLOCKED", BLOCKED_MESSAGE);
     const guest = await resolveGuestUser(input.guestEmail, input.shippingAddress);
     userId = guest.id;
     email = guest.email;

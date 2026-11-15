@@ -30,8 +30,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const email = profile.email.toLowerCase();
       const existing = await prisma.user.findUnique({
         where: { email },
-        select: { id: true, emailVerified: true },
+        select: { id: true, emailVerified: true, blockedAt: true },
       });
+      // Blocked by the owner — Google proving the inbox doesn't lift that.
+      if (existing?.blockedAt) return false;
       if (existing && !existing.emailVerified) {
         // Google has just proved this inbox belongs to whoever is signing in.
         // Any password on the row was set without that proof — possibly by
@@ -79,6 +81,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
         if (!user || !user.passwordHash) return null;
+
+        // Blocked by the owner (Customers → Block). Checked before the
+        // password, so a blocked account learns nothing about its password.
+        if (user.blockedAt) {
+          throw new Error("ACCOUNT_BLOCKED");
+        }
 
         if (isLocked(user)) {
           throw new Error("ACCOUNT_LOCKED");

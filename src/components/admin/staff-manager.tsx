@@ -2,7 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { addStaffAction, setStaffRoleAction } from "@/actions/admin-staff-actions";
+import {
+  addStaffAction,
+  createStaffAction,
+  sendStaffPasswordLinkAction,
+  setStaffRoleAction,
+} from "@/actions/admin-staff-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,6 +56,30 @@ export function StaffManager({ staff }: { staff: StaffRow[] }) {
   const [email, setEmail] = useState("");
   const [newRole, setNewRole] = useState<"admin" | "editor">("admin");
   const [pending, setPending] = useState<Pending>(null);
+  const [mode, setMode] = useState<"existing" | "new">("existing");
+  const [newName, setNewName] = useState("");
+
+  function create(e: React.FormEvent) {
+    e.preventDefault();
+    startTransition(async () => {
+      const result = await createStaffAction({ name: newName, email, role: newRole });
+      if (result.ok) {
+        toast.success(result.message ?? "Created.");
+        setEmail("");
+        setNewName("");
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
+  function sendLink(row: StaffRow) {
+    startTransition(async () => {
+      const result = await sendStaffPasswordLinkAction(row.id);
+      if (result.ok) toast.success(result.message ?? "Sent.");
+      else toast.error(result.error);
+    });
+  }
 
   function add(e: React.FormEvent) {
     e.preventDefault();
@@ -83,12 +112,46 @@ export function StaffManager({ staff }: { staff: StaffRow[] }) {
 
   return (
     <div className="space-y-8">
-      <form onSubmit={add} className="space-y-3 rounded-lg border p-4">
-        <h2 className="text-sm font-semibold">Add a member of staff</h2>
+      <form onSubmit={mode === "new" ? create : add} className="space-y-3 rounded-lg border p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold">Add a member of staff</h2>
+          <div className="inline-flex rounded-md border p-0.5 text-xs" role="tablist">
+            {(
+              [
+                ["existing", "Existing shop account"],
+                ["new", "Create a new login"],
+              ] as const
+            ).map(([value, text]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={mode === value}
+                onClick={() => setMode(value)}
+                className={`rounded px-2.5 py-1 ${mode === value ? "bg-foreground text-background" : "text-muted-foreground"}`}
+              >
+                {text}
+              </button>
+            ))}
+          </div>
+        </div>
         <p className="text-sm text-muted-foreground">
-          They must first create an account on the shop with this email. You never need to
-          know their password.
+          {mode === "existing"
+            ? "For someone who already has an account on the shop with this email."
+            : "Creates their login and emails them a link to choose their own password (valid 7 days). You never see or set it."}
         </p>
+        {mode === "new" && (
+          <div className="space-y-1.5">
+            <Label htmlFor="staff-name">Their name</Label>
+            <Input
+              id="staff-name"
+              required
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Full name"
+            />
+          </div>
+        )}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1 space-y-1.5">
             <Label htmlFor="staff-email">Their email</Label>
@@ -113,8 +176,8 @@ export function StaffManager({ staff }: { staff: StaffRow[] }) {
               <option value="editor">Editor</option>
             </select>
           </div>
-          <Button type="submit" disabled={isPending || !email}>
-            {isPending ? "Adding…" : "Add"}
+          <Button type="submit" disabled={isPending || !email || (mode === "new" && !newName)}>
+            {isPending ? "Working…" : mode === "new" ? "Create and send invite" : "Add"}
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">{MEANS[newRole]}</p>
@@ -172,7 +235,16 @@ export function StaffManager({ staff }: { staff: StaffRow[] }) {
                       })
                     : "—"}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="whitespace-nowrap text-right">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={isPending}
+                    onClick={() => sendLink(row)}
+                    title="Email them a link to set a new password"
+                  >
+                    Send password link
+                  </Button>
                   {!row.isYou && (
                     <Button
                       variant="ghost"
