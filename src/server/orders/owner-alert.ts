@@ -1,8 +1,10 @@
 import { prisma } from "@/server/db";
 import { sendNewOrderAlertEmail } from "@/server/email/resend";
+import { resolveAlertRecipients } from "@/server/settings/order-alerts";
 
 /**
- * Emails every owner (role superadmin) about a new order.
+ * Emails the "New order" alert — to the list the owner set in Settings, or to
+ * every owner account when that list is empty (see settings/order-alerts.ts).
  *
  * Called from after() at the two moments an order becomes real: payment
  * confirmed (fulfill-order.ts) and a COD order placed (create-order.ts).
@@ -11,8 +13,8 @@ import { sendNewOrderAlertEmail } from "@/server/email/resend";
  */
 export async function alertOwnersOfNewOrder(orderId: string): Promise<void> {
   try {
-    const [owners, order] = await Promise.all([
-      prisma.user.findMany({ where: { role: "superadmin" }, select: { email: true } }),
+    const [recipients, order] = await Promise.all([
+      resolveAlertRecipients(),
       prisma.order.findUnique({
         where: { id: orderId },
         select: {
@@ -26,11 +28,11 @@ export async function alertOwnersOfNewOrder(orderId: string): Promise<void> {
         },
       }),
     ]);
-    if (!order || owners.length === 0) return;
+    if (!order || recipients.to.length === 0) return;
 
     const address = (order.shippingAddress ?? {}) as { fullName?: string; city?: string };
     await sendNewOrderAlertEmail({
-      to: owners.map((o) => o.email),
+      to: recipients.to,
       orderId: order.id,
       orderNumber: order.orderNumber,
       total: Number(order.totalAmount),

@@ -51,7 +51,7 @@ const GIFT_MESSAGE = `Happy birthday, Amma.
 With all my love.`;
 
 async function saveSettings(page: Page) {
-  await page.getByRole("button", { name: /^save/i }).click();
+  await page.getByRole("button", { name: "Save settings" }).click();
   // The exact toast, not /saved|updated/: the form's own copy says "Round
   // prices down as they are saved" and "Unsaved changes", so the loose pattern
   // matched before the click had done anything and the test raced the save.

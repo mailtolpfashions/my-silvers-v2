@@ -1,4 +1,7 @@
 import { OwnerOnlyNotice, viewerIsOwner } from "@/components/admin/owner-only";
+import { OrderAlertEmails } from "@/components/admin/order-alert-emails";
+import { getOrderAlertEmails, MAX_ALERT_EMAILS } from "@/server/settings/order-alerts";
+import { prisma } from "@/server/db";
 import { PageHeader } from "@/components/layout/page-header";
 import { getStoreSettings } from "@/server/settings/store-settings";
 import { StoreSettingsForm } from "@/components/admin/store-settings-form";
@@ -29,7 +32,12 @@ export default async function AdminSettingsPage() {
   // every customer is charged and promised. The save action re-checks.
   if (!(await viewerIsOwner())) return <OwnerOnlyNotice area="Settings" />;
 
-  const [settings, collections] = await Promise.all([getStoreSettings(), getCollections()]);
+  const [settings, collections, alertEmails, owners] = await Promise.all([
+    getStoreSettings(),
+    getCollections(),
+    getOrderAlertEmails(),
+    prisma.user.findMany({ where: { role: "superadmin" }, select: { email: true } }),
+  ]);
 
   return (
     <>
@@ -62,6 +70,13 @@ export default async function AdminSettingsPage() {
         }}
         collections={collections.map((c) => ({ slug: c.slug, title: c.title }))}
       />
+      <div className="mt-8">
+        <OrderAlertEmails
+          initial={alertEmails}
+          ownerEmails={owners.map((o) => o.email)}
+          max={MAX_ALERT_EMAILS}
+        />
+      </div>
     </>
   );
 }
