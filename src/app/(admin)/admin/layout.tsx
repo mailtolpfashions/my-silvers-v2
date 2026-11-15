@@ -3,8 +3,10 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/server/auth/auth";
 import { getCurrentRole } from "@/server/auth/require-role";
+import { isAdmin, isOwner } from "@/server/auth/roles";
 import { DashboardShell, type NavGroup } from "@/components/layout/dashboard-shell";
 import { Skeleton } from "@/components/ui/skeleton";
+import { OwnerProvider } from "@/components/admin/owner-context";
 
 /**
  * Grouped rather than one flat list: "Catalogue" is what you keep, "Commerce"
@@ -30,29 +32,30 @@ const ADMIN_NAV: NavGroup[] = [
       { href: "/admin/reviews", label: "Reviews", icon: "reviews" },
       { href: "/admin/carts", label: "Abandoned carts", icon: "carts" },
       { href: "/admin/payments", label: "Payments", icon: "payments" },
-      { href: "/admin/coupons", label: "Coupons", icon: "coupons" },
-    ],
-  },
-  {
-    // The partners' books. Everything under /admin already requires the admin
-    // role (see AdminGate below), so there is no extra gate on the group — but
-    // the readers in server/admin/finance.ts re-check anyway, because these are
-    // the most sensitive figures in the application and a page is not the only
-    // way to reach them.
-    label: "Books",
-    items: [
-      { href: "/admin/finance", label: "Finance", icon: "finance" },
       { href: "/admin/newsletter", label: "Newsletter", icon: "newsletter" },
     ],
   },
-  {
-    // Last, and on its own. These are switches that change how the shop
-    // behaves — COD, guest checkout, shipping rates — not a place you visit
-    // during the day's work, so it sits below the things you do.
-    label: "Store",
-    items: [{ href: "/admin/settings", label: "Settings", icon: "settings" }],
-  },
 ];
+
+/**
+ * The owner's own section, shown only to `superadmin`. Hiding the links is
+ * presentation only — every page here re-checks with OwnerOnly and every
+ * action and reader behind it with requireOwner(), because a link is not the
+ * only way to reach a URL.
+ *
+ * Last, and on its own: these change who can do what and how the shop
+ * behaves — money, switches, staff — not the day's work.
+ */
+const OWNER_NAV: NavGroup = {
+  label: "Owner",
+  items: [
+    { href: "/admin/staff", label: "Staff & roles", icon: "staff" },
+    { href: "/admin/activity", label: "Activity log", icon: "activity" },
+    { href: "/admin/finance", label: "Finance", icon: "finance" },
+    { href: "/admin/coupons", label: "Coupons", icon: "coupons" },
+    { href: "/admin/settings", label: "Settings", icon: "settings" },
+  ],
+};
 
 /**
  * The auth gate lives in a child behind Suspense rather than in the layout
@@ -100,15 +103,15 @@ async function AdminGate({ children }: { children: React.ReactNode }) {
   // demoted admin would keep rendering this shell until their token expired.
   // See the note in require-role.ts.
   const [session, role] = await Promise.all([auth(), getCurrentRole()]);
-  if (!session?.user || role !== "admin") {
+  if (!session?.user || !isAdmin(role)) {
     redirect("/login?redirect=/admin");
   }
 
   return (
     <DashboardShell
       title="Admin"
-      groups={ADMIN_NAV}
-      roleLabel="admin"
+      groups={isOwner(role) ? [...ADMIN_NAV, OWNER_NAV] : ADMIN_NAV}
+      roleLabel={isOwner(role) ? "owner" : "admin"}
       user={{ name: session.user.name, email: session.user.email }}
       // Declared here because only a server component can. The account menu is
       // a client dropdown and receives this as a prop — see the note in
@@ -118,7 +121,7 @@ async function AdminGate({ children }: { children: React.ReactNode }) {
         await signOut({ redirectTo: "/" });
       }}
     >
-      {children}
+      <OwnerProvider isOwner={isOwner(role)}>{children}</OwnerProvider>
     </DashboardShell>
   );
 }

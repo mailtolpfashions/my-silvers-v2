@@ -1,3 +1,4 @@
+import { OwnerOnlyNotice, viewerIsOwner } from "@/components/admin/owner-only";
 import { prisma } from "@/server/db";
 import { PageHeader } from "@/components/layout/page-header";
 import { CouponManager, type CouponRow } from "@/components/admin/coupon-manager";
@@ -12,6 +13,9 @@ function istDay(d: Date | null): string {
 }
 
 export default async function AdminCouponsPage() {
+  // Owner only: discounts are money. The actions re-check with requireOwner().
+  if (!(await viewerIsOwner())) return <OwnerOnlyNotice area="Coupons" />;
+
   const [coupons, usage] = await Promise.all([
     prisma.coupon.findMany({ orderBy: [{ active: "desc" }, { createdAt: "desc" }] }),
     // Same definition of "used" as the usage limit in server/coupons/coupons.ts:

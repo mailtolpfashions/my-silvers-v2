@@ -2,7 +2,9 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/server/auth/require-role";
+import { requireOwner, requireRole } from "@/server/auth/require-role";
+import { logActivity } from "@/server/activity/log";
+import { prisma } from "@/server/db";
 import { OrderStatus } from "@/generated/prisma/enums";
 import {
   updateOrderStatus,
@@ -16,6 +18,15 @@ import { ShiprocketError } from "@/server/integrations/shiprocket";
 
 export type AdminOrderActionResult = { ok: true } | { ok: false; error: string };
 
+/** "MS-1042" for the log — the number staff and customers actually quote. */
+async function orderLabel(orderId: string) {
+  const o = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { orderNumber: true, totalAmount: true },
+  });
+  return { number: o?.orderNumber ?? orderId, total: o ? Number(o.totalAmount) : null };
+}
+
 const statusSchema = z.enum(
   Object.values(OrderStatus) as [OrderStatus, ...OrderStatus[]]
 );
@@ -24,10 +35,17 @@ export async function updateOrderStatusAction(
   orderId: string,
   status: string
 ): Promise<AdminOrderActionResult> {
-  await requireRole("admin");
+  const session = await requireRole("admin");
   const parsed = statusSchema.safeParse(status);
   if (!parsed.success) return { ok: false, error: "Invalid status." };
+  const before = await prisma.order.findUnique({ where: { id: orderId }, select: { orderStatus: true } });
   await updateOrderStatus(orderId, parsed.data);
+  const { number } = await orderLabel(orderId);
+  await logActivity(session, {
+    action: "order.status",
+    target: { type: "order", id: orderId },
+    summary: `Changed order ${number} from ${before?.orderStatus ?? "?"} to ${parsed.data}`,
+  });
   revalidatePath("/admin/orders");
   return { ok: true };
 }
@@ -37,9 +55,14 @@ export async function updateOrderStatusAction(
  * note at the top of integrations/shiprocket.ts.
  */
 export async function createShipmentAction(orderId: string): Promise<AdminOrderActionResult> {
-  await requireRole("admin");
+  const session = await requireRole("admin");
   try {
     await createShipmentForOrder(orderId);
+    await logActivity(session, {
+      action: "order.shipment",
+      target: { type: "order", id: orderId },
+      summary: `Created the shipment for order ${(await orderLabel(orderId)).number}`,
+    });
     revalidatePath("/admin/orders");
     return { ok: true };
   } catch (err) {
@@ -58,9 +81,14 @@ export async function createShipmentAction(orderId: string): Promise<AdminOrderA
 export async function schedulePickupAction(
   orderId: string
 ): Promise<AdminOrderActionResult | { ok: true; labelUrl: string; scheduledFor: string | null }> {
-  await requireRole("admin");
+  const session = await requireRole("admin");
   try {
     const result = await schedulePickupForOrder(orderId);
+    await logActivity(session, {
+      action: "order.pickup",
+      target: { type: "order", id: orderId },
+      summary: `Scheduled the courier pickup for order ${(await orderLabel(orderId)).number}`,
+    });
     revalidatePath("/admin/orders");
     return { ok: true, ...result };
   } catch (err) {
@@ -76,9 +104,14 @@ export async function schedulePickupAction(
 export async function assignAwbAction(
   orderId: string
 ): Promise<AdminOrderActionResult | { ok: true; trackingNumber: string }> {
-  await requireRole("admin");
+  const session = await requireRole("admin");
   try {
     const awb = await assignAwbForOrder(orderId);
+    await logActivity(session, {
+      action: "order.awb",
+      target: { type: "order", id: orderId },
+      summary: `Bought waybill ${awb.awbCode} for order ${(await orderLabel(orderId)).number}`,
+    });
     revalidatePath("/admin/orders");
     return { ok: true, trackingNumber: awb.awbCode };
   } catch (err) {
@@ -95,9 +128,26 @@ export async function processReturnAction(
   action: "approve" | "reject",
   refund: boolean
 ): Promise<AdminOrderActionResult> {
-  await requireRole("admin");
+  // Money leaving the shop is the owner's call. Approving a return on a PAID
+  // order is too, refund or not: once approved it is marked "returned" and the
+  // refund decision would have no screen left to happen on. Rejecting a
+  // return, and approving one on an unpaid (COD) order, stay with every admin.
+  const paid = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { paymentStatus: true },
+  });
+  const ownerCall = refund || (action === "approve" && paid?.paymentStatus === "paid");
+  const session = ownerCall ? await requireOwner() : await requireRole("admin");
   try {
-    await processReturn(orderId, action, refund);
+    const result = await processReturn(orderId, action, refund);
+    const { number, total } = await orderLabel(orderId);
+    await logActivity(session, {
+      action: result.refunded ? "order.refund" : "order.return",
+      target: { type: "order", id: orderId },
+      summary: result.refunded
+        ? `Refunded ₹${(total ?? 0).toLocaleString("en-IN")} on order ${number}`
+        : `${action === "approve" ? "Approved" : "Rejected"} the return on order ${number}`,
+    });
     revalidatePath("/admin/orders");
     return { ok: true };
   } catch (err) {

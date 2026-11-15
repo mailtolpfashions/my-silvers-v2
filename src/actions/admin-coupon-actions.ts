@@ -3,7 +3,8 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/server/db";
-import { requireRole } from "@/server/auth/require-role";
+import { requireOwner } from "@/server/auth/require-role";
+import { logActivity } from "@/server/activity/log";
 import { normaliseCode } from "@/server/coupons/coupons";
 
 /** "" from an empty input means "no limit". */
@@ -57,7 +58,7 @@ const couponSchema = z
 export type CouponActionResult = { ok: true } | { ok: false; error: string };
 
 export async function saveCouponAction(id: string | null, input: unknown): Promise<CouponActionResult> {
-  await requireRole("admin");
+  const session = await requireOwner();
   const parsed = couponSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Please check the coupon." };
@@ -84,16 +85,27 @@ export async function saveCouponAction(id: string | null, input: unknown): Promi
     active: c.active,
   };
 
-  if (id) await prisma.coupon.update({ where: { id }, data });
-  else await prisma.coupon.create({ data });
+  const saved = id
+    ? await prisma.coupon.update({ where: { id }, data })
+    : await prisma.coupon.create({ data });
+  await logActivity(session, {
+    action: id ? "coupon.update" : "coupon.create",
+    target: { type: "coupon", id: saved.id },
+    summary: `${id ? "Edited" : "Created"} coupon ${c.code} (${c.type === "percent" ? `${c.value}% off` : `₹${c.value} off`})`,
+  });
 
   revalidatePath("/admin/coupons");
   return { ok: true };
 }
 
 export async function setCouponActiveAction(id: string, active: boolean): Promise<CouponActionResult> {
-  await requireRole("admin");
-  await prisma.coupon.update({ where: { id }, data: { active } });
+  const session = await requireOwner();
+  const coupon = await prisma.coupon.update({ where: { id }, data: { active } });
+  await logActivity(session, {
+    action: "coupon.update",
+    target: { type: "coupon", id },
+    summary: `Switched coupon ${coupon.code} ${active ? "on" : "off"}`,
+  });
   revalidatePath("/admin/coupons");
   return { ok: true };
 }
@@ -104,8 +116,13 @@ export async function setCouponActiveAction(id: string, active: boolean): Promis
  * delete is for a code created by mistake.
  */
 export async function deleteCouponAction(id: string): Promise<CouponActionResult> {
-  await requireRole("admin");
-  await prisma.coupon.delete({ where: { id } });
+  const session = await requireOwner();
+  const gone = await prisma.coupon.delete({ where: { id } });
+  await logActivity(session, {
+    action: "coupon.delete",
+    target: { type: "coupon", id },
+    summary: `Deleted coupon ${gone.code}`,
+  });
   revalidatePath("/admin/coupons");
   return { ok: true };
 }

@@ -55,9 +55,20 @@ export async function requireRole(...allowed: Role[]) {
     select: { role: true },
   });
 
-  if (!user || !allowed.includes(user.role)) {
+  // The owner passes every gate an admin or editor passes, so the many
+  // requireRole("admin") call sites need no knowledge of the owner role.
+  // Owner-ONLY gates use requireOwner() below.
+  if (!user || !(allowed.includes(user.role) || user.role === "superadmin")) {
     throw new Error("FORBIDDEN");
   }
 
   return { ...session, user: { ...session.user, role: user.role } };
+}
+
+/**
+ * The owner-only gate: staff and roles, the books, store settings, coupons,
+ * refunds, deletes, exports and the activity log. An admin is refused.
+ */
+export async function requireOwner() {
+  return requireRole("superadmin");
 }

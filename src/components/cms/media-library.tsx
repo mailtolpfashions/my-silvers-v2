@@ -118,12 +118,15 @@ export function MediaLibrary({
   total,
   currentFolder,
   currentQuery,
+  canDelete = false,
 }: {
   assets: MediaRow[];
   folders: string[];
   total: number;
   currentFolder?: string;
   currentQuery?: string;
+  /** Owner only — the action refuses anyone else anyway. */
+  canDelete?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -217,7 +220,7 @@ export function MediaLibrary({
           hidden
           onChange={(e) => handleUpload(e.target.files)}
         />
-        {selected.size > 0 && (
+        {canDelete && selected.size > 0 && (
           <>
             <Button
               variant="destructive"

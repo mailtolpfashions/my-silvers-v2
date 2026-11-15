@@ -1,4 +1,5 @@
 import { getCurrentRole } from "@/server/auth/require-role";
+import { isStaff } from "@/server/auth/roles";
 import { resolveHomepageSections } from "@/server/products/homepage-sections";
 import type { EntryData } from "@/server/cms/types";
 
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
   // sign-in and never refreshed, so a revoked editor would keep this open for
   // as long as their session lasted. See require-role.ts.
   const role = await getCurrentRole();
-  if (role !== "admin" && role !== "editor") {
+  if (!isStaff(role)) {
     return new Response("Forbidden", { status: 403 });
   }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useIsOwner } from "@/components/admin/owner-context";
 import { useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -51,6 +52,8 @@ const STATUS_VERB: Record<ReviewStatus, string> = {
 };
 
 export function ReviewTable({ reviews }: { reviews: AdminReview[] }) {
+  // Deleting is the owner's; Reject hides a review just as well for admins.
+  const isOwner = useIsOwner();
   const [isPending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState<string | null>(null);
   /**
@@ -286,16 +289,18 @@ export function ReviewTable({ reviews }: { reviews: AdminReview[] }) {
                   <Undo2 className="size-4" />
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Delete this review"
-                disabled={isPending}
-                onClick={() => setConfirming(review.id)}
-                className="size-9 text-destructive"
-              >
-                <Trash2 className="size-4" />
-              </Button>
+              {isOwner && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Delete this review"
+                  disabled={isPending}
+                  onClick={() => setConfirming(review.id)}
+                  className="size-9 text-destructive"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              )}
             </div>
           </CardContent>
 

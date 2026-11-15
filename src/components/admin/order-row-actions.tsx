@@ -1,5 +1,6 @@
 "use client";
 
+import { useIsOwner } from "@/components/admin/owner-context";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -207,13 +208,17 @@ export function ReturnReviewButtons({
   reason: string | null;
   canRefund: boolean;
 }) {
+  // Refunds are the owner's — an admin approves or rejects only, and the
+  // owner refunds afterwards. The action refuses an admin's refund anyway.
+  const isOwner = useIsOwner();
+  const mayRefund = canRefund && isOwner;
   const [open, setOpen] = useState(false);
-  const [refund, setRefund] = useState(canRefund);
+  const [refund, setRefund] = useState(mayRefund);
   const [isPending, startTransition] = useTransition();
 
   function decide(action: "approve" | "reject") {
     startTransition(async () => {
-      const result = await processReturnAction(orderId, action, action === "approve" && refund);
+      const result = await processReturnAction(orderId, action, action === "approve" && mayRefund && refund);
       if (result.ok) {
         toast.success(action === "approve" ? "Return approved." : "Return rejected.");
         setOpen(false);
@@ -235,19 +240,27 @@ export function ReturnReviewButtons({
           <DialogTitle>Return request</DialogTitle>
           <DialogDescription>{reason || "No reason given."}</DialogDescription>
         </DialogHeader>
-        {canRefund && (
+        {mayRefund && (
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={refund} onChange={(e) => setRefund(e.target.checked)} />
             Refund the payment via Razorpay on approval
           </label>
         )}
+        {canRefund && !isOwner && (
+          <p className="text-sm text-muted-foreground">
+            This order was paid online, so approving it — and deciding on the refund — is
+            the owner&apos;s call. You can still reject it.
+          </p>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={() => decide("reject")} disabled={isPending}>
             Reject
           </Button>
-          <Button onClick={() => decide("approve")} disabled={isPending}>
-            {isPending ? "Processing…" : "Approve return"}
-          </Button>
+          {(!canRefund || isOwner) && (
+            <Button onClick={() => decide("approve")} disabled={isPending}>
+              {isPending ? "Processing…" : "Approve return"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

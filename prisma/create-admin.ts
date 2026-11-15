@@ -4,6 +4,7 @@
  *   npm run admin:create -- you@example.com                 (random password, printed once)
  *   npm run admin:create -- you@example.com "YourPassw0rd"  (your own password)
  *   npm run admin:create -- you@example.com "" editor       (editor instead of admin)
+ *   npm run admin:create -- you@example.com "" superadmin   (the shop OWNER — see roles.ts)
  *
  * Safe to run against production — that is the point of it. Promoting an
  * existing user never touches their password.
@@ -22,14 +23,14 @@ const prisma = new PrismaClient({ adapter });
 
 const [emailArg, passwordArg, roleArg] = process.argv.slice(2);
 const email = emailArg?.trim().toLowerCase();
-const role = (roleArg ?? "admin") as "admin" | "editor";
+const role = (roleArg ?? "admin") as "admin" | "editor" | "superadmin";
 
 if (!email || !email.includes("@")) {
-  console.error("\nUsage: npm run admin:create -- <email> [password] [admin|editor]\n");
+  console.error("\nUsage: npm run admin:create -- <email> [password] [admin|editor|superadmin]\n");
   process.exit(1);
 }
-if (role !== "admin" && role !== "editor") {
-  console.error(`\nRole must be "admin" or "editor" — got "${role}".\n`);
+if (role !== "admin" && role !== "editor" && role !== "superadmin") {
+  console.error(`\nRole must be "admin", "editor" or "superadmin" — got "${role}".\n`);
   process.exit(1);
 }
 
@@ -57,7 +58,7 @@ async function main() {
   }
 
   await prisma.user.create({
-    data: { email, name: role === "admin" ? "Admin" : "Editor", passwordHash: await bcrypt.hash(password, 12), role },
+    data: { email, name: role === "superadmin" ? "Owner" : role === "admin" ? "Admin" : "Editor", passwordHash: await bcrypt.hash(password, 12), role },
   });
 
   console.log(`\n✅ ${role} created:`);

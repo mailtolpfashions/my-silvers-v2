@@ -2,7 +2,8 @@
 
 import { z } from "zod";
 import { revalidatePath, updateTag } from "next/cache";
-import { requireRole } from "@/server/auth/require-role";
+import { requireOwner, requireRole } from "@/server/auth/require-role";
+import { logActivity } from "@/server/activity/log";
 import { prisma } from "@/server/db";
 import {
   createProduct,
@@ -73,8 +74,36 @@ function toInput(data: z.infer<typeof productSchema>) {
   };
 }
 
+const rupees = (n: unknown) =>
+  n === null || n === undefined ? "—" : `₹${Number(n).toLocaleString("en-IN")}`;
+
+async function productName(id: string) {
+  const p = await prisma.product.findUnique({ where: { id }, select: { name: true } });
+  return p?.name ?? id;
+}
+
+/** "Edited “Lotus ring” — price ₹1,299 → ₹1,199". Prices are what the owner watches. */
+function productChangeSummary(
+  name: string,
+  before: { price: unknown; compareAtPrice: unknown; costPrice: unknown } | null,
+  after: { price: number; compareAtPrice?: number | null; costPrice?: number | null }
+) {
+  const changes: string[] = [];
+  if (before) {
+    const diff = (label: string, a: unknown, b: unknown) => {
+      const x = a === null || a === undefined ? null : Number(a);
+      const y = b === null || b === undefined ? null : Number(b);
+      if (x !== y) changes.push(`${label} ${rupees(x)} → ${rupees(y)}`);
+    };
+    diff("price", before.price, after.price);
+    diff("MRP", before.compareAtPrice, after.compareAtPrice);
+    diff("cost", before.costPrice, after.costPrice);
+  }
+  return `Edited “${name}”${changes.length ? " — " + changes.join(", ") : ""}`;
+}
+
 export async function createProductAction(input: unknown): Promise<AdminActionResult> {
-  await requireRole("admin");
+  const session = await requireRole("admin");
   const parsed = productSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid product data." };
@@ -83,7 +112,12 @@ export async function createProductAction(input: unknown): Promise<AdminActionRe
     const style = await autoCharmStyle();
     const input = toInput(parsed.data);
     if (style) input.price = charmPrice(input.price, style);
-    await createProduct(input);
+    const created = await createProduct(input);
+    await logActivity(session, {
+      action: "product.create",
+      target: { type: "product", id: created.id },
+      summary: `Added product “${input.name}” at ${rupees(input.price)}`,
+    });
     revalidatePath("/admin/products");
     updateTag("products");
     return { ok: true };
@@ -93,13 +127,17 @@ export async function createProductAction(input: unknown): Promise<AdminActionRe
 }
 
 export async function updateProductAction(id: string, input: unknown): Promise<AdminActionResult> {
-  await requireRole("admin");
+  const session = await requireRole("admin");
   const parsed = productSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid product data." };
   }
   try {
     const input = toInput(parsed.data);
+    const before = await prisma.product.findUnique({
+      where: { id },
+      select: { price: true, compareAtPrice: true, costPrice: true },
+    });
     // Only a price the admin CHANGED is rounded. The form posts every field
     // on every save, so without this, fixing a typo in a description would
     // quietly reprice a piece that was saved before rounding was turned on.
@@ -111,6 +149,11 @@ export async function updateProductAction(id: string, input: unknown): Promise<A
       }
     }
     await updateProduct(id, input);
+    await logActivity(session, {
+      action: "product.update",
+      target: { type: "product", id },
+      summary: productChangeSummary(input.name, before, input),
+    });
     revalidatePath("/admin/products");
     updateTag("products");
     return { ok: true };
@@ -120,33 +163,50 @@ export async function updateProductAction(id: string, input: unknown): Promise<A
 }
 
 export async function archiveProductAction(id: string): Promise<AdminActionResult> {
-  await requireRole("admin");
+  const session = await requireRole("admin");
   await archiveProduct(id);
+  await logActivity(session, {
+    action: "product.archive",
+    target: { type: "product", id },
+    summary: `Archived product “${await productName(id)}”`,
+  });
   revalidatePath("/admin/products");
   updateTag("products");
   return { ok: true };
 }
 
 export async function restoreProductAction(id: string): Promise<AdminActionResult> {
-  await requireRole("admin");
+  const session = await requireRole("admin");
   try {
     await restoreProduct(id);
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to restore product." };
   }
+  await logActivity(session, {
+    action: "product.restore",
+    target: { type: "product", id },
+    summary: `Restored product “${await productName(id)}”`,
+  });
   revalidatePath("/admin/products");
   updateTag("products");
   return { ok: true };
 }
 
 export async function deleteProductAction(id: string): Promise<AdminActionResult> {
-  await requireRole("admin");
+  // Deletes are the owner's alone — see roles.ts.
+  const session = await requireOwner();
+  const product = await prisma.product.findUnique({ where: { id }, select: { name: true } });
   try {
     await deleteProduct(id);
   } catch (err) {
     console.error("deleteProductAction failed", err);
     return { ok: false, error: "Could not delete this product. It may already be gone — refresh the page." };
   }
+  await logActivity(session, {
+    action: "product.delete",
+    target: { type: "product", id },
+    summary: `Deleted product “${product?.name ?? id}”`,
+  });
   revalidatePath("/admin/products");
   updateTag("products");
   return { ok: true };
@@ -160,12 +220,22 @@ export async function deleteProductAction(id: string): Promise<AdminActionResult
 export async function deleteProductsAction(
   ids: string[]
 ): Promise<AdminActionResult & { count?: number }> {
-  await requireRole("admin");
+  const session = await requireOwner();
   const check = cleanIds(ids);
   if (!check.ok) return check;
 
   try {
+    const names = await prisma.product.findMany({
+      where: { id: { in: check.ids } },
+      select: { name: true },
+    });
     const count = await deleteProducts(check.ids);
+    await logActivity(session, {
+      action: "product.delete",
+      target: { type: "product" },
+      summary: `Deleted ${count} product${count === 1 ? "" : "s"}`,
+      details: { names: names.map((n) => n.name) },
+    });
     revalidatePath("/admin/products");
     updateTag("products");
     return { ok: true, count };
@@ -224,7 +294,7 @@ export async function applyCharmPricesAction(
   ids: string[],
   style: unknown
 ): Promise<AdminActionResult & { count?: number }> {
-  await requireRole("admin");
+  const session = await requireRole("admin");
   const check = cleanIds(ids);
   if (!check.ok) return check;
   if (!isCharmStyle(style)) return { ok: false, error: "Choose a rounding style." };
@@ -234,6 +304,12 @@ export async function applyCharmPricesAction(
     await prisma.$transaction(
       changes.map((c) => prisma.product.update({ where: { id: c.id }, data: { price: c.to } }))
     );
+    await logActivity(session, {
+      action: "product.price",
+      target: { type: "product" },
+      summary: `Rounded the price of ${changes.length} product${changes.length === 1 ? "" : "s"}`,
+      details: { changes: changes.map((c) => ({ id: c.id, to: Number(c.to) })) },
+    });
     revalidatePath("/admin/products");
     updateTag("products");
     return { ok: true, count: changes.length };
@@ -263,7 +339,7 @@ export async function setProductsActiveAction(
   ids: string[],
   isActive: boolean
 ): Promise<AdminActionResult & { count?: number }> {
-  await requireRole("admin");
+  const session = await requireRole("admin");
   const check = cleanIds(ids);
   if (!check.ok) return check;
 
@@ -273,6 +349,12 @@ export async function setProductsActiveAction(
       // count then comes back short, which the bulk bar reports.
       where: { id: { in: check.ids }, ...(isActive ? { price: { gt: 0 } } : {}) },
       data: { isActive },
+    });
+    await logActivity(session, {
+      action: isActive ? "product.restore" : "product.archive",
+      target: { type: "product" },
+      summary: `${isActive ? "Showed" : "Hid"} ${result.count} product${result.count === 1 ? "" : "s"} in the shop`,
+      details: { ids: check.ids },
     });
     revalidatePath("/admin/products");
     updateTag("products");
@@ -471,7 +553,7 @@ export async function setProductsOfferAction(
   ids: string[],
   percent: number | null
 ): Promise<AdminActionResult & { count?: number }> {
-  await requireRole("admin");
+  const session = await requireRole("admin");
   const check = cleanIds(ids);
   if (!check.ok) return check;
 
@@ -515,6 +597,15 @@ export async function setProductsOfferAction(
       .filter((u): u is NonNullable<typeof u> => u !== null);
 
     await prisma.$transaction(updates);
+    await logActivity(session, {
+      action: "product.price",
+      target: { type: "product" },
+      summary:
+        percent === null
+          ? `Ended the offer on ${updates.length} product${updates.length === 1 ? "" : "s"}`
+          : `Put ${updates.length} product${updates.length === 1 ? "" : "s"} on ${percent}% off`,
+      details: { ids: check.ids, percent },
+    });
     revalidatePath("/admin/products");
     updateTag("products");
     return { ok: true, count: updates.length };
@@ -524,8 +615,13 @@ export async function setProductsOfferAction(
 }
 
 export async function bulkImportProductsAction(rows: CsvRow[]) {
-  await requireRole("admin");
+  const session = await requireRole("admin");
   const result = await bulkImportProducts(rows);
+  await logActivity(session, {
+    action: "product.import",
+    target: { type: "product" },
+    summary: `Imported a product spreadsheet (${rows.length} row${rows.length === 1 ? "" : "s"})`,
+  });
   revalidatePath("/admin/products");
   updateTag("products");
   return result;

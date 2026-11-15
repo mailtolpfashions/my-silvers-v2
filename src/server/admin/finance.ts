@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/server/db";
-import { requireRole } from "@/server/auth/require-role";
+import { requireOwner } from "@/server/auth/require-role";
 
 /**
  * The partners' books.
@@ -79,7 +79,7 @@ export type FinanceSummary = {
  * it can be reconciled against the `shipping` expense category.
  */
 export async function getFinanceSummary(period: Period): Promise<FinanceSummary> {
-  await requireRole("admin");
+  await requireOwner();
 
   const paidInPeriod = {
     paymentStatus: "paid" as const,
@@ -181,7 +181,7 @@ export type ProfitSplit = {
  * money ratio on purpose, and seeing both is the point.
  */
 export async function getProfitSplit(period: Period): Promise<ProfitSplit> {
-  await requireRole("admin");
+  await requireOwner();
 
   const [investors, summary] = await Promise.all([
     prisma.investor.findMany({
@@ -227,7 +227,7 @@ export async function getProfitSplit(period: Period): Promise<ProfitSplit> {
 
 /** Expenses in a period, newest first. */
 export async function listExpenses(period: Period) {
-  await requireRole("admin");
+  await requireOwner();
   return prisma.expense.findMany({
     where: { spentAt: { gte: period.from, lt: period.to } },
     orderBy: { spentAt: "desc" },
@@ -237,7 +237,7 @@ export async function listExpenses(period: Period) {
 
 /** Expense totals by category, for the period breakdown. */
 export async function expensesByCategory(period: Period) {
-  await requireRole("admin");
+  await requireOwner();
   const rows = await prisma.expense.groupBy({
     by: ["category"],
     where: { spentAt: { gte: period.from, lt: period.to } },
@@ -250,7 +250,7 @@ export async function expensesByCategory(period: Period) {
 
 /** Every contribution, newest first — the ledger behind the totals. */
 export async function listInvestments() {
-  await requireRole("admin");
+  await requireOwner();
   return prisma.investment.findMany({
     orderBy: { investedAt: "desc" },
     include: { investor: { select: { id: true, name: true } } },
@@ -265,7 +265,7 @@ export async function listInvestments() {
  * over-estimate by an unknown amount.
  */
 export async function costCoverage() {
-  await requireRole("admin");
+  await requireOwner();
   const [total, withCost] = await Promise.all([
     prisma.product.count({ where: { isActive: true } }),
     prisma.product.count({ where: { isActive: true, costPrice: { not: null } } }),
@@ -325,7 +325,7 @@ export async function salesByVendor(
   period: Period,
   vendor?: string | null,
 ): Promise<{ vendors: VendorSalesRow[]; products: ProductSalesRow[] }> {
-  await requireRole("admin");
+  await requireOwner();
 
   const [lines, catalogue, soldOut] = await Promise.all([
     prisma.orderItem.findMany({

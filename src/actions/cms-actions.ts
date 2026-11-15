@@ -2,7 +2,8 @@
 
 import { z } from "zod";
 import { revalidatePath, updateTag } from "next/cache";
-import { requireRole } from "@/server/auth/require-role";
+import { requireOwner, requireRole } from "@/server/auth/require-role";
+import { logActivity } from "@/server/activity/log";
 import {
   saveEntry,
   publishEntry,
@@ -92,6 +93,11 @@ export async function publishEntryAction(
   const session = await requireRole("admin", "editor");
   try {
     const { slug } = await publishEntry(entryId, session.user.id);
+    await logActivity(session, {
+      action: "cms.publish",
+      target: { type: typeName, id: entryId },
+      summary: `Published ${typeName} “${slug}”`,
+    });
     revalidatePath(`/cms/content/${typeName}`);
     revalidateForType(typeName, slug);
     return { ok: true };
@@ -102,14 +108,19 @@ export async function publishEntryAction(
   }
 }
 
-/** Admin-only — destructive-tier action per the RBAC model. */
+/** Owner-only — destructive-tier action per the RBAC model (see roles.ts). */
 export async function unpublishEntryAction(
   entryId: string,
   typeName: string
 ): Promise<CmsActionResult> {
-  const session = await requireRole("admin");
+  const session = await requireOwner();
   try {
     const { slug } = await unpublishEntry(entryId, session.user.id);
+    await logActivity(session, {
+      action: "cms.unpublish",
+      target: { type: typeName, id: entryId },
+      summary: `Unpublished ${typeName} “${slug}”`,
+    });
     revalidatePath(`/cms/content/${typeName}`);
     revalidateForType(typeName, slug);
     return { ok: true };
@@ -120,14 +131,19 @@ export async function unpublishEntryAction(
   }
 }
 
-/** Admin-only. */
+/** Owner-only. */
 export async function deleteEntryAction(
   entryId: string,
   typeName: string
 ): Promise<CmsActionResult> {
-  await requireRole("admin");
+  const session = await requireOwner();
   try {
     const { slug } = await deleteEntry(entryId);
+    await logActivity(session, {
+      action: "cms.delete",
+      target: { type: typeName, id: entryId },
+      summary: `Deleted ${typeName} “${slug}”`,
+    });
     revalidatePath(`/cms/content/${typeName}`);
     revalidateForType(typeName, slug);
     return { ok: true };
@@ -137,11 +153,16 @@ export async function deleteEntryAction(
   }
 }
 
-/** Admin-only. Puts a deleted homepage back — see restoreDefaultHomepage. */
+/** Owner-only. Puts a deleted homepage back — see restoreDefaultHomepage. */
 export async function restoreHomepageAction(): Promise<CmsActionResult> {
-  const session = await requireRole("admin");
+  const session = await requireOwner();
   try {
     const { slug } = await restoreDefaultHomepage(session.user.id);
+    await logActivity(session, {
+      action: "cms.restore",
+      target: { type: "homepage" },
+      summary: "Restored the default homepage",
+    });
     revalidatePath("/cms/content/homepage");
     revalidatePath("/");
     revalidateForType("homepage", slug);
@@ -159,9 +180,14 @@ export async function restoreVersionAction(
   versionId: string,
   typeName: string
 ): Promise<CmsActionResult> {
-  const session = await requireRole("admin");
+  const session = await requireOwner();
   try {
     await restoreVersion(entryId, versionId, session.user.id);
+    await logActivity(session, {
+      action: "cms.restore",
+      target: { type: typeName, id: entryId },
+      summary: `Restored an earlier version of a ${typeName} entry`,
+    });
     revalidatePath(`/cms/content/${typeName}`);
     return { ok: true };
   } catch (err) {
@@ -170,7 +196,7 @@ export async function restoreVersionAction(
   }
 }
 
-// ─── Media (editor-or-admin including delete — parity with the old system) ──
+// ─── Media (editor-or-admin; delete is the owner's — see roles.ts) ──────────
 
 const recordMediaSchema = z.object({
   url: z.string().url(),
@@ -211,8 +237,16 @@ export async function updateMediaAssetAction(
 }
 
 export async function deleteMediaAssetsAction(ids: string[]) {
-  await requireRole("admin", "editor");
+  // Owner-only, like every delete — a deleted image vanishes from every page
+  // that used it. Editors and admins can still upload and re-tag.
+  const session = await requireOwner();
   const deleted = await deleteMediaAssets(ids);
+  await logActivity(session, {
+    action: "cms.media.delete",
+    target: { type: "media" },
+    summary: `Deleted ${ids.length} image${ids.length === 1 ? "" : "s"} from the media library`,
+    details: { ids },
+  });
   revalidatePath("/cms/media");
   return { ok: true as const, deleted };
 }

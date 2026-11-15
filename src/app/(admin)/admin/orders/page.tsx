@@ -18,6 +18,7 @@ import {
   ReturnReviewButtons,
 } from "@/components/admin/order-row-actions";
 import { PdfExportButton } from "@/components/admin/pdf-export-button";
+import { viewerIsOwner } from "@/components/admin/owner-only";
 import { SortableHeader } from "@/components/admin/sortable-header";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/layout/empty-state";
@@ -59,6 +60,7 @@ export default async function AdminOrdersPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
+  const isOwner = await viewerIsOwner();
   const { orders, total, page, pageSize } = await getAdminOrders({
     status: params.status as OrderStatus | undefined,
     payment: params.payment as PaymentStatus | undefined,
@@ -77,7 +79,9 @@ export default async function AdminOrdersPage({
     <div className="space-y-6">
       <PageHeader
         title="Orders"
+        // Exports hand over customers' personal details in bulk — owner only.
         actions={
+          isOwner && (
           <>
             <Button asChild variant="outline" size="sm">
               <a href="/api/admin/export/orders">Export orders CSV</a>
@@ -91,6 +95,7 @@ export default async function AdminOrdersPage({
               <a href="/api/admin/export/customers">Export customers CSV</a>
             </Button>
           </>
+          )
         }
       />
 

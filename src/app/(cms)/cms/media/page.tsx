@@ -1,4 +1,6 @@
 import { listMedia } from "@/server/cms/media";
+import { getCurrentRole } from "@/server/auth/require-role";
+import { isOwner } from "@/server/auth/roles";
 import { MediaLibrary } from "@/components/cms/media-library";
 import { PageHeader } from "@/components/layout/page-header";
 
@@ -31,6 +33,7 @@ export default async function MediaLibraryPage({
   searchParams: SearchParams;
 }) {
   const sp = await searchParams;
+  const canDelete = isOwner(await getCurrentRole());
   const { assets, total, folders } = await listMedia({
     q: sp.q,
     folder: sp.folder,
@@ -58,6 +61,7 @@ export default async function MediaLibraryPage({
           createdAt: a.createdAt.toISOString(),
         }))}
         folders={folders}
+        canDelete={canDelete}
         total={total}
         currentFolder={sp.folder}
         currentQuery={sp.q}
