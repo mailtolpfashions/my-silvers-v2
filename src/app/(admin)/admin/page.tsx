@@ -11,6 +11,7 @@ import { SalesChart } from "@/components/admin/dashboard/sales-chart";
 import { RecentOrdersTable } from "@/components/admin/dashboard/recent-orders-table";
 import { TopProducts, LowStock } from "@/components/admin/dashboard/product-lists";
 import { formatINR, formatINRPaise } from "@/lib/format";
+import { PageHeader } from "@/components/layout/page-header";
 
 /**
  * Blocking, like every other admin route — see the fuller note in
@@ -61,24 +62,20 @@ export default async function AdminDashboardPage({
   const firstName = session?.user?.name?.split(" ")[0];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-h2">
-            {greeting}
-            {firstName ? `, ${firstName}` : ""}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {new Date(data.now).toLocaleDateString("en-IN", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              timeZone: "Asia/Kolkata",
-            })}
-          </p>
-        </div>
-        <RangeTabs current={range} tab={tab} />
-      </header>
+    // Full width and the shared PageHeader, like every other admin page — it
+    // used to sit in its own centred max-w-7xl column with a hand-built
+    // heading, and read as a different app.
+    <div className="space-y-6">
+      <PageHeader
+        title={`${greeting}${firstName ? `, ${firstName}` : ""}`}
+        description={new Date(data.now).toLocaleDateString("en-IN", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          timeZone: "Asia/Kolkata",
+        })}
+        actions={<RangeTabs current={range} tab={tab} />}
+      />
 
       <ToShipCard rows={data.toShip} count={data.toShipCount} now={data.now} />
 
