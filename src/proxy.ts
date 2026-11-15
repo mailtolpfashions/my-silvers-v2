@@ -1,8 +1,14 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/server/auth/auth.config";
+import { safeRedirectPath } from "@/server/auth/google-enabled";
 
 const { auth } = NextAuth(authConfig);
+
+/** Paths whose access depends on a role, not just on being signed in. */
+function isRoleGated(pathname: string) {
+  return ["/admin", "/cms", "/preview"].some((p) => pathname.startsWith(p));
+}
 
 // Media delete is deliberately editor-allowed (parity with the old Studio);
 // only schema-level routes are admin-gated here. Destructive ENTRY actions
@@ -22,6 +28,25 @@ function isDestructiveCmsRoute(pathname: string) {
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const role = req.auth?.user?.role;
+
+  // Already signed in → the sign-in and register forms have nothing to offer.
+  // Reloading /login after signing in from another tab used to show the form
+  // again while the header beside it said you were signed in. Send them on to
+  // where they were going, or to their account.
+  //
+  // ⚠️  Never towards /admin, /cms or /preview. The role in this cookie is
+  // frozen at sign-in (see e2e/role-revocation.spec.ts); the pages re-read it
+  // from the database and send a demoted or deleted admin to
+  // /login?redirect=/admin. Redirecting that back to /admin on the cookie's
+  // stale say-so would loop until the browser gives up — so for a role-gated
+  // destination the form is shown, exactly as before.
+  if ((pathname === "/login" || pathname === "/register") && req.auth) {
+    const wanted = safeRedirectPath(req.nextUrl.searchParams.get("redirect"));
+    if (!isRoleGated(wanted)) {
+      const target = wanted === "/" ? "/account" : wanted;
+      return NextResponse.redirect(new URL(target, req.nextUrl.origin));
+    }
+  }
 
   if (pathname.startsWith("/admin")) {
     if (role !== "admin") {
@@ -66,5 +91,12 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/admin/:path*", "/cms/:path*", "/preview/:path*", "/account/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/cms/:path*",
+    "/preview/:path*",
+    "/account/:path*",
+    "/login",
+    "/register",
+  ],
 };
