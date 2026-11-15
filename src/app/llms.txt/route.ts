@@ -98,7 +98,7 @@ async function buildLlmsTxt() {
 
   const head =
     `# MY Silvers\n\n` +
-    `> An Indian online jewellery shop selling 925 BIS hallmarked sterling ` +
+    `> An Indian online jewellery shop selling 925 sterling ` +
     `silver — rings, earrings, necklaces, bracelets and anklets. Prices are in ` +
     `Indian rupees and orders ship within India.\n\n`;
 
@@ -156,7 +156,7 @@ async function buildLlmsTxt() {
       posts.map((p) => `- [${label(titleOf(p))}](${BASE}/blog/${p.slug})`)
     ) +
     section("Help", [
-      `- [Frequently asked questions](${BASE}/faq): delivery, returns, sizing, hallmarking and care, answered by the shop.`,
+      `- [Frequently asked questions](${BASE}/faq): delivery, returns, sizing, silver purity and care, answered by the shop.`,
       `- [Full catalogue](${BASE}/products)`,
       ...pages.map((p) => `- [${label(titleOf(p))}](${BASE}/p/${p.slug})`),
     ])

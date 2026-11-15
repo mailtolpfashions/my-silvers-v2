@@ -86,10 +86,10 @@ export const metadata: Metadata = {
     template: "%s | MY Silvers",
   },
   description:
-    "Shop 925 BIS hallmarked sterling silver jewellery online in India. Rings, earrings, necklaces, bracelets, anklets & more.",
+    "Shop 925 sterling silver jewellery online in India, made in India. Rings, earrings, necklaces, bracelets, anklets & more.",
   keywords: [
     "925 sterling silver jewellery",
-    "BIS hallmarked silver",
+    "sterling silver jewellery India",
     "silver rings India",
     "silver earrings online",
     "sterling silver necklace",

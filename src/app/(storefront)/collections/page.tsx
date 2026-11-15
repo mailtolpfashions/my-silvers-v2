@@ -23,7 +23,7 @@ export default async function CollectionsPage() {
       <PageHeader
         eyebrow="Edits"
         title="Collections"
-        description="Each one built around a single idea, in hallmarked 925 sterling silver."
+        description="Each one built around a single idea, in 925 sterling silver."
       />
 
       <div className="container-page pt-10 rhythm-commerce-bottom">

@@ -29,7 +29,7 @@ import { ItemListJsonLd, BreadcrumbJsonLd } from "@/components/storefront/struct
 export const metadata: Metadata = {
   title: "All jewellery",
   description:
-    "Every piece in the MY Silvers catalogue — hallmarked 925 sterling silver rings, earrings, necklaces, bracelets and anklets, made to be worn every day.",
+    "Every piece in the MY Silvers catalogue — 925 sterling silver rings, earrings, necklaces, bracelets and anklets, made to be worn every day.",
   // This route is also search and the faceted listing, so every filtered and
   // sorted variant of it points back here as the one page worth indexing.
   alternates: { canonical: "/products" },
@@ -105,7 +105,7 @@ async function CatalogueHeader({ searchParams }: { searchParams: SearchParams })
     <PageHeader
       title="All jewellery"
       eyebrow={banner?.title}
-      description="Hallmarked 925 sterling silver, made to be worn every day."
+      description="925 sterling silver, made in India to be worn every day."
       image={banner?.image}
       imageHref={banner?.link}
     />
