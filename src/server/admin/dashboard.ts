@@ -205,7 +205,11 @@ export async function getDashboard(range: DashboardRange, tab: RecentTab) {
         createdAt: o.createdAt,
         total: Number(o.totalAmount),
         cod: o.paymentMethod === "cod",
-        customer: address.fullName || o.user.name || o.user.email,
+        // Who ordered (the account) and who it goes to (the address) can be
+        // different people — a gift, or ordering for family. The card shows
+        // both, so it matches the Recent orders table, which lists the account.
+        customer: o.user.name || o.user.email,
+        recipient: address.fullName?.trim() || null,
         city: address.city ?? null,
         items: o._count.items,
       };
