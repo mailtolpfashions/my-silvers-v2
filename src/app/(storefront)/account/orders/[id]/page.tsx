@@ -8,6 +8,8 @@ import { getReviewableItems } from "@/server/reviews/reviewable-items";
 import { CancelOrderButton } from "@/components/storefront/orders/cancel-order-button";
 import { RequestReturnButton } from "@/components/storefront/orders/request-return-button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PayNowNotice, PaymentExpiredNotice } from "@/components/storefront/orders/pay-now-button";
+import { unpaidState } from "@/lib/order-payment";
 
 const CANCELLABLE = ["placed", "confirmed", "processing"] as const;
 
@@ -68,6 +70,9 @@ async function OrderDetailContent({
     (CANCELLABLE as readonly string[]).includes(order.orderStatus) &&
     !order.shipmentCreatedAt;
 
+  // An online order the shopper never paid for — see lib/order-payment.ts.
+  const unpaid = unpaidState(order);
+
   const invoiceAvailable =
     order.orderStatus !== "cancelled" &&
     (order.paymentStatus === "paid" || order.paymentMethod === "cod");
@@ -78,6 +83,16 @@ async function OrderDetailContent({
         <p className="mb-6 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800">
           Thank you! Your order has been placed successfully.
         </p>
+      )}
+      {unpaid === "awaiting" && (
+        <div className="mb-6">
+          <PayNowNotice orderId={order.id} successHref={`/account/orders/${order.id}?placed=1`} />
+        </div>
+      )}
+      {unpaid === "expired" && (
+        <div className="mb-6">
+          <PaymentExpiredNotice />
+        </div>
       )}
       <OrderDetail order={order} reviewable={reviewable} />
       {(cancellable || order.orderStatus === "delivered" || invoiceAvailable) && (

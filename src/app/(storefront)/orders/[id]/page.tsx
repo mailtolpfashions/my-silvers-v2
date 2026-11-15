@@ -1,3 +1,5 @@
+import { PayNowNotice, PaymentExpiredNotice } from "@/components/storefront/orders/pay-now-button";
+import { unpaidState } from "@/lib/order-payment";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getPublicOrderByToken } from "@/server/orders/queries";
@@ -47,6 +49,9 @@ async function GuestOrder({
   const order = ot ? await getPublicOrderByToken(id, ot) : null;
   if (!order || !ot) notFound();
 
+  // An online order the shopper never paid for — see lib/order-payment.ts.
+  const unpaid = unpaidState(order);
+
   const [user, claimEmail] = await Promise.all([
     prisma.user.findUnique({ where: { id: order.userId }, select: { email: true } }),
     getClaimableAccountEmail(order.id, ot),
@@ -60,6 +65,20 @@ async function GuestOrder({
         placed={!!placed}
         claim={claimEmail ? { orderId: order.id, token: ot, email: claimEmail } : null}
       />
+      {unpaid === "awaiting" && (
+        <div className="mb-6">
+          <PayNowNotice
+            orderId={order.id}
+            token={ot}
+            successHref={`/orders/${order.id}?ot=${ot}&placed=1`}
+          />
+        </div>
+      )}
+      {unpaid === "expired" && (
+        <div className="mb-6">
+          <PaymentExpiredNotice />
+        </div>
+      )}
       <OrderDetail order={order} />
     </>
   );
