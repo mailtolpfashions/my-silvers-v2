@@ -157,4 +157,42 @@ test.describe("search", () => {
     const response = await request.get("/api/search/suggestions?q=");
     expect(response.status()).toBeLessThan(500);
   });
+
+  /**
+   * Reported Nov 2026 on a phone: tapping a suggested search loaded the
+   * results, then the search overlay was still open on top of them with the
+   * cursor back in the field. The overlay is a Dialog the SearchBox inside it
+   * never closed.
+   */
+  test("the search overlay closes once a search is made", async ({ page }, testInfo) => {
+    // The overlay is the phone/tablet header; desktop has an inline field.
+    test.skip(testInfo.project.name !== "mobile", "the overlay only exists below lg");
+    await page.goto("/");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: /search products/i });
+    await expect(dialog).toBeVisible();
+
+    await dialog.locator('input[type="search"]').fill("ring");
+    await dialog.locator('input[type="search"]').press("Enter");
+
+    await expect(page).toHaveURL(/\/products\?q=ring/);
+    await expect(dialog).toBeHidden();
+  });
+
+  test("picking a suggested search closes the overlay", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "mobile", "the overlay only exists below lg");
+    await page.goto("/");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: /search products/i });
+    await expect(dialog).toBeVisible();
+
+    // The idle panel's chips — Popular, or Recent when there is history.
+    const chip = dialog.getByRole("button").filter({ hasNotText: /clear|search/i }).first();
+    test.skip((await chip.count()) === 0, "no suggested searches configured");
+    await chip.click();
+
+    // Left the homepage — the chip went somewhere.
+    await expect(page).not.toHaveURL(/^https?:\/\/[^/]+\/?$/);
+    await expect(dialog).toBeHidden();
+  });
 });

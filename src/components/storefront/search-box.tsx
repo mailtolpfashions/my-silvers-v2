@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import { useCloseSearchOverlay } from "@/components/storefront/header/search-overlay";
 import Image from "next/image";
 import { Clock, Search, TrendingUp, X } from "lucide-react";
 import {
@@ -55,6 +56,7 @@ export function SearchBox({
 }) {
   const inline = variant === "inline";
   const router = useRouter();
+  const closeOverlay = useCloseSearchOverlay();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Suggestion>(EMPTY);
   const [open, setOpen] = useState(false);
@@ -155,6 +157,10 @@ export function SearchBox({
     setOpen(false);
     setHighlight(-1);
     inputRef.current?.blur();
+    // Close the header overlay too, or it stays open over the results page and
+    // its focus trap pulls the cursor back into this field — see
+    // useCloseSearchOverlay in header/search-overlay.tsx.
+    closeOverlay();
     router.push(href);
   }
 
