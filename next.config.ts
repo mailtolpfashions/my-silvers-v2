@@ -64,7 +64,9 @@ const csp = (frameAncestors: "'none'" | "'self'") => [
   "font-src 'self' data:",
   // Razorpay's checkout posts telemetry to lumberjack; Cloudinary receives the
   // direct browser upload; Sentry receives errors from instrumentation-client.
-  "connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://api.cloudinary.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io",
+  // The MY Silvers Sentry org is EU-hosted (DSN host *.ingest.de.sentry.io);
+  // without that entry the browser silently drops every client-side report.
+  "connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://api.cloudinary.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
   // Razorpay Checkout.js mounts its payment UI in an iframe on our page.
   "frame-src https://api.razorpay.com https://checkout.razorpay.com",
   "media-src 'self' https://res.cloudinary.com",
