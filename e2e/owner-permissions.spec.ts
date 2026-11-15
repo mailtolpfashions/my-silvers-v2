@@ -180,3 +180,48 @@ test.describe("the owner", () => {
     }
   });
 });
+
+test.describe("new-order alert emails (Settings)", () => {
+  test("the owner adds and removes alert addresses, and they persist", async ({ page }) => {
+    const owner = await signInAs(page, "superadmin", "owner-alerts");
+    const a = `e2e-alert-a-${stamp()}@example.test`;
+    const b = `e2e-alert-b-${stamp()}@example.test`;
+    try {
+      await page.goto("/admin/settings");
+      const box = page.locator("section", { has: page.locator("#alerts-heading") });
+      await expect(box).toBeVisible();
+
+      for (const email of [a, b]) {
+        await box.locator("#alert-email").fill(email);
+        await box.getByRole("button", { name: /^add$/i }).click();
+      }
+      await box.getByRole("button", { name: /save alert list/i }).click();
+      await expect(page.getByText(/new-order emails will go to this list/i)).toBeVisible();
+
+      await page.reload();
+      await expect(box.getByRole("list", { name: /alert emails/i })).toContainText(a);
+      await expect(box.getByRole("list", { name: /alert emails/i })).toContainText(b);
+
+      // Remove both — the list goes back to "alerts go to the owner".
+      await box.getByRole("button", { name: `Remove ${a}` }).click();
+      await box.getByRole("button", { name: `Remove ${b}` }).click();
+      await box.getByRole("button", { name: /save alert list/i }).click();
+      await expect(page.getByText(/new-order emails will go to this list/i).last()).toBeVisible();
+      await expect(box.getByRole("button", { name: /save alert list/i })).toBeDisabled();
+      await page.reload();
+      await expect(box).toContainText(/while the list is empty, alerts go to the owner/i);
+    } finally {
+      await owner.dispose();
+    }
+  });
+
+  test("an admin can't see or change them", async ({ page }) => {
+    const admin = await signInAs(page, "admin", "alerts-admin");
+    try {
+      await page.goto("/admin/settings");
+      await expect(page.locator("#alerts-heading")).toHaveCount(0);
+    } finally {
+      await admin.dispose();
+    }
+  });
+});
