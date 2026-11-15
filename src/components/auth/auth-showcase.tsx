@@ -76,7 +76,7 @@ function AuthShowcaseFallback() {
   return (
     <div className="flex h-full w-full flex-col justify-center bg-muted px-6 py-10 sm:px-10 lg:min-h-[560px]">
       <p className="label-eyebrow mb-3">MY Silvers</p>
-      <p className="text-h2 font-heading">Hallmarked 925 sterling silver, made to be worn every day.</p>
+      <p className="text-h2 font-heading">925 sterling silver, made to be worn every day.</p>
       <ul className="mt-8 space-y-5">
         {perks.map(([title, body]) => (
           <li key={title} className="border-t pt-5">

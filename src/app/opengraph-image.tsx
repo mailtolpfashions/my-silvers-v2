@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "MY Silvers — 925 BIS hallmarked sterling silver jewellery";
+export const alt = "MY Silvers — 925 sterling silver jewellery";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -58,7 +58,7 @@ export default async function Image() {
         <div style={{ marginTop: 40, width: 90, height: 2, background: "#0c0c0e" }} />
 
         <div style={{ marginTop: 38, fontSize: 27, color: "#666666" }}>
-          BIS hallmarked sterling silver · Made in India
+          925 sterling silver · Made in India
         </div>
       </div>
     ),

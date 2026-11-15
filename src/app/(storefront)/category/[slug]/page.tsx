@@ -34,7 +34,7 @@ export async function generateMetadata({
     // page chrome when a description is missing.
     description:
       category.description?.trim() ||
-      `Shop ${searchName.toLowerCase()} in 925 BIS hallmarked sterling silver at MY Silvers. Prices in rupees, delivered across India.`,
+      `Shop ${searchName.toLowerCase()} in 925 sterling silver at MY Silvers. Prices in rupees, delivered across India.`,
     // An active category with nothing in it is an empty page: kept reachable
     // for shoppers, but out of search results until it has stock to show.
     ...(category._count.products === 0 ? { robots: { index: false, follow: true } } : {}),
