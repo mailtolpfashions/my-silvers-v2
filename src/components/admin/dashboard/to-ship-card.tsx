@@ -9,7 +9,10 @@ export type ToShipRow = {
   createdAt: Date;
   total: number;
   cod: boolean;
+  /** The account that placed the order. */
   customer: string;
+  /** The name on the delivery address, when there is one. */
+  recipient: string | null;
   city: string | null;
   items: number;
 };
@@ -90,10 +93,14 @@ export function ToShipCard({
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">
                   {o.orderNumber}
-                  <span className="ml-2 font-normal text-muted-foreground">
-                    {o.customer}
-                    {o.city ? `, ${o.city}` : ""}
-                  </span>
+                  <span className="ml-2 font-normal">{o.customer}</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {o.recipient && o.recipient.toLowerCase() !== o.customer.toLowerCase()
+                    ? `Ship to ${o.recipient}${o.city ? `, ${o.city}` : ""}`
+                    : o.city
+                      ? `Ship to ${o.city}`
+                      : "No delivery address"}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {o.items} item{o.items === 1 ? "" : "s"} · {formatINR(o.total)} ·{" "}
