@@ -36,6 +36,9 @@ export type AttentionItem = {
 
 export async function getAttentionItems() {
   await requireRole("admin");
+  // requireRole read cookies, so this scope is request-time and a live clock
+  // is allowed here (see the note in admin/layout.tsx).
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   const [outOfStock, lowStock, pendingReviews, unverifiedReviews, failedPayments, pendingPayments, returnRequests] =
     await Promise.all([
@@ -43,10 +46,22 @@ export async function getAttentionItems() {
       prisma.product.count({ where: { isActive: true, stock: { gt: 0, lte: LOW_STOCK_AT } } }),
       prisma.review.count({ where: { status: "pending" } }),
       prisma.review.count({ where: { isVerifiedPurchase: false, status: "approved" } }),
-      prisma.order.count({ where: { paymentStatus: "failed" } }),
+      // Last 7 days only. Every checkout a shopper walks away from ends up
+      // "failed" (the nightly sweep), so an all-time count only ever grows and
+      // stops meaning anything.
+      prisma.order.count({ where: { paymentStatus: "failed", createdAt: { gte: weekAgo } } }),
+      // ONLINE orders only. COD orders are "pending" by design until the
+      // courier collects — counting them here told the owner a COD order was
+      // unpaid when it was in fact waiting to be shipped (the To ship card).
       // `paying` is the transient claimed state — an order sitting in it is
       // stuck, which is precisely what wants surfacing here.
-      prisma.order.count({ where: { paymentStatus: { in: ["pending", "paying"] } } }),
+      prisma.order.count({
+        where: {
+          paymentMethod: "razorpay",
+          paymentStatus: { in: ["pending", "paying"] },
+          orderStatus: { not: "cancelled" },
+        },
+      }),
       prisma.order.count({ where: { orderStatus: "return_requested" } }),
     ]);
 
@@ -68,9 +83,8 @@ export async function getAttentionItems() {
     {
       key: "failed-payments",
       count: failedPayments,
-      label: (n) => `${n} payment${n === 1 ? "" : "s"} failed`,
+      label: (n) => `${n} failed payment${n === 1 ? "" : "s"} this week`,
       href: "/admin/payments?filter=failed",
-      urgent: true,
     },
     {
       key: "low-stock",
@@ -81,7 +95,7 @@ export async function getAttentionItems() {
     {
       key: "pending-payments",
       count: pendingPayments,
-      label: (n) => `${n} order${n === 1 ? "" : "s"} awaiting payment`,
+      label: (n) => `${n} unpaid online checkout${n === 1 ? "" : "s"}`,
       href: "/admin/payments?filter=pending",
     },
     {

@@ -6,6 +6,7 @@ import { toPaise } from "@/server/orders/money";
 import { fetchPaymentDetails } from "@/server/payments/razorpay";
 import { verifyCheckoutSignature } from "@/server/payments/verify-signature";
 import { sendOrderConfirmationEmail } from "@/server/email/resend";
+import { alertOwnersOfNewOrder } from "@/server/orders/owner-alert";
 import { startFulfillTimer } from "@/server/orders/fulfill-timing";
 
 export class PaymentError extends Error {
@@ -146,6 +147,8 @@ export async function fulfillOrder(input: {
       } catch (err) {
         console.error("order-confirmation email failed", order.orderNumber, err);
       }
+      // And tell the owner — see server/orders/owner-alert.ts. Never throws.
+      await alertOwnersOfNewOrder(order.id);
     });
     timer.step("email-scheduled");
 

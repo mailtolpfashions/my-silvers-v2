@@ -14,7 +14,7 @@ import { signInAs } from "./helpers/auth";
  */
 
 const ADMIN_PAGES = [
-  { path: "/admin", heading: /dashboard|admin/i },
+  { path: "/admin", heading: /good (morning|afternoon|evening)|dashboard/i },
   { path: "/admin/products", heading: /products/i },
   { path: "/admin/categories", heading: /categories/i },
   { path: "/admin/inventory", heading: /inventory/i },

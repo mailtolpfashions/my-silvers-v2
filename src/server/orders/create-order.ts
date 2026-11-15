@@ -16,6 +16,7 @@ import { createRazorpayOrder } from "@/server/payments/razorpay";
 import { getStoreSettings } from "@/server/settings/store-settings";
 import { evaluateCoupon, CouponError } from "@/server/coupons/coupons";
 import { sendOrderConfirmationEmail } from "@/server/email/resend";
+import { alertOwnersOfNewOrder } from "@/server/orders/owner-alert";
 
 export class OrderError extends Error {
   constructor(
@@ -429,6 +430,8 @@ export async function createOrder(input: {
       } catch (err) {
         console.error("order-confirmation email failed", placed.orderNumber, err);
       }
+      // A COD order is real the moment it's placed — tell the owner now.
+      await alertOwnersOfNewOrder(placed.id);
     });
   }
 
