@@ -341,3 +341,25 @@ export async function activityFor(actorId: string, take = 5): Promise<string[]> 
   );
   return rows.map((r: { summary: string }) => r.summary);
 }
+
+/**
+ * An ONLINE order the shopper never paid for — what closing Razorpay at
+ * checkout leaves behind. `hoursAgo` places it inside or past the 24-hour
+ * payment window (lib/order-payment.ts). Removed by deleteOrdersForUser.
+ */
+export async function insertUnpaidOnlineOrder(
+  userId: string,
+  hoursAgo = 0
+): Promise<{ id: string; orderNumber: string }> {
+  const id = `e2e_${crypto.randomBytes(12).toString("hex")}`;
+  const orderNumber = `E2E-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
+  await getPool().query(
+    `INSERT INTO "Order" ("id", "orderNumber", "userId", "shippingAddress", "paymentMethod",
+                          "paymentStatus", "orderStatus", "razorpayOrderId", "subtotal",
+                          "shippingCharge", "totalAmount", "createdAt", "updatedAt")
+     VALUES ($1, $2, $3, '{}'::jsonb, 'razorpay', 'pending', 'placed', $4, 999, 0, 999,
+             NOW() - make_interval(hours => $5), NOW())`,
+    [id, orderNumber, userId, `order_e2e${crypto.randomBytes(6).toString("hex")}`, hoursAgo]
+  );
+  return { id, orderNumber };
+}

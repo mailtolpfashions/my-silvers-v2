@@ -21,6 +21,10 @@ import {
   pincodeSchema,
 } from "@/lib/validation/account";
 import { getStoreSettings } from "@/server/settings/store-settings";
+import { getPublicOrderByToken, getUserOrder } from "@/server/orders/queries";
+import { toPaise } from "@/server/orders/money";
+import { prisma } from "@/server/db";
+import { unpaidState } from "@/lib/order-payment";
 
 const addressSchema = z.object({
   fullName: z.string().trim().min(2).max(100),
@@ -296,4 +300,77 @@ export async function cancelOrderAction(orderId: string) {
     console.error("cancelOrderAction failed", err);
     return { ok: false as const, error: "Could not cancel the order." };
   }
+}
+
+export type ResumePaymentResult =
+  | {
+      ok: true;
+      razorpayOrderId: string;
+      amountPaise: number;
+      keyId: string;
+      prefill: { name?: string; email?: string; contact?: string };
+    }
+  | { ok: false; error: string };
+
+/**
+ * "Pay now" on an order whose payment was never completed — the shopper
+ * closed Razorpay at checkout. Hands back the SAME Razorpay order, so paying
+ * goes through verifyPaymentAction → fulfillOrder exactly as at checkout:
+ * stock, the coupon and the cart are all settled there, not here.
+ *
+ * Reached two ways, mirroring how the order itself is reached: a signed-in
+ * account (scoped by getUserOrder), or a guest holding the order's
+ * confirmation token. Nothing is returned for an order the caller can't see.
+ *
+ * The payable window is unpaidState() — the same rule the page used to decide
+ * whether to show the button, so a stale tab can't pay an order the nightly
+ * sweep is about to fail.
+ */
+export async function resumePaymentAction(input: {
+  orderId: string;
+  token?: string;
+}): Promise<ResumePaymentResult> {
+  if (!(await checkIpRateLimit("paymentVerify"))) {
+    return { ok: false, error: RATE_LIMIT_MESSAGE };
+  }
+
+  const order = input.token
+    ? await getPublicOrderByToken(input.orderId, input.token)
+    : await (async () => {
+        const session = await auth();
+        return session?.user?.id ? getUserOrder(input.orderId, session.user) : null;
+      })();
+  if (!order) return { ok: false, error: "Order not found." };
+
+  const state = unpaidState(order);
+  if (state !== "awaiting" || !order.razorpayOrderId) {
+    return {
+      ok: false,
+      error:
+        state === "expired"
+          ? "The time to pay for this order has passed. Please place a new order."
+          : "This order can't be paid for any more. Please refresh the page.",
+    };
+  }
+
+  const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+  if (!keyId) return { ok: false, error: "Online payment is unavailable right now." };
+
+  const user = await prisma.user.findUnique({
+    where: { id: order.userId },
+    select: { email: true },
+  });
+  const address = (order.shippingAddress ?? {}) as { fullName?: string; phone?: string };
+
+  return {
+    ok: true,
+    razorpayOrderId: order.razorpayOrderId,
+    amountPaise: toPaise(order.totalAmount),
+    keyId,
+    prefill: {
+      name: address.fullName,
+      email: user?.email,
+      contact: address.phone ? `+91${address.phone.replace(/\D/g, "").slice(-10)}` : undefined,
+    },
+  };
 }

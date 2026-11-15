@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { formatINR } from "@/lib/format";
+import { unpaidState, UNPAID_LABELS } from "@/lib/order-payment";
 import { OrderItemReview } from "@/components/storefront/orders/order-item-review";
 import type { ReviewableItem } from "@/server/reviews/reviewable-items";
 import type { Order, OrderItem } from "@/generated/prisma/client";
@@ -137,6 +138,19 @@ function StatusLabel({
 }
 
 export function OrderStatusBadges({ order }: { order: Order }) {
+  // An online order nobody paid for is not "Placed" in any sense a shopper
+  // means — one alert label says what actually happened. See order-payment.ts.
+  const unpaid = unpaidState(order);
+  if (unpaid) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        <StatusLabel tone={unpaid === "confirming" ? "neutral" : "alert"}>
+          {UNPAID_LABELS[unpaid]}
+        </StatusLabel>
+        <StatusLabel>Online</StatusLabel>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-wrap gap-2">
       <StatusLabel tone={order.orderStatus === "cancelled" ? "alert" : "neutral"}>
