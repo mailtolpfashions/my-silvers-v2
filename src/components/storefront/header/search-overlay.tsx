@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -23,6 +23,23 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
  * Replaces the old mobile-only MobileSearch, which was the same idea applied at
  * one breakpoint.
  */
+/**
+ * Lets the SearchBox inside close the overlay when it navigates.
+ *
+ * ⚠️  Without this the overlay outlived the search. Picking a suggestion
+ * closed the box's own dropdown and pushed the new route, but this Dialog's
+ * `open` never changed — so the results page loaded underneath a still-open
+ * overlay, and Radix's focus trap put the cursor straight back in the field.
+ * On a phone that read as "it searched, then opened the search again".
+ *
+ * Outside an overlay (the inline search on /products) it is a no-op.
+ */
+const CloseSearchContext = createContext<() => void>(() => {});
+
+export function useCloseSearchOverlay() {
+  return useContext(CloseSearchContext);
+}
+
 export function SearchOverlay({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
 
@@ -58,7 +75,11 @@ export function SearchOverlay({ children }: { children: React.ReactNode }) {
         >
           <DialogTitle className="sr-only">Search products</DialogTitle>
           <div className="container-page">
-            <div className="mx-auto max-w-2xl">{children}</div>
+            <div className="mx-auto max-w-2xl">
+              <CloseSearchContext.Provider value={() => setOpen(false)}>
+                {children}
+              </CloseSearchContext.Provider>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
