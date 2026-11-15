@@ -74,7 +74,7 @@ Email: ${mail}</p>`;
 const GRIEVANCE_BLOCK = `
 <h2>Grievance Officer</h2>
 <p>If you are not happy with how we handled a complaint or your personal data, you can write to our Grievance Officer. We acknowledge every complaint within 48 hours and aim to resolve it within one month.</p>
-<p>Name: ${gap("Grievance Officer's name")}<br>
+<p>Name: Mugundan M P<br>
 Email: ${mail}<br>
 Address: MY Silvers, No. 75, Perumal Kovil Street, Chengam, Tiruvannamalai District, Tamil Nadu – 606701</p>`;
 
