@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getCurrentRole } from "@/server/auth/require-role";
+import { OwnerOnlyNotice, viewerIsOwner } from "@/components/admin/owner-only";
 import {
   costCoverage,
   expensesByCategory,
@@ -87,7 +86,7 @@ type SplitRow = {
  * ── Admin only, three times over ─────────────────────────────────────────────
  * proxy.ts gates /admin optimistically, AdminGate in the layout is the
  * authoritative page-level check, and every reader in server/admin/finance.ts
- * re-checks on its own. The redirect below is therefore belt-and-braces rather
+ * re-checks on its own. The owner check below is therefore belt-and-braces rather
  * than the thing standing between an editor and these figures — editors cannot
  * reach /admin at all. It stays because a route can be moved out from under a
  * layout by accident, and this is not data to lose that way.
@@ -105,7 +104,8 @@ export default async function AdminFinancePage({
   // getCurrentRole(), not the token: these are the most sensitive figures in
   // the application, and a role revoked an hour ago must close this page now
   // rather than whenever the session happens to expire. See require-role.ts.
-  if ((await getCurrentRole()) !== "admin") redirect("/admin");
+  // The OWNER's alone — partners' stakes and the shop's profit.
+  if (!(await viewerIsOwner())) return <OwnerOnlyNotice area="Finance" />;
 
   const sp = await searchParams;
   const { m } = sp;

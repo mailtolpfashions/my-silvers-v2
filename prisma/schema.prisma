@@ -12,10 +12,14 @@ datasource db {
 
 // ─── Enums ────────────────────────────────────────────────────────────────
 
+/// `superadmin` is the shop's OWNER: everything an admin can do, plus staff
+/// and roles, the books, store settings, coupons, refunds, deletes, exports and
+/// the activity log. See src/server/auth/roles.ts.
 enum Role {
   customer
   admin
   editor
+  superadmin
 }
 
 /// Salutation shown on invoices and in order correspondence. `ms` is included
@@ -104,7 +108,36 @@ model User {
   publishedContentEntries ContentEntry[] @relation("ContentEntryPublishedBy")
   uploadedMedia           MediaAsset[]
 
+  activity ActivityLog[]
+
   @@index([role])
+}
+
+/// Who did what in the admin and CMS — shown to the owner at /admin/activity.
+///
+/// Append-only: nothing in the app updates or deletes a row. `actorEmail` and
+/// `actorRole` are COPIED at write time, so the trail still reads correctly
+/// after a member of staff is removed or changes role (the relation is SetNull
+/// for the same reason as Expense.recordedBy).
+model ActivityLog {
+  id         String   @id @default(cuid())
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorId    String?
+  actorEmail String
+  actorRole  Role
+  /// Dotted verb, e.g. "order.refund", "product.delete", "settings.update".
+  /// The part before the dot is the area the page filters on.
+  action     String
+  targetType String?
+  targetId   String?
+  /// One plain sentence a person can read: "Refunded ₹1,299 on order MS-1042".
+  summary    String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
 }
 
 model Address {

@@ -3,7 +3,8 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/server/db";
-import { requireRole } from "@/server/auth/require-role";
+import { requireOwner } from "@/server/auth/require-role";
+import { logActivity } from "@/server/activity/log";
 
 /**
  * Writes to the partners' books.
@@ -64,7 +65,7 @@ export async function saveExpenseAction(
   id: string | null,
   input: unknown,
 ): Promise<FinanceActionResult> {
-  const session = await requireRole("admin");
+  const session = await requireOwner();
   const parsed = expenseSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the expense details." };
@@ -87,14 +88,24 @@ export async function saveExpenseAction(
       data: { ...data, recordedById: session.user?.id ?? null },
     });
   }
+  await logActivity(session, {
+    action: id ? "finance.expense.update" : "finance.expense.create",
+    target: { type: "expense", id },
+    summary: `${id ? "Edited" : "Recorded"} a ${category} expense of ${`₹${Number(value).toLocaleString("en-IN")}`}`,
+  });
 
   revalidatePath(FINANCE_PATH);
   return { ok: true };
 }
 
 export async function deleteExpenseAction(id: string): Promise<FinanceActionResult> {
-  await requireRole("admin");
-  await prisma.expense.delete({ where: { id } });
+  const session = await requireOwner();
+  const gone = await prisma.expense.delete({ where: { id } });
+  await logActivity(session, {
+    action: "finance.expense.delete",
+    target: { type: "expense", id },
+    summary: `Deleted a ${gone.category} expense of ₹${Number(gone.amount).toLocaleString("en-IN")}`,
+  });
   revalidatePath(FINANCE_PATH);
   return { ok: true };
 }
@@ -119,7 +130,7 @@ export async function saveInvestorAction(
   id: string | null,
   input: unknown,
 ): Promise<FinanceActionResult> {
-  await requireRole("admin");
+  const session = await requireOwner();
   const parsed = investorSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the partner details." };
@@ -140,6 +151,11 @@ export async function saveInvestorAction(
   } else {
     await prisma.investor.create({ data });
   }
+  await logActivity(session, {
+    action: id ? "finance.partner.update" : "finance.partner.create",
+    target: { type: "investor", id },
+    summary: `${id ? "Edited" : "Added"} partner ${name} (${profitShare}% of profit)`,
+  });
 
   revalidatePath(FINANCE_PATH);
   return { ok: true };
@@ -155,7 +171,7 @@ export async function saveInvestorAction(
  * anything in, can actually be deleted.
  */
 export async function deleteInvestorAction(id: string): Promise<FinanceActionResult> {
-  await requireRole("admin");
+  const session = await requireOwner();
 
   const contributions = await prisma.investment.count({ where: { investorId: id } });
   if (contributions > 0) {
@@ -166,7 +182,12 @@ export async function deleteInvestorAction(id: string): Promise<FinanceActionRes
     };
   }
 
-  await prisma.investor.delete({ where: { id } });
+  const gone = await prisma.investor.delete({ where: { id } });
+  await logActivity(session, {
+    action: "finance.partner.delete",
+    target: { type: "investor", id },
+    summary: `Removed partner ${gone.name}`,
+  });
   revalidatePath(FINANCE_PATH);
   return { ok: true };
 }
@@ -179,20 +200,26 @@ const investmentSchema = z.object({
 });
 
 export async function addInvestmentAction(input: unknown): Promise<FinanceActionResult> {
-  await requireRole("admin");
+  const session = await requireOwner();
   const parsed = investmentSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the contribution." };
   }
   const { investorId, amount: value, investedAt, note } = parsed.data;
 
-  await prisma.investment.create({
+  const added = await prisma.investment.create({
     data: {
       investorId,
       amount: value.toFixed(2),
       investedAt,
       note: note || null,
     },
+    select: { id: true, investor: { select: { name: true } } },
+  });
+  await logActivity(session, {
+    action: "finance.investment.create",
+    target: { type: "investment", id: added.id },
+    summary: `Recorded ${`₹${Number(value).toLocaleString("en-IN")}`} invested by ${added.investor.name}`,
   });
 
   revalidatePath(FINANCE_PATH);
@@ -200,8 +227,16 @@ export async function addInvestmentAction(input: unknown): Promise<FinanceAction
 }
 
 export async function deleteInvestmentAction(id: string): Promise<FinanceActionResult> {
-  await requireRole("admin");
-  await prisma.investment.delete({ where: { id } });
+  const session = await requireOwner();
+  const gone = await prisma.investment.delete({
+    where: { id },
+    select: { amount: true, investor: { select: { name: true } } },
+  });
+  await logActivity(session, {
+    action: "finance.investment.delete",
+    target: { type: "investment", id },
+    summary: `Deleted ₹${Number(gone.amount).toLocaleString("en-IN")} invested by ${gone.investor.name}`,
+  });
   revalidatePath(FINANCE_PATH);
   return { ok: true };
 }

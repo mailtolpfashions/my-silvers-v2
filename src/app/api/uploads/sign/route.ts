@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 import { auth } from "@/server/auth/auth";
 import { getCurrentRole } from "@/server/auth/require-role";
+import { isStaff } from "@/server/auth/roles";
 import { checkRateLimit, RATE_LIMIT_MESSAGE } from "@/server/rate-limit/limiter";
 import { ALLOWED_REVIEW_IMAGE_FORMATS, REVIEW_MEDIA_FOLDER } from "@/lib/review-media";
 import { signProductImageUploads } from "@/server/media/product-image-names";
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
    */
   if (body.kind === "product") {
     const role = await getCurrentRole();
-    if (role !== "admin" && role !== "editor") {
+    if (!isStaff(role)) {
       return new Response("Forbidden", { status: 403 });
     }
     try {
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
     // sign-in and never refreshed, so a revoked editor would keep this open for
     // as long as their session lasted. See require-role.ts.
     const role = await getCurrentRole();
-    if (role !== "admin" && role !== "editor") {
+    if (!isStaff(role)) {
       return new Response("Forbidden", { status: 403 });
     }
     folder = STAFF_FOLDERS.has(requested) ? requested : "mysilvers/products";

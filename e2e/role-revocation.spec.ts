@@ -119,9 +119,12 @@ test.describe("role revocation takes effect immediately", () => {
    * session lasted. Bulk exfiltration outlasting revocation is worse than page
    * access outlasting it, so it gets its own test.
    */
-  test("a demoted admin cannot pull the CSV exports", async ({ page }) => {
+  // Exports are the owner's since the owner panel (Nov 2026), so the baseline
+  // account is an owner — the premise is unchanged: revoke, and the very next
+  // request is refused.
+  test("a demoted owner cannot pull the CSV exports", async ({ page }) => {
     const email = newEmail();
-    const user = await createTestUser({ email, password: PASSWORD, role: "admin" });
+    const user = await createTestUser({ email, password: PASSWORD, role: "superadmin" });
 
     const EXPORTS = [
       "/api/admin/export/customers",

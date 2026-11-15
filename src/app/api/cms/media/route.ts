@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getCurrentRole } from "@/server/auth/require-role";
+import { isStaff } from "@/server/auth/roles";
 import { listMedia } from "@/server/cms/media";
 
 /** Media listing for the library grid and the picker modal (editor-or-admin). */
@@ -8,7 +9,7 @@ export async function GET(req: NextRequest) {
   // sign-in and never refreshed, so a revoked editor would keep this open for
   // as long as their session lasted. See require-role.ts.
   const role = await getCurrentRole();
-  if (role !== "admin" && role !== "editor") {
+  if (!isStaff(role)) {
     return new Response("Forbidden", { status: 403 });
   }
 

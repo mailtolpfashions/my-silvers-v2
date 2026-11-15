@@ -6,6 +6,8 @@ import { prisma } from "@/server/db";
 import { authConfig } from "@/server/auth/auth.config";
 import { isLocked, recordFailedAttempt, resetFailedAttempts } from "@/server/auth/lockout";
 import { passwordFingerprint } from "@/server/auth/password-fingerprint";
+import { isStaff } from "@/server/auth/roles";
+import { logActivityForUser } from "@/server/activity/log";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -43,6 +45,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   events: {
+    // Staff sign-ins go in the owner's activity log; customers' do not.
+    async signIn({ user, account }) {
+      if (!user.id) return;
+      const row = await prisma.user
+        .findUnique({ where: { id: user.id }, select: { role: true } })
+        .catch(() => null);
+      if (!isStaff(row?.role)) return;
+      await logActivityForUser(user.id, {
+        action: "staff.signin",
+        target: { type: "user", id: user.id },
+        summary: `Signed in${account?.provider === "google" ? " with Google" : ""}`,
+      });
+    },
     // A brand-new Google user: Google verified the address.
     async createUser({ user }) {
       if (!user.id) return;

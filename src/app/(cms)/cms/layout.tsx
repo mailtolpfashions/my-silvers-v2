@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/server/auth/auth";
 import { getCurrentRole } from "@/server/auth/require-role";
+import { isStaff } from "@/server/auth/roles";
 import { prisma } from "@/server/db";
 import { DashboardShell, type NavGroup } from "@/components/layout/dashboard-shell";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,7 +47,7 @@ async function CmsGate({ children }: { children: React.ReactNode }) {
   // written once at sign-in, so a revoked editor would keep rendering this
   // shell until it expired. See the note in require-role.ts.
   const [session, role] = await Promise.all([auth(), getCurrentRole()]);
-  if (!session?.user || !role || (role !== "admin" && role !== "editor")) {
+  if (!session?.user || !isStaff(role)) {
     redirect("/login?redirect=/cms");
   }
 

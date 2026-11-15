@@ -1,4 +1,4 @@
-import { requireRole } from "@/server/auth/require-role";
+import { OwnerOnlyNotice, viewerIsOwner } from "@/components/admin/owner-only";
 import { PageHeader } from "@/components/layout/page-header";
 import { getStoreSettings } from "@/server/settings/store-settings";
 import { StoreSettingsForm } from "@/components/admin/store-settings-form";
@@ -17,7 +17,7 @@ export const metadata = { title: "Settings" };
 /**
  * Blocking, like every other admin route — see admin/reviews/page.tsx.
  *
- * `getStoreSettings` is behind `use cache`, but `requireRole` is not and cannot
+ * `getStoreSettings` is behind `use cache`, but the owner check is not and cannot
  * be: it reads the session and then the database, which is the whole point of
  * it (see require-role.ts). So this route blocks regardless of the settings
  * cache.
@@ -25,7 +25,9 @@ export const metadata = { title: "Settings" };
 export const instant = false;
 
 export default async function AdminSettingsPage() {
-  await requireRole("admin");
+  // Owner only: COD, shipping charges and the returns window change what
+  // every customer is charged and promised. The save action re-checks.
+  if (!(await viewerIsOwner())) return <OwnerOnlyNotice area="Settings" />;
 
   const [settings, collections] = await Promise.all([getStoreSettings(), getCollections()]);
 

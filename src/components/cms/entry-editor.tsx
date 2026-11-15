@@ -58,7 +58,7 @@ export function EntryEditor({
   initialSeo,
   status,
   versions,
-  isAdmin,
+  canDestroy,
   isSingleton = false,
 }: {
   typeName: string;
@@ -75,7 +75,7 @@ export function EntryEditor({
   };
   status: "draft" | "published" | "archived" | null;
   versions: VersionSummary[];
-  isAdmin: boolean;
+  canDestroy: boolean;
   /**
    * One-entry types (homepage, FAQ…). They get no Delete: deleting the only
    * entry deletes the page. The server refuses as well — see deleteEntry.
@@ -326,7 +326,7 @@ export function EntryEditor({
                 timeStyle: "short",
               })}
             </span>
-            {isAdmin && (
+            {canDestroy && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -388,12 +388,12 @@ export function EntryEditor({
                 site, sat away from the button you had just used. */}
             {/* No Unpublish on the homepage — it would leave the shop's front
                 page blank. The server refuses it too (unpublishEntry). */}
-            {isAdmin && status === "published" && typeName !== "homepage" && (
+            {canDestroy && status === "published" && typeName !== "homepage" && (
               <Button variant="outline" size="sm" disabled={isPending} onClick={handleUnpublish}>
                 Unpublish
               </Button>
             )}
-            {isAdmin && currentId && !isSingleton && (
+            {canDestroy && currentId && !isSingleton && (
               <>
                 <Button
                   variant="destructive"

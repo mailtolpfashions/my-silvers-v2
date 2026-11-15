@@ -30,7 +30,7 @@ const ADMIN_PAGES = [
 
 test.describe("admin screens", () => {
   test("every admin page renders for an admin", async ({ page }) => {
-    const admin = await signInAs(page, "admin", "adminpages");
+    const admin = await signInAs(page, "superadmin", "adminpages");
 
     try {
       for (const { path, heading } of ADMIN_PAGES) {
@@ -51,7 +51,7 @@ test.describe("admin screens", () => {
   });
 
   test("an admin page that throws is not how we find out", async ({ page }) => {
-    const admin = await signInAs(page, "admin", "adminerrors");
+    const admin = await signInAs(page, "superadmin", "adminerrors");
     const failures: string[] = [];
 
     // A server component that throws renders the error boundary rather than a
@@ -81,7 +81,7 @@ test.describe("CSV exports", () => {
   ];
 
   test("return real CSV to an admin", async ({ page }) => {
-    const admin = await signInAs(page, "admin", "exports");
+    const admin = await signInAs(page, "superadmin", "exports");
 
     try {
       for (const { path, label } of EXPORTS) {

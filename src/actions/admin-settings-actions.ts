@@ -2,7 +2,8 @@
 
 import { z } from "zod";
 import { revalidatePath, updateTag } from "next/cache";
-import { requireRole } from "@/server/auth/require-role";
+import { requireOwner } from "@/server/auth/require-role";
+import { logActivity } from "@/server/activity/log";
 import {
   getStoreSettings,
   NAV_FILTER_LIMITS,
@@ -113,7 +114,7 @@ export type SettingsActionResult = { ok: true } | { ok: false; error: string };
  * feature exists to prevent.
  */
 export async function saveStoreSettingsAction(input: unknown): Promise<SettingsActionResult> {
-  await requireRole("admin");
+  const session = await requireOwner();
 
   const parsed = settingsSchema.safeParse(input);
   if (!parsed.success) {
@@ -149,6 +150,21 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
     console.error("saveStoreSettingsAction failed", err);
     return { ok: false, error: "Could not save the settings. Please try again." };
   }
+
+  // Before → after for every switch that changed, so the owner can see
+  // exactly what moved ("shippingChargePaise: 4900 → 5900").
+  const changed = Object.fromEntries(
+    Object.entries(next)
+      .filter(([k, v]) => JSON.stringify(v) !== JSON.stringify((before as Record<string, unknown>)[k]))
+      .map(([k, v]) => [k, { from: (before as Record<string, unknown>)[k] ?? null, to: v }])
+  );
+  const keys = Object.keys(changed);
+  await logActivity(session, {
+    action: "settings.update",
+    target: { type: "settings", id: "store" },
+    summary: keys.length ? `Changed store settings: ${keys.join(", ")}` : "Saved store settings (no changes)",
+    details: JSON.parse(JSON.stringify(changed)),
+  });
 
   updateTag(STORE_SETTINGS_TAG);
 

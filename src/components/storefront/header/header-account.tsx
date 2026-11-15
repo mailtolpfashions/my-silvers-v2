@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Heart, User } from "lucide-react";
 import { auth } from "@/server/auth/auth";
+import { isAdmin, isStaff } from "@/server/auth/roles";
 import { getCartItemCount } from "@/server/cart";
 import { Button } from "@/components/ui/button";
 import { CartButton } from "@/components/storefront/cart-button";
@@ -22,12 +23,12 @@ export async function HeaderAccount() {
 
   return (
     <>
-      {role === "admin" && (
+      {isAdmin(role) && (
         <Button asChild variant="ghost" size="sm" className="hidden h-9 rounded-none px-3 text-sm lg:inline-flex">
           <Link href="/admin">Admin</Link>
         </Button>
       )}
-      {(role === "admin" || role === "editor") && (
+      {isStaff(role) && (
         <Button asChild variant="ghost" size="sm" className="hidden h-9 rounded-none px-3 text-sm lg:inline-flex">
           <Link href="/cms">CMS</Link>
         </Button>

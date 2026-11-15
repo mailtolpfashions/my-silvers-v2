@@ -1,5 +1,6 @@
 "use client";
 
+import { useIsOwner } from "@/components/admin/owner-context";
 import { Button } from "@/components/ui/button";
 import { PdfExportButton } from "@/components/admin/pdf-export-button";
 import { useBulkSelect } from "@/components/admin/bulk-select";
@@ -23,6 +24,7 @@ import { useBulkSelect } from "@/components/admin/bulk-select";
  */
 export function ProductExportButtons() {
   const { selected } = useBulkSelect();
+  const isOwner = useIsOwner();
   const ids = [...selected];
   const scoped = ids.length > 0;
 
@@ -30,6 +32,9 @@ export function ProductExportButtons() {
   // a large selection offers the CSV (sent as a form, no limit) and says so.
   const pdfLimit = 200;
   const query = scoped ? `?ids=${ids.join(",")}` : "";
+
+  // Exports are the owner's — the routes refuse anyone else.
+  if (!isOwner) return null;
 
   return (
     <>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useIsOwner } from "@/components/admin/owner-context";
 import { useState, useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -120,6 +121,8 @@ export function ProductRowActions({
 }) {
   const [isPending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Deletes are the owner's alone; Archive stays for every admin.
+  const isOwner = useIsOwner();
 
   function remove() {
     startTransition(async () => {
@@ -150,15 +153,17 @@ export function ProductRowActions({
       <Button variant="outline" size="sm" disabled={isPending} onClick={toggle}>
         {isActive ? "Archive" : "Restore"}
       </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="text-destructive hover:text-destructive"
-        disabled={isPending}
-        onClick={() => setConfirmDelete(true)}
-      >
-        Delete
-      </Button>
+      {isOwner && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-destructive hover:text-destructive"
+          disabled={isPending}
+          onClick={() => setConfirmDelete(true)}
+        >
+          Delete
+        </Button>
+      )}
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}

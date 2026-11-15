@@ -37,7 +37,7 @@ export async function closeDb(): Promise<void> {
   pool = null;
 }
 
-export type TestRole = "customer" | "admin" | "editor";
+export type TestRole = "customer" | "admin" | "editor" | "superadmin";
 
 /** A throwaway account with a known password, for sign-in flows. */
 export async function createTestUser(opts: {
@@ -325,4 +325,19 @@ export async function getOrderDiscount(
     [orderNumber]
   );
   return rows[0] ?? null;
+}
+
+/** The role the database holds right now — for asserting a staff change landed. */
+export async function getUserRole(id: string): Promise<string | null> {
+  const { rows } = await getPool().query(`SELECT "role" FROM "User" WHERE "id" = $1`, [id]);
+  return rows[0]?.role ?? null;
+}
+
+/** The newest activity-log summaries recorded for one account. */
+export async function activityFor(actorId: string, take = 5): Promise<string[]> {
+  const { rows } = await getPool().query(
+    `SELECT "summary" FROM "ActivityLog" WHERE "actorId" = $1 ORDER BY "createdAt" DESC LIMIT $2`,
+    [actorId, take]
+  );
+  return rows.map((r: { summary: string }) => r.summary);
 }

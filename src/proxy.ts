@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/server/auth/auth.config";
 import { safeRedirectPath } from "@/server/auth/google-enabled";
+import { isAdmin, isStaff } from "@/server/auth/roles";
 
 const { auth } = NextAuth(authConfig);
 
@@ -49,7 +50,7 @@ export default auth((req) => {
   }
 
   if (pathname.startsWith("/admin")) {
-    if (role !== "admin") {
+    if (!isAdmin(role)) {
       const loginUrl = new URL("/login", req.nextUrl.origin);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
@@ -57,12 +58,12 @@ export default auth((req) => {
   }
 
   if (pathname.startsWith("/cms")) {
-    if (!role || (role !== "admin" && role !== "editor")) {
+    if (!isStaff(role)) {
       const loginUrl = new URL("/login", req.nextUrl.origin);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
     }
-    if (isDestructiveCmsRoute(pathname) && role !== "admin") {
+    if (isDestructiveCmsRoute(pathname) && !isAdmin(role)) {
       return NextResponse.redirect(new URL("/cms", req.nextUrl.origin));
     }
   }
@@ -74,7 +75,7 @@ export default auth((req) => {
   // arbitrary HTML is a liability worth closing while it costs one line, and
   // because a preview pane is an authoring tool regardless of its blast radius.
   if (pathname.startsWith("/preview")) {
-    if (!role || (role !== "admin" && role !== "editor")) {
+    if (!isStaff(role)) {
       const loginUrl = new URL("/login", req.nextUrl.origin);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);

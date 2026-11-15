@@ -86,7 +86,7 @@ test.describe("product vendor", () => {
       quantity: 3,
       vendor,
     });
-    const admin = await signInAs(page, "admin", "vendor-report");
+    const admin = await signInAs(page, "superadmin", "vendor-report");
 
     try {
       await page.goto("/admin/finance");

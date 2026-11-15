@@ -82,7 +82,7 @@ async function setToggle(page: Page, id: string, on: boolean) {
 async function withAdmin(browser: Browser, fn: (page: Page) => Promise<void>) {
   const context = await browser.newContext();
   const page = await context.newPage();
-  const admin = await signInAs(page, "admin", "commerce-admin");
+  const admin = await signInAs(page, "superadmin", "commerce-admin");
   try {
     await fn(page);
   } finally {
@@ -93,7 +93,7 @@ async function withAdmin(browser: Browser, fn: (page: Page) => Promise<void>) {
 
 test.describe("store settings gate what the shop actually does", () => {
   test("turning COD on makes it available at checkout, and off removes it", async ({ page }) => {
-    const admin = await signInAs(page, "admin", "settings");
+    const admin = await signInAs(page, "superadmin", "settings");
     const original = await readSettings(page);
 
     try {
@@ -124,7 +124,7 @@ test.describe("store settings gate what the shop actually does", () => {
   });
 
   test("shipping rates entered by the admin survive the round trip", async ({ page }) => {
-    const admin = await signInAs(page, "admin", "shiprate");
+    const admin = await signInAs(page, "superadmin", "shiprate");
     const original = await readSettings(page);
 
     try {
@@ -146,7 +146,7 @@ test.describe("store settings gate what the shop actually does", () => {
   });
 
   test("disabling guest checkout sends an anonymous shopper to login", async ({ page, browser }) => {
-    const admin = await signInAs(page, "admin", "guestck");
+    const admin = await signInAs(page, "superadmin", "guestck");
     const original = await readSettings(page);
 
     try {
@@ -608,7 +608,7 @@ test.describe("header menu lists come from store settings", () => {
     // Two settings saves, a header check and a restore: over the default 30s
     // now that saveSettings waits for the real toast instead of returning early.
     test.slow();
-    const admin = await signInAs(page, "admin", "navmenu");
+    const admin = await signInAs(page, "superadmin", "navmenu");
     const stamp = Date.now();
     const label = `E2E Antique ${stamp}`;
     const query = `e2e-antique-${stamp}`;

@@ -22,6 +22,8 @@ import {
   Settings,
   Tags,
   Users,
+  UserCog,
+  History,
   type LucideIcon,
   TicketPercent,
 } from "lucide-react";
@@ -48,6 +50,8 @@ const ICONS: Record<string, LucideIcon> = {
   inventory: Boxes,
   newsletter: Mails,
   settings: Settings,
+  staff: UserCog,
+  activity: History,
   media: ImageIcon,
   homepage: Home,
   page: FileText,

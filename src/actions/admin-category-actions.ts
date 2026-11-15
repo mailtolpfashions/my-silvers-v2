@@ -3,7 +3,8 @@
 import { z } from "zod";
 import { revalidatePath, updateTag } from "next/cache";
 import { prisma } from "@/server/db";
-import { requireRole } from "@/server/auth/require-role";
+import { requireOwner, requireRole } from "@/server/auth/require-role";
+import { logActivity } from "@/server/activity/log";
 import { assertAllowedMediaUrls } from "@/server/media/url-allowlist";
 import { slugify } from "@/server/products/admin";
 
@@ -33,7 +34,7 @@ export async function saveCategoryAction(
   id: string | null,
   input: unknown
 ): Promise<CategoryActionResult> {
-  await requireRole("admin");
+  const session = await requireRole("admin");
   const parsed = categorySchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid category data." };
@@ -56,11 +57,14 @@ export async function saveCategoryAction(
       isActive: data.isActive,
     };
 
-    if (id) {
-      await prisma.category.update({ where: { id }, data: payload });
-    } else {
-      await prisma.category.create({ data: payload });
-    }
+    const saved = id
+      ? await prisma.category.update({ where: { id }, data: payload })
+      : await prisma.category.create({ data: payload });
+    await logActivity(session, {
+      action: id ? "category.update" : "category.create",
+      target: { type: "category", id: saved.id },
+      summary: `${id ? "Edited" : "Added"} category “${data.name}”`,
+    });
 
     revalidatePath("/admin/categories");
     updateTag("categories");
@@ -80,7 +84,8 @@ export async function saveCategoryAction(
  * Moving products out is a decision about each piece, so it is not done here.
  */
 export async function deleteCategoryAction(id: string): Promise<CategoryActionResult> {
-  await requireRole("admin");
+  // Deletes are the owner's alone — see roles.ts.
+  const session = await requireOwner();
 
   const count = await prisma.product.count({ where: { categoryId: id } });
   if (count > 0) {
@@ -91,7 +96,12 @@ export async function deleteCategoryAction(id: string): Promise<CategoryActionRe
   }
 
   try {
-    await prisma.category.delete({ where: { id } });
+    const gone = await prisma.category.delete({ where: { id } });
+    await logActivity(session, {
+      action: "category.delete",
+      target: { type: "category", id },
+      summary: `Deleted category “${gone.name}”`,
+    });
   } catch (err) {
     console.error("deleteCategoryAction failed", err);
     return { ok: false, error: "Could not delete this category. Refresh the page and try again." };
@@ -104,8 +114,13 @@ export async function deleteCategoryAction(id: string): Promise<CategoryActionRe
 }
 
 export async function setCategoryActiveAction(id: string, isActive: boolean): Promise<CategoryActionResult> {
-  await requireRole("admin");
-  await prisma.category.update({ where: { id }, data: { isActive } });
+  const session = await requireRole("admin");
+  const cat = await prisma.category.update({ where: { id }, data: { isActive } });
+  await logActivity(session, {
+    action: "category.update",
+    target: { type: "category", id },
+    summary: `${isActive ? "Showed" : "Hid"} category “${cat.name}”`,
+  });
   revalidatePath("/admin/categories");
   updateTag("categories");
   updateTag("products");

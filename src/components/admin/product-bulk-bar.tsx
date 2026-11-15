@@ -1,5 +1,6 @@
 "use client";
 
+import { useIsOwner } from "@/components/admin/owner-context";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ChevronDown } from "lucide-react";
@@ -89,6 +90,8 @@ export function ProductBulkBar({
   const [percent, setPercent] = useState("10");
   const [vendor, setVendor] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Deletes are the owner's alone; Archive stays for every admin.
+  const isOwner = useIsOwner();
   const [charmStyle, setCharmStyle] = useState<CharmStyle>("99");
   const latestCharmStyle = useRef<CharmStyle>("99");
   const [charmPreview, setCharmPreview] = useState<{
@@ -274,15 +277,17 @@ export function ProductBulkBar({
       >
         Archive
       </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="text-destructive hover:text-destructive"
-        disabled={isPending}
-        onClick={() => setConfirmDelete(true)}
-      >
-        Delete
-      </Button>
+      {isOwner && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-destructive hover:text-destructive"
+          disabled={isPending}
+          onClick={() => setConfirmDelete(true)}
+        >
+          Delete
+        </Button>
+      )}
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCurrentRole } from "@/server/auth/require-role";
+import { isOwner } from "@/server/auth/roles";
 import { getContentType, getEntryForEdit, CmsError } from "@/server/cms/entries";
 import { parseFields, type EntryData } from "@/server/cms/types";
 import { EntryEditor } from "@/components/cms/entry-editor";
@@ -33,9 +34,9 @@ export default async function EntryEditorPage({
   params: Promise<{ type: string; id: string }>;
 }) {
   const { type: typeName, id } = await params;
-  // From the database, not the token — isAdmin gates the destructive controls
-  // (unpublish, delete, restore). See require-role.ts.
-  const isAdmin = (await getCurrentRole()) === "admin";
+  // From the database, not the token — canDestroy gates the destructive controls
+  // (unpublish, delete, restore), which are the OWNER's alone. See roles.ts.
+  const canDestroy = isOwner(await getCurrentRole());
 
   let type;
   try {
@@ -66,7 +67,7 @@ export default async function EntryEditorPage({
         }}
         status={null}
         versions={[]}
-        isAdmin={isAdmin}
+        canDestroy={canDestroy}
         isSingleton={type.isSingleton}
       />
       </FreshOnNavigate>
@@ -113,7 +114,7 @@ export default async function EntryEditorPage({
         label: v.label,
         savedAt: v.savedAt.toISOString(),
       }))}
-      isAdmin={isAdmin}
+      canDestroy={canDestroy}
       isSingleton={type.isSingleton}
     />
     </>

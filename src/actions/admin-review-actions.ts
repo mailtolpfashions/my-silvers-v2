@@ -2,7 +2,8 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { prisma } from "@/server/db";
-import { requireRole } from "@/server/auth/require-role";
+import { requireOwner, requireRole } from "@/server/auth/require-role";
+import { logActivity } from "@/server/activity/log";
 import { destroyReviewMedia } from "@/server/reviews/media";
 import type { ReviewStatus } from "@/generated/prisma/enums";
 
@@ -40,12 +41,17 @@ export async function setReviewStatusAction(
   id: string,
   status: ReviewStatus,
 ): Promise<ReviewActionResult> {
-  await requireRole("admin");
+  const session = await requireRole("admin");
 
   const review = await prisma.review.update({
     where: { id },
     data: { status },
-    select: { product: { select: { slug: true } } },
+    select: { product: { select: { slug: true, name: true } } },
+  });
+  await logActivity(session, {
+    action: "review.status",
+    target: { type: "review", id },
+    summary: `Marked a review of “${review.product.name}” as ${status}`,
   });
 
   invalidate(review.product.slug);
@@ -70,11 +76,18 @@ export async function setReviewStatusAction(
  * takedown that took nothing down.
  */
 export async function deleteReviewAction(id: string): Promise<ReviewActionResult> {
-  await requireRole("admin");
+  // Deletes are the owner's alone — see roles.ts. Rejecting hides a review
+  // just as well and stays available to admins.
+  const session = await requireOwner();
 
   const review = await prisma.review.delete({
     where: { id },
-    select: { product: { select: { slug: true } }, imageUrl: true },
+    select: { product: { select: { slug: true, name: true } }, imageUrl: true },
+  });
+  await logActivity(session, {
+    action: "review.delete",
+    target: { type: "review", id },
+    summary: `Deleted a review of “${review.product.name}”`,
   });
 
   // Awaited, unlike the edit-time cleanup in upsertReview. There the media was
@@ -114,7 +127,7 @@ export async function bulkSetReviewStatusAction(
   ids: string[],
   status: ReviewStatus,
 ): Promise<ReviewActionResult> {
-  await requireRole("admin");
+  const session = await requireRole("admin");
 
   if (ids.length === 0) return { ok: false, error: "Nothing selected." };
   // A ceiling, because the ids arrive from the browser. Well past any real
@@ -122,6 +135,11 @@ export async function bulkSetReviewStatusAction(
   if (ids.length > 200) return { ok: false, error: "Too many at once — select fewer." };
 
   await prisma.review.updateMany({ where: { id: { in: ids } }, data: { status } });
+  await logActivity(session, {
+    action: "review.status",
+    target: { type: "review" },
+    summary: `Marked ${ids.length} review${ids.length === 1 ? "" : "s"} as ${status}`,
+  });
 
   // No product slug to revalidate: a bulk change can span dozens of products,
   // so the tags do the work and the storefront picks it all up.

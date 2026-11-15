@@ -1,5 +1,6 @@
 "use client";
 
+import { useIsOwner } from "@/components/admin/owner-context";
 import { useState, useTransition } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -165,6 +166,8 @@ function CategoryFormDialog({
 }
 
 export function CategoryManager({ categories }: { categories: CategoryRow[] }) {
+  // Deletes are the owner's alone; archive stays available to every admin.
+  const isOwner = useIsOwner();
   const [isPending, startTransition] = useTransition();
   // The row is kept after closing, separately from `open`, so the dialog's
   // text doesn't blank out while its close animation is still on screen.
@@ -238,18 +241,20 @@ export function CategoryManager({ categories }: { categories: CategoryRow[] }) {
               >
                 {category.isActive ? "Archive" : "Restore"}
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:text-destructive"
-                disabled={isPending}
-                onClick={() => {
-                  setDeleting(category);
-                  setDeleteOpen(true);
-                }}
-              >
-                Delete
-              </Button>
+              {isOwner && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  disabled={isPending}
+                  onClick={() => {
+                    setDeleting(category);
+                    setDeleteOpen(true);
+                  }}
+                >
+                  Delete
+                </Button>
+              )}
             </div>
           </div>
         ))}
