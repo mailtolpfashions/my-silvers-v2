@@ -7,6 +7,7 @@ import { isAdmin, isOwner } from "@/server/auth/roles";
 import { DashboardShell, type NavGroup } from "@/components/layout/dashboard-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OwnerProvider } from "@/components/admin/owner-context";
+import { NewOrderWatcher } from "@/components/admin/dashboard/new-order-watcher";
 
 /**
  * Grouped rather than one flat list: "Catalogue" is what you keep, "Commerce"
@@ -122,6 +123,8 @@ async function AdminGate({ children }: { children: React.ReactNode }) {
       }}
     >
       <OwnerProvider isOwner={isOwner(role)}>{children}</OwnerProvider>
+      {/* New-order alerts on every admin page — see new-order-watcher.tsx. */}
+      <NewOrderWatcher />
     </DashboardShell>
   );
 }

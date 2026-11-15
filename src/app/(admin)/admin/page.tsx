@@ -1,224 +1,176 @@
-import {
-  getDashboardStats,
-  getDashboardTrends,
-  getRevenueByDay,
-  getRecentOrders,
-} from "@/server/admin/stats";
 import { Suspense } from "react";
+import { auth } from "@/server/auth/auth";
+import { getDashboard, parseRange, parseTab, RANGE_LABELS } from "@/server/admin/dashboard";
 import { getAttentionItems, getAbandonedCartSummary } from "@/server/admin/attention";
 import { AttentionBlock, AttentionLink } from "@/components/admin/attention-block";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/admin/stat-card";
-import { RevenueChart } from "@/components/admin/revenue-chart";
-import { OrderStatusBadges } from "@/components/storefront/orders/order-detail";
-import Link from "next/link";
-import { formatINR, formatINRPaise, formatShortDay } from "@/lib/format";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
-import { PageHeader } from "@/components/layout/page-header";
+import { ToShipCard } from "@/components/admin/dashboard/to-ship-card";
+import { RangeTabs } from "@/components/admin/dashboard/range-tabs";
+import { SalesChart } from "@/components/admin/dashboard/sales-chart";
+import { RecentOrdersTable } from "@/components/admin/dashboard/recent-orders-table";
+import { TopProducts, LowStock } from "@/components/admin/dashboard/product-lists";
+import { formatINR, formatINRPaise } from "@/lib/format";
 
 /**
  * Blocking, like every other admin route — see the fuller note in
- * admin/reviews/page.tsx for the reasoning. In short: everything here is
- * per-shopkeeper and behind a login, so there is no shell worth prerendering
- * and nothing to share between visitors; it is opened by staff a few times a
- * day, so no conversion or crawl budget rides on it; and the data IS the page,
- * so a skeleton would be replaced wholesale a moment later.
- *
- * ⚠️  Note this does NOT mean the dashboard cannot stream. The abandoned-cart
- * row below has its own <Suspense> and still streams independently, because
- * that query is genuinely slow enough to hold up the other six rows. `instant`
- * governs whether Next VALIDATES the route for instant navigation, not whether
- * the route is allowed to have boundaries inside it.
- *
- * Without this the dev overlay reports getDashboardStats as blocking the
- * prerender. Validation is dev-only at the framework's default warning level,
- * so `next build` passes either way — which is exactly how this route went so
- * long as the only admin page missing the export.
+ * admin/reviews/page.tsx. The abandoned-cart row still streams on its own
+ * <Suspense>: `instant` governs route validation, not inner boundaries.
  */
 export const instant = false;
 
-export default async function AdminDashboardPage() {
-  const [stats, trends, revenueDays, recentOrders] = await Promise.all([
-    getDashboardStats(),
-    getDashboardTrends(),
-    getRevenueByDay(),
-    getRecentOrders(),
+/**
+ * The admin home, laid out the way Shopify's is: what needs DOING first, then
+ * how the shop is doing, then the detail.
+ *
+ *   1. To ship — paid (or COD) orders not yet shipped. Exists because a paid
+ *      order once went unnoticed; it was one line of "Recent orders".
+ *   2. Sales, orders, average order value, new customers — for the range the
+ *      owner picks, each against the period before.
+ *   3. Sales chart · To do (stock, returns, reviews, unpaid checkouts).
+ *   4. Recent orders (All / To ship / Unpaid) · Top products · Low stock.
+ *
+ * NewOrderWatcher in the admin layout refreshes this page when a new order
+ * lands, so it never has to be reloaded by hand. Profit, costs and partner
+ * shares are NOT here — they stay on the owner-only Finance page.
+ */
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string; tab?: string }>;
+}) {
+  const sp = await searchParams;
+  const range = parseRange(sp.range);
+  const tab = parseTab(sp.tab);
+
+  const [session, data, attention] = await Promise.all([
+    auth(),
+    getDashboard(range, tab),
+    getAttentionItems(),
   ]);
 
-  const attention = await getAttentionItems();
+  const { kpis } = data;
+  const versus = RANGE_LABELS[range].versus;
+  const total = data.chart.reduce((s, b) => s + b.revenuePaise, 0);
+  const best = data.chart.reduce((a, b) => (b.revenuePaise > a.revenuePaise ? b : a), data.chart[0]);
 
-  /**
-   * Both read off the chart that is already on the page — same array, no extra
-   * query. getRevenueByDay fills every day in the window, including zero ones,
-   * so `reduce` and the max below are over a complete 30 entries rather than
-   * only the days that happened to have a sale.
-   */
-  const thirtyDayTotal = revenueDays.reduce((sum, d) => sum + d.revenuePaise, 0);
-  const bestDay = revenueDays.reduce(
-    (best, d) => (d.revenuePaise > best.revenuePaise ? d : best),
-    // Seeded rather than relying on revenueDays[0], which is only safe because
-    // the window is always filled — and would be a crash the day it is not.
-    { day: "", revenuePaise: 0 }
+  const hour = Number(
+    new Date(data.now).toLocaleString("en-IN", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" })
   );
-
-  /**
-   * The totals are lifetime; the trend beneath each is the last 30 days against
-   * the 30 before. Those are different windows on purpose — the number answers
-   * "how big is this" and the line under it answers "which way is it going".
-   *
-   * Active products carries no trend: it is a count of what exists now, not of
-   * anything that happened in a period. See getDashboardTrends.
-   */
-  const cards = [
-    { label: "Active products", value: String(stats.productCount) },
-    { label: "Orders", value: String(stats.orderCount), trend: trends.orders },
-    { label: "Customers", value: String(stats.customerCount), trend: trends.customers },
-    {
-      label: "Lifetime revenue",
-      value: formatINR(stats.totalRevenue),
-      trend: trends.revenue,
-      format: formatINR,
-    },
-  ];
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const firstName = session?.user?.name?.split(" ")[0];
 
   return (
-    <div className="space-y-8">
-      {/* The returns pill that used to live in `actions` is gone: it was the
-          only actionable thing the dashboard knew about, and it is now one row
-          of the attention block below rather than a second place to see the
-          same number. */}
-      <PageHeader title="Dashboard" />
+    <div className="mx-auto max-w-7xl space-y-6">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-h2">
+            {greeting}
+            {firstName ? `, ${firstName}` : ""}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {new Date(data.now).toLocaleDateString("en-IN", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              timeZone: "Asia/Kolkata",
+            })}
+          </p>
+        </div>
+        <RangeTabs current={range} tab={tab} />
+      </header>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium text-muted-foreground">Needs attention</h2>
-        <AttentionBlock
-          items={attention}
-          cartSlot={
-            /* Its own boundary: deciding whether a cart is abandoned cannot be
-               a COUNT, so it is by far the slowest query on this page. Behind
-               Suspense the other six rows paint immediately. */
-            <Suspense fallback={<Skeleton className="h-9 w-44" />}>
-              <AbandonedCartRow />
-            </Suspense>
-          }
-        />
-      </section>
+      <ToShipCard rows={data.toShip} count={data.toShipCount} now={data.now} />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {cards.map((card) => (
-          <StatCard
-            key={card.label}
-            label={card.label}
-            value={card.value}
-            trend={card.trend}
-            format={card.format}
-          />
-        ))}
+        <StatCard
+          label={`Sales · ${RANGE_LABELS[range].label}`}
+          value={formatINR(kpis.sales.current)}
+          trend={kpis.sales}
+          format={formatINR}
+          versus={versus}
+        />
+        <StatCard
+          label="Orders"
+          value={String(kpis.orders.current)}
+          trend={kpis.orders}
+          versus={versus}
+        />
+        <StatCard
+          label="Average order value"
+          value={formatINR(Math.round(kpis.aov.current))}
+          trend={kpis.aov}
+          format={(n) => formatINR(Math.round(n))}
+          versus={versus}
+        />
+        <StatCard
+          label="New customers"
+          value={String(kpis.customers.current)}
+          trend={kpis.customers}
+          versus={versus}
+        />
       </div>
 
-      {/* Chart, then the two figures that read off it, then a way through to
-          the orders behind them. The chart alone showed a shape with no numbers
-          attached — you could see a spike and had no way to learn what day it
-          was or what it was worth without hovering each bar in turn. */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Revenue — last 30 days</CardTitle>
-          <CardDescription>
-            Paid orders, plus COD orders that were not cancelled.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <RevenueChart days={revenueDays} />
-        </CardContent>
-        <CardContent className="grid gap-3 sm:grid-cols-2">
-          <RevenueFigure label="30-day total" value={formatINRPaise(thirtyDayTotal)} />
-          <RevenueFigure
-            label="Best day"
-            value={formatINRPaise(bestDay.revenuePaise)}
-            // Suppressed when nothing sold at all: "Best day — ₹0 on 14 Aug"
-            // names an arbitrary day as the winner of a month with no sales.
-            caption={bestDay.revenuePaise > 0 ? formatShortDay(bestDay.day) : "No sales yet"}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <section aria-labelledby="sales-heading" className="rounded-lg border bg-card p-5 lg:col-span-2">
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="sales-heading" className="font-semibold">
+              Sales {data.unit === "hour" ? "by hour" : "by day"}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {formatINRPaise(total)}
+              {best && best.revenuePaise > 0 && (
+                <>
+                  {" · best "}
+                  {data.unit === "hour"
+                    ? new Date(best.at).toLocaleTimeString("en-IN", { hour: "numeric", timeZone: "Asia/Kolkata" })
+                    : new Date(best.at).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        timeZone: "Asia/Kolkata",
+                      })}{" "}
+                  ({formatINRPaise(best.revenuePaise)})
+                </>
+              )}
+            </p>
+          </div>
+          <SalesChart buckets={data.chart} unit={data.unit} />
+          <p className="mt-3 text-xs text-muted-foreground">
+            Paid orders, plus cash-on-delivery orders that weren&apos;t cancelled. India time.
+          </p>
+        </section>
+
+        <section aria-labelledby="todo-heading" className="rounded-lg border bg-card p-5">
+          <h2 id="todo-heading" className="mb-3 font-semibold">
+            To do
+          </h2>
+          <AttentionBlock
+            items={attention}
+            cartSlot={
+              <Suspense fallback={<Skeleton className="h-9 w-44" />}>
+                <AbandonedCartRow />
+              </Suspense>
+            }
           />
-        </CardContent>
-        <CardFooter>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/admin/orders">View orders</Link>
-          </Button>
-        </CardFooter>
-      </Card>
+        </section>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Recent orders</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {recentOrders.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No orders yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {recentOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 last:border-0 last:pb-0"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{order.orderNumber}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {order.user.name ?? order.user.email} ·{" "}
-                      {order.createdAt.toLocaleDateString("en-IN", { dateStyle: "medium" })} ·{" "}
-                      {formatINR(order.totalAmount.toString())}
-                    </p>
-                  </div>
-                  <OrderStatusBadges order={order} />
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <RecentOrdersTable orders={data.recent} tab={tab} range={range} />
+        </div>
+        <div className="space-y-6">
+          <TopProducts products={data.topProducts} rangeLabel={RANGE_LABELS[range].label} />
+          <LowStock products={data.lowStock} />
+        </div>
+      </div>
     </div>
   );
 }
 
 /**
- * One figure beneath the revenue chart.
- *
- * Deliberately not a <StatCard>. That is a card in its own right and this sits
- * INSIDE one — nesting a bordered card in a bordered card is the visual noise
- * that makes a dashboard look assembled rather than designed. Same type scale,
- * no chrome.
- */
-function RevenueFigure({
-  label,
-  value,
-  caption,
-}: {
-  label: string;
-  value: string;
-  caption?: string;
-}) {
-  return (
-    <div className="bg-muted/40 p-3">
-      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-1 text-lg font-semibold tabular-nums">{value}</p>
-      {caption && <p className="text-sm text-muted-foreground">{caption}</p>}
-    </div>
-  );
-}
-
-/**
- * Abandoned carts, streamed on its own.
- *
- * Renders nothing when there are none — an all-clear is the absence of a row,
- * not a row saying zero.
+ * Abandoned carts, streamed on its own — the slowest query here.
+ * Renders nothing when there are none.
  */
 async function AbandonedCartRow() {
   const { count, value } = await getAbandonedCartSummary();

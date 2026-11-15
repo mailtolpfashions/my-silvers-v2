@@ -27,11 +27,14 @@ export function StatCard({
   trend,
   /** Formats the delta — revenue needs currency, counts do not. */
   format,
+  versus,
 }: {
   label: string;
   value: string;
   trend?: StatTrend;
   format?: (n: number) => string;
+  /** What the trend compares against. Defaults to the 30-day wording. */
+  versus?: string;
 }) {
   return (
     <Card>
@@ -40,19 +43,27 @@ export function StatCard({
       </CardHeader>
       <CardContent>
         <p className="text-2xl font-semibold tabular-nums">{value}</p>
-        {trend && <TrendLine trend={trend} format={format} />}
+        {trend && <TrendLine trend={trend} format={format} versus={versus} />}
       </CardContent>
     </Card>
   );
 }
 
-function TrendLine({ trend, format }: { trend: StatTrend; format?: (n: number) => string }) {
+function TrendLine({
+  trend,
+  format,
+  versus = "vs previous 30 days",
+}: {
+  trend: StatTrend;
+  format?: (n: number) => string;
+  versus?: string;
+}) {
   const { current, previous } = trend;
 
   // Nothing happened in either period. A "0%" here would claim a comparison
   // that was never possible.
   if (current === 0 && previous === 0) {
-    return <p className="mt-1 text-xs text-muted-foreground">No activity in 60 days</p>;
+    return <p className="mt-1 text-xs text-muted-foreground">No activity in either period</p>;
   }
 
   const diff = current - previous;
@@ -78,7 +89,7 @@ function TrendLine({ trend, format }: { trend: StatTrend; format?: (n: number) =
         {flat ? "No change" : magnitude}
         <span className="text-muted-foreground">
           {" "}
-          vs previous 30 days
+          {versus}
           {format && !flat && previous !== 0 ? ` (${format(Math.abs(diff))})` : ""}
         </span>
       </span>

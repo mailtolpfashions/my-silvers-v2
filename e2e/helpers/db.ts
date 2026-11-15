@@ -363,3 +363,41 @@ export async function insertUnpaidOnlineOrder(
   );
   return { id, orderNumber };
 }
+
+/**
+ * An order in any state, for the dashboard tests. `shipped` stamps
+ * shipmentCreatedAt, which is what takes an order off the To ship list.
+ * Removed by deleteOrdersForUser.
+ */
+export async function insertOrderInState(
+  userId: string,
+  opts: {
+    paymentMethod: "razorpay" | "cod";
+    paymentStatus: "pending" | "paid" | "failed";
+    orderStatus?: "placed" | "confirmed" | "shipped" | "cancelled";
+    shipped?: boolean;
+    total?: number;
+  }
+): Promise<{ id: string; orderNumber: string }> {
+  const id = `e2e_${crypto.randomBytes(12).toString("hex")}`;
+  const orderNumber = `E2E-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
+  const total = opts.total ?? 1499;
+  await getPool().query(
+    `INSERT INTO "Order" ("id", "orderNumber", "userId", "shippingAddress", "paymentMethod",
+                          "paymentStatus", "orderStatus", "subtotal", "shippingCharge",
+                          "totalAmount", "shipmentCreatedAt", "updatedAt")
+     VALUES ($1, $2, $3, '{"fullName":"E2E Buyer","city":"Chennai"}'::jsonb, $4, $5, $6, $7, 0, $7,
+             $8, NOW())`,
+    [
+      id,
+      orderNumber,
+      userId,
+      opts.paymentMethod,
+      opts.paymentStatus,
+      opts.orderStatus ?? (opts.paymentStatus === "paid" ? "confirmed" : "placed"),
+      total,
+      opts.shipped ? new Date() : null,
+    ]
+  );
+  return { id, orderNumber };
+}

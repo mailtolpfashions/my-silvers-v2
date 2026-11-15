@@ -105,6 +105,42 @@ export async function sendPasswordSetupEmail(to: string, rawToken: string) {
   });
 }
 
+/**
+ * "New order" — to the shop's OWNER(s), the moment an order is paid (or a COD
+ * order is placed). A paid order once went unnoticed for want of exactly this.
+ * Plain and scannable on a phone: what, how much, who, where, and one button.
+ */
+export async function sendNewOrderAlertEmail(params: {
+  to: string[];
+  orderId: string;
+  orderNumber: string;
+  total: number;
+  cod: boolean;
+  customer: string;
+  city: string | null;
+  items: Array<{ name: string; quantity: number; size: string | null }>;
+}) {
+  const amount = `₹${params.total.toLocaleString("en-IN")}`;
+  const url = `${appBaseUrl}/admin/orders/${params.orderId}`;
+  const lines = params.items
+    .map(
+      (i) =>
+        `<li>${escapeHtml(i.name)}${i.size ? ` (size ${escapeHtml(i.size)})` : ""} × ${i.quantity}</li>`
+    )
+    .join("");
+  await deliver("new-order-alert", {
+    from,
+    to: params.to,
+    subject: `🛍️ New order ${params.orderNumber} — ${amount}${params.cod ? " (COD)" : ""}`,
+    html: `
+      <p><strong>New order ${params.orderNumber}</strong> — ${amount}, ${params.cod ? "cash on delivery" : "paid online"}.</p>
+      <p>${escapeHtml(params.customer)}${params.city ? `, ${escapeHtml(params.city)}` : ""}</p>
+      <ul>${lines}</ul>
+      <p><a href="${url}">Open the order and ship it</a></p>
+    `,
+  });
+}
+
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
