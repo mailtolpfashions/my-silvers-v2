@@ -138,6 +138,27 @@ const nextConfig: NextConfig = {
   // Drops the "X-Powered-By: Next.js" fingerprint from every response.
   poweredByHeader: false,
 
+  /**
+   * ⚠️  Link previews: metadata goes in <head> for EVERY visitor, not only
+   * the user agents Next recognises as bots.
+   *
+   * By default Next streams metadata — og:title, og:image — into the BODY for
+   * anything it takes for a browser, and puts it in <head> only for a known
+   * list of crawlers. WhatsApp on a phone is on that list. WhatsApp Desktop and
+   * WhatsApp Web are not: they fetch the page with an ordinary Chrome user
+   * agent, read only the head, find nothing, and draw a bare
+   * "www.mysilvers.in" card with no product, no photo. Measured: og:image sat
+   * ~95KB into the body for a Chrome UA, at ~4KB in the head for WhatsApp's.
+   *
+   * There is no way to recognise those clients — their user agent IS Chrome's —
+   * so the only fix is to stop streaming metadata for everyone. The cost is the
+   * first byte waiting on generateMetadata, which for a product is a cached
+   * read. Measured locally (Nov 2026, warm cache): time to first byte ~5ms →
+   * ~25ms, full page unchanged at ~115ms. Remove this line and the desktop
+   * previews break again.
+   */
+  htmlLimitedBots: /.*/,
+
   env: {
     /**
      * Where this build will run, for Sentry: "production" or "preview" on
