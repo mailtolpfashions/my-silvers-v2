@@ -355,7 +355,7 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
             <CardContent className="space-y-3 text-sm">
               <div className="space-y-1.5">
                 <p className="text-xs text-muted-foreground">Order status</p>
-                <OrderStatusSelect orderId={order.id} status={order.orderStatus} />
+                <OrderStatusSelect orderId={order.id} status={order.orderStatus} paymentStatus={order.paymentStatus} />
               </div>
 
               {order.trackingNumber ? (

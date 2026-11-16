@@ -178,7 +178,7 @@ export default async function AdminOrdersPage({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <OrderStatusSelect orderId={order.id} status={order.orderStatus} />
+                    <OrderStatusSelect orderId={order.id} status={order.orderStatus} paymentStatus={order.paymentStatus} />
                   </TableCell>
                   <TableCell className="text-xs">
                     {order.trackingNumber ? (
