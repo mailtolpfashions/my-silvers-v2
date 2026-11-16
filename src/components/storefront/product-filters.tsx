@@ -152,6 +152,14 @@ export function ProductFilters({
   const searchParams = useSearchParams();
 
   const [open, setOpen] = useState(false);
+  /**
+   * Which of the two panels is showing: the right drawer (md and up) or the
+   * bottom sheet. Only ONE may be open. Both used to open together, with CSS
+   * hiding the wrong one's panel — but not its blurred backdrop, which sat on
+   * top of the drawer and blurred the whole filter on desktop (and told screen
+   * readers the drawer was hidden). Decided when the panel opens.
+   */
+  const [wide, setWide] = useState(false);
   const [draftCategory, setDraftCategory] = useState(current.category ?? ALL_CATEGORIES);
   const [draftMin, setDraftMin] = useState(current.minPrice ?? "");
   const [draftMax, setDraftMax] = useState(current.maxPrice ?? "");
@@ -179,6 +187,7 @@ export function ProductFilters({
       setDraftMin(current.minPrice ?? "");
       setDraftMax(current.maxPrice ?? "");
       setDraftQ(current.q ?? "");
+      setWide(window.matchMedia("(min-width: 768px)").matches);
     }
     setOpen(next);
   }
@@ -344,10 +353,10 @@ export function ProductFilters({
       </div>
 
       {/* ── The panel. A right drawer from md, a bottom sheet below. ───────── */}
-      <Sheet open={open} onOpenChange={openPanel}>
+      <Sheet open={open && wide} onOpenChange={openPanel}>
         <SheetContent
           side="right"
-          className="hidden w-full max-w-[26rem] flex-col gap-0 p-0 md:flex"
+          className="w-full max-w-[26rem] flex-col gap-0 p-0"
         >
           <SheetHeader className="border-b px-6 py-5">
             <SheetTitle className="text-h3">Filter</SheetTitle>
@@ -359,10 +368,10 @@ export function ProductFilters({
         </SheetContent>
       </Sheet>
 
-      <Sheet open={open} onOpenChange={openPanel}>
+      <Sheet open={open && !wide} onOpenChange={openPanel}>
         <SheetContent
           side="bottom"
-          className="flex max-h-[85dvh] flex-col gap-0 p-0 pb-[env(safe-area-inset-bottom)] md:hidden"
+          className="flex max-h-[85dvh] flex-col gap-0 p-0 pb-[env(safe-area-inset-bottom)]"
         >
           <SheetHeader className="border-b px-5 py-4">
             <SheetTitle className="text-h3">Filter</SheetTitle>
