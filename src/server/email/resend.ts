@@ -266,6 +266,154 @@ export function orderDeliveredHtml(d: OrderEmailData): string {
   });
 }
 
+// ─── Returns ────────────────────────────────────────────────────────────────
+//
+// Three emails, because a return used to be silent on both sides: the owner
+// found out only by opening the order, and the customer never heard that the
+// request arrived or how it ended.
+//
+// Wording is deliberately cautious where the shop hasn't decided yet: no reply
+// deadline is promised, and how the parcel comes back is "we'll tell you" —
+// the owner is still choosing between a courier pickup and customer postage.
+
+/**
+ * To the OWNER(s) — the same list as the new-order alert — when a customer
+ * asks for a return. Everything needed to decide without opening the admin:
+ * the reason in the customer's words, the pieces, who to call, and whether
+ * approving would mean a refund.
+ */
+export async function sendReturnRequestedAlertEmail(to: string[], orderId: string) {
+  const d = await loadOrderEmailData(orderId);
+  if (!d) throw new Error(`order ${orderId} not found for the return alert`);
+  const body = [
+    heading(`Return requested: ${esc(d.orderNumber)}`),
+    para(
+      `${esc(d.customerName)} has asked to return this order. ${
+        d.paidOnline
+          ? `It was <strong>paid online (${formatINR(d.total)})</strong>, so approving it can refund them.`
+          : `It was <strong>cash on delivery (${formatINR(d.total)})</strong>.`
+      }`
+    ),
+    sectionTitle("Their reason"),
+    box(d.returnReason ? `&ldquo;${esc(d.returnReason)}&rdquo;` : "No reason given.", "alert"),
+    `<div style="padding-top:20px">${button(`${appBaseUrl}/admin/orders/${d.id}`, "Review the return")}</div>`,
+    sectionTitle("Pieces"),
+    itemsTable(d.items),
+    sectionTitle("Customer"),
+    box(
+      [
+        `<strong>${esc(d.customerName)}</strong>`,
+        d.customerPhone ? `Phone: ${esc(d.customerPhone)}` : "",
+        `Email: ${esc(d.email)}`,
+      ]
+        .filter(Boolean)
+        .join("<br>")
+    ),
+  ].join("");
+
+  await deliver("return-requested-alert", {
+    from,
+    to,
+    subject: `↩️ Return requested: ${d.orderNumber}`,
+    html: page({
+      preheader: `${d.customerName}: ${d.returnReason ?? "no reason given"}`,
+      label: "Return request",
+      body,
+      internal: true,
+    }),
+  });
+}
+
+/** To the CUSTOMER, straight after they ask: it arrived, and what happens next. */
+export async function sendReturnReceivedEmail(orderId: string) {
+  const d = await loadOrderEmailData(orderId);
+  if (!d) throw new Error(`order ${orderId} not found for the return-received email`);
+  const body = [
+    heading(d.firstName ? `Hi ${esc(d.firstName)},` : "Hello,"),
+    para(`We've received your return request for order <strong>${esc(d.orderNumber)}</strong>. We'll review it and get back to you.`),
+    d.returnReason ? sectionTitle("Your reason") + box(`&ldquo;${esc(d.returnReason)}&rdquo;`) : "",
+    sectionTitle("Until we reply"),
+    box(
+      "Please keep the piece, its packaging and your unboxing video. <strong>Don't send anything back yet</strong> — we'll tell you how to send it back once we've reviewed your request."
+    ),
+    sectionTitle("Items in this order"),
+    itemsTable(d.items),
+    `<div style="padding-top:20px">${button(orderLink(d.id, d.confirmationToken), "View your order")}</div>`,
+  ].join("");
+
+  await deliver("return-received", {
+    from,
+    replyTo,
+    to: d.email,
+    subject: `Return request received: ${d.orderNumber}`,
+    html: page({
+      preheader: `We've received your return request for ${d.orderNumber}.`,
+      label: "Return request",
+      body,
+      help: d.help,
+    }),
+  });
+}
+
+/**
+ * To the CUSTOMER when the shop decides. `note` is the admin's optional
+ * message from the Review return dialog, shown as written — on a decline it
+ * is the reason, and without one the email simply invites a reply.
+ */
+export async function sendReturnDecisionEmail(params: {
+  orderId: string;
+  approved: boolean;
+  refunded: boolean;
+  note?: string;
+}) {
+  const d = await loadOrderEmailData(params.orderId);
+  if (!d) throw new Error(`order ${params.orderId} not found for the return decision email`);
+  const hello = heading(d.firstName ? `Hi ${esc(d.firstName)},` : "Hello,");
+  const note = params.note?.trim()
+    ? sectionTitle("A note from us") + box(esc(params.note.trim()).replace(/\n/g, "<br>"))
+    : "";
+
+  const body = params.approved
+    ? [
+        hello,
+        para(`Good news — your return for order <strong>${esc(d.orderNumber)}</strong> has been <strong>approved</strong>.`),
+        params.refunded
+          ? box(
+              `<strong>Refund of ${formatINR(d.refundAmount ?? d.total)} sent</strong><br>It goes back to the account you paid from. Banks usually take 5–7 working days to show it.`
+            )
+          : box("We'll be in touch about what happens next — including how to send the piece back, if we haven't told you already."),
+        note,
+        `<div style="padding-top:20px">${button(orderLink(d.id, d.confirmationToken), "View your order")}</div>`,
+      ].join("")
+    : [
+        hello,
+        para(`We've reviewed your return request for order <strong>${esc(d.orderNumber)}</strong>, and we're sorry — we aren't able to accept this return.`),
+        note,
+        para(
+          "If you'd like to talk it through or have more to show us, just reply to this email — a person reads every message.",
+          "margin-top:16px"
+        ),
+        `<div style="padding-top:4px">${button(orderLink(d.id, d.confirmationToken), "View your order", "secondary")}</div>`,
+      ].join("");
+
+  await deliver(params.approved ? "return-approved" : "return-declined", {
+    from,
+    replyTo,
+    to: d.email,
+    subject: params.approved
+      ? `Return approved: ${d.orderNumber}${params.refunded ? " — refund sent" : ""}`
+      : `About your return request: ${d.orderNumber}`,
+    html: page({
+      preheader: params.approved
+        ? `Your return for ${d.orderNumber} is approved${params.refunded ? " and your refund is on its way" : ""}.`
+        : `An update on your return request for ${d.orderNumber}.`,
+      label: params.approved ? "Return approved" : "Return update",
+      body,
+      help: d.help,
+    }),
+  });
+}
+
 /**
  * "Your order has been cancelled" — sent when the SHOP cancels (the Cancel
  * order button). A customer who cancels themselves sees it happen on screen;

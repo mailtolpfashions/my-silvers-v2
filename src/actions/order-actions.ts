@@ -7,6 +7,9 @@ import { fulfillOrder, PaymentError } from "@/server/orders/fulfill-order";
 import { cancelOrder, CancelError } from "@/server/orders/cancel-order";
 import { closeIfSoldOut, soldOutMessage } from "@/server/orders/sold-out";
 import { requestReturn, AdminOrderError } from "@/server/orders/admin";
+import { after } from "next/server";
+import { sendReturnReceivedEmail, sendReturnRequestedAlertEmail } from "@/server/email/resend";
+import { resolveAlertRecipients } from "@/server/settings/order-alerts";
 import { revalidatePath, updateTag } from "next/cache";
 import {
   checkIpRateLimit,
@@ -281,6 +284,22 @@ export async function requestReturnAction(orderId: string, reason: string, guest
   try {
     await requestReturn(orderId, owner as Parameters<typeof requestReturn>[1], trimmed.slice(0, 500));
     revalidatePath(guestToken ? `/orders/${orderId}` : `/account/orders/${orderId}`);
+    // Tell both sides — a return used to be silent until someone opened the
+    // order. after(): the shopper doesn't wait on Resend, and a failed send
+    // never undoes a request that has been recorded.
+    after(async () => {
+      try {
+        await sendReturnReceivedEmail(orderId);
+      } catch (err) {
+        console.error("return-received email failed", orderId, err);
+      }
+      try {
+        const { to } = await resolveAlertRecipients();
+        if (to.length > 0) await sendReturnRequestedAlertEmail(to, orderId);
+      } catch (err) {
+        console.error("return-requested alert failed", orderId, err);
+      }
+    });
     return { ok: true as const };
   } catch (err) {
     if (err instanceof AdminOrderError) return { ok: false as const, error: err.message };

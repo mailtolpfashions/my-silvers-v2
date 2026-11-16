@@ -24,6 +24,7 @@ import {
   sendOrderCancelledEmail,
   sendOrderShippedEmail,
   sendOrderDeliveredEmail,
+  sendReturnDecisionEmail,
 } from "@/server/email/resend";
 import { canMoveStatus } from "@/lib/order-status-moves";
 
@@ -260,7 +261,9 @@ export async function assignAwbAction(
 export async function processReturnAction(
   orderId: string,
   action: "approve" | "reject",
-  refund: boolean
+  refund: boolean,
+  /** Optional message to the customer, included in the decision email. */
+  note?: string
 ): Promise<AdminOrderActionResult> {
   // Money leaving the shop is the owner's call. Approving a return on a PAID
   // order is too, refund or not: once approved it is marked "returned" and the
@@ -283,6 +286,20 @@ export async function processReturnAction(
         : `${action === "approve" ? "Approved" : "Rejected"} the return on order ${number}`,
     });
     revalidatePath("/admin/orders");
+    // The customer hears the outcome — approved (with the refund, if one was
+    // sent) or declined, with the admin's note. Never fails the decision.
+    after(async () => {
+      try {
+        await sendReturnDecisionEmail({
+          orderId,
+          approved: action === "approve",
+          refunded: result.refunded,
+          note: note?.slice(0, 1000),
+        });
+      } catch (err) {
+        console.error("return-decision email failed", orderId, err);
+      }
+    });
     return { ok: true };
   } catch (err) {
     if (err instanceof AdminOrderError) return { ok: false, error: err.message };

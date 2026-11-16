@@ -61,6 +61,11 @@ export async function loadOrderEmailData(orderId: string) {
     delivery: deliveryWindow(order.createdAt, settings),
     /** From today, transit days only — for the shipped email, when the parcel has already left. */
     arrival: deliveryWindow(new Date(), { ...settings, handlingTimeMinDays: 0, handlingTimeMaxDays: 0 }),
+    returnReason: order.returnReason,
+    paidOnline: order.paymentStatus === "paid" || order.paymentStatus === "refunded",
+    refundAmount: order.refundAmount === null ? null : Number(order.refundAmount),
+    customerPhone: address.phone ?? null,
+    customerName: address.fullName || order.user.name || order.user.email,
     trackingNumber: order.trackingNumber,
     trackingUrl: order.trackingUrl,
     courierName: order.courierName,

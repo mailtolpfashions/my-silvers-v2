@@ -244,11 +244,17 @@ export function ReturnReviewButtons({
   const mayRefund = canRefund && isOwner;
   const [open, setOpen] = useState(false);
   const [refund, setRefund] = useState(mayRefund);
+  const [note, setNote] = useState("");
   const [isPending, startTransition] = useTransition();
 
   function decide(action: "approve" | "reject") {
     startTransition(async () => {
-      const result = await processReturnAction(orderId, action, action === "approve" && mayRefund && refund);
+      const result = await processReturnAction(
+        orderId,
+        action,
+        action === "approve" && mayRefund && refund,
+        note
+      );
       if (result.ok) {
         toast.success(action === "approve" ? "Return approved." : "Return rejected.");
         setOpen(false);
@@ -276,6 +282,22 @@ export function ReturnReviewButtons({
             Refund the payment via Razorpay on approval
           </label>
         )}
+        {/* Goes into the email the customer gets either way. On a decline it is
+            the reason; left empty, the email just invites them to reply. */}
+        <label className="block space-y-1.5 text-sm">
+          <span className="font-medium">Message to the customer (optional)</span>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+            maxLength={1000}
+            placeholder="e.g. The video shows the piece was worn, so we can't accept it back."
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring"
+          />
+          <span className="block text-xs text-muted-foreground">
+            Included in the approval or decline email we send them.
+          </span>
+        </label>
         {canRefund && !isOwner && (
           <p className="text-sm text-muted-foreground">
             This order was paid online, so approving it — and deciding on the refund — is
