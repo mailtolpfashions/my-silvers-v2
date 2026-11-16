@@ -376,7 +376,7 @@ export function CancelOrderButton({
           <DialogTitle>Cancel order {orderNumber}?</DialogTitle>
           <DialogDescription>
             The items go back into stock and any Shiprocket booking is released.
-            {paid && ` The customer is refunded ${total} through Razorpay.`} This can&apos;t be undone.
+            {paid && ` The customer is refunded ${total} through Razorpay.`} The customer is emailed to let them know. This can&apos;t be undone.
           </DialogDescription>
         </DialogHeader>
 

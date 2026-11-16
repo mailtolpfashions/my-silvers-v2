@@ -63,6 +63,62 @@ export async function sendOrderConfirmationEmail(params: {
 }
 
 /**
+ * "Your order has been cancelled" — sent when the SHOP cancels (the Cancel
+ * order button). A customer who cancels themselves sees it happen on screen;
+ * one whose order the shop cancelled would otherwise find out only when
+ * nothing arrived.
+ *
+ * `why` is what the customer is told, never the internal reason: an order
+ * cancelled as "Suspicious order" must not say so to the person who placed it,
+ * so those (and "Other") say nothing and invite a reply instead.
+ *
+ * `refund` describes the money for a paid order: "sent" when Razorpay accepted
+ * the refund, "pending" when it failed and sits in the retry queue — the
+ * customer is owed it either way, and should hear that.
+ */
+export async function sendOrderCancelledEmail(params: {
+  to: string;
+  name: string | null;
+  orderNumber: string;
+  orderId: string;
+  confirmationToken: string | null;
+  why: "customer" | "stock" | null;
+  refund: { amount: number | string; state: "sent" | "pending" } | null;
+}) {
+  const orderUrl = params.confirmationToken
+    ? `${appBaseUrl}/orders/${params.orderId}?ot=${params.confirmationToken}`
+    : `${appBaseUrl}/account/orders/${params.orderId}`;
+  const firstName = params.name?.trim().split(/\s+/)[0];
+  const greeting = firstName ? `Hi ${escapeHtml(firstName)},` : "Hello,";
+  const reason =
+    params.why === "customer"
+      ? `As you asked, we have cancelled your order <strong>${params.orderNumber}</strong>.`
+      : params.why === "stock"
+        ? `We're sorry — an item in your order <strong>${params.orderNumber}</strong> has just gone out of stock, so we have had to cancel it.`
+        : `Your order <strong>${params.orderNumber}</strong> has been cancelled.`;
+  const refund = !params.refund
+    ? ""
+    : params.refund.state === "sent"
+      ? `<p>We have refunded <strong>₹${params.refund.amount}</strong> to the account you paid from. Banks usually take 5–7 working days to show it.</p>`
+      : `<p>Your refund of <strong>₹${params.refund.amount}</strong> is being processed and will reach the account you paid from. Banks usually take 5–7 working days to show it once it is sent.</p>`;
+
+  await deliver("order-cancelled", {
+    from,
+    replyTo,
+    to: params.to,
+    subject: `Order cancelled: ${params.orderNumber}`,
+    html: `
+      <p>${greeting}</p>
+      <p>${reason}</p>
+      ${refund}
+      <p><a href="${orderUrl}">View your order</a></p>
+      <p>Questions? Just reply to this email — we read every one.</p>
+      <p>— MY Silvers</p>
+    `,
+  });
+}
+
+/**
  * "Confirm your email" — sent at sign-up. Until it is clicked, the account
  * still works but does not show orders placed as a GUEST with this address;
  * see server/auth/email-verification.ts for why.
