@@ -564,6 +564,51 @@ test.afterAll(async () => {
  * save expires), and an emptied list must drop its column rather than leave a
  * heading with nothing under it. Both lists are put back exactly as found.
  */
+test.describe("WhatsApp number comes from store settings", () => {
+  test("a number saved in Settings reaches the product page and footer; empty hides them", async ({
+    page,
+  }) => {
+    const product = await getInStockProduct();
+    test.skip(!product, "needs an in-stock product");
+    const admin = await signInAs(page, "superadmin", "whatsapp");
+    await openSettings(page);
+    const original = await page.locator("#whatsappNumber").inputValue();
+    const ask = () => page.getByRole("link", { name: "Ask about this piece on WhatsApp" });
+
+    try {
+      // Not a mobile number: refused, not silently saved as "hidden".
+      await page.locator("#whatsappNumber").fill("12345");
+      await page.getByRole("button", { name: "Save settings" }).click();
+      await expect(page.getByText(/enter a 10-digit Indian mobile number/i).first()).toBeVisible();
+
+      // Typed the way people type it; stored and linked as wa.me wants it.
+      await page.locator("#whatsappNumber").fill("+91 98765-43210");
+      await saveSettings(page);
+      await page.goto(`/products/${product!.slug}`);
+      await expect(ask()).toHaveAttribute("href", /^https:\/\/wa\.me\/919876543210\?text=.+/, {
+        timeout: 20_000,
+      });
+      await expect(page.getByRole("link", { name: "Message us on WhatsApp" })).toHaveAttribute(
+        "href",
+        "https://wa.me/919876543210"
+      );
+
+      await openSettings(page);
+      await page.locator("#whatsappNumber").fill("");
+      await saveSettings(page);
+      await page.goto(`/products/${product!.slug}`);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 20_000 });
+      await expect(ask()).toHaveCount(0);
+      await expect(page.getByRole("link", { name: "Message us on WhatsApp" })).toHaveCount(0);
+    } finally {
+      await openSettings(page);
+      await page.locator("#whatsappNumber").fill(original);
+      await saveSettings(page).catch(() => {});
+      await admin.dispose();
+    }
+  });
+});
+
 test.describe("header menu lists come from store settings", () => {
   const FINISHES = "Jewellery → By finish";
   const OCCASIONS = "Gifting → By occasion";

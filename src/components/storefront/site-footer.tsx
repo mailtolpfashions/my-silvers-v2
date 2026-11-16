@@ -4,9 +4,12 @@ import Link from "next/link";
 import { NewsletterForm } from "@/components/storefront/newsletter-form";
 import { getActiveCategories } from "@/server/products/search";
 import {
+  CONTACT_TAG,
+  getContactSettings,
   getStoreSettings,
   STORE_SETTINGS_TAG,
 } from "@/server/settings/store-settings";
+import { whatsappLink } from "@/lib/whatsapp";
 
 /**
  * Reading the clock is non-deterministic, so it can't happen freely inside a
@@ -64,15 +67,35 @@ async function PaymentMethods() {
 }
 
 /**
- * Social and contact links come from .env so they can be changed without
- * touching code. Each must be read as a literal `process.env.NEXT_PUBLIC_*`
- * expression — Next inlines these at build time and cannot resolve a dynamic
- * lookup. Any left blank simply doesn't render.
+ * "Message us on WhatsApp", from the number in admin Settings. Hidden when no
+ * number is set. Cached under the contact tag only — see getContactSettings
+ * for why the footer must not read the full settings.
  */
-const whatsappNumber = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(
-  /[^\d]/g,
-  "",
-);
+async function FooterWhatsapp() {
+  "use cache";
+  cacheLife("days");
+  cacheTag(CONTACT_TAG);
+
+  const { whatsappNumber } = await getContactSettings();
+  if (!whatsappNumber) return null;
+  return (
+    <a
+      href={whatsappLink(whatsappNumber)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-6 inline-flex items-center gap-2 border-b border-white/40 pb-1 text-sm text-white/80 transition-colors hover:border-white hover:text-white"
+    >
+      Message us on WhatsApp
+    </a>
+  );
+}
+
+/**
+ * Social links come from .env so they can be changed without touching code.
+ * Each must be read as a literal `process.env.NEXT_PUBLIC_*` expression — Next
+ * inlines these at build time and cannot resolve a dynamic lookup. Any left
+ * blank simply doesn't render.
+ */
 
 const SOCIAL = {
   instagram: process.env.NEXT_PUBLIC_INSTAGRAM_URL ?? "",
@@ -192,16 +215,7 @@ export function SiteFooter() {
             </p>
             <NewsletterForm />
 
-            {whatsappNumber && (
-              <a
-                href={`https://wa.me/${whatsappNumber}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-6 inline-flex items-center gap-2 border-b border-white/40 pb-1 text-sm text-white/80 transition-colors hover:border-white hover:text-white"
-              >
-                Message us on WhatsApp
-              </a>
-            )}
+            <FooterWhatsapp />
 
             {(SOCIAL.instagram || SOCIAL.facebook || SOCIAL.youtube) && (
               <div className="mt-8 flex items-center gap-5">

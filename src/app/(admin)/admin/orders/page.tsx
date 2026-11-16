@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfirmCodWhatsapp } from "@/components/admin/confirm-cod-whatsapp";
 import { isCancellable } from "@/lib/order-cancel-reasons";
 import { getAdminOrders } from "@/server/orders/admin";
 import type { OrderStatus, PaymentStatus } from "@/generated/prisma/client";
@@ -203,6 +204,14 @@ export default async function AdminOrdersPage({
                         <ShipOrderButton
                           orderId={order.id}
                           hasShiprocketOrder={Boolean(order.shiprocketOrderId)}
+                        />
+                      )}
+                      {order.paymentMethod === "cod" && isCancellable(order) && (
+                        <ConfirmCodWhatsapp
+                          phone={(order.shippingAddress as { phone?: string } | null)?.phone}
+                          fullName={(order.shippingAddress as { fullName?: string } | null)?.fullName}
+                          orderNumber={order.orderNumber}
+                          total={formatINR(order.totalAmount.toString())}
                         />
                       )}
                       {isCancellable(order) && (

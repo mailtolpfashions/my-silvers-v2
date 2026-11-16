@@ -126,8 +126,7 @@ async function buildLlmsTxt() {
     facts.push(`- Returns: within ${settings.returnWindowDays} days of delivery — see the FAQ for conditions.`);
   }
   facts.push(`- Guest checkout${settings.guestCheckoutEnabled ? " available" : " not available; an account is needed"}. Orders can be tracked at ${BASE}/track-order with the order number and mobile number.`);
-  const whatsapp = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/\D/g, "");
-  if (whatsapp) facts.push(`- WhatsApp: https://wa.me/${whatsapp}`);
+  if (settings.whatsappNumber) facts.push(`- WhatsApp: https://wa.me/${settings.whatsappNumber}`);
 
   return (
     head +

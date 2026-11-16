@@ -1,6 +1,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { prisma } from "@/server/db";
 import type { CharmStyle } from "@/lib/charm-price";
+import { normaliseIndianMobile } from "@/lib/whatsapp";
 
 /**
  * The shop's operational switches.
@@ -134,6 +135,17 @@ export type StoreSettings = {
    * Default off, so no price changes without someone choosing it.
    */
   charmPricing: "off" | CharmStyle;
+
+  /**
+   * The shop's WhatsApp number, as wa.me wants it ("919876543210"), or "" to
+   * hide every WhatsApp link on the site.
+   *
+   * A setting rather than the NEXT_PUBLIC_WHATSAPP_NUMBER env var it replaces,
+   * so the owner can put the business number in — or change it — without a
+   * developer and a redeploy. The env var is still the DEFAULT, so a shop that
+   * set it before this existed keeps its links until the owner saves a number.
+   */
+  whatsappNumber: string;
 };
 
 /** The header-menu lists, as one shape — what getNavMenuSettings returns. */
@@ -200,6 +212,7 @@ export const STORE_SETTING_DEFAULTS: StoreSettings = {
   ],
   navShopFor: [],
   charmPricing: "off",
+  whatsappNumber: normaliseIndianMobile(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER),
 };
 
 /** Cache tag for every settings read. Invalidated by the admin save action. */
@@ -277,6 +290,9 @@ function parse(raw: unknown): StoreSettings {
     navOccasions: filters(v.navOccasions, d.navOccasions),
     navShopFor: filters(v.navShopFor, d.navShopFor),
     charmPricing: oneOf(v.charmPricing, ["off", "99", "49-99"] as const, d.charmPricing),
+    // Never saved → the default; saved empty → deliberately hidden, and kept.
+    whatsappNumber:
+      typeof v.whatsappNumber === "string" ? normaliseIndianMobile(v.whatsappNumber) : d.whatsappNumber,
   };
 }
 
@@ -372,6 +388,36 @@ async function readNavMenuSettings(): Promise<NavMenuSettings> {
   const row = await prisma.storeSetting.findUnique({ where: { key: SETTINGS_KEY } });
   const { navFinishes, navOccasions, navShopFor } = parse(row?.value);
   return { navFinishes, navOccasions, navShopFor };
+}
+
+/** Cache tag for the WhatsApp number alone. See getContactSettings. */
+export const CONTACT_TAG = "settings:contact";
+
+/**
+ * Just the shop's WhatsApp number, cached under its OWN tag — for the footer
+ * and mobile menu, which are on every page.
+ *
+ * Same reasoning as getNavMenuSettings: reading the full settings there would
+ * attach STORE_SETTINGS_TAG to every page, and every COD or shipping save
+ * would rebuild all of them. The save expires this tag only when the number
+ * actually changes.
+ */
+export async function getContactSettings(): Promise<{ whatsappNumber: string }> {
+  try {
+    return await readContactSettings();
+  } catch (err) {
+    console.error("getContactSettings failed — falling back to defaults", err);
+    return { whatsappNumber: STORE_SETTING_DEFAULTS.whatsappNumber };
+  }
+}
+
+async function readContactSettings(): Promise<{ whatsappNumber: string }> {
+  "use cache";
+  cacheLife("days");
+  cacheTag(CONTACT_TAG);
+
+  const row = await prisma.storeSetting.findUnique({ where: { key: SETTINGS_KEY } });
+  return { whatsappNumber: parse(row?.value).whatsappNumber };
 }
 
 /**

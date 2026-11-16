@@ -111,6 +111,15 @@ test.describe("an admin is not the owner", () => {
     const admin = await signInAs(page, "admin", "notowner-cancel");
     try {
       await page.goto(`/admin/orders/${id}`);
+      // The manual COD check: opens WhatsApp to the CUSTOMER, message typed.
+      const confirm = page.getByRole("link", { name: "Confirm on WhatsApp" });
+      await expect(confirm).toHaveAttribute("href", /^https:\/\/wa\.me\/919876543210\?text=/, {
+        timeout: 20_000,
+      });
+      expect(decodeURIComponent((await confirm.getAttribute("href")) ?? "")).toContain(
+        `Hi E2E! Thanks for your MY Silvers order ${orderNumber}`
+      );
+
       await page.getByRole("button", { name: "Cancel order" }).click({ timeout: 20_000 });
       const dialog = page.getByRole("dialog");
       // No reason chosen yet — the confirm button waits for one.

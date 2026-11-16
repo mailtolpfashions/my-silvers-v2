@@ -29,6 +29,8 @@ export type StoreSettingsFormValues = {
   /** `query` is a collection slug here — see StoreSettings.navShopFor. */
   navShopFor: NavRow[];
   charmPricing: "off" | CharmStyle;
+  /** As stored ("919876543210") or "" — shown to the owner without the 91. */
+  whatsappNumber: string;
 };
 
 /** A published collection, as offered in the "Shop for" picker. */
@@ -303,6 +305,9 @@ export function StoreSettingsForm({
   const [transitMin, setTransitMin] = useState(String(initial.transitTimeMinDays));
   const [transitMax, setTransitMax] = useState(String(initial.transitTimeMaxDays));
 
+  /** Shown as the 10 digits people recognise; the server adds the 91 back. */
+  const [whatsapp, setWhatsapp] = useState(initial.whatsappNumber.replace(/^91(?=\d{10}$)/, ""));
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -343,6 +348,7 @@ export function StoreSettingsForm({
       navOccasions: form.navOccasions,
       navShopFor: form.navShopFor,
       charmPricing: form.charmPricing,
+      whatsappNumber: whatsapp,
     });
     setSaving(false);
 
@@ -378,6 +384,27 @@ export function StoreSettingsForm({
           onChange={(guestCheckoutEnabled) => setForm((f) => ({ ...f, guestCheckoutEnabled }))}
           disabled={saving}
         />
+      </section>
+
+      <section className={CARD}>
+        <h2 className="label-eyebrow mb-1">WhatsApp</h2>
+        <p className="mb-5 text-sm text-muted-foreground">
+          Your business WhatsApp number. Customers see a WhatsApp button on every product page,
+          in the footer, the mobile menu and the order-tracking page. Leave it empty to hide
+          them all.
+        </p>
+        <div className="max-w-xs space-y-1.5">
+          <Label htmlFor="whatsappNumber">Mobile number</Label>
+          <Input
+            id="whatsappNumber"
+            inputMode="tel"
+            placeholder="98765 43210"
+            value={whatsapp}
+            onChange={(e) => setWhatsapp(e.target.value)}
+            disabled={saving}
+          />
+          <p className="text-xs text-muted-foreground">10 digits — India (+91) is added for you.</p>
+        </div>
       </section>
 
       <section className={CARD}>

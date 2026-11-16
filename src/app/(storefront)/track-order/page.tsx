@@ -5,6 +5,7 @@ import { auth } from "@/server/auth/auth";
 import { AuthShell, AuthFooterLink } from "@/components/auth/auth-shell";
 import { TrackOrderForm } from "@/components/storefront/orders/track-order-form";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getContactSettings } from "@/server/settings/store-settings";
 
 export const metadata: Metadata = {
   title: "Track your order",
@@ -46,7 +47,7 @@ async function TrackOrder() {
 
   return (
     <TrackOrderForm
-      whatsappNumber={(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/[^\d]/g, "")}
+      whatsappNumber={(await getContactSettings()).whatsappNumber}
       supportEmail={process.env.RESEND_REPLY_TO || "support@mysilvers.in"}
     />
   );
