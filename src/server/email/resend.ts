@@ -167,6 +167,57 @@ export function orderConfirmationHtml(d: OrderEmailData): string {
 }
 
 /**
+ * "Your order is on its way" — sent once, when the courier is assigned
+ * (assignAwbAction): that is when the order turns shipped and has a tracking
+ * number to give. Leads with the tracking link, because that is the one thing
+ * a shopper opens this email for.
+ */
+export async function sendOrderShippedEmail(orderId: string) {
+  const d = await loadOrderEmailData(orderId);
+  if (!d) throw new Error(`order ${orderId} not found for the shipped email`);
+  await deliver("order-shipped", {
+    from,
+    replyTo,
+    to: d.email,
+    subject: `Shipped: your order ${d.orderNumber} is on its way`,
+    html: orderShippedHtml(d),
+  });
+}
+
+/** The shipped email's HTML, apart from sending — so it can be previewed. */
+export function orderShippedHtml(d: OrderEmailData): string {
+  const trackHref = d.trackingUrl || `${appBaseUrl}/track-order`;
+  const rows: Array<[string, string]> = [["Order number", esc(d.orderNumber)]];
+  if (d.courierName) rows.push(["Courier", esc(d.courierName)]);
+  if (d.trackingNumber) rows.push(["Tracking number", esc(d.trackingNumber)]);
+  if (d.arrival) rows.push(["Expected delivery", `<span style="color:${C.saving}">${d.arrival}</span>`]);
+
+  const body = [
+    heading(d.firstName ? `Good news, ${esc(d.firstName)}!` : "Good news!"),
+    para(
+      d.cod
+        ? `Your order has been packed and handed to the courier. Please keep <strong>${formatINR(d.total)}</strong> ready to pay when it arrives.`
+        : "Your order has been packed and handed to the courier — it's on its way to you."
+    ),
+    facts(rows),
+    progress(3),
+    `<div style="padding-top:20px">${button(trackHref, "Track your parcel")}${button(orderLink(d.id, d.confirmationToken), "View your order", "secondary")}</div>`,
+    sectionTitle("In this parcel"),
+    itemsTable(d.items),
+    sectionTitle("Delivering to"),
+    box(addressBlock(d.address)),
+    `<p style="margin:20px 0 0;font-size:13px;line-height:20px;color:${C.muted}">Tracking can take a few hours to show the first update after pickup. You can also follow it at <a href="${appBaseUrl}/track-order" style="color:${C.oxide}">${site}/track-order</a> with your order number and mobile number. Please check the parcel when it arrives — if anything is damaged or wrong, record an unboxing video and tell us within 48 hours.</p>`,
+  ].join("");
+
+  return page({
+    preheader: `${d.orderNumber} is on its way${d.arrival ? ` — expected ${d.arrival}` : ""}.`,
+    label: "Shipped",
+    body,
+    help: d.help,
+  });
+}
+
+/**
  * "Your order has been cancelled" — sent when the SHOP cancels (the Cancel
  * order button). A customer who cancels themselves sees it happen on screen;
  * one whose order the shop cancelled would otherwise find out only when

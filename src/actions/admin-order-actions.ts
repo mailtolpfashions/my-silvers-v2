@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { requireOwner, requireRole } from "@/server/auth/require-role";
 import { logActivity } from "@/server/activity/log";
 import { prisma } from "@/server/db";
@@ -19,7 +20,7 @@ import { ShiprocketError } from "@/server/integrations/shiprocket";
 import { cancelOrderAsStaff, CancelError } from "@/server/orders/cancel-order";
 import { isOwner } from "@/server/auth/roles";
 import { CANCEL_REASONS, isCancelReason, type CancelReason } from "@/lib/order-cancel-reasons";
-import { sendOrderCancelledEmail } from "@/server/email/resend";
+import { sendOrderCancelledEmail, sendOrderShippedEmail } from "@/server/email/resend";
 import { canMoveStatus } from "@/lib/order-status-moves";
 
 export type AdminOrderActionResult = { ok: true } | { ok: false; error: string };
@@ -214,6 +215,18 @@ export async function assignAwbAction(
       summary: `Bought waybill ${awb.awbCode} for order ${(await orderLabel(orderId)).number}`,
     });
     revalidatePath("/admin/orders");
+    // Tell the customer it's on its way, with the tracking link. Sent here and
+    // only here: buying the waybill is the moment an order turns "shipped" and
+    // gets its tracking number, and it can succeed only once per order, so the
+    // email can't go out twice. after(): the admin doesn't wait on Resend, and
+    // a failed send never undoes a waybill that has already been paid for.
+    after(async () => {
+      try {
+        await sendOrderShippedEmail(orderId);
+      } catch (err) {
+        console.error("order-shipped email failed", orderId, err);
+      }
+    });
     return { ok: true, trackingNumber: awb.awbCode };
   } catch (err) {
     if (err instanceof AdminOrderError || err instanceof ShiprocketError) {

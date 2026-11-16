@@ -59,6 +59,11 @@ export async function loadOrderEmailData(orderId: string) {
     giftMessage: order.giftMessage,
     address,
     delivery: deliveryWindow(order.createdAt, settings),
+    /** From today, transit days only — for the shipped email, when the parcel has already left. */
+    arrival: deliveryWindow(new Date(), { ...settings, handlingTimeMinDays: 0, handlingTimeMaxDays: 0 }),
+    trackingNumber: order.trackingNumber,
+    trackingUrl: order.trackingUrl,
+    courierName: order.courierName,
     help: { whatsapp: settings.whatsappNumber || undefined, email: "support@mysilvers.in" } as Help,
   };
 }
