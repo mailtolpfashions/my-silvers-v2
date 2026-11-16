@@ -20,6 +20,7 @@ import {
   type PaymentStage,
 } from "@/components/storefront/checkout/payment-processing-overlay";
 import { readGuestCart, clearGuestCart } from "@/lib/guest-cart";
+import { clearCartLocal } from "@/lib/user-state-store";
 import { useCoupon, clearAppliedCoupon } from "@/components/storefront/cart/use-coupon";
 import { CouponBox } from "@/components/storefront/cart/coupon-box";
 import { suggestEmailFix } from "@/lib/email-typo";
@@ -427,6 +428,7 @@ export function CheckoutForm({
 
         if (result.ok) {
           if (!isAuthed) clearGuestCart();
+          clearCartLocal();
           clearAppliedCoupon();
           router.push(successUrl(payment.orderId, payment.confirmationToken));
           // router.push resolves when the transition is committed, so this
@@ -573,6 +575,7 @@ export function CheckoutForm({
       } else {
         // COD — order is final immediately.
         if (!isAuthed) clearGuestCart();
+        clearCartLocal();
         clearAppliedCoupon();
         toast.success(`Order ${result.orderNumber} placed!`);
         router.push(successUrl(result.orderId, result.confirmationToken));

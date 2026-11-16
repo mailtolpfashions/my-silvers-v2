@@ -110,6 +110,16 @@ export function adjustCartQuantityLocal(productId: string, delta: number) {
   emit({ ...current, cart: next });
 }
 
+/**
+ * The cart is gone — an order was placed (COD) or paid for. The server
+ * empties the DB cart, but this store is what the header badge reads, and
+ * nothing else tells it: a signed-in shopper landed on "Thank you!" with the
+ * badge still showing what they had just bought.
+ */
+export function clearCartLocal() {
+  emit({ ...current, cart: EMPTY_CART });
+}
+
 /** Test/route-change escape hatch — drops back to the pre-hydration state. */
 export function resetUserState() {
   emit(SERVER_SNAPSHOT);

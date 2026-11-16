@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { resumePaymentAction, verifyPaymentAction } from "@/actions/order-actions";
 import { PAYMENT_WINDOW_HOURS } from "@/lib/order-payment";
+import { clearCartLocal } from "@/lib/user-state-store";
 
 /**
  * The notice and "Pay now" on an order whose payment was never completed.
@@ -59,6 +60,8 @@ export function PayNowNotice({
           razorpaySignature: resp.razorpay_signature,
         });
         if (result.ok) {
+          // Paying clears the server cart (fulfillOrder) — keep the badge in step.
+          clearCartLocal();
           router.push(successHref);
           router.refresh();
         } else {
