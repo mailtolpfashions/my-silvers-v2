@@ -18,7 +18,9 @@ function payment(o: Row): { text: string; tone: "ok" | "warn" | "bad" | "muted" 
   const u = unpaidState(o);
   if (u === "failed") return { text: "Failed", tone: "bad" };
   if (u === "confirming") return { text: "Confirming", tone: "warn" };
-  if (o.orderStatus === "cancelled") return { text: "—", tone: "muted" };
+  // Cancelled before any money came in — say so, rather than a bare dash
+  // that reads as missing data.
+  if (o.orderStatus === "cancelled") return { text: "Not paid", tone: "muted" };
   return { text: "Unpaid", tone: "warn" };
 }
 
@@ -39,7 +41,12 @@ function fulfilment(o: Row): { text: string; tone: "ok" | "warn" | "bad" | "mute
     default: {
       const ready = o.paymentStatus === "paid" || o.paymentMethod === "cod";
       if (o.shipmentCreatedAt) return { text: "Shipment booked", tone: "ok" };
-      return ready ? { text: "To ship", tone: "warn" } : { text: "—", tone: "muted" };
+      if (ready) return { text: "To ship", tone: "warn" };
+      // Not ready means an online order with no payment: still waiting for it,
+      // or it failed and this order will never go out.
+      return unpaidState(o) === "failed"
+        ? { text: "Won't ship", tone: "muted" }
+        : { text: "Awaiting payment", tone: "muted" };
     }
   }
 }
