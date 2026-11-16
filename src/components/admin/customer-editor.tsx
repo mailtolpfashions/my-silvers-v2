@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { StickyActions } from "@/components/layout/sticky-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -211,14 +212,14 @@ export function CustomerEditor({
                 Default address
               </label>
             </div>
-            <div className="flex gap-2">
+            <StickyActions className="flex gap-2">
               <Button type="submit" size="sm" disabled={isPending}>
                 {draft.id ? "Save address" : "Add address"}
               </Button>
               <Button type="button" size="sm" variant="ghost" onClick={() => setDraft(null)}>
                 Cancel
               </Button>
-            </div>
+            </StickyActions>
           </form>
         )}
       </div>

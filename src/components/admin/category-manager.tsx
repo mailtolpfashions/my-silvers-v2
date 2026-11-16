@@ -4,6 +4,7 @@ import { useIsOwner } from "@/components/admin/owner-context";
 import { useState, useTransition } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
+import { StickyActions } from "@/components/layout/sticky-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -156,9 +157,11 @@ function CategoryFormDialog({
           </div>
           </div>
           </div>
-          <Button type="submit" disabled={saving} className="w-full">
-            {saving ? "Saving…" : "Save category"}
-          </Button>
+          <StickyActions inDialog>
+            <Button type="submit" disabled={saving} className="w-full">
+              {saving ? "Saving…" : "Save category"}
+            </Button>
+          </StickyActions>
         </form>
       </DialogContent>
     </Dialog>

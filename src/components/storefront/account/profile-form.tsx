@@ -3,6 +3,7 @@
 import { useActionState, useState, useSyncExternalStore } from "react";
 import { updateProfileAction } from "@/actions/account-actions";
 import { TITLES, TITLE_LABELS } from "@/lib/validation/account";
+import { StickyActions } from "@/components/layout/sticky-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -175,9 +176,11 @@ export function ProfileForm({
           the moment money changes hands — at h-12 it dominated a settings form
           and made "Save changes" look like the most important thing on the
           page. Account admin is closer in kind to /admin than to checkout. */}
-      <Button type="submit" disabled={isPending}>
-        {isPending ? "Saving…" : "Save changes"}
-      </Button>
+      <StickyActions>
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Saving…" : "Save changes"}
+        </Button>
+      </StickyActions>
     </form>
   );
 }

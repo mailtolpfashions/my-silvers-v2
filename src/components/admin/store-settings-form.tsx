@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { FormSaveBar } from "@/components/layout/form-save-bar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -308,6 +309,17 @@ export function StoreSettingsForm({
   /** Shown as the 10 digits people recognise; the server adds the 91 back. */
   const [whatsapp, setWhatsapp] = useState(initial.whatsappNumber.replace(/^91(?=\d{10}$)/, ""));
 
+  /**
+   * Everything the form holds, as one string, so "is anything unsaved?" is a
+   * comparison against the last saved copy — it drives the save bar's
+   * "Unsaved changes" line.
+   */
+  const snapshot = JSON.stringify([
+    form, shippingCharge, freeThreshold, giftWrapCharge, returnWindow,
+    handlingMin, handlingMax, transitMin, transitMax, whatsapp,
+  ]);
+  const [savedSnapshot, setSavedSnapshot] = useState(snapshot);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -352,8 +364,10 @@ export function StoreSettingsForm({
     });
     setSaving(false);
 
-    if (result.ok) toast.success("Settings saved.");
-    else toast.error(result.error);
+    if (result.ok) {
+      setSavedSnapshot(snapshot);
+      toast.success("Settings saved.");
+    } else toast.error(result.error);
   }
 
   return (
@@ -641,9 +655,9 @@ export function StoreSettingsForm({
       </div>
       </div>
 
-      <Button type="submit" disabled={saving} className="mt-8">
-        {saving ? "Saving…" : "Save settings"}
-      </Button>
+      {/* Sticky at the foot of the screen while the settings scroll — the old
+          button sat below two long columns, out of sight while editing. */}
+      <FormSaveBar dirty={snapshot !== savedSnapshot} saving={saving} saveLabel="Save settings" />
     </form>
   );
 }

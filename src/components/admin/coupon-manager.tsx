@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { StickyActions } from "@/components/layout/sticky-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -239,9 +240,11 @@ function CouponFormDialog({ coupon, trigger }: { coupon: CouponRow | null; trigg
             </label>
           </div>
 
-          <Button type="submit" disabled={saving} className="w-full">
-            {saving ? "Saving…" : "Save coupon"}
-          </Button>
+          <StickyActions inDialog>
+            <Button type="submit" disabled={saving} className="w-full">
+              {saving ? "Saving…" : "Save coupon"}
+            </Button>
+          </StickyActions>
         </form>
       </DialogContent>
     </Dialog>

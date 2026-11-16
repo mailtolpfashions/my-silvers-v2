@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { addAddressAction, updateAddressAction } from "@/actions/account-actions";
 import { INDIAN_STATES } from "@/lib/validation/account";
+import { StickyActions } from "@/components/layout/sticky-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -163,7 +164,7 @@ export function AddressForm({
 
       {/* Default variant, matching profile-form — see the note there for why
           the storefront's `cta` was tried here and reverted. */}
-      <div className="flex gap-2">
+      <StickyActions className="flex gap-2">
         <Button type="submit" disabled={isPending}>
           {isPending ? "Saving…" : isEdit ? "Update address" : "Save address"}
         </Button>
@@ -172,7 +173,7 @@ export function AddressForm({
             Cancel
           </Button>
         )}
-      </div>
+      </StickyActions>
     </form>
   );
 }

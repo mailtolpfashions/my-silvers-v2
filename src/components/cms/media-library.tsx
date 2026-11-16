@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Upload, Loader2, Film } from "lucide-react";
 import { toast } from "sonner";
+import { StickyActions } from "@/components/layout/sticky-actions";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
@@ -92,7 +93,7 @@ function AssetDetailDialog({
           <Label>Tags (comma-separated)</Label>
           <Input value={tags} onChange={(e) => setTags(e.target.value)} />
         </div>
-        <div className="flex justify-between">
+        <StickyActions inDialog className="flex justify-between">
           <Button
             variant="outline"
             size="sm"
@@ -106,7 +107,7 @@ function AssetDetailDialog({
           <Button size="sm" disabled={isPending} onClick={saveMeta}>
             {isPending ? "Saving…" : "Save"}
           </Button>
-        </div>
+        </StickyActions>
       </DialogContent>
     </Dialog>
   );

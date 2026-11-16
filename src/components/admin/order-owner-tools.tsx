@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { StickyActions } from "@/components/layout/sticky-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -136,7 +137,7 @@ export function OrderOwnerTools({
                 ))}
               </select>
             </div>
-            <div className="flex gap-2">
+            <StickyActions className="flex gap-2">
               <Button type="submit" size="sm" disabled={isPending}>
                 {isPending ? "Saving…" : "Save address"}
               </Button>
@@ -151,7 +152,7 @@ export function OrderOwnerTools({
               >
                 Cancel
               </Button>
-            </div>
+            </StickyActions>
           </form>
         )}
       </div>
