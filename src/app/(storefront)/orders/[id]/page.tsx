@@ -1,4 +1,9 @@
-import { PayNowNotice, PaymentExpiredNotice } from "@/components/storefront/orders/pay-now-button";
+import {
+  PayNowNotice,
+  PaymentExpiredNotice,
+  SoldOutNotice,
+} from "@/components/storefront/orders/pay-now-button";
+import { closeIfSoldOut } from "@/server/orders/sold-out";
 import { unpaidState } from "@/lib/order-payment";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
@@ -46,8 +51,13 @@ async function GuestOrder({
   const { id } = await params;
   const { ot, placed } = await searchParams;
 
-  const order = ot ? await getPublicOrderByToken(id, ot) : null;
-  if (!order || !ot) notFound();
+  const loaded = ot ? await getPublicOrderByToken(id, ot) : null;
+  if (!loaded || !ot) notFound();
+
+  // Same as the account order page: a sold-out unpaid order is cancelled and
+  // shown as such, not offered for payment. See server/orders/sold-out.ts.
+  const soldOut = unpaidState(loaded) === "awaiting" ? await closeIfSoldOut(loaded) : [];
+  const order = soldOut.length > 0 ? { ...loaded, orderStatus: "cancelled" as const } : loaded;
 
   // An online order the shopper never paid for — see lib/order-payment.ts.
   const unpaid = unpaidState(order);
@@ -65,6 +75,11 @@ async function GuestOrder({
         placed={!!placed}
         claim={claimEmail ? { orderId: order.id, token: ot, email: claimEmail } : null}
       />
+      {soldOut.length > 0 && (
+        <div className="mb-6">
+          <SoldOutNotice names={soldOut} />
+        </div>
+      )}
       {unpaid === "awaiting" && (
         <div className="mb-6">
           <PayNowNotice

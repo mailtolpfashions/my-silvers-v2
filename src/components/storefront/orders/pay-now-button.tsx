@@ -96,6 +96,25 @@ export function PayNowNotice({
 }
 
 /** The same order, past its payment window — nothing to press, just the facts. */
+/**
+ * Shown in place of Pay now when a piece in an unpaid order has sold out —
+ * the order has just been cancelled (server/orders/sold-out.ts). Says plainly
+ * that nothing was charged, which is the shopper's first worry.
+ */
+export function SoldOutNotice({ names }: { names: string[] }) {
+  const list =
+    names.length <= 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return (
+    <div className="border-l-2 border-destructive bg-destructive/5 px-4 py-4 text-sm">
+      <p className="font-medium">Sorry — this piece has sold out</p>
+      <p className="mt-1 text-muted-foreground">
+        {list} {names.length > 1 ? "were" : "was"} bought by someone else before this order was paid
+        for, so we&apos;ve cancelled it. You haven&apos;t been charged.
+      </p>
+    </div>
+  );
+}
+
 export function PaymentExpiredNotice() {
   return (
     <div className="border-l-2 border-destructive bg-destructive/5 px-4 py-4 text-sm">

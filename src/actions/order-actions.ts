@@ -5,6 +5,7 @@ import { auth } from "@/server/auth/auth";
 import { createOrder, OrderError } from "@/server/orders/create-order";
 import { fulfillOrder, PaymentError } from "@/server/orders/fulfill-order";
 import { cancelOrder, CancelError } from "@/server/orders/cancel-order";
+import { closeIfSoldOut, soldOutMessage } from "@/server/orders/sold-out";
 import { requestReturn, AdminOrderError } from "@/server/orders/admin";
 import { revalidatePath, updateTag } from "next/cache";
 import {
@@ -351,6 +352,15 @@ export async function resumePaymentAction(input: {
           ? "The time to pay for this order has passed. Please place a new order."
           : "This order can't be paid for any more. Please refresh the page.",
     };
+  }
+
+  // Before Razorpay opens: if a piece has sold out since the order was
+  // placed, paying could only end in a charge and a refund. Refuse, and cancel
+  // the order so it stops looking payable. See server/orders/sold-out.ts.
+  const soldOut = await closeIfSoldOut(order);
+  if (soldOut.length > 0) {
+    revalidatePath("/account/orders");
+    return { ok: false, error: soldOutMessage(soldOut) };
   }
 
   const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;

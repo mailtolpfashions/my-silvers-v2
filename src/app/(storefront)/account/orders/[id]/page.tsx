@@ -8,7 +8,12 @@ import { getReviewableItems } from "@/server/reviews/reviewable-items";
 import { CancelOrderButton } from "@/components/storefront/orders/cancel-order-button";
 import { RequestReturnButton } from "@/components/storefront/orders/request-return-button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PayNowNotice, PaymentExpiredNotice } from "@/components/storefront/orders/pay-now-button";
+import {
+  PayNowNotice,
+  PaymentExpiredNotice,
+  SoldOutNotice,
+} from "@/components/storefront/orders/pay-now-button";
+import { closeIfSoldOut } from "@/server/orders/sold-out";
 import { unpaidState } from "@/lib/order-payment";
 
 const CANCELLABLE = ["placed", "confirmed", "processing"] as const;
@@ -58,13 +63,19 @@ async function OrderDetailContent({
   const { id } = await params;
   if (!session?.user?.id) redirect(`/login?redirect=/account/orders/${id}`);
 
-  const [order, { placed }, reviewable] = await Promise.all([
+  const [loaded, { placed }, reviewable] = await Promise.all([
     getUserOrder(id, session.user),
     searchParams,
     // Empty unless this order is delivered — reviewing is gated on receipt.
     getReviewableItems(id, session.user),
   ]);
-  if (!order) notFound();
+  if (!loaded) notFound();
+
+  // Unpaid and payable, but a piece has sold out since? Then the order is
+  // cancelled here and shown as such — never a Pay now that could only end in
+  // a charge and a refund. See server/orders/sold-out.ts.
+  const soldOut = unpaidState(loaded) === "awaiting" ? await closeIfSoldOut(loaded) : [];
+  const order = soldOut.length > 0 ? { ...loaded, orderStatus: "cancelled" as const } : loaded;
 
   const cancellable =
     (CANCELLABLE as readonly string[]).includes(order.orderStatus) &&
@@ -83,6 +94,11 @@ async function OrderDetailContent({
         <p className="mb-6 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800">
           Thank you! Your order has been placed successfully.
         </p>
+      )}
+      {soldOut.length > 0 && (
+        <div className="mb-6">
+          <SoldOutNotice names={soldOut} />
+        </div>
       )}
       {unpaid === "awaiting" && (
         <div className="mb-6">

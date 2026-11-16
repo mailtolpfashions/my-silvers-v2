@@ -112,7 +112,13 @@ export async function fulfillOrder(input: {
           .map((i) => ({ productId: i.productId!, quantity: i.quantity, size: i.size }))
       );
       return tx.order.update({
-        where: { id: order.id },
+        // Not a cancelled order. An unpaid order can be cancelled (by the
+        // shopper, or because a piece sold out — server/orders/sold-out.ts)
+        // while Razorpay is still open in another tab. A payment landing after
+        // that must not revive it: no row matches, the update throws, the stock
+        // taken above rolls back, and the catch below marks it failed with the
+        // payment id — which the refund sweep then refunds.
+        where: { id: order.id, orderStatus: { not: "cancelled" } },
         data: {
           paymentStatus: "paid",
           orderStatus: "confirmed",
