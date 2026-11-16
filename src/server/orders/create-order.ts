@@ -432,13 +432,7 @@ export async function createOrder(input: {
     const placed = order;
     after(async () => {
       try {
-        await sendOrderConfirmationEmail({
-          to: email,
-          orderNumber: placed.orderNumber,
-          totalAmount: placed.totalAmount.toString(),
-          orderId: placed.id,
-          confirmationToken: placed.confirmationToken,
-        });
+        await sendOrderConfirmationEmail({ to: email, orderId: placed.id });
       } catch (err) {
         console.error("order-confirmation email failed", placed.orderNumber, err);
       }

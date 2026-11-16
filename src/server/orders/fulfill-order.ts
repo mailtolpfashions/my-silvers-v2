@@ -142,13 +142,7 @@ export async function fulfillOrder(input: {
       try {
         const user = await prisma.user.findUnique({ where: { id: order.userId } });
         if (user) {
-          await sendOrderConfirmationEmail({
-            to: user.email,
-            orderNumber: order.orderNumber,
-            totalAmount: order.totalAmount.toString(),
-            orderId: order.id,
-            confirmationToken: order.confirmationToken,
-          });
+          await sendOrderConfirmationEmail({ to: user.email, orderId: order.id });
         }
       } catch (err) {
         console.error("order-confirmation email failed", order.orderNumber, err);

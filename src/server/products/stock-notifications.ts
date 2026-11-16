@@ -82,7 +82,7 @@ export async function notifyBackInStock(
         id: true,
         email: true,
         size: true,
-        product: { select: { name: true, slug: true } },
+        product: { select: { name: true, slug: true, images: true } },
       },
     });
     if (pending.length === 0) return 0;
@@ -104,6 +104,7 @@ export async function notifyBackInStock(
           productName: row.product.name,
           productSlug: row.product.slug,
           size: row.size || undefined,
+          image: row.product.images[0] ?? null,
         });
         sent += 1;
       } catch (err) {

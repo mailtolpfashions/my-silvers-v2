@@ -1,5 +1,26 @@
 import { Resend } from "resend";
 import { formatINR } from "@/lib/format";
+import {
+  renderEmail,
+  button,
+  heading,
+  para,
+  sectionTitle,
+  box,
+  facts,
+  progress,
+  thumb,
+  esc,
+  C,
+} from "@/server/email/layout";
+import {
+  loadOrderEmailData,
+  itemsTable,
+  priceSummary,
+  addressBlock,
+  formatOrderDate,
+  type OrderEmailData,
+} from "@/server/email/order-email";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const from = process.env.RESEND_FROM_EMAIL ?? "MY Silvers <orders@mysilvers.in>";
@@ -66,34 +87,82 @@ const appBaseUrl = resolveAppBaseUrl(
   process.env.APP_BASE_URL,
   process.env.VERCEL_ENV === "production"
 );
+/** A mail client can't fetch from localhost, so the logo always comes from a public address. */
+const assetUrl = /localhost|127\.0\.0\.1/.test(appBaseUrl) ? SHOP_URL : appBaseUrl;
 
-export async function sendOrderConfirmationEmail(params: {
-  to: string;
-  orderNumber: string;
-  totalAmount: number | string;
-  orderId: string;
-  /**
-   * Set for guest orders. A guest has no password, so the old "View your
-   * orders" link to /account/orders led to a sign-in page they could not get
-   * past — the tokenised order page is the only door they have.
-   */
-  confirmationToken: string | null;
-}) {
-  const orderUrl = params.confirmationToken
-    ? `${appBaseUrl}/orders/${params.orderId}?ot=${params.confirmationToken}`
-    : `${appBaseUrl}/account/orders/${params.orderId}`;
+/** The page around every email — see email/layout.ts. */
+function page(opts: Omit<Parameters<typeof renderEmail>[0], "baseUrl" | "assetUrl">): string {
+  return renderEmail({ ...opts, baseUrl: appBaseUrl, assetUrl });
+}
+
+const SUPPORT_HELP = { email: "support@mysilvers.in" };
+
+/** Where a shopper's own order lives: the tokenised page for a guest, the account page otherwise. */
+function orderLink(orderId: string, token: string | null): string {
+  return token
+    ? `${appBaseUrl}/orders/${orderId}?ot=${token}`
+    : `${appBaseUrl}/account/orders/${orderId}`;
+}
+
+const site = appBaseUrl.replace(/^https?:\/\//, "");
+
+/**
+ * "Order confirmed" — the email a shopper reads right after paying (or placing
+ * a COD order), so it is the fullest one: photos of what they bought, the
+ * price breakdown with the saving stated, when it should arrive, where it is
+ * going, and how to reach us.
+ *
+ * Takes only the order id and loads the rest itself (email/order-email.ts),
+ * so the two callers — COD at creation, online at payment — can't drift.
+ *
+ * A guest's "View your order" goes to the tokenised order page: a guest has no
+ * password, so /account/orders would be a sign-in page they can't get past.
+ */
+export async function sendOrderConfirmationEmail(params: { to: string; orderId: string }) {
+  const d = await loadOrderEmailData(params.orderId);
+  if (!d) throw new Error(`order ${params.orderId} not found for the confirmation email`);
   await deliver("order-confirmation", {
     from,
     replyTo,
     to: params.to,
-    subject: `Order confirmed: ${params.orderNumber}`,
-    html: `
-      <p>Thank you for your order!</p>
-      <p>Your order <strong>${params.orderNumber}</strong> has been confirmed.</p>
-      <p>Total: ${formatINR(params.totalAmount)}</p>
-      <p><a href="${orderUrl}">View your order</a></p>
-      <p>You can also track it any time at <a href="${appBaseUrl}/track-order">${appBaseUrl.replace(/^https?:\/\//, "")}/track-order</a> with your order number and the mobile number you ordered with.</p>
-    `,
+    subject: `Order confirmed: ${d.orderNumber}`,
+    html: orderConfirmationHtml(d),
+  });
+}
+
+/** The confirmation's HTML, apart from sending — so it can be previewed. */
+export function orderConfirmationHtml(d: OrderEmailData): string {
+  const count = d.items.reduce((n, i) => n + i.quantity, 0);
+  const intro = d.cod
+    ? `Thank you for shopping with MY Silvers! Your order is confirmed and we're getting it ready. Please keep <strong>${formatINR(d.total)}</strong> ready to pay when it arrives.`
+    : "Thank you for shopping with MY Silvers! We've received your payment and your order is confirmed — we're getting it ready.";
+  const rows: Array<[string, string]> = [
+    ["Order number", esc(d.orderNumber)],
+    ["Placed on", formatOrderDate(d.createdAt)],
+    ["Payment", d.cod ? "Cash on delivery" : "Paid online"],
+  ];
+  if (d.delivery) rows.push(["Expected delivery", `<span style="color:${C.saving}">${d.delivery}</span>`]);
+
+  const body = [
+    heading(d.firstName ? `Hi ${esc(d.firstName)},` : "Hello,"),
+    para(intro),
+    facts(rows),
+    progress(1),
+    `<div style="padding-top:20px">${button(orderLink(d.id, d.confirmationToken), "View your order")}${button(`${appBaseUrl}/track-order`, "Track order", "secondary")}</div>`,
+    sectionTitle(`Your order (${count} ${count === 1 ? "item" : "items"})`),
+    itemsTable(d.items),
+    priceSummary(d),
+    sectionTitle("Delivering to"),
+    box(addressBlock(d.address)),
+    d.isGift && d.giftMessage ? sectionTitle("Your gift message") + box(`&ldquo;${esc(d.giftMessage)}&rdquo;`) : "",
+    `<p style="margin:20px 0 0;font-size:13px;line-height:20px;color:${C.muted}">Once it ships, you can follow it any time at <a href="${appBaseUrl}/track-order" style="color:${C.oxide}">${site}/track-order</a> with your order number and mobile number.</p>`,
+  ].join("");
+
+  return page({
+    preheader: `${d.orderNumber} is confirmed — ${formatINR(d.total)}${d.delivery ? `, arriving ${d.delivery}` : ""}.`,
+    label: "Order confirmed",
+    body,
+    help: d.help,
   });
 }
 
@@ -120,36 +189,42 @@ export async function sendOrderCancelledEmail(params: {
   why: "customer" | "stock" | null;
   refund: { amount: number | string; state: "sent" | "pending" } | null;
 }) {
-  const orderUrl = params.confirmationToken
-    ? `${appBaseUrl}/orders/${params.orderId}?ot=${params.confirmationToken}`
-    : `${appBaseUrl}/account/orders/${params.orderId}`;
+  const d = await loadOrderEmailData(params.orderId);
   const firstName = params.name?.trim().split(/\s+/)[0];
-  const greeting = firstName ? `Hi ${escapeHtml(firstName)},` : "Hello,";
+  const number = `<strong>${esc(params.orderNumber)}</strong>`;
   const reason =
     params.why === "customer"
-      ? `As you asked, we have cancelled your order <strong>${params.orderNumber}</strong>.`
+      ? `As you asked, we have cancelled your order ${number}.`
       : params.why === "stock"
-        ? `We're sorry — an item in your order <strong>${params.orderNumber}</strong> has just gone out of stock, so we have had to cancel it.`
-        : `Your order <strong>${params.orderNumber}</strong> has been cancelled.`;
+        ? `We're sorry — an item in your order ${number} has just gone out of stock, so we have had to cancel it.`
+        : `Your order ${number} has been cancelled.`;
   const refund = !params.refund
     ? ""
-    : params.refund.state === "sent"
-      ? `<p>We have refunded <strong>${formatINR(params.refund.amount)}</strong> to the account you paid from. Banks usually take 5–7 working days to show it.</p>`
-      : `<p>Your refund of <strong>${formatINR(params.refund.amount)}</strong> is being processed and will reach the account you paid from. Banks usually take 5–7 working days to show it once it is sent.</p>`;
+    : box(
+        params.refund.state === "sent"
+          ? `<strong>Refund of ${formatINR(params.refund.amount)} sent</strong><br>It goes back to the account you paid from. Banks usually take 5–7 working days to show it.`
+          : `<strong>Refund of ${formatINR(params.refund.amount)} in progress</strong><br>It will reach the account you paid from. Banks usually take 5–7 working days to show it once it is sent.`
+      );
+
+  const body = [
+    heading(firstName ? `Hi ${esc(firstName)},` : "Hello,"),
+    para(reason),
+    refund,
+    d ? sectionTitle("What was in the order") + itemsTable(d.items) : "",
+    `<div style="padding-top:20px">${button(orderLink(params.orderId, params.confirmationToken), "View your order")}${button(`${appBaseUrl}/products`, "Continue shopping", "secondary")}</div>`,
+  ].join("");
 
   await deliver("order-cancelled", {
     from,
     replyTo,
     to: params.to,
     subject: `Order cancelled: ${params.orderNumber}`,
-    html: `
-      <p>${greeting}</p>
-      <p>${reason}</p>
-      ${refund}
-      <p><a href="${orderUrl}">View your order</a></p>
-      <p>Questions? Just reply to this email — we read every one.</p>
-      <p>— MY Silvers</p>
-    `,
+    html: page({
+      preheader: `Your order ${params.orderNumber} has been cancelled${params.refund ? " and refunded" : ""}.`,
+      label: "Order cancelled",
+      body,
+      help: d?.help ?? SUPPORT_HELP,
+    }),
   });
 }
 
@@ -160,19 +235,24 @@ export async function sendOrderCancelledEmail(params: {
  */
 export async function sendEmailVerificationEmail(to: string, rawToken: string, name: string | null) {
   const url = `${appBaseUrl}/verify-email?token=${rawToken}`;
-  const hello = name ? `Hi ${escapeHtml(name.split(" ")[0])},` : "Hi,";
+  const first = name?.trim().split(/\s+/)[0];
   await deliver("email-verification", {
     from,
     replyTo,
     to,
     subject: "Confirm your email for MY Silvers",
-    html: `
-      <p>${hello}</p>
-      <p>Welcome to MY Silvers! Please confirm this is your email address:</p>
-      <p><a href="${url}">Confirm my email</a></p>
-      <p>Once confirmed, any orders you placed as a guest with this email will show in your account too.</p>
-      <p>This link works for 7 days. If you didn't create an account, you can ignore this email.</p>
-    `,
+    html: page({
+      preheader: "One tap to confirm your email and finish setting up your account.",
+      label: "Welcome",
+      help: SUPPORT_HELP,
+      body: [
+        heading(first ? `Welcome, ${esc(first)}!` : "Welcome to MY Silvers!"),
+        para("Please confirm this is your email address:"),
+        `<div style="padding:4px 0 16px">${button(url, "Confirm my email")}</div>`,
+        para("Once confirmed, any orders you placed as a guest with this email will show in your account too."),
+        para("This link works for 7 days. If you didn't create an account, you can ignore this email.", `font-size:13px;color:${C.muted}`),
+      ].join(""),
+    }),
   });
 }
 
@@ -188,18 +268,28 @@ export async function sendPasswordSetupEmail(to: string, rawToken: string) {
     replyTo,
     to,
     subject: "Set your MY Silvers password",
-    html: `
-      <p>You've shopped with us before as a guest. Set a password to turn this email into a MY Silvers account:</p>
-      <p><a href="${url}">Set my password</a></p>
-      <p>Your past orders will be waiting in your account. This link expires in 30 minutes. If you didn't ask for this, you can ignore this email.</p>
-    `,
+    html: page({
+      preheader: "Turn your guest orders into a MY Silvers account.",
+      label: "Your account",
+      help: SUPPORT_HELP,
+      body: [
+        heading("Set your password"),
+        para("You've shopped with us before as a guest. Set a password to turn this email into a MY Silvers account — your past orders will be waiting in it."),
+        `<div style="padding:4px 0 16px">${button(url, "Set my password")}</div>`,
+        para("This link expires in 30 minutes. If you didn't ask for this, you can ignore this email.", `font-size:13px;color:${C.muted}`),
+      ].join(""),
+    }),
   });
 }
 
 /**
  * "New order" — to the shop's OWNER(s), the moment an order is paid (or a COD
  * order is placed). A paid order once went unnoticed for want of exactly this.
- * Plain and scannable on a phone: what, how much, who, where, and one button.
+ * Built for packing from a phone: what to pick (photos and sizes), where it
+ * goes (full address and phone), how much, and one button.
+ *
+ * `orderId: "test"` is the Settings page's test send — there is no order to
+ * load, so it is drawn from the params alone.
  */
 export async function sendNewOrderAlertEmail(params: {
   to: string[];
@@ -213,22 +303,44 @@ export async function sendNewOrderAlertEmail(params: {
 }) {
   const amount = formatINR(params.total);
   const url = `${appBaseUrl}/admin/orders/${params.orderId}`;
-  const lines = params.items
-    .map(
-      (i) =>
-        `<li>${escapeHtml(i.name)}${i.size ? ` (size ${escapeHtml(i.size)})` : ""} × ${i.quantity}</li>`
-    )
-    .join("");
+  const d = params.orderId === "test" ? null : await loadOrderEmailData(params.orderId);
+
+  const body = [
+    heading(`New order ${esc(params.orderNumber)}`),
+    para(
+      `<strong style="font-size:20px;color:${C.black}">${amount}</strong> &nbsp;&middot;&nbsp; ${
+        params.cod
+          ? `<span style="color:${C.alert};font-weight:600">Cash on delivery — collect ${amount}</span>`
+          : `<span style="color:${C.saving};font-weight:600">Paid online</span>`
+      }`
+    ),
+    `<div style="padding:4px 0 8px">${button(url, "Open the order and ship it")}</div>`,
+    sectionTitle("To pack"),
+    itemsTable(d ? d.items : params.items),
+    d ? priceSummary(d) : "",
+    sectionTitle("Ship to"),
+    box(
+      d
+        ? addressBlock(d.address)
+        : `<strong>${esc(params.customer)}</strong>${params.city ? `<br>${esc(params.city)}` : ""}`
+    ),
+    d?.isGift
+      ? sectionTitle("Gift") +
+        box(`Gift order${d.giftWrap > 0 ? " — gift wrap paid" : ""}${d.giftMessage ? `<br>Message: &ldquo;${esc(d.giftMessage)}&rdquo;` : ""}`)
+      : "",
+    d ? para(`Customer email: ${esc(d.email)}`, `font-size:13px;color:${C.muted};margin-top:16px`) : "",
+  ].join("");
+
   await deliver("new-order-alert", {
     from,
     to: params.to,
     subject: `🛍️ New order ${params.orderNumber} — ${amount}${params.cod ? " (COD)" : ""}`,
-    html: `
-      <p><strong>New order ${params.orderNumber}</strong> — ${amount}, ${params.cod ? "cash on delivery" : "paid online"}.</p>
-      <p>${escapeHtml(params.customer)}${params.city ? `, ${escapeHtml(params.city)}` : ""}</p>
-      <ul>${lines}</ul>
-      <p><a href="${url}">Open the order and ship it</a></p>
-    `,
+    html: page({
+      preheader: `${params.customer}${params.city ? `, ${params.city}` : ""} — ${params.items.map((i) => `${i.name} × ${i.quantity}`).join(", ")}`,
+      label: params.cod ? "New COD order" : "New paid order",
+      body,
+      internal: true,
+    }),
   });
 }
 
@@ -245,7 +357,7 @@ export async function sendStaffAccessEmail(params: {
   days: number;
 }) {
   const url = `${appBaseUrl}/reset-password?token=${params.rawToken}`;
-  const hello = params.name ? `Hi ${escapeHtml(params.name.split(" ")[0])},` : "Hi,";
+  const first = params.name?.trim().split(/\s+/)[0];
   await deliver(params.kind === "invite" ? "staff-invite" : "staff-reset", {
     from,
     replyTo,
@@ -254,21 +366,25 @@ export async function sendStaffAccessEmail(params: {
       params.kind === "invite"
         ? `You've been added to the MY Silvers admin`
         : "Set a new password for the MY Silvers admin",
-    html: `
-      <p>${hello}</p>
-      <p>${
-        params.kind === "invite"
-          ? `You've been given <strong>${escapeHtml(params.roleLabel)}</strong> access to the MY Silvers admin. Choose a password to get started:`
-          : "The shop owner has sent you a link to set a new password:"
-      }</p>
-      <p><a href="${url}">Set my password</a></p>
-      <p>Then sign in at <a href="${appBaseUrl}/login">${appBaseUrl.replace(/^https?:\/\//, "")}/login</a> with this email. The link works for ${params.days} days.</p>
-    `,
+    html: page({
+      preheader: params.kind === "invite" ? "Choose a password to get started." : "A link to set a new password.",
+      label: "Admin access",
+      internal: true,
+      body: [
+        heading(first ? `Hi ${esc(first)},` : "Hi,"),
+        para(
+          params.kind === "invite"
+            ? `You've been given <strong>${esc(params.roleLabel)}</strong> access to the MY Silvers admin. Choose a password to get started:`
+            : "The shop owner has sent you a link to set a new password:"
+        ),
+        `<div style="padding:4px 0 16px">${button(url, "Set my password")}</div>`,
+        para(
+          `Then sign in at <a href="${appBaseUrl}/login" style="color:${C.oxide}">${site}/login</a> with this email. The link works for ${params.days} days.`,
+          `font-size:13px;color:${C.muted}`
+        ),
+      ].join(""),
+    }),
   });
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
 
 export async function sendPasswordResetEmail(to: string, rawToken: string) {
@@ -278,11 +394,20 @@ export async function sendPasswordResetEmail(to: string, rawToken: string) {
     replyTo,
     to,
     subject: "Reset your MY Silvers password",
-    html: `
-      <p>We received a request to reset your password.</p>
-      <p><a href="${resetUrl}">Click here to reset your password</a></p>
-      <p>This link expires in 30 minutes. If you didn't request this, you can ignore this email.</p>
-    `,
+    html: page({
+      preheader: "A link to reset your password — valid for 30 minutes.",
+      label: "Your account",
+      help: SUPPORT_HELP,
+      body: [
+        heading("Reset your password"),
+        para("We received a request to reset the password for your MY Silvers account."),
+        `<div style="padding:4px 0 16px">${button(resetUrl, "Reset my password")}</div>`,
+        para(
+          "This link expires in 30 minutes. If you didn't ask for this, you can ignore this email — your password stays as it is.",
+          `font-size:13px;color:${C.muted}`
+        ),
+      ].join(""),
+    }),
   });
 }
 
@@ -299,23 +424,33 @@ export async function sendBackInStockEmail(params: {
   productName: string;
   productSlug: string;
   size?: string;
+  image?: string | null;
 }) {
   const url = `${appBaseUrl}/products/${params.productSlug}`;
-  const sized = params.size ? ` (size ${params.size})` : "";
+  const sized = params.size ? ` (size ${esc(params.size)})` : "";
 
   await deliver("back-in-stock", {
     from,
     replyTo,
     to: params.to,
     subject: `Back in stock: ${params.productName}`,
-    html: `
-      <p>The piece you asked about is back.</p>
-      <p><strong>${params.productName}</strong>${sized}</p>
-      <p><a href="${url}">View it</a></p>
-      <p style="color:#655c50;font-size:13px">
-        We're sending this once, because you asked to be told about this piece.
-        You are not subscribed to anything.
-      </p>
-    `,
+    html: page({
+      preheader: `${params.productName} is back — pieces like this don't stay long.`,
+      label: "Back in stock",
+      help: SUPPORT_HELP,
+      body: [
+        heading("It's back!"),
+        para("The piece you asked us about is in stock again."),
+        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 20px"><tr>
+          <td valign="middle" style="padding-right:16px">${thumb(params.image, 96)}</td>
+          <td valign="middle" style="font-size:16px;line-height:23px;font-weight:600;color:${C.black}">${esc(params.productName)}${sized}</td>
+        </tr></table>`,
+        `<div style="padding-bottom:16px">${button(url, "View it now")}</div>`,
+        para(
+          "Most of our pieces are one of a kind, so it may not stay long. We're sending this once, because you asked to be told about this piece — you are not subscribed to anything.",
+          `font-size:13px;color:${C.muted}`
+        ),
+      ].join(""),
+    }),
   });
 }
