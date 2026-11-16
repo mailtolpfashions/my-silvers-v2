@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { whatsappLink } from "@/lib/whatsapp";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Menu, MessageCircle, Minus, Plus } from "lucide-react";
@@ -16,14 +17,6 @@ import { Wordmark } from "@/components/storefront/header/wordmark";
 import { isActiveWorld } from "@/components/storefront/header/mega-menu";
 import type { NavLink, NavWorld } from "@/components/storefront/header/nav-model";
 
-/**
- * Digits only — wa.me rejects spaces, plus signs and dashes, and an editor
- * writing "+91 98765 43210" in .env is the likely case. Read as a literal
- * process.env.NEXT_PUBLIC_* expression because Next inlines these at build time
- * and cannot resolve a dynamic lookup. Blank hides the link entirely rather
- * than shipping a dead one.
- */
-const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/[^\d]/g, "");
 
 /**
  * The mobile drawer: the same five worlds as the desktop nav, as an accordion.
@@ -40,9 +33,12 @@ const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(
 export function MobileNav({
   worlds,
   utilityLinks,
+  whatsappNumber,
 }: {
   worlds: NavWorld[];
   utilityLinks: NavLink[];
+  /** From admin Settings, already normalised. Empty hides the help link. */
+  whatsappNumber: string;
 }) {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -198,13 +194,13 @@ export function MobileNav({
           </ul>
         </nav>
 
-        {WHATSAPP_NUMBER && (
+        {whatsappNumber && (
           // Pinned to the bottom. A shopper who opens the menu without finding
           // what they wanted is exactly who needs a way to ask, and on a phone
           // WhatsApp is the one they will actually use.
           <div className="border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <a
-              href={`https://wa.me/${WHATSAPP_NUMBER}`}
+              href={whatsappLink(whatsappNumber)}
               target="_blank"
               rel="noopener noreferrer"
               onClick={close}

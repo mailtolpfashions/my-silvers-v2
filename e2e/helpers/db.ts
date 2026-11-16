@@ -386,7 +386,7 @@ export async function insertOrderInState(
     `INSERT INTO "Order" ("id", "orderNumber", "userId", "shippingAddress", "paymentMethod",
                           "paymentStatus", "orderStatus", "subtotal", "shippingCharge",
                           "totalAmount", "shipmentCreatedAt", "updatedAt")
-     VALUES ($1, $2, $3, '{"fullName":"E2E Buyer","city":"Chennai"}'::jsonb, $4, $5, $6, $7, 0, $7,
+     VALUES ($1, $2, $3, '{"fullName":"E2E Buyer","city":"Chennai","phone":"9876543210"}'::jsonb, $4, $5, $6, $7, 0, $7,
              $8, NOW())`,
     [
       id,

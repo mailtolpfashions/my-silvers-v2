@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfirmCodWhatsapp } from "@/components/admin/confirm-cod-whatsapp";
 import { ChevronLeft } from "lucide-react";
 import Image from "next/image";
 import { notFound } from "next/navigation";
@@ -392,6 +393,20 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
                     ? "Awaiting payment before this can be shipped."
                     : "Not ready to ship."}
                 </p>
+              )}
+
+              {order.paymentMethod === "cod" && isCancellable(order) && (
+                <div className="border-t pt-3">
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Cash on delivery — confirm with the customer before shipping.
+                  </p>
+                  <ConfirmCodWhatsapp
+                    phone={address.phone}
+                    fullName={address.fullName}
+                    orderNumber={order.orderNumber}
+                    total={formatINR(order.totalAmount.toString())}
+                  />
+                </div>
               )}
 
               {isCancellable(order) && (

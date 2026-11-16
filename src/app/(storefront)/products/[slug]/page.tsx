@@ -1,4 +1,5 @@
 import { Suspense, ViewTransition } from "react";
+import { ProductWhatsappAsk } from "@/components/storefront/product-whatsapp-ask";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -430,6 +431,12 @@ async function ProductDetailContent({ params }: { params: Promise<{ slug: string
                 random moment. The button now simply appears. */}
             <Suspense fallback={<ProductCtaSkeleton />}>
               <ProductCta productId={product.id} stock={product.stock} />
+            </Suspense>
+
+            {/* Secondary to the buttons above, on purpose — see the component.
+                Its own boundary so a slow settings read never holds the CTA. */}
+            <Suspense fallback={null}>
+              <ProductWhatsappAsk name={product.name} slug={product.slug} />
             </Suspense>
 
             {/* Inside the provider, because for a sized piece the question is

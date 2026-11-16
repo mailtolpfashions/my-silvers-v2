@@ -11,6 +11,7 @@ import { HeaderAccountSkeleton } from "@/components/storefront/header/header-acc
 import { UtilityBar, UtilityBarSkeleton } from "@/components/storefront/header/utility-bar";
 import { HeaderChrome } from "@/components/storefront/header/header-chrome";
 import { buildNav, buildUtilityLinks } from "@/components/storefront/header/nav-model";
+import { getContactSettings } from "@/server/settings/store-settings";
 
 /**
  * The storefront header. Two bands, and that is the whole design.
@@ -124,8 +125,12 @@ async function MegaMenuLoader() {
 
 /** Same model, plus the service links the mobile band has no room for. */
 async function MobileNavLoader() {
-  const [worlds, utilityLinks] = await Promise.all([buildNav(), buildUtilityLinks()]);
-  return <MobileNav worlds={worlds} utilityLinks={utilityLinks} />;
+  const [worlds, utilityLinks, { whatsappNumber }] = await Promise.all([
+    buildNav(),
+    buildUtilityLinks(),
+    getContactSettings(),
+  ]);
+  return <MobileNav worlds={worlds} utilityLinks={utilityLinks} whatsappNumber={whatsappNumber} />;
 }
 
 /** Same footprint as the trigger button, so the header doesn't jump. */

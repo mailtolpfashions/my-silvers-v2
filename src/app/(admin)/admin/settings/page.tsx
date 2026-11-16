@@ -67,6 +67,7 @@ export default async function AdminSettingsPage() {
           navOccasions: settings.navOccasions,
           navShopFor: settings.navShopFor,
           charmPricing: settings.charmPricing,
+          whatsappNumber: settings.whatsappNumber,
         }}
         collections={collections.map((c) => ({ slug: c.slug, title: c.title }))}
       />

@@ -2,12 +2,14 @@
 
 import { z } from "zod";
 import { revalidatePath, updateTag } from "next/cache";
+import { normaliseIndianMobile } from "@/lib/whatsapp";
 import { requireOwner } from "@/server/auth/require-role";
 import { logActivity } from "@/server/activity/log";
 import {
   getStoreSettings,
   NAV_FILTER_LIMITS,
   NAV_MENU_TAG,
+  CONTACT_TAG,
   saveStoreSettings,
   STORE_SETTINGS_TAG,
   type StoreSettings,
@@ -85,6 +87,17 @@ const settingsSchema = z
     navOccasions: navFilters("Occasions"),
     navShopFor: navFilters("Shop for", "collection"),
     charmPricing: z.enum(["off", "99", "49-99"]),
+    /**
+     * Empty hides WhatsApp everywhere. Anything else must BE an Indian mobile
+     * number: refused with a message rather than saved as "" — silently
+     * hiding every WhatsApp link because of a typo is worse than an error.
+     */
+    whatsappNumber: z
+      .string()
+      .trim()
+      .refine((v) => v === "" || normaliseIndianMobile(v) !== "", {
+        message: "WhatsApp: enter a 10-digit Indian mobile number, e.g. 98765 43210.",
+      }),
   })
   /**
    * A range whose maximum is below its minimum is not a slow estimate, it is a
@@ -139,6 +152,7 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
     navOccasions: data.navOccasions,
     navShopFor: data.navShopFor,
     charmPricing: data.charmPricing,
+    whatsappNumber: normaliseIndianMobile(data.whatsappNumber),
   };
 
   // Read before writing, to tell whether the header lists changed — see below.
@@ -179,6 +193,8 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
     JSON.stringify([before.navFinishes, before.navOccasions, before.navShopFor]) !==
     JSON.stringify([next.navFinishes, next.navOccasions, next.navShopFor]);
   if (listsChanged) updateTag(NAV_MENU_TAG);
+  // Same for the WhatsApp number, read by the footer and menu on every page.
+  if (before.whatsappNumber !== next.whatsappNumber) updateTag(CONTACT_TAG);
   // The cart and checkout quote the shipping charge, so a rate change has to
   // reach their rendered output too — the tag covers the settings read, these
   // cover the pages built from it.
