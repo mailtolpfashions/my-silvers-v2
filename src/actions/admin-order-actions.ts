@@ -16,6 +16,9 @@ import {
   AdminOrderError,
 } from "@/server/orders/admin";
 import { ShiprocketError } from "@/server/integrations/shiprocket";
+import { cancelOrderAsStaff, CancelError } from "@/server/orders/cancel-order";
+import { isOwner } from "@/server/auth/roles";
+import { CANCEL_REASONS, isCancelReason } from "@/lib/order-cancel-reasons";
 
 export type AdminOrderActionResult = { ok: true } | { ok: false; error: string };
 
@@ -36,7 +39,9 @@ export async function updateOrderStatusAction(
   orderId: string,
   status: string
 ): Promise<AdminOrderActionResult> {
-  const session = await requireRole("admin");
+  // Owner only: the manual override skips every check the Actions column
+  // makes. See OrderStatusSelect in components/admin/order-row-actions.tsx.
+  const session = await requireOwner();
   const parsed = statusSchema.safeParse(status);
   if (!parsed.success) return { ok: false, error: "Invalid status." };
   const before = await prisma.order.findUnique({ where: { id: orderId }, select: { orderStatus: true } });
@@ -49,6 +54,41 @@ export async function updateOrderStatusAction(
   });
   revalidatePath("/admin/orders");
   return { ok: true };
+}
+
+/**
+ * The Cancel order button. Any admin may cancel a COD or unpaid order; a paid
+ * online order needs the owner, because cancelling it refunds the customer —
+ * cancelOrderAsStaff enforces that from the FRESH role requireRole returns.
+ */
+export async function cancelOrderAsStaffAction(
+  orderId: string,
+  reason: string,
+  note: string
+): Promise<{ ok: true; refunded: boolean } | { ok: false; error: string }> {
+  const session = await requireRole("admin");
+  if (!isCancelReason(reason)) return { ok: false, error: "Choose a reason." };
+  const detail = note.trim().slice(0, 200);
+  if (reason === "other" && !detail) return { ok: false, error: "Say briefly why." };
+
+  try {
+    const result = await cancelOrderAsStaff(orderId, { mayRefund: isOwner(session.user.role) });
+    await logActivity(session, {
+      action: "order.cancel",
+      target: { type: "order", id: orderId },
+      summary:
+        `Cancelled order ${result.orderNumber} — ${CANCEL_REASONS[reason]}` +
+        (detail ? `: ${detail}` : "") +
+        (result.refunded ? " (refunded)" : ""),
+    });
+    revalidatePath("/admin/orders");
+    revalidatePath(`/admin/orders/${orderId}`);
+    return { ok: true, refunded: result.refunded };
+  } catch (err) {
+    if (err instanceof CancelError) return { ok: false, error: err.message };
+    console.error("cancelOrderAsStaffAction failed", err);
+    return { ok: false, error: "Could not cancel the order. Please try again." };
+  }
 }
 
 /**

@@ -1,6 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { signInAs, TEST_PASSWORD } from "./helpers/auth";
-import { activityFor, createTestUser, deleteUser, getUserRole } from "./helpers/db";
+import {
+  activityFor,
+  createTestUser,
+  deleteOrdersForUser,
+  deleteUser,
+  getUserRole,
+  insertOrderInState,
+} from "./helpers/db";
 
 /**
  * The owner panel (Nov 2026): one `superadmin` who alone manages staff, sees
@@ -55,6 +62,103 @@ test.describe("an admin is not the owner", () => {
       }
     } finally {
       await admin.dispose();
+    }
+  });
+
+  test("order status is a label, not a dropdown — the owner keeps the dropdown", async ({
+    page,
+    browser,
+  }) => {
+    const customer = await createTestUser({
+      email: `e2e-status-${stamp()}@example.com`,
+      password: TEST_PASSWORD,
+      role: "customer",
+    });
+    const { id } = await insertOrderInState(customer.id, { paymentMethod: "cod", paymentStatus: "pending" });
+    // The "Order status" caption and its control share a wrapper on the
+    // order page — scoped so another select on the page cannot answer for it.
+    const statusBlock = (p: typeof page) => p.getByText("Order status", { exact: true }).locator("..");
+
+    const admin = await signInAs(page, "admin", "notowner-status");
+    const ownerPage = await (await browser.newContext()).newPage();
+    const owner = await signInAs(ownerPage, "superadmin", "owner-status");
+    try {
+      await page.goto(`/admin/orders/${id}`);
+      await expect(statusBlock(page).getByText(/placed/i)).toBeVisible({ timeout: 20_000 });
+      await expect(statusBlock(page).getByRole("combobox")).toHaveCount(0);
+
+      await ownerPage.goto(`/admin/orders/${id}`);
+      await expect(statusBlock(ownerPage).getByRole("combobox")).toBeVisible({ timeout: 20_000 });
+    } finally {
+      await admin.dispose();
+      await owner.dispose();
+      await ownerPage.context().close();
+      await deleteOrdersForUser(customer.id).catch(() => {});
+      await deleteUser(customer.id).catch(() => {});
+    }
+  });
+
+  test("can cancel a COD order with a reason, and it lands in the activity log", async ({ page }) => {
+    const customer = await createTestUser({
+      email: `e2e-cancel-${stamp()}@example.com`,
+      password: TEST_PASSWORD,
+      role: "customer",
+    });
+    const { id, orderNumber } = await insertOrderInState(customer.id, {
+      paymentMethod: "cod",
+      paymentStatus: "pending",
+    });
+    const admin = await signInAs(page, "admin", "notowner-cancel");
+    try {
+      await page.goto(`/admin/orders/${id}`);
+      await page.getByRole("button", { name: "Cancel order" }).click({ timeout: 20_000 });
+      const dialog = page.getByRole("dialog");
+      // No reason chosen yet — the confirm button waits for one.
+      await expect(dialog.getByRole("button", { name: "Cancel order" })).toBeDisabled();
+      await dialog.getByLabel("Customer asked to cancel").check();
+      await dialog.getByRole("button", { name: "Cancel order" }).click();
+      await expect(page.getByText(`${orderNumber} cancelled.`)).toBeVisible();
+
+      // Cancelled orders have nothing left to cancel.
+      await page.reload();
+      await expect(page.getByRole("button", { name: "Cancel order" })).toHaveCount(0);
+      expect((await activityFor(admin.id)).join("\n")).toContain(
+        `Cancelled order ${orderNumber} — Customer asked to cancel`
+      );
+    } finally {
+      await admin.dispose();
+      await deleteOrdersForUser(customer.id).catch(() => {});
+      await deleteUser(customer.id).catch(() => {});
+    }
+  });
+
+  test("can't cancel a paid online order — that refunds, so it's the owner's", async ({
+    page,
+    browser,
+  }) => {
+    const customer = await createTestUser({
+      email: `e2e-cancelpaid-${stamp()}@example.com`,
+      password: TEST_PASSWORD,
+      role: "customer",
+    });
+    const { id } = await insertOrderInState(customer.id, { paymentMethod: "razorpay", paymentStatus: "paid" });
+    const admin = await signInAs(page, "admin", "notowner-cancelpaid");
+    const ownerPage = await (await browser.newContext()).newPage();
+    const owner = await signInAs(ownerPage, "superadmin", "owner-cancelpaid");
+    try {
+      await page.goto(`/admin/orders/${id}`);
+      await expect(page.getByText(/only the owner can cancel this order/i)).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByRole("button", { name: "Cancel order" })).toHaveCount(0);
+
+      // The owner gets the button (not clicked: it would issue a refund).
+      await ownerPage.goto(`/admin/orders/${id}`);
+      await expect(ownerPage.getByRole("button", { name: "Cancel order" })).toBeVisible({ timeout: 20_000 });
+    } finally {
+      await admin.dispose();
+      await owner.dispose();
+      await ownerPage.context().close();
+      await deleteOrdersForUser(customer.id).catch(() => {});
+      await deleteUser(customer.id).catch(() => {});
     }
   });
 

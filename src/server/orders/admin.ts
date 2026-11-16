@@ -24,7 +24,7 @@ export class AdminOrderError extends Error {
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   await prisma.order.update({ where: { id: orderId }, data: { orderStatus: status } });
 
-  // The dropdown is a manual override and can reach 'cancelled' from anywhere,
+  // The dropdown is the owner's manual override and can reach 'cancelled' from anywhere,
   // including from 'shipped'. Without this the order goes cancelled in our
   // database while the waybill stays live at Shiprocket, and the courier
   // collects a parcel for an order that no longer exists.

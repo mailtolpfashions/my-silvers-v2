@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { isCancellable } from "@/lib/order-cancel-reasons";
 import { getAdminOrders } from "@/server/orders/admin";
 import type { OrderStatus, PaymentStatus } from "@/generated/prisma/client";
 import { formatINR } from "@/lib/format";
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import {
   OrderStatusSelect,
+  CancelOrderButton,
   ShipOrderButton,
   ReturnReviewButtons,
 } from "@/components/admin/order-row-actions";
@@ -201,6 +203,14 @@ export default async function AdminOrdersPage({
                         <ShipOrderButton
                           orderId={order.id}
                           hasShiprocketOrder={Boolean(order.shiprocketOrderId)}
+                        />
+                      )}
+                      {isCancellable(order) && (
+                        <CancelOrderButton
+                          orderId={order.id}
+                          orderNumber={order.orderNumber}
+                          paid={order.paymentStatus === "paid"}
+                          total={formatINR(order.totalAmount.toString())}
                         />
                       )}
                       {order.orderStatus === "return_requested" && (

@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { accountOrderScope } from "@/server/auth/email-verification";
 import { restoreStock } from "@/server/products/stock";
 import { toPaise } from "@/server/orders/money";
@@ -7,7 +8,7 @@ import { releaseShipment } from "@/server/orders/cancel-shipment";
 
 export class CancelError extends Error {
   constructor(
-    public code: "NOT_FOUND" | "NOT_CANCELLABLE",
+    public code: "NOT_FOUND" | "NOT_CANCELLABLE" | "NEEDS_OWNER",
     message: string
   ) {
     super(message);
@@ -30,7 +31,36 @@ export async function cancelOrder(input: { orderId: string; owner: { id: string;
     include: { items: true },
   });
   if (!order) throw new CancelError("NOT_FOUND", "Order not found.");
+  return cancelLoadedOrder(order);
+}
 
+/**
+ * Staff-initiated cancellation — the Cancel order button in the admin.
+ *
+ * The SAME steps as a customer's cancellation, deliberately: stock back,
+ * Shiprocket booking released, a paid order refunded. The admin used to have
+ * only the status dropdown, which changed the label and nothing else — a
+ * cancelled ring stayed out of stock and a prepaid customer was never refunded.
+ *
+ * `mayRefund` is false for an admin: cancelling a paid online order sends
+ * money back, and refunds are the owner's (the same line processReturnAction
+ * draws). COD and unpaid orders move no money, so any admin may cancel those.
+ */
+export async function cancelOrderAsStaff(orderId: string, opts: { mayRefund: boolean }) {
+  const order = await prisma.order.findUnique({ where: { id: orderId }, include: { items: true } });
+  if (!order) throw new CancelError("NOT_FOUND", "Order not found.");
+  if (order.paymentStatus === "paid" && !opts.mayRefund) {
+    throw new CancelError(
+      "NEEDS_OWNER",
+      "This order was paid online, so cancelling it refunds the customer — only the owner can do that."
+    );
+  }
+  return cancelLoadedOrder(order);
+}
+
+type LoadedOrder = Prisma.OrderGetPayload<{ include: { items: true } }>;
+
+async function cancelLoadedOrder(order: LoadedOrder) {
   // Atomic claim — the status guard in the WHERE clause means a concurrent
   // admin shipment-creation or double-click can't cancel twice or cancel a
   // shipped order.
