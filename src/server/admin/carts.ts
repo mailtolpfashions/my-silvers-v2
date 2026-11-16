@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/server/db";
-import { requireRole } from "@/server/auth/require-role";
+import { requireRoleForPage } from "@/server/auth/require-role";
 
 /**
  * Carts with something in them that never became an order.
@@ -54,7 +54,7 @@ export type AbandonedCart = {
 };
 
 export async function listAbandonedCarts(q?: string): Promise<AbandonedCart[]> {
-  await requireRole("admin");
+  await requireRoleForPage("admin");
 
   const cutoff = new Date(Date.now() - STALE_AFTER_HOURS * 60 * 60 * 1000);
   const search = q?.trim();

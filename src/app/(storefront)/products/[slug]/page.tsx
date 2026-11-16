@@ -421,19 +421,15 @@ async function ProductDetailContent({ params }: { params: Promise<{ slug: string
                 after hydration would be jarring. Behind its own boundary so the
                 product body doesn't wait on the session.
 
-                The skeleton leaves quickly, the real CTA arrives more gently —
-                see the .reveal-out/.reveal-in rules in globals.css. `default:
-                "none"` keeps this from firing during the image morph. */}
-            <Suspense
-              fallback={
-                <ViewTransition exit="reveal-out">
-                  <ProductCtaSkeleton />
-                </ViewTransition>
-              }
-            >
-              <ViewTransition enter="reveal-in" default="none">
-                <ProductCta productId={product.id} stock={product.stock} />
-              </ViewTransition>
+                ⚠️  No <ViewTransition> on this swap, on purpose. It used to
+                fade the skeleton out and the CTA in — but a view transition
+                freezes the page into a snapshot for its duration and the
+                browser ignores scrolling meanwhile. The CTA arrives whenever
+                the session lookup finishes, which is usually while the shopper
+                has already started scrolling, so the page stuck for ~0.4s at a
+                random moment. The button now simply appears. */}
+            <Suspense fallback={<ProductCtaSkeleton />}>
+              <ProductCta productId={product.id} stock={product.stock} />
             </Suspense>
 
             {/* Inside the provider, because for a sized piece the question is

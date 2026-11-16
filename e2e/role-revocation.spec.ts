@@ -69,6 +69,15 @@ test.describe("role revocation takes effect immediately", () => {
       // And the sensitive sub-pages, not just the dashboard root.
       await page.goto("/admin/finance");
       await expect(page, "a demoted admin still reached the finance books").toHaveURL(/\/login/);
+
+      // A page that checks the role itself, at the top, rather than leaving it
+      // to the layout. It used to throw FORBIDDEN there and show "This page
+      // didn't load" (and report a crash) instead of the login form.
+      await page.goto("/admin/newsletter");
+      await expect(page, "a demoted admin on the newsletter page was not sent to login").toHaveURL(
+        /\/login/
+      );
+      await expect(page.getByText("This page didn't load")).toHaveCount(0);
     } finally {
       await deleteUser(user.id).catch(() => {});
     }

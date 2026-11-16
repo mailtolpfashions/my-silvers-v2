@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireRole } from "@/server/auth/require-role";
+import { requireRoleForPage } from "@/server/auth/require-role";
 import { prisma } from "@/server/db";
 import { buildInvoice } from "@/server/orders/invoice";
 import { InvoiceDocument } from "@/components/orders/invoice-document";
@@ -42,7 +42,7 @@ export default async function AdminInvoicePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireRole("admin");
+  await requireRoleForPage("admin");
   const { id } = await params;
 
   const order = await prisma.order.findUnique({

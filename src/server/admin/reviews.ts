@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/server/db";
-import { requireRole } from "@/server/auth/require-role";
+import { requireRoleForPage } from "@/server/auth/require-role";
 
 /**
  * The moderation queue.
@@ -55,7 +55,7 @@ export async function listReviews({
   q?: string;
   page?: number;
 }) {
-  await requireRole("admin");
+  await requireRoleForPage("admin");
   const where = whereFor(filter, q);
   const skip = (Math.max(1, page) - 1) * REVIEW_PAGE_SIZE;
 
@@ -87,7 +87,7 @@ export async function listReviews({
 
 /** Counts for the filter tabs, so each says how much is behind it. */
 export async function reviewCounts() {
-  await requireRole("admin");
+  await requireRoleForPage("admin");
   // groupBy rather than one count per state: three states now, and a fourth
   // would otherwise mean a fourth round trip.
   const [all, byStatus, unverified] = await Promise.all([

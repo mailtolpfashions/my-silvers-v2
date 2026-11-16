@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/server/db";
-import { requireRole } from "@/server/auth/require-role";
+import { requireRoleForPage } from "@/server/auth/require-role";
 import { MAX_ADDRESSES } from "@/lib/validation/account";
 import { formatINR } from "@/lib/format";
 import { PageHeader } from "@/components/layout/page-header";
@@ -19,7 +19,7 @@ export const instant = false;
  * for the owner, edit / block / delete. Admins see it read-only.
  */
 export default async function AdminCustomerPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole("admin");
+  await requireRoleForPage("admin");
   const { id } = await params;
 
   const [customer, owner] = await Promise.all([

@@ -1,16 +1,12 @@
 import * as Sentry from "@sentry/nextjs";
-
-const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
-const enabled = !!dsn && !dsn.startsWith("your-") && process.env.NODE_ENV === "production";
+import { sentryDsn, sentryEnabled, sentryEnvironment } from "@/lib/sentry-environment";
 
 export async function register() {
-  if (!enabled) return;
+  // Vercel deployments only — see lib/sentry-environment.ts.
+  if (!sentryEnabled) return;
 
-  if (process.env.NEXT_RUNTIME === "nodejs") {
-    Sentry.init({ dsn, tracesSampleRate: 0.1 });
-  }
-  if (process.env.NEXT_RUNTIME === "edge") {
-    Sentry.init({ dsn, tracesSampleRate: 0.1 });
+  if (process.env.NEXT_RUNTIME === "nodejs" || process.env.NEXT_RUNTIME === "edge") {
+    Sentry.init({ dsn: sentryDsn, environment: sentryEnvironment, tracesSampleRate: 0.1 });
   }
 }
 

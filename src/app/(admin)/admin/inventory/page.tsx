@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@/server/db";
-import { requireRole } from "@/server/auth/require-role";
+import { requireRoleForPage } from "@/server/auth/require-role";
 import { formatINR } from "@/lib/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -85,7 +85,7 @@ export default async function AdminInventoryPage({
 }: {
   searchParams: Promise<InventorySearchParams>;
 }) {
-  await requireRole("admin");
+  await requireRoleForPage("admin");
 
   const params = await searchParams;
   const { q } = params;

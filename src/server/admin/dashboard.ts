@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db";
-import { requireRole } from "@/server/auth/require-role";
+import { requireRoleForPage } from "@/server/auth/require-role";
 
 /**
  * Everything the admin home page shows, read in one go.
@@ -109,7 +109,7 @@ export function parseTab(value: unknown): RecentTab {
 type Kpi = { current: number; previous: number };
 
 export async function getDashboard(range: DashboardRange, tab: RecentTab) {
-  await requireRole("admin");
+  await requireRoleForPage("admin");
   await connection();
   const now = Date.now();
   const b = bounds(range, now);
@@ -208,7 +208,7 @@ export async function getDashboard(range: DashboardRange, tab: RecentTab) {
         // Who ordered (the account) and who it goes to (the address) can be
         // different people — a gift, or ordering for family. The card shows
         // both, so it matches the Recent orders table, which lists the account.
-        customer: o.user.name || o.user.email,
+        customer: o.user?.name || o.user?.email || DELETED_CUSTOMER.name,
         recipient: address.fullName?.trim() || null,
         city: address.city ?? null,
         items: o._count.items,
@@ -229,9 +229,21 @@ export async function getDashboard(range: DashboardRange, tab: RecentTab) {
       revenue: Number(p.revenue),
     })),
     lowStock,
-    recent,
+    recent: recent.map((o) => ({ ...o, user: o.user ?? DELETED_CUSTOMER })),
   };
 }
+
+/**
+ * Stands in for an order's account when the account comes back missing.
+ *
+ * The schema says that cannot happen — Order.user is required and the foreign
+ * key refuses to delete a customer who has orders. It happened anyway, once:
+ * Prisma loads an `include`d relation with a SECOND query, so an account
+ * deleted between the two (the e2e suite's cleanup does exactly that — orders
+ * first, then the user) comes back null, and `o.user.name` took the whole
+ * dashboard down. One unlucky row should cost one name, not the page.
+ */
+const DELETED_CUSTOMER = { name: "Deleted customer", email: "" };
 
 /** Sales per IST hour (Today) or IST day, from `from` onwards. */
 async function salesSeries(from: Date, unit: "hour" | "day") {

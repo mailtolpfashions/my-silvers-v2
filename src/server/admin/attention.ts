@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/server/db";
-import { requireRole } from "@/server/auth/require-role";
+import { requireRoleForPage } from "@/server/auth/require-role";
 
 /**
  * What needs doing, for the top of the dashboard.
@@ -35,8 +35,8 @@ export type AttentionItem = {
 };
 
 export async function getAttentionItems() {
-  await requireRole("admin");
-  // requireRole read cookies, so this scope is request-time and a live clock
+  await requireRoleForPage("admin");
+  // requireRoleForPage read cookies, so this scope is request-time and a live clock
   // is allowed here (see the note in admin/layout.tsx).
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
@@ -137,7 +137,7 @@ export async function getAttentionItems() {
  * rather than holding the whole block hostage to the slowest query on it.
  */
 export async function getAbandonedCartSummary() {
-  await requireRole("admin");
+  await requireRoleForPage("admin");
   const { listAbandonedCarts } = await import("@/server/admin/carts");
   const carts = await listAbandonedCarts();
   return {

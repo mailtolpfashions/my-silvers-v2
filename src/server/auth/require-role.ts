@@ -1,6 +1,8 @@
 import { auth } from "@/server/auth/auth";
 import { prisma } from "@/server/db";
+import { redirect } from "next/navigation";
 import type { Role } from "@/generated/prisma/enums";
+import { isAdmin } from "@/server/auth/roles";
 
 /**
  * The role as the DATABASE has it right now — never the copy baked into the JWT.
@@ -71,4 +73,37 @@ export async function requireRole(...allowed: Role[]) {
  */
 export async function requireOwner() {
   return requireRole("superadmin");
+}
+
+/**
+ * requireRole() for PAGES and the data loaders pages call — refuses with a
+ * redirect instead of a thrown FORBIDDEN.
+ *
+ * ⚠️  Why pages need their own. Next renders a layout and its page IN PARALLEL,
+ * so when the admin layout's gate redirects a demoted or deleted admin to
+ * /login, the page and its loaders are already running and each one threw
+ * FORBIDDEN. The visitor was refused either way — the check worked — but every
+ * refusal landed in Sentry as an unhandled crash, and on a page with no layout
+ * redirect of its own (the newsletter page) the visitor saw "This page didn't
+ * load" instead of the login form. A redirect is not an error: Next handles it
+ * and Sentry ignores it.
+ *
+ * Server Actions and Route Handlers keep plain requireRole(): a hard
+ * FORBIDDEN is the right answer to a forged POST, and the caller handles it.
+ *
+ * Someone who IS an admin but failed an owner-only check goes back to the
+ * dashboard, not to /login — the login form would only send them round again.
+ */
+export async function requireRoleForPage(...allowed: Role[]) {
+  try {
+    return await requireRole(...allowed);
+  } catch (error) {
+    if (!(error instanceof Error) || error.message !== "FORBIDDEN") throw error;
+    redirect(isAdmin(await getCurrentRole()) ? "/admin" : "/login?redirect=/admin");
+  }
+}
+
+/** requireOwner() for pages and their loaders — see requireRoleForPage. */
+export async function requireOwnerForPage() {
+  return requireRoleForPage("superadmin");
 }
