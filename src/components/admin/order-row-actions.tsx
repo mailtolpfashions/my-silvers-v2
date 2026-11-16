@@ -3,6 +3,7 @@
 import { useIsOwner } from "@/components/admin/owner-context";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -40,6 +41,18 @@ const STATUSES = [
   "refunded",
 ] as const;
 
+/**
+ * The order's status — a dropdown for the owner, a plain label for an admin.
+ *
+ * An admin moves an order on through the Actions column (Send to Shiprocket,
+ * Assign courier, Review return) and the automatic updates (payment confirms
+ * it, Shiprocket's tracking marks it delivered). Each of those checks the
+ * order is in a state where the step makes sense. The dropdown checks
+ * nothing — it can jump any order to any status, "shipped" with no waybill or
+ * "refunded" with no refund — so it is the owner's override for fixing a
+ * stuck order, not a way of working. updateOrderStatusAction enforces the
+ * same rule on the server.
+ */
 export function OrderStatusSelect({
   orderId,
   status,
@@ -47,7 +60,16 @@ export function OrderStatusSelect({
   orderId: string;
   status: string;
 }) {
+  const isOwner = useIsOwner();
   const [isPending, startTransition] = useTransition();
+
+  if (!isOwner) {
+    return (
+      <Badge variant="outline" className="capitalize">
+        {status.replaceAll("_", " ")}
+      </Badge>
+    );
+  }
 
   return (
     <Select
@@ -67,7 +89,7 @@ export function OrderStatusSelect({
       <SelectContent>
         {STATUSES.map((s) => (
           <SelectItem key={s} value={s}>
-            {s.replace("_", " ")}
+            {s.replaceAll("_", " ")}
           </SelectItem>
         ))}
       </SelectContent>

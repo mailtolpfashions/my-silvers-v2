@@ -1,6 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { signInAs, TEST_PASSWORD } from "./helpers/auth";
-import { activityFor, createTestUser, deleteUser, getUserRole } from "./helpers/db";
+import {
+  activityFor,
+  createTestUser,
+  deleteOrdersForUser,
+  deleteUser,
+  getUserRole,
+  insertOrderInState,
+} from "./helpers/db";
 
 /**
  * The owner panel (Nov 2026): one `superadmin` who alone manages staff, sees
@@ -55,6 +62,39 @@ test.describe("an admin is not the owner", () => {
       }
     } finally {
       await admin.dispose();
+    }
+  });
+
+  test("order status is a label, not a dropdown — the owner keeps the dropdown", async ({
+    page,
+    browser,
+  }) => {
+    const customer = await createTestUser({
+      email: `e2e-status-${stamp()}@example.com`,
+      password: TEST_PASSWORD,
+      role: "customer",
+    });
+    const { id } = await insertOrderInState(customer.id, { paymentMethod: "cod", paymentStatus: "pending" });
+    // The "Order status" caption and its control share a wrapper on the
+    // order page — scoped so another select on the page cannot answer for it.
+    const statusBlock = (p: typeof page) => p.getByText("Order status", { exact: true }).locator("..");
+
+    const admin = await signInAs(page, "admin", "notowner-status");
+    const ownerPage = await (await browser.newContext()).newPage();
+    const owner = await signInAs(ownerPage, "superadmin", "owner-status");
+    try {
+      await page.goto(`/admin/orders/${id}`);
+      await expect(statusBlock(page).getByText(/placed/i)).toBeVisible({ timeout: 20_000 });
+      await expect(statusBlock(page).getByRole("combobox")).toHaveCount(0);
+
+      await ownerPage.goto(`/admin/orders/${id}`);
+      await expect(statusBlock(ownerPage).getByRole("combobox")).toBeVisible({ timeout: 20_000 });
+    } finally {
+      await admin.dispose();
+      await owner.dispose();
+      await ownerPage.context().close();
+      await deleteOrdersForUser(customer.id).catch(() => {});
+      await deleteUser(customer.id).catch(() => {});
     }
   });
 

@@ -36,7 +36,9 @@ export async function updateOrderStatusAction(
   orderId: string,
   status: string
 ): Promise<AdminOrderActionResult> {
-  const session = await requireRole("admin");
+  // Owner only: the manual override skips every check the Actions column
+  // makes. See OrderStatusSelect in components/admin/order-row-actions.tsx.
+  const session = await requireOwner();
   const parsed = statusSchema.safeParse(status);
   if (!parsed.success) return { ok: false, error: "Invalid status." };
   const before = await prisma.order.findUnique({ where: { id: orderId }, select: { orderStatus: true } });
