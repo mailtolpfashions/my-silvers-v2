@@ -18,7 +18,8 @@ import {
 import { ShiprocketError } from "@/server/integrations/shiprocket";
 import { cancelOrderAsStaff, CancelError } from "@/server/orders/cancel-order";
 import { isOwner } from "@/server/auth/roles";
-import { CANCEL_REASONS, isCancelReason } from "@/lib/order-cancel-reasons";
+import { CANCEL_REASONS, isCancelReason, type CancelReason } from "@/lib/order-cancel-reasons";
+import { sendOrderCancelledEmail } from "@/server/email/resend";
 
 export type AdminOrderActionResult = { ok: true } | { ok: false; error: string };
 
@@ -81,6 +82,7 @@ export async function cancelOrderAsStaffAction(
         (detail ? `: ${detail}` : "") +
         (result.refunded ? " (refunded)" : ""),
     });
+    await emailCustomerAboutCancellation(orderId, reason);
     revalidatePath("/admin/orders");
     revalidatePath(`/admin/orders/${orderId}`);
     return { ok: true, refunded: result.refunded };
@@ -88,6 +90,50 @@ export async function cancelOrderAsStaffAction(
     if (err instanceof CancelError) return { ok: false, error: err.message };
     console.error("cancelOrderAsStaffAction failed", err);
     return { ok: false, error: "Could not cancel the order. Please try again." };
+  }
+}
+
+/**
+ * Tells the customer the shop cancelled their order. Never throws: the order is
+ * already cancelled and refunded by now, and a mail outage must not turn that
+ * into an error on the admin's screen.
+ *
+ * Read back AFTER the cancel, so the refund line reflects what actually
+ * happened — refundStatus "completed" means Razorpay took it, "failed" means
+ * it is queued for retry and the customer is still owed it.
+ */
+async function emailCustomerAboutCancellation(orderId: string, reason: CancelReason) {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        orderNumber: true,
+        totalAmount: true,
+        refundStatus: true,
+        confirmationToken: true,
+        user: { select: { email: true, name: true } },
+      },
+    });
+    // An erased customer's address is a placeholder that goes nowhere.
+    if (!order?.user || order.user.email.endsWith("@deleted.invalid")) return;
+
+    await sendOrderCancelledEmail({
+      to: order.user.email,
+      name: order.user.name,
+      orderNumber: order.orderNumber,
+      orderId,
+      confirmationToken: order.confirmationToken,
+      why: reason === "customer" || reason === "stock" ? reason : null,
+      refund:
+        order.refundStatus === "idle"
+          ? null
+          : {
+              amount: order.totalAmount.toString(),
+              state: order.refundStatus === "completed" ? "sent" : "pending",
+            },
+    });
+  } catch (err) {
+    console.error("order-cancelled email failed", orderId, err);
   }
 }
 
