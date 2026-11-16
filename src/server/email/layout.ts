@@ -62,8 +62,12 @@ export function renderEmail(opts: {
 }): string {
   const { baseUrl, preheader, label, body, help, internal } = opts;
   const assetUrl = opts.assetUrl ?? baseUrl;
+  // Replies DO reach a person: the From address is send-only, but every
+  // shopper email sets Reply-To to support@ (a real Zoho inbox). So no
+  // "do not reply to this message" line — it would turn away customers who
+  // can actually be answered. Naming the address says where replies land.
   const helpLine = help
-    ? `Need help? Just reply to this email${
+    ? `Need help? Just reply to this email or write to <a href="mailto:${help.email}" style="color:${C.oxide};font-weight:600;text-decoration:none">${help.email}</a>${
         help.whatsapp
           ? `, or <a href="https://wa.me/${help.whatsapp}" style="color:${C.oxide};font-weight:600;text-decoration:none">WhatsApp us</a>`
           : ""

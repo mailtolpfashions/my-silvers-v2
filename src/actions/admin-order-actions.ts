@@ -20,7 +20,11 @@ import { ShiprocketError } from "@/server/integrations/shiprocket";
 import { cancelOrderAsStaff, CancelError } from "@/server/orders/cancel-order";
 import { isOwner } from "@/server/auth/roles";
 import { CANCEL_REASONS, isCancelReason, type CancelReason } from "@/lib/order-cancel-reasons";
-import { sendOrderCancelledEmail, sendOrderShippedEmail } from "@/server/email/resend";
+import {
+  sendOrderCancelledEmail,
+  sendOrderShippedEmail,
+  sendOrderDeliveredEmail,
+} from "@/server/email/resend";
 import { canMoveStatus } from "@/lib/order-status-moves";
 
 export type AdminOrderActionResult = { ok: true } | { ok: false; error: string };
@@ -68,6 +72,22 @@ export async function updateOrderStatusAction(
     target: { type: "order", id: orderId },
     summary: `Changed order ${number} from ${before.orderStatus} to ${parsed.data}`,
   });
+  // Marked delivered by hand — a parcel sent outside Shiprocket, or one whose
+  // delivery scan never came. Only from a status before delivery: undoing a
+  // wrong "cancelled" or declining a return also lands on delivered, and the
+  // customer must not get an "it's arrived!" email for an old order.
+  if (
+    parsed.data === "delivered" &&
+    ["placed", "confirmed", "processing", "shipped"].includes(before.orderStatus)
+  ) {
+    after(async () => {
+      try {
+        await sendOrderDeliveredEmail(orderId);
+      } catch (err) {
+        console.error("order-delivered email failed", orderId, err);
+      }
+    });
+  }
   revalidatePath("/admin/orders");
   return { ok: true };
 }

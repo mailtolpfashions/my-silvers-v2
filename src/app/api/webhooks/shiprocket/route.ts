@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
+import { after } from "next/server";
 import { prisma } from "@/server/db";
+import { sendOrderDeliveredEmail } from "@/server/email/resend";
 import { checkIpRateLimit } from "@/server/rate-limit/limiter";
 import { normaliseScans, type ScanEvent } from "@/server/integrations/shiprocket";
 import type { OrderStatus } from "@/generated/prisma/client";
@@ -131,16 +133,39 @@ export async function POST(req: Request) {
 
   const advances = Boolean(next) && (RANK[next!] ?? 0) > (RANK[order.orderStatus] ?? 0);
 
-  await prisma.order.update({
-    where: { id: order.id },
-    data: {
-      ...(advances ? { orderStatus: next } : {}),
-      ...(merged ? { shipmentScans: merged } : {}),
-      // Couriers get reassigned more often than you would think, and the name
-      // shown on the customer's tracking page should follow.
-      ...(event.courier_name ? { courierName: String(event.courier_name) } : {}),
-    },
-  });
+  // The status moves by compare-and-set on the status we read: Shiprocket can
+  // push the same scan twice at once, and only the push that actually moves
+  // the order may send the "delivered" email.
+  let moved = false;
+  if (advances) {
+    const claim = await prisma.order.updateMany({
+      where: { id: order.id, orderStatus: order.orderStatus },
+      data: { orderStatus: next! },
+    });
+    moved = claim.count === 1;
+  }
+
+  if (merged || event.courier_name) {
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        ...(merged ? { shipmentScans: merged } : {}),
+        // Couriers get reassigned more often than you would think, and the name
+        // shown on the customer's tracking page should follow.
+        ...(event.courier_name ? { courierName: String(event.courier_name) } : {}),
+      },
+    });
+  }
+
+  if (moved && next === "delivered") {
+    after(async () => {
+      try {
+        await sendOrderDeliveredEmail(order.id);
+      } catch (err) {
+        console.error("order-delivered email failed", order.orderNumber, err);
+      }
+    });
+  }
 
   return new Response(advances ? "OK" : "Recorded", { status: 200 });
 }

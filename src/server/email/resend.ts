@@ -218,6 +218,55 @@ export function orderShippedHtml(d: OrderEmailData): string {
 }
 
 /**
+ * "Delivered" — sent once, when the order first turns delivered (the
+ * Shiprocket webhook, or the owner marking it by hand from a pre-delivery
+ * status). The moment to ask for a review, point to the care guide, and
+ * restate the 48-hour window for reporting damage — it starts now.
+ */
+export async function sendOrderDeliveredEmail(orderId: string) {
+  const d = await loadOrderEmailData(orderId);
+  if (!d) throw new Error(`order ${orderId} not found for the delivered email`);
+  await deliver("order-delivered", {
+    from,
+    replyTo,
+    to: d.email,
+    subject: `Delivered: your order ${d.orderNumber} has arrived`,
+    html: orderDeliveredHtml(d),
+  });
+}
+
+/** The delivered email's HTML, apart from sending — so it can be previewed. */
+export function orderDeliveredHtml(d: OrderEmailData): string {
+  const orderHref = orderLink(d.id, d.confirmationToken);
+  const body = [
+    heading(d.firstName ? `It's here, ${esc(d.firstName)}!` : "Your order has arrived!"),
+    para(
+      `Your order <strong>${esc(d.orderNumber)}</strong> has been delivered. We hope you love wearing it as much as we enjoyed making it ready for you.`
+    ),
+    progress(4),
+    `<div style="padding-top:20px">${button(orderHref, "Rate & review")}${button(`${appBaseUrl}/p/care-guide`, "Silver care guide", "secondary")}</div>`,
+    para(
+      "A quick review helps other shoppers choose — and tells us what you think.",
+      `font-size:13px;color:${C.muted};margin-top:4px`
+    ),
+    sectionTitle("What you received"),
+    itemsTable(d.items),
+    sectionTitle("Something not right?"),
+    box(
+      `If anything arrived damaged, defective or wrong, tell us <strong>within 48 hours</strong> with an unboxing video and we'll make it right — a refund or an exchange, your choice. Reply to this email or use <a href="${orderHref}" style="color:${C.oxide};font-weight:600">Request a return</a> on your order.`
+    ),
+    `<p style="margin:20px 0 0;font-size:13px;line-height:20px;color:${C.muted}">Keep your silver bright: store it dry, in a zip-lock bag or a closed box, and put it on after perfume and lotion, not before.</p>`,
+  ].join("");
+
+  return page({
+    preheader: `${d.orderNumber} has been delivered — we hope you love it.`,
+    label: "Delivered",
+    body,
+    help: d.help,
+  });
+}
+
+/**
  * "Your order has been cancelled" — sent when the SHOP cancels (the Cancel
  * order button). A customer who cancels themselves sees it happen on screen;
  * one whose order the shop cancelled would otherwise find out only when
