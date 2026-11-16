@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { formatINR } from "@/lib/format";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const from = process.env.RESEND_FROM_EMAIL ?? "MY Silvers <orders@mysilvers.in>";
@@ -30,7 +31,41 @@ async function deliver(kind: string, payload: SendPayload): Promise<void> {
     throw new Error(`Resend refused the ${kind} email: ${error.name}: ${error.message}`);
   }
 }
-const appBaseUrl = process.env.APP_BASE_URL ?? "http://localhost:3000";
+/**
+ * The address every link in every email starts with.
+ *
+ * ⚠️  Production once kept APP_BASE_URL pointing at the old demo deployment
+ * after that deployment was deleted, so every "View your order", track-order
+ * and admin "Open the order" link in a real customer's email led to Vercel's
+ * 404 page. A link in an email can't be fixed after it is sent, so in
+ * production we never trust a localhost or *.vercel.app address: those fall
+ * back to the shop's own domain, and the log says so.
+ */
+const SHOP_URL = "https://www.mysilvers.in";
+export function resolveAppBaseUrl(
+  raw: string | undefined,
+  isProduction: boolean
+): string {
+  const url = (raw ?? "").trim().replace(/\/+$/, "");
+  if (!isProduction) return url || "http://localhost:3000";
+  let host = "";
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    // empty or malformed — falls through to the shop's domain
+  }
+  if (!host || host === "localhost" || host === "127.0.0.1" || host.endsWith(".vercel.app")) {
+    console.error(
+      `APP_BASE_URL is ${url ? `"${url}"` : "not set"} in production; email links use ${SHOP_URL} instead. Fix it in Vercel's environment variables.`
+    );
+    return SHOP_URL;
+  }
+  return url;
+}
+const appBaseUrl = resolveAppBaseUrl(
+  process.env.APP_BASE_URL,
+  process.env.VERCEL_ENV === "production"
+);
 
 export async function sendOrderConfirmationEmail(params: {
   to: string;
@@ -55,7 +90,7 @@ export async function sendOrderConfirmationEmail(params: {
     html: `
       <p>Thank you for your order!</p>
       <p>Your order <strong>${params.orderNumber}</strong> has been confirmed.</p>
-      <p>Total: ₹${params.totalAmount}</p>
+      <p>Total: ${formatINR(params.totalAmount)}</p>
       <p><a href="${orderUrl}">View your order</a></p>
       <p>You can also track it any time at <a href="${appBaseUrl}/track-order">${appBaseUrl.replace(/^https?:\/\//, "")}/track-order</a> with your order number and the mobile number you ordered with.</p>
     `,
@@ -99,8 +134,8 @@ export async function sendOrderCancelledEmail(params: {
   const refund = !params.refund
     ? ""
     : params.refund.state === "sent"
-      ? `<p>We have refunded <strong>₹${params.refund.amount}</strong> to the account you paid from. Banks usually take 5–7 working days to show it.</p>`
-      : `<p>Your refund of <strong>₹${params.refund.amount}</strong> is being processed and will reach the account you paid from. Banks usually take 5–7 working days to show it once it is sent.</p>`;
+      ? `<p>We have refunded <strong>${formatINR(params.refund.amount)}</strong> to the account you paid from. Banks usually take 5–7 working days to show it.</p>`
+      : `<p>Your refund of <strong>${formatINR(params.refund.amount)}</strong> is being processed and will reach the account you paid from. Banks usually take 5–7 working days to show it once it is sent.</p>`;
 
   await deliver("order-cancelled", {
     from,
@@ -176,7 +211,7 @@ export async function sendNewOrderAlertEmail(params: {
   city: string | null;
   items: Array<{ name: string; quantity: number; size: string | null }>;
 }) {
-  const amount = `₹${params.total.toLocaleString("en-IN")}`;
+  const amount = formatINR(params.total);
   const url = `${appBaseUrl}/admin/orders/${params.orderId}`;
   const lines = params.items
     .map(

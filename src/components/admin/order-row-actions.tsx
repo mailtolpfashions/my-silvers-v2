@@ -30,18 +30,8 @@ import {
   cancelOrderAsStaffAction,
 } from "@/actions/admin-order-actions";
 import { CANCEL_REASONS, type CancelReason } from "@/lib/order-cancel-reasons";
+import { allowedStatusMoves } from "@/lib/order-status-moves";
 
-const STATUSES = [
-  "placed",
-  "confirmed",
-  "processing",
-  "shipped",
-  "delivered",
-  "cancelled",
-  "return_requested",
-  "returned",
-  "refunded",
-] as const;
 
 /**
  * The order's status — a dropdown for the owner, a plain label for an admin.
@@ -54,13 +44,19 @@ const STATUSES = [
  * "refunded" with no refund — so it is the owner's override for fixing a
  * stuck order, not a way of working. updateOrderStatusAction enforces the
  * same rule on the server.
+ *
+ * It offers only the moves lib/order-status-moves.ts allows — never
+ * "cancelled" (that is the Cancel order button), and nothing backwards once
+ * the parcel has shipped.
  */
 export function OrderStatusSelect({
   orderId,
   status,
+  paymentStatus,
 }: {
   orderId: string;
   status: string;
+  paymentStatus: string;
 }) {
   const isOwner = useIsOwner();
   const [isPending, startTransition] = useTransition();
@@ -78,12 +74,12 @@ export function OrderStatusSelect({
       value={status}
       disabled={isPending}
       onValueChange={(value) => {
-        // The dropdown only relabels. Cancelling for real — stock back, refund —
-        // is the Cancel order button; say so before the label goes on.
+        // Un-cancelling only relabels: stock a real cancellation put back stays
+        // back. It exists to undo a wrong "cancelled" label, so say so first.
         if (
-          value === "cancelled" &&
+          status === "cancelled" &&
           !window.confirm(
-            "This only changes the label: items are NOT put back into stock and the customer is NOT refunded. To cancel properly, use Cancel order in Actions.\n\nChange the label anyway?"
+            'This only changes the label: stock is NOT taken out again and nothing is charged. Use it to undo a wrong "cancelled" label.\n\nChange the label anyway?'
           )
         ) {
           return;
@@ -99,7 +95,7 @@ export function OrderStatusSelect({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {STATUSES.map((s) => (
+        {allowedStatusMoves(status, paymentStatus).map((s) => (
           <SelectItem key={s} value={s}>
             {s.replaceAll("_", " ")}
           </SelectItem>

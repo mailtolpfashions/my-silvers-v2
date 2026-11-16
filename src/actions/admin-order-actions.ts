@@ -20,6 +20,7 @@ import { cancelOrderAsStaff, CancelError } from "@/server/orders/cancel-order";
 import { isOwner } from "@/server/auth/roles";
 import { CANCEL_REASONS, isCancelReason, type CancelReason } from "@/lib/order-cancel-reasons";
 import { sendOrderCancelledEmail } from "@/server/email/resend";
+import { canMoveStatus } from "@/lib/order-status-moves";
 
 export type AdminOrderActionResult = { ok: true } | { ok: false; error: string };
 
@@ -45,13 +46,26 @@ export async function updateOrderStatusAction(
   const session = await requireOwner();
   const parsed = statusSchema.safeParse(status);
   if (!parsed.success) return { ok: false, error: "Invalid status." };
-  const before = await prisma.order.findUnique({ where: { id: orderId }, select: { orderStatus: true } });
+  const before = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { orderStatus: true, paymentStatus: true },
+  });
+  if (!before) return { ok: false, error: "Order not found." };
+  if (!canMoveStatus(before.orderStatus, before.paymentStatus, parsed.data)) {
+    return {
+      ok: false,
+      error:
+        parsed.data === "cancelled"
+          ? "Use Cancel order in Actions — it refunds the customer and puts the stock back. A shipped order can only be returned."
+          : `An order that is ${before.orderStatus.replaceAll("_", " ")} can't be moved to ${parsed.data.replaceAll("_", " ")}.`,
+    };
+  }
   await updateOrderStatus(orderId, parsed.data);
   const { number } = await orderLabel(orderId);
   await logActivity(session, {
     action: "order.status",
     target: { type: "order", id: orderId },
-    summary: `Changed order ${number} from ${before?.orderStatus ?? "?"} to ${parsed.data}`,
+    summary: `Changed order ${number} from ${before.orderStatus} to ${parsed.data}`,
   });
   revalidatePath("/admin/orders");
   return { ok: true };
