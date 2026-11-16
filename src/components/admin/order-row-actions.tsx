@@ -27,7 +27,9 @@ import {
   assignAwbAction,
   schedulePickupAction,
   processReturnAction,
+  cancelOrderAsStaffAction,
 } from "@/actions/admin-order-actions";
+import { CANCEL_REASONS, type CancelReason } from "@/lib/order-cancel-reasons";
 
 const STATUSES = [
   "placed",
@@ -75,13 +77,23 @@ export function OrderStatusSelect({
     <Select
       value={status}
       disabled={isPending}
-      onValueChange={(value) =>
+      onValueChange={(value) => {
+        // The dropdown only relabels. Cancelling for real — stock back, refund —
+        // is the Cancel order button; say so before the label goes on.
+        if (
+          value === "cancelled" &&
+          !window.confirm(
+            "This only changes the label: items are NOT put back into stock and the customer is NOT refunded. To cancel properly, use Cancel order in Actions.\n\nChange the label anyway?"
+          )
+        ) {
+          return;
+        }
         startTransition(async () => {
           const result = await updateOrderStatusAction(orderId, value);
           if (result.ok) toast.success("Status updated.");
           else toast.error(result.error);
-        })
-      }
+        });
+      }}
     >
       <SelectTrigger className="w-[160px]" size="sm">
         <SelectValue />
@@ -283,6 +295,126 @@ export function ReturnReviewButtons({
               {isPending ? "Processing…" : "Approve return"}
             </Button>
           )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Cancel order — the proper way to cancel, for admin and owner alike.
+ *
+ * Runs the same steps as a customer cancelling: stock back, Shiprocket booking
+ * released, a paid order refunded. Shown only before a courier is booked
+ * (isCancellable); after that it is a return, not a cancellation.
+ *
+ * A paid online order refunds the customer, so for an admin this renders
+ * nothing in a table row and a one-line explanation on the order page — the
+ * owner's call, like approving a refund on a return. The action refuses it
+ * either way.
+ */
+export function CancelOrderButton({
+  orderId,
+  orderNumber,
+  paid,
+  total,
+  explainWhenHidden = false,
+}: {
+  orderId: string;
+  orderNumber: string;
+  /** Paid online — cancelling sends a Razorpay refund. */
+  paid: boolean;
+  /** Formatted, e.g. "₹1,499". Shown in the refund line. */
+  total: string;
+  /** On the order page, say why the button is missing instead of hiding silently. */
+  explainWhenHidden?: boolean;
+}) {
+  const isOwner = useIsOwner();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState<CancelReason | "">("");
+  const [note, setNote] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  if (paid && !isOwner) {
+    return explainWhenHidden ? (
+      <p className="text-xs text-muted-foreground">
+        Paid online — cancelling refunds the customer, so only the owner can cancel this order.
+      </p>
+    ) : null;
+  }
+
+  function run() {
+    startTransition(async () => {
+      const result = await cancelOrderAsStaffAction(orderId, reason, note);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(result.refunded ? `${orderNumber} cancelled and refunded.` : `${orderNumber} cancelled.`);
+      setOpen(false);
+    });
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) {
+          setReason("");
+          setNote("");
+        }
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+          Cancel order
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Cancel order {orderNumber}?</DialogTitle>
+          <DialogDescription>
+            The items go back into stock and any Shiprocket booking is released.
+            {paid && ` The customer is refunded ${total} through Razorpay.`} This can&apos;t be undone.
+          </DialogDescription>
+        </DialogHeader>
+
+        <fieldset className="space-y-2">
+          <legend className="mb-1 text-sm font-medium">Why?</legend>
+          {(Object.entries(CANCEL_REASONS) as [CancelReason, string][]).map(([key, label]) => (
+            <label key={key} className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name={`cancel-reason-${orderId}`}
+                value={key}
+                checked={reason === key}
+                onChange={() => setReason(key)}
+              />
+              {label}
+            </label>
+          ))}
+        </fieldset>
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={200}
+          placeholder={reason === "other" ? "Say briefly why (required)" : "Note (optional)"}
+          aria-label="Note"
+          className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+        />
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
+            Keep order
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={run}
+            disabled={isPending || !reason || (reason === "other" && !note.trim())}
+          >
+            {isPending ? "Cancelling…" : "Cancel order"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

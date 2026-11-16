@@ -98,6 +98,70 @@ test.describe("an admin is not the owner", () => {
     }
   });
 
+  test("can cancel a COD order with a reason, and it lands in the activity log", async ({ page }) => {
+    const customer = await createTestUser({
+      email: `e2e-cancel-${stamp()}@example.com`,
+      password: TEST_PASSWORD,
+      role: "customer",
+    });
+    const { id, orderNumber } = await insertOrderInState(customer.id, {
+      paymentMethod: "cod",
+      paymentStatus: "pending",
+    });
+    const admin = await signInAs(page, "admin", "notowner-cancel");
+    try {
+      await page.goto(`/admin/orders/${id}`);
+      await page.getByRole("button", { name: "Cancel order" }).click({ timeout: 20_000 });
+      const dialog = page.getByRole("dialog");
+      // No reason chosen yet — the confirm button waits for one.
+      await expect(dialog.getByRole("button", { name: "Cancel order" })).toBeDisabled();
+      await dialog.getByLabel("Customer asked to cancel").check();
+      await dialog.getByRole("button", { name: "Cancel order" }).click();
+      await expect(page.getByText(`${orderNumber} cancelled.`)).toBeVisible();
+
+      // Cancelled orders have nothing left to cancel.
+      await page.reload();
+      await expect(page.getByRole("button", { name: "Cancel order" })).toHaveCount(0);
+      expect((await activityFor(admin.id)).join("\n")).toContain(
+        `Cancelled order ${orderNumber} — Customer asked to cancel`
+      );
+    } finally {
+      await admin.dispose();
+      await deleteOrdersForUser(customer.id).catch(() => {});
+      await deleteUser(customer.id).catch(() => {});
+    }
+  });
+
+  test("can't cancel a paid online order — that refunds, so it's the owner's", async ({
+    page,
+    browser,
+  }) => {
+    const customer = await createTestUser({
+      email: `e2e-cancelpaid-${stamp()}@example.com`,
+      password: TEST_PASSWORD,
+      role: "customer",
+    });
+    const { id } = await insertOrderInState(customer.id, { paymentMethod: "razorpay", paymentStatus: "paid" });
+    const admin = await signInAs(page, "admin", "notowner-cancelpaid");
+    const ownerPage = await (await browser.newContext()).newPage();
+    const owner = await signInAs(ownerPage, "superadmin", "owner-cancelpaid");
+    try {
+      await page.goto(`/admin/orders/${id}`);
+      await expect(page.getByText(/only the owner can cancel this order/i)).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByRole("button", { name: "Cancel order" })).toHaveCount(0);
+
+      // The owner gets the button (not clicked: it would issue a refund).
+      await ownerPage.goto(`/admin/orders/${id}`);
+      await expect(ownerPage.getByRole("button", { name: "Cancel order" })).toBeVisible({ timeout: 20_000 });
+    } finally {
+      await admin.dispose();
+      await owner.dispose();
+      await ownerPage.context().close();
+      await deleteOrdersForUser(customer.id).catch(() => {});
+      await deleteUser(customer.id).catch(() => {});
+    }
+  });
+
   test("product delete buttons are hidden, archive stays", async ({ page }) => {
     const admin = await signInAs(page, "admin", "notowner-delete");
     try {

@@ -10,12 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   OrderStatusSelect,
+  CancelOrderButton,
   ShipOrderButton,
   SchedulePickupButton,
 } from "@/components/admin/order-row-actions";
 import { CopyButton } from "@/components/admin/copy-button";
 import { OrderOwnerTools } from "@/components/admin/order-owner-tools";
 import { viewerIsOwner } from "@/components/admin/owner-only";
+import { isCancellable } from "@/lib/order-cancel-reasons";
 import { orderDeletable } from "@/actions/admin-order-actions";
 import { BreadcrumbLabel } from "@/components/layout/breadcrumb-label";
 
@@ -390,6 +392,18 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
                     ? "Awaiting payment before this can be shipped."
                     : "Not ready to ship."}
                 </p>
+              )}
+
+              {isCancellable(order) && (
+                <div className="border-t pt-3">
+                  <CancelOrderButton
+                    orderId={order.id}
+                    orderNumber={order.orderNumber}
+                    paid={order.paymentStatus === "paid"}
+                    total={formatINR(order.totalAmount.toString())}
+                    explainWhenHidden
+                  />
+                </div>
               )}
             </CardContent>
           </Card>
