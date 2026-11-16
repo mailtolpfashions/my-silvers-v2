@@ -224,6 +224,9 @@ export async function requestReturn(
       orderStatus: "return_requested",
       returnReason: reason,
       returnRequestedAt: new Date(),
+      // Cleared so processReturn can claim this request: a previous return on
+      // the same order (declined, then asked again) left it set. See there.
+      returnResolvedAt: null,
     },
   });
   if (claim.count === 0) {
@@ -235,6 +238,17 @@ export async function requestReturn(
  * Admin return review. Reject → back to delivered. Approve → restore stock;
  * optionally refund via Razorpay (paid orders only), marking the order
  * refunded; otherwise mark returned.
+ *
+ * ⚠️  Exactly once, by an atomic claim. This used to read the order, check
+ * it was return_requested, and then act — so two people deciding the same
+ * return at once (two tabs, owner and staff) both passed the check, and the
+ * stock went back twice, the refund was attempted twice, and the customer got
+ * two decision emails. Now the first decision stamps returnResolvedAt where
+ * it is still null; anyone else matches no row and is told it's been done.
+ *
+ * And the refund goes FIRST. A refund Razorpay refuses must leave nothing
+ * changed, so the claim is released and the owner can simply try again —
+ * before, stock had already been put back, and a retry put it back again.
  */
 export async function processReturn(
   orderId: string,
@@ -250,14 +264,62 @@ export async function processReturn(
     throw new AdminOrderError("No pending return request on this order.");
   }
 
+  // A stamp OLDER than the current request is left over from a previous return
+  // on this order, requested again before requestReturn began clearing it.
+  // Clear exactly that stale value, so it can't lock this request out.
+  if (
+    order.returnResolvedAt &&
+    order.returnRequestedAt &&
+    order.returnResolvedAt < order.returnRequestedAt
+  ) {
+    await prisma.order.updateMany({
+      where: { id: orderId, returnResolvedAt: order.returnResolvedAt },
+      data: { returnResolvedAt: null },
+    });
+  }
+
+  const claim = await prisma.order.updateMany({
+    where: { id: orderId, orderStatus: "return_requested", returnResolvedAt: null },
+    data: { returnResolvedAt: new Date() },
+  });
+  if (claim.count === 0) {
+    throw new AdminOrderError("This return has already been dealt with — refresh to see the outcome.");
+  }
+
   if (action === "reject") {
     await prisma.order.update({
       where: { id: orderId },
-      data: { orderStatus: "delivered", returnResolvedAt: new Date() },
+      data: { orderStatus: "delivered" },
     });
     return { refunded: false };
   }
 
+  const refunding = refund && order.paymentStatus === "paid" && !!order.razorpayPaymentId;
+  if (refunding) {
+    try {
+      await createRefund(order.razorpayPaymentId!, toPaise(order.totalAmount));
+    } catch (err) {
+      // Nothing has changed yet — give the claim back so it can be retried.
+      await prisma.order.updateMany({
+        where: { id: orderId, orderStatus: "return_requested" },
+        data: { returnResolvedAt: null },
+      });
+      throw err;
+    }
+    // Recorded the moment Razorpay accepts it, apart from the stock below:
+    // money that has gone out must be on the order even if what follows fails.
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        paymentStatus: "refunded",
+        refundStatus: "completed",
+        refundAmount: order.totalAmount,
+        refundProcessedAt: new Date(),
+      },
+    });
+  }
+
+  // Stock back and the final status together, so neither lands without the other.
   await prisma.$transaction(async (tx) => {
     await restoreStock(
       tx,
@@ -265,29 +327,12 @@ export async function processReturn(
         .filter((i) => i.productId !== null)
         .map((i) => ({ productId: i.productId!, quantity: i.quantity, size: i.size }))
     );
-  });
-
-  if (refund && order.paymentStatus === "paid" && order.razorpayPaymentId) {
-    await createRefund(order.razorpayPaymentId, toPaise(order.totalAmount));
-    await prisma.order.update({
+    await tx.order.update({
       where: { id: orderId },
-      data: {
-        orderStatus: "refunded",
-        paymentStatus: "refunded",
-        refundStatus: "completed",
-        refundAmount: order.totalAmount,
-        refundProcessedAt: new Date(),
-        returnResolvedAt: new Date(),
-      },
+      data: { orderStatus: refunding ? "refunded" : "returned" },
     });
-    return { refunded: true };
-  }
-
-  await prisma.order.update({
-    where: { id: orderId },
-    data: { orderStatus: "returned", returnResolvedAt: new Date() },
   });
-  return { refunded: false };
+  return { refunded: refunding };
 }
 
 /** Everything an admin needs to pack, ship and support one order. */
