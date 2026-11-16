@@ -6,6 +6,7 @@ import { isStaff } from "@/server/auth/roles";
 import { checkRateLimit, RATE_LIMIT_MESSAGE } from "@/server/rate-limit/limiter";
 import { ALLOWED_REVIEW_IMAGE_FORMATS, REVIEW_MEDIA_FOLDER } from "@/lib/review-media";
 import { signProductImageUploads } from "@/server/media/product-image-names";
+import { isGuestAccess, resolveGuestOrder } from "@/server/orders/guest-access";
 
 /**
  * Cloudinary signed-upload signatures. The browser uploads file bytes
@@ -106,8 +107,15 @@ export async function POST(req: NextRequest) {
     // review itself (upsertReview), not here: someone could burn a signature
     // uploading a photo they can never attach to anything, which costs them
     // their own bandwidth and gets swept up as an orphan.
-    const session = await auth();
-    const userId = session?.user?.id;
+    //
+    // Or a guest reviewing through their order link: the link's token must
+    // match a DELIVERED order — the only orders that can be reviewed — so the
+    // order link opens this folder no wider than a review needs.
+    const guest = isGuestAccess(body.guest)
+      ? await resolveGuestOrder(body.guest, { delivered: true })
+      : null;
+    const session = guest ? null : await auth();
+    const userId = guest?.userId ?? session?.user?.id;
     if (!userId) return new Response("Forbidden", { status: 403 });
 
     if (!(await checkRateLimit("uploadSign", userId))) {

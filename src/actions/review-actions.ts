@@ -6,6 +6,7 @@ import { auth } from "@/server/auth/auth";
 import { upsertReview, ReviewNotPermittedError } from "@/server/products/reviews";
 import { verifyReviewImage, ReviewMediaError } from "@/server/reviews/media";
 import { checkRateLimit, RATE_LIMIT_MESSAGE } from "@/server/rate-limit/limiter";
+import { isGuestAccess, resolveGuestOrder } from "@/server/orders/guest-access";
 
 const reviewSchema = z.object({
   productId: z.string().min(1),
@@ -21,11 +22,26 @@ const reviewSchema = z.object({
 });
 
 export async function submitReviewAction(input: unknown) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  /**
+   * Who is reviewing: a guest holding their order link (the link's token,
+   * checked here against a DELIVERED order), or a signed-in account. A guest's
+   * review is saved on their order's own user record, and the purchase is
+   * proven by that one order — see server/orders/guest-access.ts.
+   */
+  const guest =
+    typeof input === "object" && input !== null && isGuestAccess((input as { guest?: unknown }).guest)
+      ? await resolveGuestOrder((input as { guest: { orderId: string; token: string } }).guest, { delivered: true })
+      : null;
+  const session = guest ? null : await auth();
+  const reviewer = guest
+    ? { userId: guest.userId, pwf: undefined, viaOrderId: guest.orderId }
+    : session?.user?.id
+      ? { userId: session.user.id, pwf: session.user.pwf, viaOrderId: undefined }
+      : null;
+  if (!reviewer) {
     return { ok: false as const, error: "Please sign in to leave a review." };
   }
-  if (!(await checkRateLimit("review", session.user.id))) {
+  if (!(await checkRateLimit("review", reviewer.userId))) {
     return { ok: false as const, error: RATE_LIMIT_MESSAGE };
   }
 
@@ -40,8 +56,9 @@ export async function submitReviewAction(input: unknown) {
     const imageUrl = await verifyReviewImage(parsed.data.imageUrl);
 
     await upsertReview({
-      userId: session.user.id,
-      pwf: session.user.pwf,
+      userId: reviewer.userId,
+      pwf: reviewer.pwf,
+      viaOrderId: reviewer.viaOrderId,
       productId: parsed.data.productId,
       rating: parsed.data.rating,
       title: parsed.data.title || undefined,

@@ -177,7 +177,10 @@ type Address = {
 export function OrderDetail({
   order,
   reviewable,
+  guest,
 }: {
+  /** Set on the guest order page: reviews go through the order link. */
+  guest?: { orderId: string; token: string };
   order: Order & { items: OrderItem[] };
   /**
    * productId -> review affordance, for delivered orders only. Absent on the
@@ -239,6 +242,7 @@ export function OrderDetail({
                 {/* Only present on delivered orders — see getReviewableItems. */}
                 {item.productId && reviewable?.get(item.productId) && (
                   <OrderItemReview
+                    guest={guest}
                     productId={item.productId}
                     productSlug={reviewable.get(item.productId)!.slug}
                     productName={item.name}

@@ -42,10 +42,13 @@ export function ReviewMediaUploader({
   imageUrl,
   onChange,
   disabled,
+  guest,
 }: {
   imageUrl: string | null;
   onChange: (url: string | null) => void;
   disabled?: boolean;
+  /** A guest's order link — lets the upload be signed without a sign-in. */
+  guest?: { orderId: string; token: string };
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
@@ -62,7 +65,7 @@ export function ReviewMediaUploader({
 
     setUploading(true);
     try {
-      const uploaded = await uploadToCloudinary(file, REVIEW_MEDIA_FOLDER);
+      const uploaded = await uploadToCloudinary(file, REVIEW_MEDIA_FOLDER, guest);
       /**
        * The previous photo is NOT destroyed here. Swapping the picture twice
        * before pressing Post would otherwise delete a file the review still

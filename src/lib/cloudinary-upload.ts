@@ -22,11 +22,16 @@ type CloudinaryResponse = {
  * `allowed_formats`), and every one of them has to be posted back verbatim or
  * Cloudinary answers "Invalid Signature".
  */
-async function signedUpload(file: File, folder: string): Promise<CloudinaryResponse> {
+async function signedUpload(
+  file: File,
+  folder: string,
+  /** A guest's order link, for review photos — see server/orders/guest-access.ts. */
+  guest?: { orderId: string; token: string }
+): Promise<CloudinaryResponse> {
   const signRes = await fetch("/api/uploads/sign", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ folder }),
+    body: JSON.stringify(guest ? { folder, guest } : { folder }),
   });
   if (!signRes.ok) {
     // 429 is the rate limiter, and it sends a sentence worth showing.
@@ -139,9 +144,10 @@ async function uploadEach(
 
 export async function uploadToCloudinary(
   file: File,
-  folder = "mysilvers/products"
+  folder = "mysilvers/products",
+  guest?: { orderId: string; token: string }
 ): Promise<string> {
-  const data = await signedUpload(file, folder);
+  const data = await signedUpload(file, folder, guest);
   return data.secure_url;
 }
 

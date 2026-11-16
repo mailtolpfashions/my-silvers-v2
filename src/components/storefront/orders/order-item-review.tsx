@@ -31,7 +31,10 @@ export function OrderItemReview({
   productSlug,
   productName,
   existing,
+  guest,
 }: {
+  /** A guest reviewing through their order link — see server/orders/guest-access.ts. */
+  guest?: { orderId: string; token: string };
   productId: string;
   productSlug: string;
   productName: string;
@@ -65,6 +68,7 @@ export function OrderItemReview({
         title,
         comment,
         imageUrl,
+        guest,
       });
       if (result.ok) {
         // It is NOT live, and saying so would be a small lie the shopper finds
@@ -174,6 +178,7 @@ export function OrderItemReview({
               are what a review IS, and a photo grid at the top of the dialog
               would read as the main event. */}
           <ReviewMediaUploader
+            guest={guest}
             imageUrl={imageUrl}
             onChange={setImageUrl}
             disabled={isPending}

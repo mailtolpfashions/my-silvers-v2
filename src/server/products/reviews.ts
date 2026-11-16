@@ -63,6 +63,13 @@ export async function upsertReview(input: {
   comment?: string;
   /** Already verified against Cloudinary — see server/reviews/media.ts. */
   imageUrl?: string | null;
+  /**
+   * A guest reviewing through their order link (server/orders/guest-access.ts):
+   * the purchase is proven by THAT order — delivered, theirs, containing the
+   * product — rather than by the account scope, which a passwordless guest
+   * record has no session for.
+   */
+  viaOrderId?: string;
 }) {
   const product = await prisma.product.findFirst({
     where: { id: input.productId, isActive: true },
@@ -73,7 +80,10 @@ export async function upsertReview(input: {
     where: {
       // A guest order counts as this account's purchase only once its email
       // is confirmed — otherwise a squatter could review as a verified buyer.
-      ...(await accountOrderScope({ id: input.userId, pwf: input.pwf })),
+      // A guest using their order link proves it with that order instead.
+      ...(input.viaOrderId
+        ? { id: input.viaOrderId, userId: input.userId }
+        : await accountOrderScope({ id: input.userId, pwf: input.pwf })),
       orderStatus: "delivered",
       items: { some: { productId: input.productId } },
     },

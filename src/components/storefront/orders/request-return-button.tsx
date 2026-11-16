@@ -17,7 +17,14 @@ import {
 } from "@/components/ui/dialog";
 import { requestReturnAction } from "@/actions/order-actions";
 
-export function RequestReturnButton({ orderId }: { orderId: string }) {
+export function RequestReturnButton({
+  orderId,
+  guestToken,
+}: {
+  orderId: string;
+  /** A guest asking through their order link — see server/orders/guest-access.ts. */
+  guestToken?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -25,7 +32,7 @@ export function RequestReturnButton({ orderId }: { orderId: string }) {
 
   function submit() {
     startTransition(async () => {
-      const result = await requestReturnAction(orderId, reason);
+      const result = await requestReturnAction(orderId, reason, guestToken);
       if (result.ok) {
         toast.success("Return request submitted — we'll review it shortly.");
         setOpen(false);

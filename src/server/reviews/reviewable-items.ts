@@ -38,12 +38,36 @@ export async function getReviewableItems(
   orderId: string,
   owner: { id: string; pwf?: string }
 ): Promise<Map<string, ReviewableItem>> {
-  const userId = owner.id;
   const order = await prisma.order.findFirst({
     where: { id: orderId, ...(await accountOrderScope(owner)), orderStatus: "delivered" },
     select: { items: { select: { id: true, productId: true } } },
   });
   if (!order) return new Map();
+  return reviewableFor(order.items, owner.id);
+}
+
+/**
+ * The same, for a guest holding the order link — see server/orders/guest-access.ts.
+ * Their reviews live on the order's own (passwordless) user record.
+ */
+export async function getReviewableItemsForGuest(
+  orderId: string,
+  token: string
+): Promise<Map<string, ReviewableItem>> {
+  if (!token) return new Map();
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, confirmationToken: token, orderStatus: "delivered" },
+    select: { userId: true, items: { select: { id: true, productId: true } } },
+  });
+  if (!order) return new Map();
+  return reviewableFor(order.items, order.userId);
+}
+
+async function reviewableFor(
+  items: Array<{ productId: string | null }>,
+  userId: string
+): Promise<Map<string, ReviewableItem>> {
+  const order = { items };
 
   const productIds = order.items.map((i) => i.productId).filter(Boolean) as string[];
   if (productIds.length === 0) return new Map();

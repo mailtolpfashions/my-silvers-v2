@@ -209,12 +209,17 @@ export async function schedulePickupForOrder(orderId: string) {
 /** Customer-side: request a return — only from 'delivered'. */
 export async function requestReturn(
   orderId: string,
-  owner: { id: string; pwf?: string },
+  /** A signed-in account, or a guest's order-link token (server/orders/guest-access.ts). */
+  owner: { id: string; pwf?: string } | { guestToken: string },
   reason: string,
 ) {
+  const scope =
+    "guestToken" in owner
+      ? { confirmationToken: owner.guestToken }
+      : await accountOrderScope(owner);
   const claim = await prisma.order.updateMany({
     // Scoped like every customer-side order action — see accountOrderScope.
-    where: { id: orderId, ...(await accountOrderScope(owner)), orderStatus: "delivered" },
+    where: { id: orderId, ...scope, orderStatus: "delivered" },
     data: {
       orderStatus: "return_requested",
       returnReason: reason,

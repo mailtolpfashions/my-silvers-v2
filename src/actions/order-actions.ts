@@ -261,10 +261,15 @@ export async function verifyPaymentAction(input: unknown): Promise<VerifyPayment
   }
 }
 
-export async function requestReturnAction(orderId: string, reason: string) {
-  const session = await auth();
-  if (!session?.user?.id) return { ok: false as const, error: "Please sign in." };
-  if (!(await checkRateLimit("orderOps", session.user.id))) {
+/**
+ * `guestToken`: a guest asking through their order link — the token is the
+ * credential (server/orders/guest-access.ts), checked by requestReturn's scope.
+ */
+export async function requestReturnAction(orderId: string, reason: string, guestToken?: string) {
+  const session = guestToken ? null : await auth();
+  if (!guestToken && !session?.user?.id) return { ok: false as const, error: "Please sign in." };
+  const owner = guestToken ? { guestToken } : session!.user!;
+  if (!(await checkRateLimit("orderOps", guestToken ? `guest:${orderId}` : session!.user!.id!))) {
     return { ok: false as const, error: RATE_LIMIT_MESSAGE };
   }
 
@@ -274,8 +279,8 @@ export async function requestReturnAction(orderId: string, reason: string) {
   }
 
   try {
-    await requestReturn(orderId, session.user, trimmed.slice(0, 500));
-    revalidatePath(`/account/orders/${orderId}`);
+    await requestReturn(orderId, owner as Parameters<typeof requestReturn>[1], trimmed.slice(0, 500));
+    revalidatePath(guestToken ? `/orders/${orderId}` : `/account/orders/${orderId}`);
     return { ok: true as const };
   } catch (err) {
     if (err instanceof AdminOrderError) return { ok: false as const, error: err.message };
