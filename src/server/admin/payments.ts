@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/server/db";
-import { requireRole } from "@/server/auth/require-role";
+import { requireRoleForPage } from "@/server/auth/require-role";
 import type { PaymentStatus, RefundStatus } from "@/generated/prisma/enums";
 
 /**
@@ -78,7 +78,7 @@ export async function listPayments({
   sort?: PaymentSortKey;
   dir?: SortDir;
 }) {
-  await requireRole("admin");
+  await requireRoleForPage("admin");
   const where = whereFor(filter);
   const skip = (Math.max(1, page) - 1) * PAYMENT_PAGE_SIZE;
 
@@ -111,7 +111,7 @@ export async function listPayments({
 
 /** Tab counts, plus the two totals worth seeing without opening anything. */
 export async function paymentCounts() {
-  await requireRole("admin");
+  await requireRoleForPage("admin");
   const [all, paid, pending, failed, refunds, cod, capturedSum, refundedSum] = await Promise.all([
     prisma.order.count(),
     prisma.order.count({ where: { paymentStatus: "paid" } }),

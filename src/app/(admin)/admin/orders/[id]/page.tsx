@@ -3,7 +3,7 @@ import { ChevronLeft } from "lucide-react";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { requireRole } from "@/server/auth/require-role";
+import { requireRoleForPage } from "@/server/auth/require-role";
 import { getAdminOrder } from "@/server/orders/admin";
 import { formatINR } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +55,7 @@ type ShippingAddress = {
 };
 
 export default async function AdminOrderPage({ params }: { params: Params }) {
-  await requireRole("admin");
+  await requireRoleForPage("admin");
 
   const { id } = await params;
   const order = await getAdminOrder(id);

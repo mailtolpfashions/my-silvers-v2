@@ -1937,7 +1937,7 @@
 /* ─── View transitions ────────────────────────────────────────────────────────
    Navigation motion is done by the browser via React's <ViewTransition>, not a
    JS animation library — so none of this costs anything in the client bundle.
-   Enabled by experimental.viewTransition in next.config.ts.
+   Built into the App Router since Next 16.3 — no config flag.
    ─────────────────────────────────────────────────────────────────────────── */
 
 :root {
@@ -1953,15 +1953,6 @@
   to {
     opacity: 1;
     filter: blur(0);
-  }
-}
-
-@keyframes vt-slide-y {
-  from {
-    transform: translateY(10px);
-  }
-  to {
-    transform: translateY(0);
   }
 }
 
@@ -1988,18 +1979,11 @@
   }
 }
 
-/* Suspense handoff. Asymmetric on purpose: the skeleton leaves quickly so it
-   stops competing for attention, the real content arrives more gently. */
-::view-transition-old(.reveal-out) {
-  animation:
-    var(--vt-exit) ease-out both vt-fade reverse,
-    var(--vt-exit) ease-out both vt-slide-y reverse;
-}
-::view-transition-new(.reveal-in) {
-  animation:
-    var(--vt-enter) ease-in var(--vt-exit) both vt-fade,
-    400ms ease-in both vt-slide-y;
-}
+/* No Suspense-reveal transitions (skeleton → content). There used to be a
+   .reveal-out/.reveal-in pair here for the product page's Add to cart, and it
+   was removed: a view transition freezes the page while it runs and swallows
+   scrolling, and content streams in at moments the shopper is mid-scroll.
+   Animate only on navigation — when the shopper has just tapped, not scrolled. */
 
 /* Directional navigation. Left = deeper, right = back — violating that reads
    as disorienting rather than merely wrong. */

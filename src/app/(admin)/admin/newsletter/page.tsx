@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/server/db";
-import { requireRole } from "@/server/auth/require-role";
+import { requireRoleForPage } from "@/server/auth/require-role";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -72,7 +72,7 @@ export default async function AdminNewsletterPage({
 }: {
   searchParams: Promise<{ q?: string; page?: string; sort?: string; dir?: string }>;
 }) {
-  await requireRole("admin");
+  await requireRoleForPage("admin");
   const owner = await viewerIsOwner();
 
   const params = await searchParams;

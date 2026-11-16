@@ -138,6 +138,19 @@ const nextConfig: NextConfig = {
   // Drops the "X-Powered-By: Next.js" fingerprint from every response.
   poweredByHeader: false,
 
+  env: {
+    /**
+     * Where this build will run, for Sentry: "production" or "preview" on
+     * Vercel, empty everywhere else. Baked in at BUILD time from Vercel's own
+     * VERCEL_ENV, so the browser bundle gets it too without relying on the
+     * project's "expose system environment variables" setting.
+     *
+     * Empty is what switches Sentry off — see lib/sentry-environment.ts for
+     * why a local `next build && next start` must not report.
+     */
+    NEXT_PUBLIC_SENTRY_ENVIRONMENT: process.env.VERCEL_ENV ?? "",
+  },
+
   async headers() {
     return [
       // ⚠️  MUST NOT OVERLAP with the blanket rule below. Next applies the
