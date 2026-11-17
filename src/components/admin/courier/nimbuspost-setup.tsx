@@ -14,8 +14,6 @@ import {
 } from "@/actions/admin-courier-actions";
 import type { NimbusPostWarehouse, NimbusPostWebhookStatus } from "@/server/integrations/nimbuspost";
 
-const CARD = "rounded-lg border bg-background p-5";
-
 export type NimbusPostStatus = {
   wallet: number | null;
   warehouses: NimbusPostWarehouse[];
@@ -35,117 +33,56 @@ type Defaults = {
 };
 
 /**
- * NimbusPost's account set-up, done from here instead of their dashboard:
- * the pickup warehouse (add one with the OTP NimbusPost texts to the contact,
- * or pick one that already exists), tracking updates, and the wallet.
- *
- * Everything shown is read live from NimbusPost when the page loads.
+ * NimbusPost's set-up, shown in the partner card's Manage panel: tracking
+ * updates (one click — NimbusPost's API registers the webhook) and the pickup
+ * warehouse (choose one, or add one with the OTP NimbusPost texts to the
+ * contact). The at-a-glance status lives on the card itself.
  */
-export function NimbusPostSetup({
-  connected,
+export function NimbusPostManage({
   status,
   warehouse,
-  trackingWebhookId,
+  hook,
   defaults,
 }: {
-  connected: boolean;
-  status: NimbusPostStatus | null;
+  status: NimbusPostStatus;
   warehouse: { id: string; name: string } | null;
-  trackingWebhookId: string | null;
+  hook: NimbusPostWebhookStatus | null;
   defaults: Defaults;
 }) {
-  if (!connected || !status) {
-    return (
-      <section className={CARD}>
-        <h2 className="label-eyebrow mb-1">NimbusPost</h2>
-        <p className="text-sm text-muted-foreground">
-          Not connected. Add <code>NIMBUSPOST_API_KEY</code> and <code>NIMBUSPOST_API_SECRET</code> in
-          Vercel (from NimbusPost → Settings → API Keys, with the admin role), redeploy, and this
-          panel lets you set up the pickup warehouse and tracking.
-        </p>
-      </section>
-    );
-  }
-
-  const hook = status.webhooks.find((w) => w.id === trackingWebhookId) ?? null;
-
+  const healthy = hook && !hook.autoPaused && hook.status === "active";
   return (
     <div className="space-y-6">
-      <section className={CARD}>
-        <h2 className="label-eyebrow mb-1">NimbusPost account</h2>
-        {status.error && (
-          <p className="mb-3 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{status.error}</p>
-        )}
-        <dl className="divide-y text-sm">
-          <Row label="Connection" value={<span className="text-green-700">Connected</span>} />
-          <Row
-            label="Wallet balance"
-            value={
-              status.wallet === null ? (
-                "—"
-              ) : (
-                <span className={status.wallet <= 0 ? "font-semibold text-destructive" : "font-semibold"}>
-                  ₹{status.wallet.toLocaleString("en-IN")}
-                </span>
-              )
-            }
-            hint={
-              status.wallet !== null && status.wallet <= 0
-                ? "Bookings need balance — recharge on the NimbusPost website (it can't be done from here)."
-                : undefined
-            }
-          />
-          <Row
-            label="Pickup warehouse"
-            value={warehouse ? warehouse.name : <span className="text-destructive">Not set</span>}
-            hint={warehouse ? undefined : "NimbusPost can't book a parcel until one is set — add it below."}
-          />
-          <Row
-            label="Tracking updates"
-            value={
-              hook ? (
-                hook.autoPaused || hook.status !== "active" ? (
-                  <span className="text-destructive">Paused</span>
-                ) : (
-                  <span className="text-green-700">Connected</span>
-                )
-              ) : (
-                <span className="text-destructive">Not connected</span>
-              )
-            }
-            hint={
-              hook?.lastDeliveryAt
-                ? `Last update ${new Date(hook.lastDeliveryAt).toLocaleString("en-IN")}${hook.lastDeliveryStatus ? ` (HTTP ${hook.lastDeliveryStatus})` : ""}`
-                : hook
-                  ? "No updates received yet — they start once a parcel moves."
-                  : "Without this, NimbusPost parcels don't move to Delivered on their own."
-            }
-          />
-        </dl>
-        {(!hook || hook.autoPaused || hook.status !== "active") && <ConnectTracking reconnect={Boolean(hook)} />}
-      </section>
-
-      <section className={CARD}>
-        <h2 className="label-eyebrow mb-1">Pickup warehouse</h2>
-        <p className="mb-4 text-sm text-muted-foreground">
-          Where the courier collects parcels from. Returned parcels come back here too.
+      <Block title="Tracking updates">
+        <p className="text-sm text-muted-foreground">
+          {healthy
+            ? hook?.lastDeliveryAt
+              ? `Connected. Last update ${new Date(hook.lastDeliveryAt).toLocaleString("en-IN")}.`
+              : "Connected. Updates start once a parcel moves."
+            : "Lets NimbusPost parcels move to Delivered on their own, and the customer get the Delivered email."}
         </p>
-        {status.warehouses.length > 0 && <ChooseWarehouse warehouses={status.warehouses} current={warehouse?.id ?? null} />}
+        {!healthy && <ConnectTracking reconnect={Boolean(hook)} />}
+      </Block>
+
+      <Block title="Pickup warehouse">
+        <p className="text-sm text-muted-foreground">
+          Where the courier collects from; returns come back here too.
+          {warehouse ? ` In use: ${warehouse.name}.` : ""}
+        </p>
+        {status.warehouses.length > 0 && (
+          <ChooseWarehouse warehouses={status.warehouses} current={warehouse?.id ?? null} />
+        )}
         <AddWarehouse defaults={defaults} startOpen={status.warehouses.length === 0} />
-      </section>
+      </Block>
     </div>
   );
 }
 
-function Row({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
+function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="py-2.5">
-      <div className="flex items-center justify-between gap-4">
-        <dt className="text-muted-foreground">{label}</dt>
-        <dd className="text-right">{value}</dd>
-      </div>
-      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
-    </div>
+    <section className="space-y-3">
+      <h3 className="text-sm font-semibold">{title}</h3>
+      {children}
+    </section>
   );
 }
 
@@ -154,7 +91,6 @@ function ConnectTracking({ reconnect }: { reconnect: boolean }) {
   const router = useRouter();
   return (
     <Button
-      className="mt-4"
       size="sm"
       disabled={isPending}
       onClick={() =>
@@ -178,7 +114,7 @@ function ChooseWarehouse({ warehouses, current }: { warehouses: NimbusPostWareho
   const router = useRouter();
   const chosen = warehouses.find((w) => w.id === picked);
   return (
-    <div className="mb-5 space-y-2">
+    <div className="space-y-2">
       <Label htmlFor="np-warehouse">Use an existing warehouse</Label>
       <div className="flex flex-wrap gap-2">
         <select

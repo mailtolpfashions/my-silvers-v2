@@ -13,8 +13,6 @@ import {
 } from "@/actions/admin-courier-actions";
 import type { ShiprocketPickup } from "@/server/integrations/shiprocket";
 
-const CARD = "rounded-lg border bg-background p-5";
-
 export type ShiprocketStatus = {
   wallet: number | null;
   pickups: ShiprocketPickup[];
@@ -32,15 +30,12 @@ type Defaults = {
 };
 
 /**
- * Shiprocket's account set-up, the twin of the NimbusPost panel: wallet,
- * pickup location (choose one or add one), and tracking updates.
- *
- * One difference from NimbusPost: Shiprocket's API can't register a webhook,
- * so tracking is set up by pasting the URL and token shown here into
- * Shiprocket's dashboard. "Last update received" says whether it's working.
+ * Shiprocket's set-up, shown in the partner card's Manage panel: the pickup
+ * location (choose or add) and tracking updates. Shiprocket's API can't
+ * register a webhook, so tracking is the URL + token to paste into its
+ * dashboard; the card's "Tracking" status says whether updates are arriving.
  */
-export function ShiprocketSetup({
-  connected,
+export function ShiprocketManage({
   status,
   pickup,
   webhookUrl,
@@ -48,135 +43,60 @@ export function ShiprocketSetup({
   lastUpdateAt,
   defaults,
 }: {
-  connected: boolean;
-  status: ShiprocketStatus | null;
+  status: ShiprocketStatus;
   pickup: { location: string; pincode: string | null; fromEnv: boolean } | null;
   webhookUrl: string;
   webhookToken: string | null;
   lastUpdateAt: string | null;
   defaults: Defaults;
 }) {
-  if (!connected || !status) {
-    return (
-      <section className={CARD}>
-        <h2 className="label-eyebrow mb-1">Shiprocket</h2>
-        <p className="text-sm text-muted-foreground">
-          Not connected. Add <code>SHIPROCKET_EMAIL</code> and <code>SHIPROCKET_PASSWORD</code> (the
-          API user from Shiprocket → Settings → API) in Vercel and redeploy.
-        </p>
-      </section>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      <section className={CARD}>
-        <h2 className="label-eyebrow mb-1">Shiprocket account</h2>
-        {status.error && (
-          <p className="mb-3 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{status.error}</p>
-        )}
-        <dl className="divide-y text-sm">
-          <Row
-            label="Connection"
-            value={status.error ? <span className="text-destructive">Problem</span> : <span className="text-green-700">Connected</span>}
-          />
-          <Row
-            label="Wallet balance"
-            value={
-              status.wallet === null ? (
-                "—"
-              ) : (
-                <span className={status.wallet <= 0 ? "font-semibold text-destructive" : "font-semibold"}>
-                  ₹{status.wallet.toLocaleString("en-IN")}
-                </span>
-              )
-            }
-            hint={
-              status.wallet !== null && status.wallet <= 0
-                ? "Bookings need balance — recharge on the Shiprocket website (it can't be done from here)."
-                : undefined
-            }
-          />
-          <Row
-            label="Pickup location"
-            value={pickup ? pickup.location : <span className="text-destructive">Not set</span>}
-            hint={
-              pickup?.fromEnv
-                ? "Set in Vercel (SHIPROCKET_PICKUP_LOCATION) — that wins over the choice below."
-                : pickup
-                  ? undefined
-                  : "Shiprocket can't price or book until one is chosen — pick one below."
-            }
-          />
-          <Row
-            label="Tracking updates"
-            value={
-              lastUpdateAt ? (
-                <span className="text-green-700">Working</span>
-              ) : (
-                <span className="text-muted-foreground">No updates yet</span>
-              )
-            }
-            hint={
-              lastUpdateAt
-                ? `Last update received ${new Date(lastUpdateAt).toLocaleString("en-IN")}`
-                : "Set it up below. Updates start once a parcel moves."
-            }
-          />
-        </dl>
-      </section>
-
-      <section className={CARD}>
-        <h2 className="label-eyebrow mb-1">Shiprocket pickup location</h2>
-        <p className="mb-4 text-sm text-muted-foreground">
-          Where Shiprocket&apos;s couriers collect from. Its pincode is where Shiprocket&apos;s prices are
-          measured from.
+      <Block title="Pickup location">
+        <p className="text-sm text-muted-foreground">
+          Where Shiprocket&apos;s couriers collect from; its pincode is where prices are measured from.
+          {pickup?.fromEnv ? " Currently fixed in Vercel (SHIPROCKET_PICKUP_LOCATION), which wins over a choice here." : ""}
         </p>
-        {status.pickups.length > 0 && (
-          <ChoosePickup pickups={status.pickups} current={pickup?.location ?? null} />
-        )}
+        {status.pickups.length > 0 && <ChoosePickup pickups={status.pickups} current={pickup?.location ?? null} />}
         <AddPickup defaults={defaults} startOpen={status.pickups.length === 0} />
-      </section>
+      </Block>
 
-      <section className={CARD}>
-        <h2 className="label-eyebrow mb-1">Shiprocket tracking updates</h2>
-        <p className="mb-4 text-sm text-muted-foreground">
-          So Shiprocket parcels move to Delivered on their own and customers get the Delivered email.
-          Shiprocket only lets you switch this on in its own dashboard:
+      <Block title="Tracking updates">
+        <p className="text-sm text-muted-foreground">
+          {lastUpdateAt
+            ? `Working. Last update received ${new Date(lastUpdateAt).toLocaleString("en-IN")}.`
+            : "Shiprocket only lets you switch this on in its own dashboard:"}
         </p>
-        <ol className="mb-4 list-decimal space-y-1 pl-5 text-sm">
-          <li>In Shiprocket, open Settings → API → Webhooks.</li>
-          <li>Paste the URL below into the webhook URL.</li>
-          <li>Paste the token below into the security token.</li>
-          <li>Switch the webhook on and save.</li>
-        </ol>
+        {!lastUpdateAt && (
+          <ol className="list-decimal space-y-1 pl-5 text-sm">
+            <li>In Shiprocket, open Settings → API → Webhooks.</li>
+            <li>Paste the URL and the token below, switch it on, and save.</li>
+          </ol>
+        )}
         <CopyField label="Webhook URL" value={webhookUrl} />
         {webhookToken ? (
           <CopyField label="Security token" value={webhookToken} />
         ) : (
-          <p className="mt-3 text-sm text-muted-foreground">No token yet — make one first.</p>
+          <p className="text-sm text-muted-foreground">No token yet — make one first.</p>
         )}
         <MakeToken hasToken={Boolean(webhookToken)} />
-      </section>
+      </Block>
     </div>
   );
 }
 
-function Row({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
+function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="py-2.5">
-      <div className="flex items-center justify-between gap-4">
-        <dt className="text-muted-foreground">{label}</dt>
-        <dd className="text-right">{value}</dd>
-      </div>
-      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
-    </div>
+    <section className="space-y-3">
+      <h3 className="text-sm font-semibold">{title}</h3>
+      {children}
+    </section>
   );
 }
 
 function CopyField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="mt-3 space-y-1.5">
+    <div className="space-y-1.5">
       <Label>{label}</Label>
       <div className="flex gap-2">
         <Input readOnly value={value} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
@@ -205,7 +125,6 @@ function MakeToken({ hasToken }: { hasToken: boolean }) {
   const router = useRouter();
   return (
     <Button
-      className="mt-4"
       size="sm"
       variant={hasToken ? "outline" : "default"}
       disabled={isPending}
@@ -231,7 +150,7 @@ function ChoosePickup({ pickups, current }: { pickups: ShiprocketPickup[]; curre
   const router = useRouter();
   const chosen = pickups.find((p) => p.location === picked);
   return (
-    <div className="mb-5 space-y-2">
+    <div className="space-y-2">
       <Label htmlFor="sr-pickup">Use an existing pickup location</Label>
       <div className="flex flex-wrap gap-2">
         <select
