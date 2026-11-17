@@ -5,7 +5,6 @@ import { prisma } from "@/server/db";
 import { PageHeader } from "@/components/layout/page-header";
 import { getStoreSettings } from "@/server/settings/store-settings";
 import { StoreSettingsForm } from "@/components/admin/store-settings-form";
-import { courierConnections } from "@/server/couriers";
 import { getCollections } from "@/server/cms/collections";
 
 /**
@@ -52,26 +51,18 @@ export default async function AdminSettingsPage() {
           guestCheckoutEnabled: settings.guestCheckoutEnabled,
           // Paise is the storage unit; rupees is what a person types. The form
           // works in rupees throughout and the action converts back.
-          shippingCharge: settings.shippingChargePaise / 100,
-          freeShippingThreshold: settings.freeShippingThresholdPaise / 100,
           giftWrapEnabled: settings.giftWrapEnabled,
           giftWrapCharge: settings.giftWrapChargePaise / 100,
           // Days are already the storage unit — no conversion, unlike the money
           // above.
           returnWindowDays: settings.returnWindowDays,
           returnShippingPaidBy: settings.returnShippingPaidBy,
-          handlingTimeMinDays: settings.handlingTimeMinDays,
-          handlingTimeMaxDays: settings.handlingTimeMaxDays,
-          transitTimeMinDays: settings.transitTimeMinDays,
-          transitTimeMaxDays: settings.transitTimeMaxDays,
           navFinishes: settings.navFinishes,
           navOccasions: settings.navOccasions,
           navShopFor: settings.navShopFor,
           charmPricing: settings.charmPricing,
           whatsappNumber: settings.whatsappNumber,
-          courierPartners: settings.courierPartners,
         }}
-        courierConnected={courierConnections()}
         collections={collections.map((c) => ({ slug: c.slug, title: c.title }))}
       />
       <div className="mt-8">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FormSaveBar } from "@/components/layout/form-save-bar";
@@ -13,18 +14,11 @@ import { CHARM_STYLES, type CharmStyle } from "@/lib/charm-price";
 export type StoreSettingsFormValues = {
   codEnabled: boolean;
   guestCheckoutEnabled: boolean;
-  /** Rupees, not paise — see the note on the settings page. */
-  shippingCharge: number;
-  freeShippingThreshold: number;
   giftWrapEnabled: boolean;
   giftWrapCharge: number;
   /** Whole days. Zero throughout means "not stated" — see the section copy. */
   returnWindowDays: number;
   returnShippingPaidBy: "customer" | "merchant";
-  handlingTimeMinDays: number;
-  handlingTimeMaxDays: number;
-  transitTimeMinDays: number;
-  transitTimeMaxDays: number;
   navFinishes: NavRow[];
   navOccasions: NavRow[];
   /** `query` is a collection slug here — see StoreSettings.navShopFor. */
@@ -32,8 +26,6 @@ export type StoreSettingsFormValues = {
   charmPricing: "off" | CharmStyle;
   /** As stored ("919876543210") or "" — shown to the owner without the 91. */
   whatsappNumber: string;
-  /** Which courier partners the Ship order dialog compares. */
-  courierPartners: { shiprocket: boolean; nimbuspost: boolean };
 };
 
 /** A published collection, as offered in the "Shop for" picker. */
@@ -218,7 +210,7 @@ function NavListEditor({
  * does not tell the person flipping it that existing COD orders are unaffected,
  * and that is exactly the thing they will worry about before touching it.
  */
-function ToggleRow({
+export function ToggleRow({
   id,
   label,
   description,
@@ -250,7 +242,7 @@ function ToggleRow({
  * A day-count input. Same raw-string state discipline as the money fields, and
  * for the same reason — see the note in the component below.
  */
-function DayField({
+export function DayField({
   id,
   label,
   hint,
@@ -283,13 +275,10 @@ function DayField({
 export function StoreSettingsForm({
   initial,
   collections,
-  courierConnected,
 }: {
   initial: StoreSettingsFormValues;
   /** Published collections, for the "Shop for" picker. */
   collections: CollectionOption[];
-  /** Which partners have API keys in the environment — a partner without them can't be switched on. */
-  courierConnected: { shiprocket: boolean; nimbuspost: boolean };
 }) {
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -300,16 +289,10 @@ export function StoreSettingsForm({
    * moment it is cleared, so clearing it to retype is impossible. Parsed on
    * submit instead, where an unparseable value can be reported.
    */
-  const [shippingCharge, setShippingCharge] = useState(String(initial.shippingCharge));
-  const [freeThreshold, setFreeThreshold] = useState(String(initial.freeShippingThreshold));
   const [giftWrapCharge, setGiftWrapCharge] = useState(String(initial.giftWrapCharge));
 
   /** Same reasoning as the money fields above: raw strings, parsed on submit. */
   const [returnWindow, setReturnWindow] = useState(String(initial.returnWindowDays));
-  const [handlingMin, setHandlingMin] = useState(String(initial.handlingTimeMinDays));
-  const [handlingMax, setHandlingMax] = useState(String(initial.handlingTimeMaxDays));
-  const [transitMin, setTransitMin] = useState(String(initial.transitTimeMinDays));
-  const [transitMax, setTransitMax] = useState(String(initial.transitTimeMaxDays));
 
   /** Shown as the 10 digits people recognise; the server adds the 91 back. */
   const [whatsapp, setWhatsapp] = useState(initial.whatsappNumber.replace(/^91(?=\d{10}$)/, ""));
@@ -320,18 +303,15 @@ export function StoreSettingsForm({
    * "Unsaved changes" line.
    */
   const snapshot = JSON.stringify([
-    form, shippingCharge, freeThreshold, giftWrapCharge, returnWindow,
-    handlingMin, handlingMax, transitMin, transitMax, whatsapp,
+    form, giftWrapCharge, returnWindow, whatsapp,
   ]);
   const [savedSnapshot, setSavedSnapshot] = useState(snapshot);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    const charge = Number(shippingCharge);
-    const threshold = Number(freeThreshold);
     const wrap = Number(giftWrapCharge);
-    if (!Number.isFinite(charge) || !Number.isFinite(threshold) || !Number.isFinite(wrap)) {
+    if (!Number.isFinite(wrap)) {
       toast.error("Amounts must be numbers.");
       return;
     }
@@ -341,10 +321,6 @@ export function StoreSettingsForm({
     const dayCount = (raw: string) => (raw.trim() === "" ? 0 : Number(raw));
     const dayValues = {
       returnWindowDays: dayCount(returnWindow),
-      handlingTimeMinDays: dayCount(handlingMin),
-      handlingTimeMaxDays: dayCount(handlingMax),
-      transitTimeMinDays: dayCount(transitMin),
-      transitTimeMaxDays: dayCount(transitMax),
     };
     if (!Object.values(dayValues).every((n) => Number.isInteger(n) && n >= 0)) {
       toast.error("Day counts must be whole numbers.");
@@ -355,8 +331,6 @@ export function StoreSettingsForm({
     const result = await saveStoreSettingsAction({
       codEnabled: form.codEnabled,
       guestCheckoutEnabled: form.guestCheckoutEnabled,
-      shippingCharge: charge,
-      freeShippingThreshold: threshold,
       giftWrapEnabled: form.giftWrapEnabled,
       giftWrapCharge: wrap,
       returnShippingPaidBy: form.returnShippingPaidBy,
@@ -366,7 +340,6 @@ export function StoreSettingsForm({
       navShopFor: form.navShopFor,
       charmPricing: form.charmPricing,
       whatsappNumber: whatsapp,
-      courierPartners: form.courierPartners,
     });
     setSaving(false);
 
@@ -379,8 +352,8 @@ export function StoreSettingsForm({
   return (
     <form onSubmit={handleSubmit}>
       {/* Two columns of cards from xl up, matching the product form: what
-          happens at the till (checkout, shipping, gifting) on the left, what
-          the shop publishes about itself (returns and delivery, the header
+          happens at the till (checkout, pricing, gifting) on the left, what
+          the shop publishes about itself (returns, the header
           menu) on the right. Below xl they stack in that order. */}
       <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
       <div className="space-y-6">
@@ -407,35 +380,6 @@ export function StoreSettingsForm({
       </section>
 
       <section className={CARD}>
-        <h2 className="label-eyebrow mb-1">Courier partners</h2>
-        <p className="text-sm text-muted-foreground">
-          Who ships your parcels. When you press Ship order, every partner switched on here is
-          asked for prices and the cheapest courier is selected for you. Keep at least one on.
-        </p>
-        {(["shiprocket", "nimbuspost"] as const).map((p) => {
-          const label = p === "shiprocket" ? "Shiprocket" : "NimbusPost";
-          const connected = courierConnected[p];
-          return (
-            <ToggleRow
-              key={p}
-              id={`courier-${p}`}
-              label={label}
-              description={
-                connected
-                  ? `Include ${label}'s couriers and prices when shipping.`
-                  : `Not connected — add the ${label} API keys in Vercel, then switch it on here.`
-              }
-              checked={connected && form.courierPartners[p]}
-              onChange={(on) =>
-                setForm((f) => ({ ...f, courierPartners: { ...f.courierPartners, [p]: on } }))
-              }
-              disabled={saving || !connected}
-            />
-          );
-        })}
-      </section>
-
-      <section className={CARD}>
         <h2 className="label-eyebrow mb-1">WhatsApp</h2>
         <p className="mb-5 text-sm text-muted-foreground">
           Your business WhatsApp number. Customers see a WhatsApp button on every product page,
@@ -453,42 +397,6 @@ export function StoreSettingsForm({
             disabled={saving}
           />
           <p className="text-xs text-muted-foreground">10 digits — India (+91) is added for you.</p>
-        </div>
-      </section>
-
-      <section className={CARD}>
-        <h2 className="label-eyebrow mb-1">Shipping</h2>
-        <p className="mb-5 text-sm text-muted-foreground">
-          Applied to new orders. Orders already placed keep the charge they were
-          quoted.
-        </p>
-
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="shippingCharge">Shipping charge (₹)</Label>
-            <Input
-              id="shippingCharge"
-              inputMode="decimal"
-              value={shippingCharge}
-              onChange={(e) => setShippingCharge(e.target.value)}
-              disabled={saving}
-            />
-            <p className="text-xs text-muted-foreground">Set to 0 for free shipping on every order.</p>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="freeShippingThreshold">Free above (₹)</Label>
-            <Input
-              id="freeShippingThreshold"
-              inputMode="decimal"
-              value={freeThreshold}
-              onChange={(e) => setFreeThreshold(e.target.value)}
-              disabled={saving}
-            />
-            <p className="text-xs text-muted-foreground">
-              Orders at or above this subtotal ship free.
-            </p>
-          </div>
         </div>
       </section>
 
@@ -569,7 +477,7 @@ export function StoreSettingsForm({
 
       <div className="space-y-6">
       <section className={CARD}>
-        <h2 className="label-eyebrow mb-1">Returns &amp; delivery</h2>
+        <h2 className="label-eyebrow mb-1">Returns</h2>
         <p className="mb-5 text-sm text-muted-foreground">
           These are published to Google, and are what it shows next to the shop
           in search results. Leave a field at 0 and nothing is published for it —
@@ -607,40 +515,9 @@ export function StoreSettingsForm({
           />
         )}
 
-        <div className="mt-5 grid gap-5 sm:grid-cols-2">
-          <DayField
-            id="handlingTimeMinDays"
-            label="Dispatch within — from (days)"
-            value={handlingMin}
-            onChange={setHandlingMin}
-            disabled={saving}
-          />
-          <DayField
-            id="handlingTimeMaxDays"
-            label="Dispatch within — to (days)"
-            value={handlingMax}
-            onChange={setHandlingMax}
-            disabled={saving}
-          />
-          <DayField
-            id="transitTimeMinDays"
-            label="Delivery takes — from (days)"
-            value={transitMin}
-            onChange={setTransitMin}
-            disabled={saving}
-          />
-          <DayField
-            id="transitTimeMaxDays"
-            label="Delivery takes — to (days)"
-            value={transitMax}
-            onChange={setTransitMax}
-            disabled={saving}
-          />
-        </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Dispatch is how long a piece sits with the shop; delivery is time in
-          transit after that. Any of the four left at 0 and no delivery estimate
-          is published.
+        <p className="mt-4 text-xs text-muted-foreground">
+          Dispatch and delivery times are on the{" "}
+          <Link href="/admin/courier" className="underline">Courier</Link> page.
         </p>
       </section>
 

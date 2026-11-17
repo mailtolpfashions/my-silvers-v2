@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath, updateTag } from "next/cache";
 import { normaliseIndianMobile } from "@/lib/whatsapp";
+import { rupees, days } from "@/lib/validation/settings";
 import { requireOwner } from "@/server/auth/require-role";
 import { logActivity } from "@/server/activity/log";
 import {
@@ -42,47 +43,14 @@ const navFilters = (what: string, target = "search word") =>
       { message: `${what}: the same label appears twice.` }
     );
 
-/**
- * Rupees, not paise, because that is what the admin types into the form.
- * Converted here so paise stays the only unit that exists below this line —
- * the same rule the order math follows.
- */
-const rupees = z
-  .number({ message: "Enter an amount in rupees." })
-  .min(0, "Amount cannot be negative.")
-  // A shipping charge in the tens of thousands is a typo, not a price. The cap
-  // is deliberately generous rather than precise — it exists to catch a stray
-  // extra zero before it silently reprices every order in the shop.
-  .max(100000, "That looks too large — enter the amount in rupees.")
-  .refine((n) => Number.isFinite(n) && Math.round(n * 100) === n * 100, {
-    message: "Amounts can have at most two decimal places.",
-  });
-
-/**
- * A count of days. Whole numbers only, and capped at a year — these are typed
- * into a form and then published to Google as a return window or a delivery
- * estimate, where a stray digit becomes a public promise of a 70-day dispatch.
- */
-const days = z
-  .number({ message: "Enter a whole number of days." })
-  .int("Days must be a whole number.")
-  .min(0, "Days cannot be negative.")
-  .max(365, "That looks too large — enter a number of days.");
-
 const settingsSchema = z
   .object({
     codEnabled: z.boolean(),
     guestCheckoutEnabled: z.boolean(),
-    shippingCharge: rupees,
-    freeShippingThreshold: rupees,
     giftWrapEnabled: z.boolean(),
     giftWrapCharge: rupees,
     returnWindowDays: days,
     returnShippingPaidBy: z.enum(["customer", "merchant"]),
-    handlingTimeMinDays: days,
-    handlingTimeMaxDays: days,
-    transitTimeMinDays: days,
-    transitTimeMaxDays: days,
     navFinishes: navFilters("Finishes"),
     navOccasions: navFilters("Occasions"),
     navShopFor: navFilters("Shop for", "collection"),
@@ -98,25 +66,6 @@ const settingsSchema = z
       .refine((v) => v === "" || normaliseIndianMobile(v) !== "", {
         message: "WhatsApp: enter a 10-digit Indian mobile number, e.g. 98765 43210.",
       }),
-    courierPartners: z.object({ shiprocket: z.boolean(), nimbuspost: z.boolean() }),
-  })
-  .refine((v) => v.courierPartners.shiprocket || v.courierPartners.nimbuspost, {
-    message: "Courier partners: keep at least one switched on, or no order can be shipped.",
-    path: ["courierPartners"],
-  })
-  /**
-   * A range whose maximum is below its minimum is not a slow estimate, it is a
-   * typo — and one that structured data would publish as an impossible delivery
-   * window. Caught here rather than normalised silently: swapping the two for
-   * the admin would hide the mistake in the one place they could still see it.
-   */
-  .refine((v) => v.handlingTimeMaxDays >= v.handlingTimeMinDays, {
-    message: "Dispatch: the maximum cannot be less than the minimum.",
-    path: ["handlingTimeMaxDays"],
-  })
-  .refine((v) => v.transitTimeMaxDays >= v.transitTimeMinDays, {
-    message: "Delivery: the maximum cannot be less than the minimum.",
-    path: ["transitTimeMaxDays"],
   });
 
 export type SettingsActionResult = { ok: true } | { ok: false; error: string };
@@ -140,29 +89,25 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
   }
   const data = parsed.data;
 
+  // Read first: the courier fields (partners, shipping charge, dispatch and
+  // delivery days) live on the Courier page now and are carried over as they
+  // are — and the header lists are compared below.
+  const before = await getStoreSettings();
+
   const next: StoreSettings = {
+    ...before,
     codEnabled: data.codEnabled,
     guestCheckoutEnabled: data.guestCheckoutEnabled,
-    shippingChargePaise: Math.round(data.shippingCharge * 100),
-    freeShippingThresholdPaise: Math.round(data.freeShippingThreshold * 100),
     giftWrapEnabled: data.giftWrapEnabled,
     giftWrapChargePaise: Math.round(data.giftWrapCharge * 100),
     returnWindowDays: data.returnWindowDays,
     returnShippingPaidBy: data.returnShippingPaidBy,
-    handlingTimeMinDays: data.handlingTimeMinDays,
-    handlingTimeMaxDays: data.handlingTimeMaxDays,
-    transitTimeMinDays: data.transitTimeMinDays,
-    transitTimeMaxDays: data.transitTimeMaxDays,
     navFinishes: data.navFinishes,
     navOccasions: data.navOccasions,
     navShopFor: data.navShopFor,
     charmPricing: data.charmPricing,
     whatsappNumber: normaliseIndianMobile(data.whatsappNumber),
-    courierPartners: data.courierPartners,
   };
-
-  // Read before writing, to tell whether the header lists changed — see below.
-  const before = await getStoreSettings();
 
   try {
     await saveStoreSettings(next);
