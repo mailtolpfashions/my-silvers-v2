@@ -19,6 +19,7 @@ import {
   PaymentProcessingOverlay,
   type PaymentStage,
 } from "@/components/storefront/checkout/payment-processing-overlay";
+import { EmptyCart } from "@/components/storefront/cart/empty-cart";
 import { readGuestCart, clearGuestCart } from "@/lib/guest-cart";
 import { clearCartLocal } from "@/lib/user-state-store";
 import { useCoupon, clearAppliedCoupon } from "@/components/storefront/cart/use-coupon";
@@ -361,7 +362,9 @@ export function CheckoutForm({
 
   if (lines === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (lines.length === 0) {
-    return <p className="rhythm-transactional text-center text-muted-foreground">Your cart is empty.</p>;
+    // The cart's own empty state, so checkout isn't a dead end either: a way
+    // back into the shop and what they were last looking at.
+    return <EmptyCart />;
   }
 
   const shippingPaise = shippingChargePaise(subtotalPaise, rates);

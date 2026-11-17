@@ -75,10 +75,22 @@ export function SearchOverlay({ children }: { children: React.ReactNode }) {
         >
           <DialogTitle className="sr-only">Search products</DialogTitle>
           <div className="container-page">
-            <div className="mx-auto max-w-2xl">
-              <CloseSearchContext.Provider value={() => setOpen(false)}>
-                {children}
-              </CloseSearchContext.Provider>
+            {/* A visible way out. The default close button is off (it would
+                sit over the field), and on a phone there was otherwise none —
+                only tapping the dimmed page, which nothing told you about. */}
+            <div className="mx-auto flex max-w-2xl items-start gap-3">
+              <div className="min-w-0 flex-1">
+                <CloseSearchContext.Provider value={() => setOpen(false)}>
+                  {children}
+                </CloseSearchContext.Provider>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="mt-2 shrink-0 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </DialogContent>

@@ -1,12 +1,28 @@
 "use client"
 
+import { useSyncExternalStore } from "react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
+
+/**
+ * Phones get toasts at the TOP. At the bottom-right they sat exactly over the
+ * product page's fixed Add to cart / Buy now bar, so "Added to cart" hid the
+ * very buttons a shopper reaches for next, for five seconds. Desktop keeps the
+ * position the caller asked for — there is no bar there to cover.
+ */
+const PHONE = "(max-width: 767px)"
+function subscribe(onChange: () => void) {
+  const mq = window.matchMedia(PHONE)
+  mq.addEventListener("change", onChange)
+  return () => mq.removeEventListener("change", onChange)
+}
+const isPhone = () => window.matchMedia(PHONE).matches
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
 // Pinned light: the site ships a single light theme, so this no longer reads
 // next-themes. Sonner defaults to "system", which would render dark toasts on a
 // light page for anyone whose OS prefers dark.
 const Toaster = ({ ...props }: ToasterProps) => {
+  const phone = useSyncExternalStore(subscribe, isPhone, () => false)
   return (
     <Sonner
       theme="light"
@@ -54,6 +70,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
         },
       }}
       {...props}
+      position={phone ? "top-center" : props.position}
     />
   )
 }
