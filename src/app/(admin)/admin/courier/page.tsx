@@ -8,9 +8,9 @@ import {
   listNimbusPostWebhooks,
   nimbusPostWalletBalance,
 } from "@/server/integrations/nimbuspost";
-import { CourierSettingsForm } from "@/components/admin/courier/courier-settings-form";
-import { NimbusPostSetup, type NimbusPostStatus } from "@/components/admin/courier/nimbuspost-setup";
-import { ShiprocketSetup, type ShiprocketStatus } from "@/components/admin/courier/shiprocket-setup";
+import { CourierSettingsForm, type PartnerFact, type PartnerPanel } from "@/components/admin/courier/courier-settings-form";
+import { NimbusPostManage, type NimbusPostStatus } from "@/components/admin/courier/nimbuspost-setup";
+import { ShiprocketManage, type ShiprocketStatus } from "@/components/admin/courier/shiprocket-setup";
 import { listShiprocketPickups, shiprocketWalletBalance } from "@/server/integrations/shiprocket";
 import { resolveAppBaseUrl } from "@/server/email/resend";
 
@@ -42,59 +42,99 @@ export default async function AdminCourierPage() {
   const base = resolveAppBaseUrl(process.env.APP_BASE_URL, process.env.VERCEL_ENV === "production");
   const defaults = warehouseDefaults();
 
+  // ── Shiprocket card ──
+  const srPickup = process.env.SHIPROCKET_PICKUP_LOCATION
+    ? { location: process.env.SHIPROCKET_PICKUP_LOCATION, pincode: process.env.SHIPROCKET_PICKUP_PINCODE ?? null, fromEnv: true }
+    : config.shiprocketPickupLocation
+      ? { location: config.shiprocketPickupLocation, pincode: config.shiprocketPickupPincode, fromEnv: false }
+      : null;
+  const shiprocketPanel: PartnerPanel = {
+    connected: connected.shiprocket,
+    facts: shiprocket
+      ? [
+          { label: "Account", value: shiprocket.error ? "Problem" : "Connected", tone: shiprocket.error ? "bad" : "ok" },
+          walletFact(shiprocket.wallet),
+          { label: "Pickup", value: srPickup?.location ?? "Not set", tone: srPickup ? "muted" : "bad" },
+          trackingFact(config.shiprocketLastWebhookAt ? "on" : "off"),
+        ]
+      : [],
+    warning: shiprocket?.error
+      ?? (shiprocket && shiprocket.wallet !== null && shiprocket.wallet <= 0
+        ? "Wallet is empty — Shiprocket bookings fail until you recharge on their website."
+        : !srPickup ? "Choose a pickup location in Manage." : null),
+    manage: shiprocket ? (
+      <ShiprocketManage
+        status={shiprocket}
+        pickup={srPickup}
+        // Shiprocket refuses webhook URLs containing "shiprocket" — see the alias route.
+        webhookUrl={`${base}/api/webhooks/courier-updates`}
+        webhookToken={config.shiprocketWebhookToken}
+        lastUpdateAt={config.shiprocketLastWebhookAt}
+        defaults={defaults}
+      />
+    ) : null,
+  };
+
+  // ── NimbusPost card ──
+  const npWarehouse = process.env.NIMBUSPOST_WAREHOUSE_ID
+    ? { id: process.env.NIMBUSPOST_WAREHOUSE_ID, name: "Set in Vercel" }
+    : config.nimbuspostWarehouseId
+      ? { id: config.nimbuspostWarehouseId, name: config.nimbuspostWarehouseName ?? "Pickup warehouse" }
+      : null;
+  const npHook = nimbus?.webhooks.find((w) => w.id === config.nimbuspostWebhookId) ?? null;
+  const npTracking = npHook ? (npHook.autoPaused || npHook.status !== "active" ? "paused" : "on") : "off";
+  const nimbusPanel: PartnerPanel = {
+    connected: connected.nimbuspost,
+    facts: nimbus
+      ? [
+          { label: "Account", value: nimbus.error ? "Problem" : "Connected", tone: nimbus.error ? "bad" : "ok" },
+          walletFact(nimbus.wallet),
+          { label: "Pickup", value: npWarehouse?.name ?? "Not set", tone: npWarehouse ? "muted" : "bad" },
+          trackingFact(npTracking),
+        ]
+      : [],
+    warning: nimbus?.error
+      ?? (nimbus && nimbus.wallet !== null && nimbus.wallet <= 0
+        ? "Wallet is empty — NimbusPost bookings fail until you recharge on their website."
+        : !npWarehouse ? "Add a pickup warehouse in Manage." : npTracking !== "on" ? "Connect tracking in Manage." : null),
+    manage: nimbus ? (
+      <NimbusPostManage status={nimbus} warehouse={npWarehouse} hook={npHook} defaults={defaults} />
+    ) : null,
+  };
+
   return (
     <>
       <PageHeader
         title="Courier"
-        description="Your courier partners, shipping charges and delivery times. Changes take effect immediately."
+        description="Who ships your parcels, what shoppers pay, and how long delivery takes."
       />
-      <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
-        <CourierSettingsForm
-          initial={{
-            courierPartners: settings.courierPartners,
-            shippingCharge: settings.shippingChargePaise / 100,
-            freeShippingThreshold: settings.freeShippingThresholdPaise / 100,
-            handlingTimeMinDays: settings.handlingTimeMinDays,
-            handlingTimeMaxDays: settings.handlingTimeMaxDays,
-            transitTimeMinDays: settings.transitTimeMinDays,
-            transitTimeMaxDays: settings.transitTimeMaxDays,
-          }}
-          connected={connected}
-        />
-        <div className="space-y-6">
-        <ShiprocketSetup
-          connected={connected.shiprocket}
-          status={shiprocket}
-          pickup={
-            process.env.SHIPROCKET_PICKUP_LOCATION
-              ? { location: process.env.SHIPROCKET_PICKUP_LOCATION, pincode: process.env.SHIPROCKET_PICKUP_PINCODE ?? null, fromEnv: true }
-              : config.shiprocketPickupLocation
-                ? { location: config.shiprocketPickupLocation, pincode: config.shiprocketPickupPincode, fromEnv: false }
-                : null
-          }
-          // Shiprocket refuses webhook URLs containing "shiprocket" — see the alias route.
-          webhookUrl={`${base}/api/webhooks/courier-updates`}
-          webhookToken={config.shiprocketWebhookToken}
-          lastUpdateAt={config.shiprocketLastWebhookAt}
-          defaults={defaults}
-        />
-        <NimbusPostSetup
-          connected={connected.nimbuspost}
-          status={nimbus}
-          warehouse={
-            process.env.NIMBUSPOST_WAREHOUSE_ID
-              ? { id: process.env.NIMBUSPOST_WAREHOUSE_ID, name: "Set in Vercel (NIMBUSPOST_WAREHOUSE_ID)" }
-              : config.nimbuspostWarehouseId
-                ? { id: config.nimbuspostWarehouseId, name: config.nimbuspostWarehouseName ?? "Pickup warehouse" }
-                : null
-          }
-          trackingWebhookId={config.nimbuspostWebhookId}
-          defaults={defaults}
-        />
-        </div>
-      </div>
+      <CourierSettingsForm
+        initial={{
+          courierPartners: settings.courierPartners,
+          shippingCharge: settings.shippingChargePaise / 100,
+          freeShippingThreshold: settings.freeShippingThresholdPaise / 100,
+          handlingTimeMinDays: settings.handlingTimeMinDays,
+          handlingTimeMaxDays: settings.handlingTimeMaxDays,
+          transitTimeMinDays: settings.transitTimeMinDays,
+          transitTimeMaxDays: settings.transitTimeMaxDays,
+        }}
+        partners={{ shiprocket: shiprocketPanel, nimbuspost: nimbusPanel }}
+      />
     </>
   );
+}
+
+function walletFact(wallet: number | null): PartnerFact {
+  if (wallet === null) return { label: "Wallet", value: "—", tone: "muted" };
+  return { label: "Wallet", value: `₹${wallet.toLocaleString("en-IN")}`, tone: wallet > 0 ? "ok" : "bad" };
+}
+
+function trackingFact(state: "on" | "paused" | "off"): PartnerFact {
+  return {
+    label: "Tracking",
+    value: state === "on" ? "Connected" : state === "paused" ? "Paused" : "Not set up",
+    tone: state === "on" ? "ok" : "bad",
+  };
 }
 
 /** Read-only and free. A failure (a wrong password, say) shows on the page instead of breaking it. */
