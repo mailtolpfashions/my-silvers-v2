@@ -1,9 +1,8 @@
 import crypto from "node:crypto";
-import { after } from "next/server";
 import { prisma } from "@/server/db";
-import { sendOrderDeliveredEmail } from "@/server/email/resend";
 import { checkIpRateLimit } from "@/server/rate-limit/limiter";
-import { normaliseScans, type ScanEvent } from "@/server/integrations/shiprocket";
+import { normaliseScans } from "@/server/integrations/shiprocket";
+import { applyCourierUpdate } from "@/server/couriers/apply-update";
 import type { OrderStatus } from "@/generated/prisma/client";
 
 /**
@@ -45,28 +44,6 @@ const STATUS_MAP: Record<string, OrderStatus> = {
   shipped: "shipped",
   "picked up": "shipped",
   "pickup complete": "shipped",
-};
-
-/**
- * How far along each status is. A webhook can arrive late, out of order, or
- * twice — Shiprocket makes no ordering guarantee — so a scan is only applied if
- * it moves the order FORWARD. Without this a delayed "shipped" scan landing
- * after "delivered" would un-deliver a completed order.
- *
- * cancelled and returned are terminal and sit above delivered: they are real
- * outcomes that can legitimately follow it (an RTO), and nothing should move an
- * order out of them.
- */
-const RANK: Record<string, number> = {
-  placed: 0,
-  confirmed: 1,
-  processing: 2,
-  shipped: 3,
-  delivered: 4,
-  return_requested: 5,
-  returned: 6,
-  cancelled: 6,
-  refunded: 7,
 };
 
 function tokenMatches(provided: string | null): boolean {
@@ -122,68 +99,16 @@ export async function POST(req: Request) {
    * ignores — and especially those. "In Transit" and "Out for Delivery" do not
    * move our order status, because there is no status for them and inventing
    * one would promise something we cannot stand behind; but they are exactly
-   * what a customer wants to read on the tracking page. Dropping them was the
-   * behaviour before the timeline existed.
+   * what a customer wants to read on the tracking page.
+   *
+   * Forward-only moves, the scan merge and the Delivered email are shared
+   * with the NimbusPost webhook — see server/couriers/apply-update.ts.
    */
-  const scans = normaliseScans(event.scans);
+  const moved = await applyCourierUpdate(order, {
+    next,
+    scans: normaliseScans(event.scans),
+    courierName: event.courier_name ? String(event.courier_name) : null,
+  });
 
-  // Only ever grows. A push carrying two scans must not replace a trail of ten
-  // — Shiprocket sends the recent window, not the full history.
-  const merged = mergeScans(order.shipmentScans, scans);
-
-  const advances = Boolean(next) && (RANK[next!] ?? 0) > (RANK[order.orderStatus] ?? 0);
-
-  // The status moves by compare-and-set on the status we read: Shiprocket can
-  // push the same scan twice at once, and only the push that actually moves
-  // the order may send the "delivered" email.
-  let moved = false;
-  if (advances) {
-    const claim = await prisma.order.updateMany({
-      where: { id: order.id, orderStatus: order.orderStatus },
-      data: { orderStatus: next! },
-    });
-    moved = claim.count === 1;
-  }
-
-  if (merged || event.courier_name) {
-    await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        ...(merged ? { shipmentScans: merged } : {}),
-        // Couriers get reassigned more often than you would think, and the name
-        // shown on the customer's tracking page should follow.
-        ...(event.courier_name ? { courierName: String(event.courier_name) } : {}),
-      },
-    });
-  }
-
-  if (moved && next === "delivered") {
-    after(async () => {
-      try {
-        await sendOrderDeliveredEmail(order.id);
-      } catch (err) {
-        console.error("order-delivered email failed", order.orderNumber, err);
-      }
-    });
-  }
-
-  return new Response(advances ? "OK" : "Recorded", { status: 200 });
-}
-
-/**
- * Union of what we hold and what just arrived, keyed on timestamp + activity.
- *
- * Returns null when nothing changed, so an unchanged trail is not rewritten on
- * every scan. Couriers repeat events across pushes, so de-duplication is the
- * normal path rather than an edge case.
- */
-function mergeScans(existing: unknown, incoming: ScanEvent[]): ScanEvent[] | null {
-  if (incoming.length === 0) return null;
-
-  const held = normaliseScans(existing);
-  const seen = new Set(held.map((s) => `${s.at}|${s.activity}`));
-  const added = incoming.filter((s) => !seen.has(`${s.at}|${s.activity}`));
-  if (added.length === 0) return null;
-
-  return [...held, ...added].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  return new Response(moved ? "OK" : "Recorded", { status: 200 });
 }

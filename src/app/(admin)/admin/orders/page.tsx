@@ -201,10 +201,7 @@ export default async function AdminOrdersPage({
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       {shippable && (
-                        <ShipOrderButton
-                          orderId={order.id}
-                          hasShiprocketOrder={Boolean(order.shiprocketOrderId)}
-                        />
+                        <ShipOrderButton orderId={order.id} />
                       )}
                       {order.paymentMethod === "cod" && isCancellable(order) && (
                         <ConfirmCodWhatsapp

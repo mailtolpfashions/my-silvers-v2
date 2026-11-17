@@ -62,6 +62,14 @@ enum RefundStatus {
   failed
 }
 
+/// Which courier partner booked an order's parcel. See src/server/couriers.
+/// Null until a courier is booked; orders booked before NimbusPost existed
+/// were backfilled to `shiprocket` by the migration that added this.
+enum CourierProvider {
+  shiprocket
+  nimbuspost
+}
+
 enum ContentStatus {
   draft
   published
@@ -526,6 +534,15 @@ model Order {
   refundProcessedAt    DateTime?
   shiprocketOrderId    String?
   shiprocketShipmentId String?
+  /// The partner that booked the parcel — decides where cancel, pickup,
+  /// label and tracking calls go. See src/server/couriers.
+  courierProvider      CourierProvider?
+  /// NimbusPost's own order id for the booked parcel (their pickup and label
+  /// calls take this, not the AWB).
+  nimbuspostOrderId    String?
+  /// What the shop paid the courier partner for this parcel, in rupees,
+  /// as the partner charged it. For the finance figures.
+  shippingCost         Decimal?      @db.Decimal(10, 2)
   trackingNumber       String?
   trackingUrl          String?
   courierName          String?

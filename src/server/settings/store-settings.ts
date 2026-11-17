@@ -146,6 +146,15 @@ export type StoreSettings = {
    * set it before this existed keeps its links until the owner saves a number.
    */
   whatsappNumber: string;
+
+  /**
+   * Which courier partners the Ship order dialog asks for prices. Both on means
+   * both are compared and the cheapest is preselected; one on means only that
+   * partner is used. A partner whose API keys are missing is skipped whatever
+   * this says (see server/couriers). At least one stays on — the admin action
+   * refuses to save both off.
+   */
+  courierPartners: { shiprocket: boolean; nimbuspost: boolean };
 };
 
 /** The header-menu lists, as one shape — what getNavMenuSettings returns. */
@@ -213,6 +222,9 @@ export const STORE_SETTING_DEFAULTS: StoreSettings = {
   navShopFor: [],
   charmPricing: "off",
   whatsappNumber: normaliseIndianMobile(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER),
+  // Shiprocket only until the owner switches NimbusPost on — so deploying this
+  // changes nothing about how parcels are shipped today.
+  courierPartners: { shiprocket: true, nimbuspost: false },
 };
 
 /** Cache tag for every settings read. Invalidated by the admin save action. */
@@ -293,6 +305,17 @@ function parse(raw: unknown): StoreSettings {
     // Never saved → the default; saved empty → deliberately hidden, and kept.
     whatsappNumber:
       typeof v.whatsappNumber === "string" ? normaliseIndianMobile(v.whatsappNumber) : d.whatsappNumber,
+    courierPartners: (() => {
+      const c = (typeof v.courierPartners === "object" && v.courierPartners !== null
+        ? v.courierPartners
+        : {}) as Record<string, unknown>;
+      const picked = {
+        shiprocket: bool(c.shiprocket, d.courierPartners.shiprocket),
+        nimbuspost: bool(c.nimbuspost, d.courierPartners.nimbuspost),
+      };
+      // Both off can't ship anything — treat it as never saved.
+      return picked.shiprocket || picked.nimbuspost ? picked : d.courierPartners;
+    })(),
   };
 }
 

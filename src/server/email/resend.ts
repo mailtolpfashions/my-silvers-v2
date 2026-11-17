@@ -168,7 +168,7 @@ export function orderConfirmationHtml(d: OrderEmailData): string {
 
 /**
  * "Your order is on its way" — sent once, when the courier is assigned
- * (assignAwbAction): that is when the order turns shipped and has a tracking
+ * (bookShipmentAction): that is when the order turns shipped and has a tracking
  * number to give. Leads with the tracking link, because that is the one thing
  * a shopper opens this email for.
  */

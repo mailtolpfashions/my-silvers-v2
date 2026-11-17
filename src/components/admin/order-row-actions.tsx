@@ -23,21 +23,22 @@ import {
 } from "@/components/ui/select";
 import {
   updateOrderStatusAction,
-  createShipmentAction,
-  assignAwbAction,
+  getShippingQuotesAction,
+  bookShipmentAction,
   schedulePickupAction,
   processReturnAction,
   cancelOrderAsStaffAction,
 } from "@/actions/admin-order-actions";
 import { CANCEL_REASONS, type CancelReason } from "@/lib/order-cancel-reasons";
 import { allowedStatusMoves } from "@/lib/order-status-moves";
+import { PROVIDER_LABEL, quoteKey, type CourierProviderId, type CourierQuote } from "@/lib/courier-quotes";
 
 
 /**
  * The order's status — a dropdown for the owner, a plain label for an admin.
  *
- * An admin moves an order on through the Actions column (Send to Shiprocket,
- * Assign courier, Review return) and the automatic updates (payment confirms
+ * An admin moves an order on through the Actions column (Ship order, Review
+ * return) and the automatic updates (payment confirms
  * it, Shiprocket's tracking marks it delivered). Each of those checks the
  * order is in a state where the step makes sense. The dropdown checks
  * nothing — it can jump any order to any status, "shipped" with no waybill or
@@ -106,75 +107,156 @@ export function OrderStatusSelect({
 }
 
 /**
- * The two halves of shipping, as two buttons.
+ * Ship order: compare every courier from every partner switched on in
+ * Settings (Shiprocket, NimbusPost), cheapest preselected, then book one.
  *
- * They are deliberately not merged back into one "Ship" control. Creating the
- * Shiprocket order is free and undoable; assigning the waybill spends money and
- * puts the parcel in a courier's queue. An admin should be able to do the first
- * without being committed to the second — see integrations/shiprocket.ts.
- *
- * Which one shows is driven by state the row already has: no shiprocketOrderId
- * means step one is outstanding, an id with no AWB means step two is.
+ * Opening the dialog only fetches prices — free, nothing booked. Booking is
+ * the second, explicit click, labelled with the courier and the price, because
+ * that is the one that spends money and puts the parcel in a courier's queue.
+ * Prices are all-in (GST included — see lib/courier-quotes.ts), so "cheapest"
+ * compares like with like across partners.
  */
-export function ShipOrderButton({
-  orderId,
-  hasShiprocketOrder,
-}: {
-  orderId: string;
-  hasShiprocketOrder: boolean;
-}) {
+export function ShipOrderButton({ orderId }: { orderId: string }) {
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [quotes, setQuotes] = useState<CourierQuote[] | null>(null);
+  const [errors, setErrors] = useState<Array<{ provider: CourierProviderId; message: string }>>([]);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function run() {
-    startTransition(async () => {
-      const result = hasShiprocketOrder
-        ? await assignAwbAction(orderId)
-        : await createShipmentAction(orderId);
+  async function load() {
+    setLoading(true);
+    setFailure(null);
+    setErrors([]);
+    const result = await getShippingQuotesAction(orderId);
+    setLoading(false);
+    if (!result.ok) {
+      setFailure(result.error);
+      setQuotes([]);
+      return;
+    }
+    setQuotes(result.quotes);
+    setErrors(result.errors);
+    // Cheapest first, so the first is the preselected choice.
+    setSelected(result.quotes[0] ? quoteKey(result.quotes[0]) : null);
+  }
 
+  const chosen = quotes?.find((q) => quoteKey(q) === selected) ?? null;
+
+  function book() {
+    if (!chosen) return;
+    startTransition(async () => {
+      const result = await bookShipmentAction(orderId, chosen.provider, chosen.courierId, chosen.total);
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
       toast.success(
         "trackingNumber" in result
-          ? `Waybill assigned — AWB ${result.trackingNumber}`
-          : "Sent to Shiprocket. Assign a courier when you are ready to dispatch."
+          ? `Booked ${result.courierName} — AWB ${result.trackingNumber}`
+          : "Courier booked."
       );
       setOpen(false);
     });
   }
 
+  const money = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) void load();
+      }}
+    >
       <DialogTrigger asChild>
-        <Button variant={hasShiprocketOrder ? "default" : "outline"} size="sm">
-          {hasShiprocketOrder ? "Assign courier" : "Send to Shiprocket"}
-        </Button>
+        <Button size="sm">Ship order</Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>
-            {hasShiprocketOrder ? "Assign a courier and buy the waybill?" : "Send this order to Shiprocket?"}
-          </DialogTitle>
+          <DialogTitle>Choose a courier</DialogTitle>
           <DialogDescription>
-            {hasShiprocketOrder
-              ? "This books a courier, charges your Shiprocket wallet and marks the order shipped. It cannot be undone for free — cancelling afterwards cancels a live waybill."
-              : "This registers the order in your Shiprocket account so you can see and check it there. Nothing is booked with a courier and nothing is charged; you can cancel it freely."}
+            Prices from your courier partners, all-in with 18% GST. The cheapest is selected — pick
+            another if you want a faster one. Nothing is booked until you press Book.
           </DialogDescription>
         </DialogHeader>
+
+        {loading && <p className="py-6 text-center text-sm text-muted-foreground">Getting prices…</p>}
+        {failure && (
+          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{failure}</p>
+        )}
+        {errors.map((e) => (
+          <p key={e.provider} className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            {PROVIDER_LABEL[e.provider]} couldn&apos;t give prices: {e.message}
+          </p>
+        ))}
+        {!loading && quotes && quotes.length === 0 && !failure && (
+          <p className="py-4 text-sm text-muted-foreground">
+            No courier delivers to this pincode for this parcel. Check the address, or try again later.
+          </p>
+        )}
+
+        {!loading && quotes && quotes.length > 0 && (
+          <div className="max-h-[50dvh] overflow-y-auto rounded-md border">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Courier</th>
+                  <th className="px-3 py-2 font-medium">Days</th>
+                  <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">Freight</th>
+                  <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">COD</th>
+                  <th className="px-3 py-2 text-right font-medium">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {quotes.map((q, i) => {
+                  const key = quoteKey(q);
+                  return (
+                    <tr
+                      key={key}
+                      onClick={() => setSelected(key)}
+                      className={`cursor-pointer border-t ${selected === key ? "bg-primary/5" : "hover:bg-muted/50"}`}
+                    >
+                      <td className="px-3 py-2">
+                        <label className="flex cursor-pointer items-start gap-2">
+                          <input
+                            type="radio"
+                            name={`courier-${orderId}`}
+                            checked={selected === key}
+                            onChange={() => setSelected(key)}
+                            className="mt-1"
+                          />
+                          <span>
+                            <span className="font-medium">{q.courierName}</span>
+                            <span className="block text-xs text-muted-foreground">
+                              via {PROVIDER_LABEL[q.provider]}
+                              {i === 0 && <span className="ml-1.5 font-semibold text-green-700">· Cheapest</span>}
+                            </span>
+                          </span>
+                        </label>
+                      </td>
+                      <td className="px-3 py-2">{q.estimatedDays ?? "—"}</td>
+                      <td className="hidden px-3 py-2 text-right sm:table-cell">{money(q.freight)}</td>
+                      <td className="hidden px-3 py-2 text-right sm:table-cell">
+                        {q.codCharges ? money(q.codCharges) : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold">{money(q.total)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
             Cancel
           </Button>
-          <Button onClick={run} disabled={isPending}>
-            {isPending
-              ? hasShiprocketOrder
-                ? "Assigning…"
-                : "Sending…"
-              : hasShiprocketOrder
-                ? "Assign courier"
-                : "Send to Shiprocket"}
+          <Button onClick={book} disabled={isPending || !chosen}>
+            {isPending ? "Booking…" : chosen ? `Book ${chosen.courierName} — ${money(chosen.total)}` : "Book"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -183,9 +265,9 @@ export function ShipOrderButton({
 }
 
 /**
- * Step three, once a waybill exists: book the collection and get the label.
+ * Once a waybill exists: book the collection and get the label.
  *
- * Free and repeatable, so unlike the two before it this one goes straight
+ * Free and repeatable, so unlike Ship order this one goes straight
  * through without a confirmation dialogue — asking "are you sure?" about an
  * action that costs nothing and can be repeated just trains people to click
  * past dialogues that do matter.
