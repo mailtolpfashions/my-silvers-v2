@@ -74,6 +74,8 @@ function isStockSortKey(value: unknown): value is StockSortKey {
  */
 type InventorySearchParams = {
   q?: string;
+  /** Which list is showing — see the tabs below. */
+  view?: string;
   outSort?: string;
   outDir?: string;
   lowSort?: string;
@@ -165,16 +167,58 @@ export default async function AdminInventoryPage({
     waitingByProduct.set(w.productId, (waitingByProduct.get(w.productId) ?? 0) + w._count._all);
   }
 
+  /**
+   * One list at a time, as tabs. The three used to stack, so with a few dozen
+   * pieces out the low-stock list — the one to act on before it runs out — sat
+   * two screens down. Opens on the first list that has anything in it.
+   */
+  type View = "out" | "low" | "sizes";
+  const counts: Record<View, number> = { out: out.length, low: low.length, sizes: sized.length };
+  const view: View =
+    params.view === "out" || params.view === "low" || params.view === "sizes"
+      ? params.view
+      : (["out", "low", "sizes"] as const).find((v) => counts[v] > 0) ?? "out";
+  const tabHref = (v: View) => {
+    const qs = new URLSearchParams();
+    for (const [k, val] of Object.entries(params)) if (val && k !== "view") qs.set(k, val);
+    qs.set("view", v);
+    return `/admin/inventory?${qs.toString()}`;
+  };
+  const TABS: Array<[View, string]> = [
+    ["out", "Out of stock"],
+    ["low", `Low stock (${LOW_STOCK_AT} or fewer)`],
+    ["sizes", "Sizes out"],
+  ];
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         title="Inventory"
         description={`Pieces that are out of stock, or down to ${LOW_STOCK_AT} or fewer.`}
       />
 
-      <AdminSearch action="/admin/inventory" placeholder="Search by name or SKU" value={q} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <nav aria-label="Inventory lists" className="flex flex-wrap gap-2">
+          {TABS.map(([v, label]) => (
+            <Link
+              key={v}
+              href={tabHref(v)}
+              aria-current={view === v ? "page" : undefined}
+              className={`rounded-full border px-3 py-1 text-sm ${
+                view === v ? "border-foreground bg-foreground text-background" : "hover:bg-muted"
+              }`}
+            >
+              {label}
+              <span className={`ml-1.5 ${view === v ? "opacity-80" : counts[v] > 0 && v === "out" ? "text-destructive" : "text-muted-foreground"}`}>
+                {counts[v]}
+              </span>
+            </Link>
+          ))}
+        </nav>
+        <AdminSearch action="/admin/inventory" placeholder="Search by name or SKU" value={q} />
+      </div>
 
-      <Section
+      {view === "out" && <Section
         title="Out of stock"
         empty="Nothing is out of stock."
         products={out}
@@ -185,9 +229,9 @@ export default async function AdminInventoryPage({
         currentDir={outDir}
         params={params}
         waitingByProduct={waitingByProduct}
-      />
+      />}
 
-      <Section
+      {view === "low" && <Section
         title={`Low stock (${LOW_STOCK_AT} or fewer)`}
         empty="Nothing is running low."
         products={low}
@@ -197,10 +241,10 @@ export default async function AdminInventoryPage({
         currentDir={lowDir}
         params={params}
         waitingByProduct={waitingByProduct}
-      />
+      />}
 
-      <section className="space-y-3">
-        <h2 className="text-base font-medium">Sizes out of stock</h2>
+      {view === "sizes" && <section className="space-y-3">
+        <h2 className="sr-only">Sizes out of stock</h2>
         <p className="text-sm text-muted-foreground">
           The piece still shows as in stock because other sizes are available, so these never appear
           in the lists above.
@@ -232,7 +276,7 @@ export default async function AdminInventoryPage({
             </CardContent>
           </Card>
         )}
-      </section>
+      </section>}
     </div>
   );
 }
@@ -272,8 +316,8 @@ function Section({
 }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-base font-medium">
-        {title} <span className="text-muted-foreground">({products.length})</span>
+      <h2 className="sr-only">
+        {title} ({products.length})
       </h2>
       {products.length === 0 ? (
         <Card>

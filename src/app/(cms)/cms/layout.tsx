@@ -3,8 +3,9 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/server/auth/auth";
 import { getCurrentRole } from "@/server/auth/require-role";
-import { isStaff } from "@/server/auth/roles";
+import { isOwner, isStaff } from "@/server/auth/roles";
 import { prisma } from "@/server/db";
+import { sortContentTypes } from "@/lib/cms-type-order";
 import { DashboardShell, type NavGroup } from "@/components/layout/dashboard-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -15,15 +16,6 @@ import { Skeleton } from "@/components/ui/skeleton";
  * appear on its own, which a hardcoded menu could not do. Adding heroSlide
  * previously left it with no menu entry at all.
  */
-const PREFERRED_ORDER = [
-  "homepage",
-  "heroSlide",
-  "page",
-  "blog",
-  "collection",
-  "announcement",
-  "banner",
-];
 
 /**
  * As with /admin: the gate and the nav query sit behind Suspense, because the
@@ -55,14 +47,8 @@ async function CmsGate({ children }: { children: React.ReactNode }) {
     select: { name: true, label: true },
   });
 
-  const rank = (name: string) => {
-    const index = PREFERRED_ORDER.indexOf(name);
-    return index === -1 ? PREFERRED_ORDER.length : index;
-  };
-
-  const sorted = [...contentTypes].sort(
-    (a, b) => rank(a.name) - rank(b.name) || a.label.localeCompare(b.label)
-  );
+  // Shared with the Studio start page — see lib/cms-type-order.ts.
+  const sorted = sortContentTypes(contentTypes);
 
   /**
    * Content types get their own group, so the list stays legible as types are
@@ -91,7 +77,8 @@ async function CmsGate({ children }: { children: React.ReactNode }) {
     <DashboardShell
       title="Studio"
       groups={groups}
-      roleLabel={role}
+      // "Owner", as the admin says — not the raw role name.
+      roleLabel={isOwner(role) ? "owner" : role}
       // From the same query as the sidebar, so a renamed content type changes
       // in both places at once. These used to be hardcoded in the breadcrumb
       // component and had already drifted — "Blog" there, "Journal" here.

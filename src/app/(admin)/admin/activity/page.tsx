@@ -5,6 +5,7 @@ import { ROLE_LABELS } from "@/server/auth/roles";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/layout/empty-state";
 import { AdminPagination } from "@/components/admin/admin-pagination";
+import { LinkSelect } from "@/components/admin/link-select";
 import { OwnerOnlyNotice, viewerIsOwner } from "@/components/admin/owner-only";
 import {
   Table,
@@ -93,7 +94,7 @@ export default async function AdminActivityPage({ searchParams }: { searchParams
         description="Who did what in the admin and the CMS, newest first. Entries can't be edited or deleted."
       />
 
-      <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
           <Link href={href({ area: undefined, page: 1 })} className={chip(!area)}>
             Everything
@@ -104,21 +105,17 @@ export default async function AdminActivityPage({ searchParams }: { searchParams
             </Link>
           ))}
         </div>
+        {/* A dropdown, not chips: one chip per person who ever used the admin
+            grew into a wall that pushed the log itself off the screen. */}
         {people.length > 1 && (
-          <div className="flex flex-wrap gap-2">
-            <Link href={href({ who: undefined, page: 1 })} className={chip(!who)}>
-              Everyone
-            </Link>
-            {people.map((p) => (
-              <Link
-                key={p.actorEmail}
-                href={href({ who: p.actorEmail, page: 1 })}
-                className={chip(who === p.actorEmail)}
-              >
-                {p.actorEmail}
-              </Link>
-            ))}
-          </div>
+          <LinkSelect
+            label="Filter by person"
+            value={href({ who, page: 1 })}
+            options={[
+              { label: "Everyone", href: href({ who: undefined, page: 1 }) },
+              ...people.map((p) => ({ label: p.actorEmail, href: href({ who: p.actorEmail, page: 1 }) })),
+            ]}
+          />
         )}
       </div>
 

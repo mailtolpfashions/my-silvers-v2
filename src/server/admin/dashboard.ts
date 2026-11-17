@@ -131,7 +131,9 @@ export async function getDashboard(range: DashboardRange, tab: RecentTab) {
     prisma.order.findMany({
       where: TO_SHIP_WHERE,
       orderBy: { createdAt: "asc" },
-      take: 8,
+      // The oldest few. The card links to the full list; showing up to 8
+      // pushed the day's numbers below the fold whenever orders piled up.
+      take: 4,
       select: {
         id: true,
         orderNumber: true,

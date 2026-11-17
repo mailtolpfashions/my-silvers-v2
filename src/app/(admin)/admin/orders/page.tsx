@@ -145,7 +145,7 @@ export default async function AdminOrdersPage({
                 (order.paymentMethod === "cod" || order.paymentStatus === "paid");
               return (
                 <TableRow key={order.id}>
-                  <TableCell>
+                  <TableCell className="min-w-56 max-w-72">
                     <Link
                       href={`/admin/orders/${order.id}`}
                       className="text-sm font-medium underline underline-offset-2"
@@ -156,16 +156,25 @@ export default async function AdminOrdersPage({
                       {order.createdAt.toLocaleDateString("en-IN", { dateStyle: "medium" })} ·{" "}
                       {order.items.length} item{order.items.length === 1 ? "" : "s"}
                     </p>
-                    {/* The product names are what an admin actually scans for. */}
-                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                      {order.items
+                    {/* The product names are what an admin actually scans for — one
+                        line, full list on hover. Two wrapped lines in a narrow
+                        column doubled every row's height. */}
+                    {(() => {
+                      const items = order.items
                         .map((i) => `${i.quantity} × ${i.name}${i.size ? ` (${i.size})` : ""}`)
-                        .join(", ")}
-                    </p>
+                        .join(", ");
+                      return (
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground" title={items}>
+                          {items}
+                        </p>
+                      );
+                    })()}
                   </TableCell>
-                  <TableCell>
-                    <p className="text-sm">{order.user.name ?? "—"}</p>
-                    <p className="text-xs text-muted-foreground">{order.user.email}</p>
+                  <TableCell className="max-w-56">
+                    <p className="truncate text-sm">{order.user.name ?? "—"}</p>
+                    <p className="truncate text-xs text-muted-foreground" title={order.user.email}>
+                      {order.user.email}
+                    </p>
                   </TableCell>
                   <TableCell className="text-sm">
                     {formatINR(order.totalAmount.toString())}

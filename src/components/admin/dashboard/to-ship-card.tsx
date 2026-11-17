@@ -89,18 +89,20 @@ export function ToShipCard({
                 ? "text-[var(--state-warning-fg)]"
                 : "text-muted-foreground";
           return (
-            <li key={o.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
+            <li key={o.id} className="flex items-center gap-4 px-5 py-2.5">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">
-                  {o.orderNumber}
-                  <span className="ml-2 font-normal">{o.customer}</span>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {o.recipient && o.recipient.toLowerCase() !== o.customer.toLowerCase()
-                    ? `Ship to ${o.recipient}${o.city ? `, ${o.city}` : ""}`
-                    : o.city
-                      ? `Ship to ${o.city}`
-                      : "No delivery address"}
+                {/* Two lines, not three: who and where on the first, the
+                    money and the wait on the second. */}
+                <p className="truncate text-sm">
+                  <span className="font-semibold">{o.orderNumber}</span>
+                  <span className="ml-2">{o.customer}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {o.recipient && o.recipient.toLowerCase() !== o.customer.toLowerCase()
+                      ? `→ ${o.recipient}${o.city ? `, ${o.city}` : ""}`
+                      : o.city
+                        ? `→ ${o.city}`
+                        : "· no delivery address"}
+                  </span>
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {o.items} item{o.items === 1 ? "" : "s"} · {formatINR(o.total)} ·{" "}
