@@ -1,6 +1,7 @@
 import { prisma } from "@/server/db";
 import { checkIpRateLimit } from "@/server/rate-limit/limiter";
 import { verifyNimbusPostSignature } from "@/server/integrations/nimbuspost";
+import { nimbuspostWebhookSecret } from "@/server/settings/courier-config";
 import { applyCourierUpdate } from "@/server/couriers/apply-update";
 import type { OrderStatus } from "@/generated/prisma/client";
 
@@ -17,12 +18,13 @@ import type { OrderStatus } from "@/generated/prisma/client";
  * ── Auth ─────────────────────────────────────────────────────────────────────
  * Stronger than Shiprocket's: NimbusPost SIGNS each delivery. The
  * `x-nimbus-signature` header is an HMAC-SHA256 of the raw body keyed with
- * the subscription secret (NIMBUSPOST_WEBHOOK_SECRET), checked on the exact
+ * the subscription secret (set by Connect tracking on the Courier page —
+ * server/settings/courier-config.ts), checked on the exact
  * bytes before the JSON is parsed. Deliveries can repeat; that is harmless,
  * because the status move is forward-only and the scan trail de-duplicates.
  *
- * Register with POST /v2/webhooks (events tracking.updated and order.updated)
- * pointing at https://www.mysilvers.in/api/webhooks/nimbuspost.
+ * Registered from the Courier page (Connect tracking), which points
+ * NimbusPost at https://www.mysilvers.in/api/webhooks/nimbuspost.
  */
 
 /**
@@ -61,7 +63,7 @@ export async function POST(req: Request) {
 
   // The signature covers the bytes exactly as sent — read them before parsing.
   const raw = await req.text();
-  if (!verifyNimbusPostSignature(raw, req.headers.get("x-nimbus-signature"))) {
+  if (!verifyNimbusPostSignature(raw, req.headers.get("x-nimbus-signature"), await nimbuspostWebhookSecret())) {
     return new Response("Invalid signature", { status: 401 });
   }
 

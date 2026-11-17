@@ -24,6 +24,7 @@
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { ScanEvent } from "@/server/integrations/shiprocket";
+import { nimbuspostWarehouseId } from "@/server/settings/courier-config";
 
 const BASE = "https://api-v2.nimbuspost.com/v2";
 
@@ -50,7 +51,7 @@ function pickupPincode(): string {
   return pin;
 }
 
-async function npFetch<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+async function npFetch<T>(method: "GET" | "POST" | "PATCH", path: string, body?: unknown): Promise<T> {
   const key = process.env.NIMBUSPOST_API_KEY;
   const secret = process.env.NIMBUSPOST_API_SECRET;
   if (!key || !secret) {
@@ -179,10 +180,10 @@ export type NimbusPostBooking = {
  * order in NimbusPost but returns 400 — surfaced as an error, nothing booked.
  */
 export async function bookNimbusPost(input: NimbusPostBookingInput): Promise<NimbusPostBooking> {
-  const warehouseId = process.env.NIMBUSPOST_WAREHOUSE_ID;
+  const warehouseId = await nimbuspostWarehouseId();
   if (!warehouseId) {
     throw new NimbusPostError(
-      "NIMBUSPOST_WAREHOUSE_ID is not set — add your pickup warehouse in NimbusPost and put its ID in the settings."
+      "No NimbusPost pickup warehouse is set — add or choose one on the Courier page."
     );
   }
   const digits = (s: string) => Number(s.replace(/\D/g, "").slice(-10));
@@ -284,15 +285,162 @@ export async function trackNimbusPost(awb: string): Promise<ScanEvent[]> {
     .filter((s) => s.at && s.activity);
 }
 
+// ─── Account set-up (the Courier page) ───────────────────────────────────────
+
+/** Rupees the NimbusPost wallet can spend on bookings right now. */
+export async function nimbusPostWalletBalance(): Promise<number> {
+  const data = await npFetch<{ usable_balance?: number; balance?: string }>("GET", "/wallet/balance");
+  return Number(data.usable_balance ?? data.balance ?? 0);
+}
+
+export type NimbusPostWarehouse = {
+  id: string;
+  name: string;
+  status: string;
+  pincode: string;
+  city: string;
+};
+
+export async function listNimbusPostWarehouses(): Promise<NimbusPostWarehouse[]> {
+  type Row = {
+    warehouse_id?: string;
+    name?: string;
+    status?: string;
+    address?: { pincode?: number | string; city?: string };
+  };
+  const rows = await npFetch<Row[]>("GET", "/warehouses");
+  return (rows ?? [])
+    .filter((r) => r.warehouse_id)
+    .map((r) => ({
+      id: r.warehouse_id!,
+      name: r.name ?? "Warehouse",
+      status: r.status ?? "active",
+      pincode: r.address?.pincode ? String(r.address.pincode) : "",
+      city: r.address?.city ?? "",
+    }));
+}
+
+/** Step 1 of adding a warehouse: NimbusPost texts an OTP to the pickup contact. */
+export async function sendNimbusPostWarehouseOtp(phone: string): Promise<{ resendInSec: number | null }> {
+  const data = await npFetch<{ otp_sent?: boolean; resend_in_sec?: number }>("POST", "/warehouses/otp/send", {
+    phone: Number(phone),
+    purpose: "pickup",
+  });
+  if (data?.otp_sent === false) throw new NimbusPostError("NimbusPost could not send the OTP. Please try again.");
+  return { resendInSec: data?.resend_in_sec ?? null };
+}
+
+/** Step 2: the OTP the contact received → a verification id for step 3. */
+export async function verifyNimbusPostWarehouseOtp(phone: string, otp: string): Promise<string> {
+  const data = await npFetch<{ verified?: boolean; verification_id?: string }>("POST", "/warehouses/otp/verify", {
+    phone: Number(phone),
+    otp,
+    purpose: "pickup",
+  });
+  if (!data?.verified || !data.verification_id) throw new NimbusPostError("That OTP didn't match. Check it and try again.");
+  return data.verification_id;
+}
+
+export type NewWarehouse = {
+  name: string;
+  address: string;
+  addressOpt?: string;
+  pincode: string;
+  city: string;
+  state: string;
+  contactName: string;
+  contactPhone: string;
+  contactEmail?: string;
+  gst?: string;
+  verificationId: string;
+};
+
+/**
+ * Step 3: create it. Returns become this same warehouse (no second OTP).
+ * A warehouse with the same name is returned instead of duplicated.
+ */
+export async function createNimbusPostWarehouse(w: NewWarehouse): Promise<{ id: string; name: string; created: boolean }> {
+  const data = await npFetch<{ warehouse_id?: string; name?: string; created?: boolean }>("POST", "/warehouses", {
+    name: w.name,
+    display_name: w.name,
+    address: {
+      address: w.address,
+      ...(w.addressOpt ? { address_opt: w.addressOpt } : {}),
+      pincode: Number(w.pincode),
+      city: w.city,
+      state: w.state,
+      country: "India",
+    },
+    contact_person: {
+      name: w.contactName,
+      phone: Number(w.contactPhone),
+      ...(w.contactEmail ? { email: w.contactEmail } : {}),
+      phone_verified: true,
+      verification_id: w.verificationId,
+    },
+    ...(w.gst ? { gst: w.gst } : {}),
+    is_primary: true,
+    status: "active",
+    rto_same_as_pickup: true,
+  });
+  if (!data?.warehouse_id) throw new NimbusPostError("NimbusPost did not return the new warehouse's ID.");
+  return { id: data.warehouse_id, name: data.name ?? w.name, created: data.created !== false };
+}
+
+/**
+ * Registers our tracking webhook, signed with a secret WE generate — so it can
+ * be stored on our side without NimbusPost ever having to show it to anyone.
+ */
+export async function createNimbusPostWebhook(url: string, secret: string): Promise<{ id: string }> {
+  const data = await npFetch<{ id?: string }>("POST", "/webhooks", {
+    name: "MY Silvers tracking",
+    url,
+    events: ["tracking.updated", "order.updated"],
+    secret,
+  });
+  if (!data?.id) throw new NimbusPostError("NimbusPost did not return the webhook's ID.");
+  return { id: data.id };
+}
+
+export type NimbusPostWebhookStatus = {
+  id: string;
+  url: string;
+  status: string;
+  lastDeliveryAt: string | null;
+  lastDeliveryStatus: number | null;
+  autoPaused: boolean;
+};
+
+export async function listNimbusPostWebhooks(): Promise<NimbusPostWebhookStatus[]> {
+  type Row = {
+    id?: string;
+    url?: string;
+    status?: string;
+    lastDeliveryAt?: string | null;
+    lastDeliveryStatus?: number | null;
+    autoPausedAt?: string | null;
+  };
+  const rows = await npFetch<Row[]>("GET", "/webhooks");
+  return (rows ?? [])
+    .filter((r) => r.id)
+    .map((r) => ({
+      id: r.id!,
+      url: r.url ?? "",
+      status: r.status ?? "",
+      lastDeliveryAt: r.lastDeliveryAt ?? null,
+      lastDeliveryStatus: r.lastDeliveryStatus ?? null,
+      autoPaused: Boolean(r.autoPausedAt),
+    }));
+}
+
 // ─── Webhooks ────────────────────────────────────────────────────────────────
 
 /**
  * `x-nimbus-signature` is "sha256=" + hex HMAC-SHA256 of the RAW body, keyed
- * with the subscription's secret (NIMBUSPOST_WEBHOOK_SECRET). Checked on the
- * exact bytes received, before any JSON parsing, in constant time.
+ * with the subscription's secret (server/settings/courier-config.ts). Checked
+ * on the exact bytes received, before any JSON parsing, in constant time.
  */
-export function verifyNimbusPostSignature(rawBody: string, header: string | null): boolean {
-  const secret = process.env.NIMBUSPOST_WEBHOOK_SECRET;
+export function verifyNimbusPostSignature(rawBody: string, header: string | null, secret: string | null): boolean {
   if (!secret || !header) return false;
   const expected = "sha256=" + createHmac("sha256", secret).update(rawBody).digest("hex");
   const a = Buffer.from(header);

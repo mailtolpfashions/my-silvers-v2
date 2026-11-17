@@ -54,6 +54,7 @@ const OWNER_NAV: NavGroup = {
     { href: "/admin/activity", label: "Activity log", icon: "activity" },
     { href: "/admin/finance", label: "Finance", icon: "finance" },
     { href: "/admin/coupons", label: "Coupons", icon: "coupons" },
+    { href: "/admin/courier", label: "Courier", icon: "courier" },
     { href: "/admin/settings", label: "Settings", icon: "settings" },
   ],
 };
