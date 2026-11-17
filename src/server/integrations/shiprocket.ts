@@ -24,6 +24,7 @@
  * expiry costs one extra round trip rather than a failed shipment.
  */
 import { kvGet, kvSet, kvDelete } from "@/server/cache/kv";
+import { shiprocketPickupLocation, shiprocketPickupPincode } from "@/server/settings/courier-config";
 
 const BASE = "https://apiv2.shiprocket.in/v1/external";
 const TOKEN_TTL_MS = 8 * 24 * 60 * 60 * 1000;
@@ -235,7 +236,8 @@ export async function createShiprocketOrder(input: ShipmentInput): Promise<Creat
   const res = await srFetch("/orders/create/adhoc", {
     order_id: input.orderNumber,
     order_date: input.orderDate.toISOString().slice(0, 10),
-    pickup_location: process.env.SHIPROCKET_PICKUP_LOCATION || "Primary",
+    // Chosen on the Courier page (or SHIPROCKET_PICKUP_LOCATION) — the nickname must match exactly.
+    pickup_location: await shiprocketPickupLocation(),
     billing_customer_name: firstName,
     billing_last_name: rest.join(" ") || firstName,
     billing_address: input.address.addressLine1,
@@ -454,7 +456,7 @@ export type Serviceability = {
  * Can we deliver here at all, and roughly how fast.
  *
  * Read-only and free, which is why it is safe to call from checkout. The pickup
- * pincode is ours (SHIPROCKET_PICKUP_PINCODE) and must match the pincode of the
+ * pincode is the chosen pickup location's (Courier page, or SHIPROCKET_PICKUP_PINCODE) and must match the pincode of the
  * pickup location configured in the dashboard, or every lookup comes back
  * unserviceable for reasons that have nothing to do with the shopper.
  */
@@ -470,9 +472,9 @@ export async function checkServiceability(input: {
    */
   declaredValue?: number;
 }): Promise<Serviceability> {
-  const pickup = process.env.SHIPROCKET_PICKUP_PINCODE;
+  const pickup = await shiprocketPickupPincode();
   if (!pickup) {
-    throw new ShiprocketError("SHIPROCKET_PICKUP_PINCODE is not set.");
+    throw new ShiprocketError("No Shiprocket pickup location chosen — pick one on the Courier page.");
   }
 
   const query = new URLSearchParams({
@@ -538,10 +540,89 @@ export async function checkServiceabilityCached(input: {
   weightKg: number;
   cod: boolean;
 }): Promise<Serviceability> {
-  const key = `shiprocket:svc:${process.env.SHIPROCKET_PICKUP_PINCODE ?? ""}:${input.deliveryPincode}:${input.weightKg}:${input.cod ? 1 : 0}`;
+  const key = `shiprocket:svc:${(await shiprocketPickupPincode()) ?? ""}:${input.deliveryPincode}:${input.weightKg}:${input.cod ? 1 : 0}`;
   const hit = await kvGet<Serviceability>(key);
   if (hit) return hit;
   const fresh = await checkServiceability(input);
   await kvSet(key, fresh, SERVICEABILITY_TTL_SECONDS);
   return fresh;
+}
+
+// ─── Account set-up (the Courier page) ───────────────────────────────────────
+
+/** Rupees in the Shiprocket wallet. Can be negative on a postpaid account. */
+export async function shiprocketWalletBalance(): Promise<number> {
+  const res = await srFetch("/account/details/wallet-balance");
+  const data = res.data as { balance_amount?: string | number } | undefined;
+  return Number(data?.balance_amount ?? 0);
+}
+
+export type ShiprocketPickup = {
+  /** The nickname orders are created against. */
+  location: string;
+  pincode: string;
+  city: string;
+  phoneVerified: boolean;
+  primary: boolean;
+};
+
+export async function listShiprocketPickups(): Promise<ShiprocketPickup[]> {
+  const res = await srFetch("/settings/company/pickup");
+  const rows =
+    ((res.data as { shipping_address?: unknown[] } | undefined)?.shipping_address as
+      | Array<{
+          pickup_location?: string;
+          pin_code?: string | number;
+          city?: string;
+          phone_verified?: number;
+          is_primary_location?: number;
+        }>
+      | undefined) ?? [];
+  return rows
+    .filter((r) => r.pickup_location)
+    .map((r) => ({
+      location: r.pickup_location!,
+      pincode: r.pin_code ? String(r.pin_code) : "",
+      city: r.city ?? "",
+      phoneVerified: r.phone_verified === 1,
+      primary: r.is_primary_location === 1,
+    }));
+}
+
+/**
+ * Adds a pickup location to the Shiprocket account. Shiprocket may still ask
+ * for the phone number to be verified in its dashboard before couriers
+ * collect from it — the API returns `phone_verified: 0` for a new one.
+ */
+export async function addShiprocketPickup(p: {
+  location: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  address2?: string;
+  city: string;
+  state: string;
+  pincode: string;
+  gstin?: string;
+}): Promise<{ location: string; pincode: string; phoneVerified: boolean }> {
+  const res = await srFetch("/settings/company/addpickup", {
+    pickup_location: p.location,
+    name: p.name,
+    email: p.email,
+    phone: Number(p.phone),
+    // Shiprocket caps the first line at 80 characters.
+    address: p.address.slice(0, 80),
+    ...(p.address2 ? { address_2: p.address2 } : {}),
+    city: p.city,
+    state: p.state,
+    country: "India",
+    pin_code: Number(p.pincode),
+    ...(p.gstin ? { gstin: p.gstin } : {}),
+  });
+  if (res.success === false) {
+    throw new ShiprocketError(`Shiprocket refused the pickup location: ${JSON.stringify(res.message ?? res)}`);
+  }
+  const a = res.address as { pickup_code?: string; phone_verified?: number } | undefined;
+  return { location: a?.pickup_code ?? p.location, pincode: p.pincode, phoneVerified: a?.phone_verified === 1 };
 }

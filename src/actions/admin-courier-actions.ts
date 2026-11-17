@@ -13,6 +13,7 @@ import {
   type StoreSettings,
 } from "@/server/settings/store-settings";
 import { saveCourierConfig } from "@/server/settings/courier-config";
+import { ShiprocketError, addShiprocketPickup } from "@/server/integrations/shiprocket";
 import {
   NimbusPostError,
   sendNimbusPostWarehouseOtp,
@@ -113,7 +114,7 @@ const phone = z
   .refine((v) => /^[6-9]\d{9}$/.test(v), { message: "Enter a 10-digit Indian mobile number." });
 
 function courierError(err: unknown, fallback: string): { ok: false; error: string } {
-  if (err instanceof NimbusPostError) return { ok: false, error: err.message };
+  if (err instanceof NimbusPostError || err instanceof ShiprocketError) return { ok: false, error: err.message };
   console.error(fallback, err);
   return { ok: false, error: fallback };
 }
@@ -177,7 +178,11 @@ export async function createWarehouseAction(
       gst: w.gst || undefined,
       verificationId,
     });
-    await saveCourierConfig({ nimbuspostWarehouseId: created.id, nimbuspostWarehouseName: created.name });
+    await saveCourierConfig({
+      nimbuspostWarehouseId: created.id,
+      nimbuspostWarehouseName: created.name,
+      nimbuspostWarehousePincode: w.pincode,
+    });
     await logActivity(session, {
       action: "settings.update",
       target: { type: "settings", id: "courier" },
@@ -191,10 +196,14 @@ export async function createWarehouseAction(
 }
 
 /** Use a warehouse that already exists in NimbusPost (added in their dashboard, say). */
-export async function chooseWarehouseAction(id: string, name: string): Promise<CourierActionResult> {
+export async function chooseWarehouseAction(id: string, name: string, pincode: string): Promise<CourierActionResult> {
   const session = await requireOwner();
   if (!id) return { ok: false, error: "Choose a warehouse." };
-  await saveCourierConfig({ nimbuspostWarehouseId: id, nimbuspostWarehouseName: name.slice(0, 60) });
+  await saveCourierConfig({
+    nimbuspostWarehouseId: id,
+    nimbuspostWarehouseName: name.slice(0, 60),
+    nimbuspostWarehousePincode: /^\d{6}$/.test(pincode) ? pincode : null,
+  });
   await logActivity(session, {
     action: "settings.update",
     target: { type: "settings", id: "courier" },
@@ -230,4 +239,80 @@ export async function connectTrackingAction(): Promise<CourierActionResult> {
   } catch (err) {
     return courierError(err, "Could not connect tracking. Please try again.");
   }
+}
+
+// ─── Shiprocket ──────────────────────────────────────────────────────────────
+
+/** Use a pickup location already in the Shiprocket account. */
+export async function chooseShiprocketPickupAction(location: string, pincode: string): Promise<CourierActionResult> {
+  const session = await requireOwner();
+  if (!location) return { ok: false, error: "Choose a pickup location." };
+  await saveCourierConfig({
+    shiprocketPickupLocation: location.slice(0, 36),
+    shiprocketPickupPincode: /^\d{6}$/.test(pincode) ? pincode : null,
+  });
+  await logActivity(session, {
+    action: "settings.update",
+    target: { type: "settings", id: "courier" },
+    summary: `Set the Shiprocket pickup location to "${location}"`,
+  });
+  revalidatePath("/admin/courier");
+  return { ok: true };
+}
+
+const shiprocketPickupSchema = z.object({
+  // Shiprocket's limit; it identifies the location on every order.
+  location: z.string().trim().min(2, "Give the location a short name.").max(36, "At most 36 characters."),
+  name: z.string().trim().min(2, "Enter the contact's name.").max(60),
+  email: z.string().trim().email("Enter a valid email."),
+  phone,
+  address: z.string().trim().min(5, "Enter the street address.").max(80, "Shiprocket allows 80 characters on the first line — move the rest to line 2."),
+  address2: z.string().trim().max(150).optional(),
+  city: z.string().trim().min(2, "Enter the city.").max(60),
+  state: z.string().trim().min(2, "Enter the state.").max(60),
+  pincode: z.string().trim().regex(/^\d{6}$/, "Enter a 6-digit pincode."),
+  gstin: z.string().trim().toUpperCase().regex(/^$|^[0-9A-Z]{15}$/, "A GSTIN is 15 letters and digits.").optional(),
+});
+
+/** Add a pickup location to the Shiprocket account and use it from now on. */
+export async function addShiprocketPickupAction(
+  input: unknown
+): Promise<{ ok: true; location: string; phoneVerified: boolean } | { ok: false; error: string }> {
+  const session = await requireOwner();
+  const parsed = shiprocketPickupSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the form." };
+  const p = parsed.data;
+  try {
+    const added = await addShiprocketPickup({ ...p, address2: p.address2 || undefined, gstin: p.gstin || undefined });
+    await saveCourierConfig({ shiprocketPickupLocation: added.location, shiprocketPickupPincode: added.pincode });
+    await logActivity(session, {
+      action: "settings.update",
+      target: { type: "settings", id: "courier" },
+      summary: `Added Shiprocket pickup location "${added.location}"`,
+    });
+    revalidatePath("/admin/courier");
+    return { ok: true, location: added.location, phoneVerified: added.phoneVerified };
+  } catch (err) {
+    return courierError(err, "Could not add the pickup location. Please try again.");
+  }
+}
+
+/**
+ * Makes the token Shiprocket will send with tracking updates. Shiprocket's API
+ * can't register a webhook, so the owner pastes this (and the URL) into
+ * Shiprocket → Settings → API → Webhooks. A new token replaces the previous
+ * one made here, so paste it into Shiprocket straight away — updates sent
+ * with the old one are refused until you do. A SHIPROCKET_WEBHOOK_TOKEN env
+ * var, if set, keeps working alongside.
+ */
+export async function generateShiprocketTokenAction(): Promise<CourierActionResult> {
+  const session = await requireOwner();
+  await saveCourierConfig({ shiprocketWebhookToken: randomBytes(24).toString("hex") });
+  await logActivity(session, {
+    action: "settings.update",
+    target: { type: "settings", id: "courier" },
+    summary: "Made a new Shiprocket tracking token",
+  });
+  revalidatePath("/admin/courier");
+  return { ok: true };
 }

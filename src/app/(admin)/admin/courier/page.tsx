@@ -10,12 +10,15 @@ import {
 } from "@/server/integrations/nimbuspost";
 import { CourierSettingsForm } from "@/components/admin/courier/courier-settings-form";
 import { NimbusPostSetup, type NimbusPostStatus } from "@/components/admin/courier/nimbuspost-setup";
+import { ShiprocketSetup, type ShiprocketStatus } from "@/components/admin/courier/shiprocket-setup";
+import { listShiprocketPickups, shiprocketWalletBalance } from "@/server/integrations/shiprocket";
+import { resolveAppBaseUrl } from "@/server/email/resend";
 
 /**
  * Everything about getting parcels to customers, in one place: which courier
  * partners are used, what shoppers pay for shipping, the dispatch and
- * delivery times promised, and NimbusPost's account set-up (pickup warehouse,
- * tracking updates, wallet). Moved out of Settings, which keeps the
+ * delivery times promised, and each partner's account set-up (pickup
+ * location, tracking updates, wallet). Moved out of Settings, which keeps the
  * non-courier switches.
  *
  * Owner only — it changes what every customer is charged and promised, and
@@ -30,11 +33,14 @@ export default async function AdminCourierPage() {
   if (!(await viewerIsOwner())) return <OwnerOnlyNotice area="Courier" />;
 
   const connected = courierConnections();
-  const [settings, config, nimbus] = await Promise.all([
+  const [settings, config, nimbus, shiprocket] = await Promise.all([
     getStoreSettings(),
     getCourierConfig(),
     connected.nimbuspost ? loadNimbusPost() : Promise.resolve(null),
+    connected.shiprocket ? loadShiprocket() : Promise.resolve(null),
   ]);
+  const base = resolveAppBaseUrl(process.env.APP_BASE_URL, process.env.VERCEL_ENV === "production");
+  const defaults = warehouseDefaults();
 
   return (
     <>
@@ -55,6 +61,23 @@ export default async function AdminCourierPage() {
           }}
           connected={connected}
         />
+        <div className="space-y-6">
+        <ShiprocketSetup
+          connected={connected.shiprocket}
+          status={shiprocket}
+          pickup={
+            process.env.SHIPROCKET_PICKUP_LOCATION
+              ? { location: process.env.SHIPROCKET_PICKUP_LOCATION, pincode: process.env.SHIPROCKET_PICKUP_PINCODE ?? null, fromEnv: true }
+              : config.shiprocketPickupLocation
+                ? { location: config.shiprocketPickupLocation, pincode: config.shiprocketPickupPincode, fromEnv: false }
+                : null
+          }
+          // Shiprocket refuses webhook URLs containing "shiprocket" — see the alias route.
+          webhookUrl={`${base}/api/webhooks/courier-updates`}
+          webhookToken={config.shiprocketWebhookToken}
+          lastUpdateAt={config.shiprocketLastWebhookAt}
+          defaults={defaults}
+        />
         <NimbusPostSetup
           connected={connected.nimbuspost}
           status={nimbus}
@@ -66,11 +89,23 @@ export default async function AdminCourierPage() {
                 : null
           }
           trackingWebhookId={config.nimbuspostWebhookId}
-          defaults={warehouseDefaults()}
+          defaults={defaults}
         />
+        </div>
       </div>
     </>
   );
+}
+
+/** Read-only and free. A failure (a wrong password, say) shows on the page instead of breaking it. */
+async function loadShiprocket(): Promise<ShiprocketStatus> {
+  const [wallet, pickups] = await Promise.allSettled([shiprocketWalletBalance(), listShiprocketPickups()]);
+  const failed = [wallet, pickups].find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
+  return {
+    wallet: wallet.status === "fulfilled" ? wallet.value : null,
+    pickups: pickups.status === "fulfilled" ? pickups.value : [],
+    error: failed ? (failed.reason instanceof Error ? failed.reason.message : "Could not read the Shiprocket account.") : null,
+  };
 }
 
 /** Read-only and free. A failure shows on the page instead of breaking it. */
