@@ -24,7 +24,7 @@
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { ScanEvent } from "@/server/integrations/shiprocket";
-import { nimbuspostWarehouseId } from "@/server/settings/courier-config";
+import { nimbuspostWarehouseId, nimbuspostPickupPincode } from "@/server/settings/courier-config";
 
 const BASE = "https://api-v2.nimbuspost.com/v2";
 
@@ -44,10 +44,10 @@ export function isNimbusPostConfigured(): boolean {
   return Boolean(process.env.NIMBUSPOST_API_KEY && process.env.NIMBUSPOST_API_SECRET);
 }
 
-/** The pickup pincode NimbusPost quotes from — its own setting, else the shop's Shiprocket one. */
-function pickupPincode(): string {
-  const pin = process.env.NIMBUSPOST_PICKUP_PINCODE || process.env.SHIPROCKET_PICKUP_PINCODE;
-  if (!pin) throw new NimbusPostError("NIMBUSPOST_PICKUP_PINCODE is not set.");
+/** The pickup pincode NimbusPost quotes from — see nimbuspostPickupPincode. */
+async function pickupPincode(): Promise<string> {
+  const pin = await nimbuspostPickupPincode();
+  if (!pin) throw new NimbusPostError("No pickup pincode — choose a pickup warehouse on the Courier page.");
   return pin;
 }
 
@@ -129,7 +129,7 @@ export async function quoteNimbusPost(input: {
     };
   };
   const data = await npFetch<{ available?: Available[] }>("POST", "/serviceability", {
-    pickupPincode: pickupPincode(),
+    pickupPincode: await pickupPincode(),
     deliveryPincode: input.deliveryPincode,
     paymentMode: input.cod ? "cod" : "prepaid",
     packages: [{ weight: Math.max(1, Math.round(input.weightGrams)), length: 10, width: 10, height: 5 }],

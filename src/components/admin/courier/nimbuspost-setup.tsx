@@ -201,7 +201,7 @@ function ChooseWarehouse({ warehouses, current }: { warehouses: NimbusPostWareho
           disabled={isPending || !chosen || picked === current}
           onClick={() =>
             startTransition(async () => {
-              const r = await chooseWarehouseAction(picked, chosen?.name ?? "");
+              const r = await chooseWarehouseAction(picked, chosen?.name ?? "", chosen?.pincode ?? "");
               if (r.ok) {
                 toast.success("Pickup warehouse saved.");
                 router.refresh();

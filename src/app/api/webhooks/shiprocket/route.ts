@@ -3,6 +3,7 @@ import { prisma } from "@/server/db";
 import { checkIpRateLimit } from "@/server/rate-limit/limiter";
 import { normaliseScans } from "@/server/integrations/shiprocket";
 import { applyCourierUpdate } from "@/server/couriers/apply-update";
+import { shiprocketWebhookTokens, noteWebhookReceived } from "@/server/settings/courier-config";
 import type { OrderStatus } from "@/generated/prisma/client";
 
 /**
@@ -23,7 +24,11 @@ import type { OrderStatus } from "@/generated/prisma/client";
  * moves status forward through a fixed table. A forged payload cannot invent an
  * order, change an amount, or move anything backwards.
  *
- * Configure at: Settings → API → Webhooks, with SHIPROCKET_WEBHOOK_TOKEN.
+ * Configure at: Settings → API → Webhooks, with the URL and token shown on the
+ * Courier page. ⚠️ Shiprocket refuses webhook URLs containing "shiprocket",
+ * "kartrocket", "sr" or "kr" — so the URL to register is the alias
+ * /api/webhooks/courier-updates (which runs this handler). This path stays for
+ * anything already pointed at it.
  */
 
 /**
@@ -46,13 +51,17 @@ const STATUS_MAP: Record<string, OrderStatus> = {
   "pickup complete": "shipped",
 };
 
-function tokenMatches(provided: string | null): boolean {
-  const expected = process.env.SHIPROCKET_WEBHOOK_TOKEN;
-  if (!expected || !provided) return false;
-  const a = Buffer.from(expected);
+/**
+ * The token made on the Courier page, or the older SHIPROCKET_WEBHOOK_TOKEN —
+ * both accepted, so moving from one to the other never drops an update.
+ */
+async function tokenMatches(provided: string | null): Promise<boolean> {
+  if (!provided) return false;
   const b = Buffer.from(provided);
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
+  return (await shiprocketWebhookTokens()).some((expected) => {
+    const a = Buffer.from(expected);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  });
 }
 
 export async function POST(req: Request) {
@@ -61,9 +70,11 @@ export async function POST(req: Request) {
     return new Response("Too many requests", { status: 429 });
   }
 
-  if (!tokenMatches(req.headers.get("x-api-key"))) {
+  if (!(await tokenMatches(req.headers.get("x-api-key")))) {
     return new Response("Invalid token", { status: 401 });
   }
+  // For the Courier page's "Last update received".
+  await noteWebhookReceived("shiprocket");
 
   let event: {
     awb?: string | number;

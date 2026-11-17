@@ -1,7 +1,7 @@
 import { prisma } from "@/server/db";
 import { checkIpRateLimit } from "@/server/rate-limit/limiter";
 import { verifyNimbusPostSignature } from "@/server/integrations/nimbuspost";
-import { nimbuspostWebhookSecret } from "@/server/settings/courier-config";
+import { nimbuspostWebhookSecret, noteWebhookReceived } from "@/server/settings/courier-config";
 import { applyCourierUpdate } from "@/server/couriers/apply-update";
 import type { OrderStatus } from "@/generated/prisma/client";
 
@@ -66,6 +66,8 @@ export async function POST(req: Request) {
   if (!verifyNimbusPostSignature(raw, req.headers.get("x-nimbus-signature"), await nimbuspostWebhookSecret())) {
     return new Response("Invalid signature", { status: 401 });
   }
+  // For the Courier page's "Last update received".
+  await noteWebhookReceived("nimbuspost");
 
   let event: {
     awb_number?: string;
