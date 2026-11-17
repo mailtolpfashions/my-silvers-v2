@@ -57,6 +57,8 @@ export function StaffManager({ staff }: { staff: StaffRow[] }) {
   const [newRole, setNewRole] = useState<"admin" | "editor">("admin");
   const [pending, setPending] = useState<Pending>(null);
   const [mode, setMode] = useState<"existing" | "new">("existing");
+  /** The add form opens on request, so the staff list is what the page leads with. */
+  const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
 
   function create(e: React.FormEvent) {
@@ -67,6 +69,7 @@ export function StaffManager({ staff }: { staff: StaffRow[] }) {
         toast.success(result.message ?? "Created.");
         setEmail("");
         setNewName("");
+        setAdding(false);
       } else {
         toast.error(result.error);
       }
@@ -88,6 +91,7 @@ export function StaffManager({ staff }: { staff: StaffRow[] }) {
       if (result.ok) {
         toast.success(result.message ?? "Added.");
         setEmail("");
+        setAdding(false);
       } else {
         toast.error(result.error);
       }
@@ -111,8 +115,18 @@ export function StaffManager({ staff }: { staff: StaffRow[] }) {
   }
 
   return (
-    <div className="space-y-8">
-      <form onSubmit={mode === "new" ? create : add} className="space-y-3 rounded-lg border p-4">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {staff.length} {staff.length === 1 ? "person" : "people"} with access
+        </p>
+        {!adding && (
+          <Button size="sm" onClick={() => setAdding(true)}>
+            Add staff
+          </Button>
+        )}
+      </div>
+      {adding && <form onSubmit={mode === "new" ? create : add} className="space-y-3 rounded-lg border p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold">Add a member of staff</h2>
           <div className="inline-flex rounded-md border p-0.5 text-xs" role="tablist">
@@ -180,8 +194,13 @@ export function StaffManager({ staff }: { staff: StaffRow[] }) {
             {isPending ? "Working…" : mode === "new" ? "Create and send invite" : "Add"}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">{MEANS[newRole]}</p>
-      </form>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">{MEANS[newRole]}</p>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setAdding(false)} disabled={isPending}>
+            Close
+          </Button>
+        </div>
+      </form>}
 
       <div className="overflow-x-auto rounded-lg border">
         <Table>

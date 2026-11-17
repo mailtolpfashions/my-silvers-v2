@@ -94,6 +94,8 @@ export function InvestorManager({
 }) {
   const [isPending, startTransition] = useTransition();
   const [draft, setDraft] = useState({ name: "", email: "", phone: "", profitShare: "" });
+  /** The add form opens on request — it is used a handful of times, ever. */
+  const [adding, setAdding] = useState(false);
   /**
    * Which contribution is awaiting confirmation.
    *
@@ -134,11 +136,21 @@ export function InvestorManager({
 
   return (
     <section className="space-y-4">
-      <h2 className="text-base font-medium">Partners and capital</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base font-medium">Partners and capital</h2>
+        {!adding && (
+          <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
+            Add partner
+          </Button>
+        )}
+      </div>
 
-      <Card>
-        <CardHeader>
+      {adding && <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="text-sm">Add a partner</CardTitle>
+          <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>
+            Close
+          </Button>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
           <div className="space-y-1.5">
@@ -186,7 +198,10 @@ export function InvestorManager({
                   isActive: true,
                   note: "",
                 });
-                if (result.ok) setDraft({ name: "", email: "", phone: "", profitShare: "" });
+                if (result.ok) {
+                  setDraft({ name: "", email: "", phone: "", profitShare: "" });
+                  setAdding(false);
+                }
                 return result;
               }, "Partner added.")
             }
@@ -194,7 +209,7 @@ export function InvestorManager({
             Add
           </Button>
         </CardContent>
-      </Card>
+      </Card>}
 
       {investors.length > 0 && (
         <Card>

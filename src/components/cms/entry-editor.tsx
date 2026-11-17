@@ -85,6 +85,8 @@ export function EntryEditor({
   const router = useRouter();
   const [data, setData] = useState<EntryData>(initialData);
   const [seo, setSeo] = useState(initialSeo);
+  /** Version history shows the latest few until asked — fifteen rows ran the sidebar long. */
+  const [allVersions, setAllVersions] = useState(false);
   const [currentId, setCurrentId] = useState(entryId);
   const [showPreview, setShowPreview] = useState(false);
   const [seoOpen, setSeoOpen] = useState(false);
@@ -316,7 +318,7 @@ export function EntryEditor({
         <CardTitle className="text-sm">Version history (last {versions.length})</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
-        {versions.map((version) => (
+        {(allVersions ? versions : versions.slice(0, 5)).map((version) => (
           <div key={version.id} className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">
               v{version.versionNumber}
@@ -338,6 +340,11 @@ export function EntryEditor({
             )}
           </div>
         ))}
+        {versions.length > 5 && (
+          <Button variant="link" size="sm" className="h-auto px-0" onClick={() => setAllVersions((v) => !v)}>
+            {allVersions ? "Show fewer" : `Show all ${versions.length}`}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

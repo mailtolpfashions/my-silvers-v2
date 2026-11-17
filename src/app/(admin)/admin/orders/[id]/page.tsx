@@ -252,101 +252,9 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
         </div>
 
         <div className="space-y-6">
-          {/* ── Owner tools, or the shop's note for everyone else ───────── */}
-          {owner ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Owner tools</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <OrderOwnerTools
-                  orderId={order.id}
-                  orderNumber={order.orderNumber}
-                  address={address}
-                  note={order.adminNote}
-                  canEditAddress={
-                    !order.shipmentCreatedAt &&
-                    !order.shiprocketOrderId &&
-                    ["placed", "confirmed", "processing"].includes(order.orderStatus)
-                  }
-                  deletable={await orderDeletable(order)}
-                />
-              </CardContent>
-            </Card>
-          ) : (
-            order.adminNote && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Shop note</CardTitle>
-                </CardHeader>
-                <CardContent className="whitespace-pre-wrap text-sm">{order.adminNote}</CardContent>
-              </Card>
-            )
-          )}
-
-          {/* ── Who ordered ─────────────────────────────────────────────── */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Customer</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm">
-              <p className="font-medium">
-                <Link href={`/admin/customers/${order.user.id}`} className="hover:underline">
-                  {order.user.name ?? "—"}
-                </Link>
-              </p>
-              <p>
-                <a href={`mailto:${order.user.email}`} className="underline">
-                  {order.user.email}
-                </a>
-              </p>
-              {order.user.phone && <p className="text-muted-foreground">{order.user.phone}</p>}
-              <p className="pt-2 text-xs text-muted-foreground">
-                Customer since{" "}
-                {order.user.createdAt.toLocaleDateString("en-IN", { dateStyle: "medium" })}
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* ── Money ───────────────────────────────────────────────────── */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Payment</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <Row label="Subtotal" value={formatINR(order.subtotal.toString())} />
-              {Number(order.discount) > 0 && (
-                <Row
-                  label={`Coupon${order.couponCode ? ` (${order.couponCode})` : ""}`}
-                  value={`−${formatINR(order.discount.toString())}`}
-                />
-              )}
-              <Row
-                label="Shipping"
-                value={
-                  Number(order.shippingCharge) === 0
-                    ? "Free"
-                    : formatINR(order.shippingCharge.toString())
-                }
-              />
-              <div className="flex justify-between border-t pt-2 font-semibold">
-                <span>Total</span>
-                <span>{formatINR(order.totalAmount.toString())}</span>
-              </div>
-              <Row
-                label="Method"
-                value={order.paymentMethod === "cod" ? "Cash on delivery" : "Razorpay"}
-              />
-              <Row label="Status" value={order.paymentStatus} />
-              {order.razorpayPaymentId && (
-                <Row label="Payment ID" value={order.razorpayPaymentId} mono />
-              )}
-              {order.refundStatus !== "idle" && (
-                <Row label="Refund" value={order.refundStatus} />
-              )}
-            </CardContent>
-          </Card>
-
+          {/* Fulfilment first: it is what an order is opened for — status, Ship,
+              Cancel. It used to sit at the bottom of this column, under the
+              owner tools, a scroll away on every order. */}
           {/* ── Fulfilment ──────────────────────────────────────────────── */}
           <Card>
             <CardHeader>
@@ -424,6 +332,101 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
               )}
             </CardContent>
           </Card>
+
+          {/* ── Money ───────────────────────────────────────────────────── */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Payment</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <Row label="Subtotal" value={formatINR(order.subtotal.toString())} />
+              {Number(order.discount) > 0 && (
+                <Row
+                  label={`Coupon${order.couponCode ? ` (${order.couponCode})` : ""}`}
+                  value={`−${formatINR(order.discount.toString())}`}
+                />
+              )}
+              <Row
+                label="Shipping"
+                value={
+                  Number(order.shippingCharge) === 0
+                    ? "Free"
+                    : formatINR(order.shippingCharge.toString())
+                }
+              />
+              <div className="flex justify-between border-t pt-2 font-semibold">
+                <span>Total</span>
+                <span>{formatINR(order.totalAmount.toString())}</span>
+              </div>
+              <Row
+                label="Method"
+                value={order.paymentMethod === "cod" ? "Cash on delivery" : "Razorpay"}
+              />
+              <Row label="Status" value={order.paymentStatus} />
+              {order.razorpayPaymentId && (
+                <Row label="Payment ID" value={order.razorpayPaymentId} mono />
+              )}
+              {order.refundStatus !== "idle" && (
+                <Row label="Refund" value={order.refundStatus} />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ── Who ordered ─────────────────────────────────────────────── */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Customer</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 text-sm">
+              <p className="font-medium">
+                <Link href={`/admin/customers/${order.user.id}`} className="hover:underline">
+                  {order.user.name ?? "—"}
+                </Link>
+              </p>
+              <p>
+                <a href={`mailto:${order.user.email}`} className="underline">
+                  {order.user.email}
+                </a>
+              </p>
+              {order.user.phone && <p className="text-muted-foreground">{order.user.phone}</p>}
+              <p className="pt-2 text-xs text-muted-foreground">
+                Customer since{" "}
+                {order.user.createdAt.toLocaleDateString("en-IN", { dateStyle: "medium" })}
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* ── Owner tools, or the shop's note for everyone else ───────── */}
+          {owner ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Owner tools</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <OrderOwnerTools
+                  orderId={order.id}
+                  orderNumber={order.orderNumber}
+                  address={address}
+                  note={order.adminNote}
+                  canEditAddress={
+                    !order.shipmentCreatedAt &&
+                    !order.shiprocketOrderId &&
+                    ["placed", "confirmed", "processing"].includes(order.orderStatus)
+                  }
+                  deletable={await orderDeletable(order)}
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            order.adminNote && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Shop note</CardTitle>
+                </CardHeader>
+                <CardContent className="whitespace-pre-wrap text-sm">{order.adminNote}</CardContent>
+              </Card>
+            )
+          )}
         </div>
       </div>
     </div>
