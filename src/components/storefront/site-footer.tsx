@@ -175,17 +175,47 @@ export function SiteFooter() {
           last thing a shopper reads on any page, and the footer previously
           opened with a link list. Deliberately not a marketing claim: it says
           what the shop sells and what it is made of, both of which are facts. */}
-      <div className="container-page border-b border-white/10 py-14 sm:py-20">
+      <div className="container-page border-b border-white/10 py-10 sm:py-20">
         <p className="max-w-2xl font-serif text-h2 leading-relaxed text-white/90">
           925 sterling silver, made in India — designed to be worn
           every day rather than kept for an occasion.
         </p>
       </div>
 
-      <div className="container-page py-14 sm:py-16">
+      <div className="container-page py-10 sm:py-16">
+        {/* ── Phones: the link lists fold into tap-to-open rows ───────────────
+            Stacked in full they made the footer ~1,450px on a phone — longer
+            than the login page or an empty cart above it, on every page. Native
+            <details>, so it works without JavaScript and every link stays in
+            the HTML. From sm up the grid below shows them all, as before. */}
+        <div className="mb-10 divide-y divide-white/10 border-y border-white/10 sm:hidden">
+          {Object.entries(FOOTER_LINKS).map(([heading, links]) => (
+            <details key={heading} className="group">
+              <summary className="flex cursor-pointer list-none items-center justify-between py-4 [&::-webkit-details-marker]:hidden">
+                <span className="label-eyebrow !text-white">{heading}</span>
+                <span aria-hidden className="text-lg leading-none text-white/60 transition-transform group-open:rotate-45">
+                  +
+                </span>
+              </summary>
+              <nav aria-label={heading}>
+                <ul className="space-y-3 pb-5">
+                  {links.map((link) => (
+                    <li key={link.href}>
+                      <Link href={link.href} className="text-sm text-white/70 transition-colors hover:text-white">
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                  {heading === "Shop" && <CategoryLinks />}
+                </ul>
+              </nav>
+            </details>
+          ))}
+        </div>
+
         <div className="grid gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
           {Object.entries(FOOTER_LINKS).map(([heading, links]) => (
-            <nav key={heading} aria-label={heading}>
+            <nav key={heading} aria-label={heading} className="hidden sm:block">
               {/* .label-eyebrow, matching every other section label on the
                   site. These were an 11px/700/0.18em one-off that existed
                   nowhere else. The class colours itself --black, which is
