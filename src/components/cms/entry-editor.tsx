@@ -52,6 +52,7 @@ const SIDEBAR_FIELD_TYPES = new Set<FieldDefinition["type"]>([
 export function EntryEditor({
   typeName,
   typeLabel,
+  typeDescription,
   fields,
   entryId,
   initialData,
@@ -63,6 +64,8 @@ export function EntryEditor({
 }: {
   typeName: string;
   typeLabel: string;
+  /** The one line under the title, as on every admin and Studio page. */
+  typeDescription: string;
   fields: FieldDefinition[];
   entryId: string | null;
   initialData: EntryData;
@@ -361,7 +364,8 @@ export function EntryEditor({
           TYPE, so every content type gets it without per-type configuration;
           see SIDEBAR_FIELD_TYPES. */}
       <div className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{typeLabel}</h1>
             <Badge variant={status === "published" ? "default" : "secondary"}>
@@ -377,6 +381,8 @@ export function EntryEditor({
                 Unsaved
               </span>
             )}
+          </div>
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{typeDescription}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button

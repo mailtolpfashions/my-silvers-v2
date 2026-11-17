@@ -91,7 +91,7 @@ export default async function AdminActivityPage({ searchParams }: { searchParams
     <div className="space-y-6">
       <PageHeader
         title="Activity log"
-        description="Who did what in the admin and the CMS, newest first. Entries can't be edited or deleted."
+        description="Who did what in the admin and the Studio, newest first — entries can't be changed."
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">

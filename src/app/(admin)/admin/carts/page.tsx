@@ -59,7 +59,7 @@ export default async function AdminCartsPage({
     <div className="space-y-6">
       <PageHeader
         title="Abandoned carts"
-        description="Signed-in shoppers with items they never checked out, untouched for at least four hours."
+        description="Signed-in shoppers who left items in their cart for four hours or more."
         actions={
           owner ? (
             <ConfirmAction

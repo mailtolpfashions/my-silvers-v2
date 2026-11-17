@@ -11,9 +11,11 @@ import { ChevronLeft } from "lucide-react";
  * the pages did not quite line up with each other, and a change to the pattern
  * meant fourteen edits.
  *
- * `description` is for something a person could not infer from the title — what
- * a screen is for, or a caveat about the data. "Manage your products" under a
- * heading that says Products is noise; leave it out.
+ * `description` is REQUIRED, so every admin and Studio page reads the same way:
+ * a title, then one short sentence. Some pages had one and some didn't, and the
+ * owner asked for them to be uniform — making it required is what keeps it so.
+ * Say what the screen is for or a caveat about its data, in one line; not
+ * "Manage your products" under a heading that already says Products.
  */
 export function PageHeader({
   title,
@@ -23,7 +25,8 @@ export function PageHeader({
   actions,
 }: {
   title: string;
-  description?: string;
+  /** One short sentence — see above. */
+  description: string;
   /**
    * Shows a back link above the title.
    *
@@ -51,7 +54,7 @@ export function PageHeader({
         )}
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
         {description && (
-          <p className="mt-1 max-w-prose text-sm text-muted-foreground">{description}</p>
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{description}</p>
         )}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

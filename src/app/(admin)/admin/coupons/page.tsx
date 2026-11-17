@@ -71,7 +71,7 @@ export default async function AdminCouponsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Coupons"
-        description="Discount codes shoppers enter at the cart or checkout. A coupon takes money off the products only — never shipping or gift wrap — and one code applies per order."
+        description="Discount codes for the cart and checkout — one per order, off products only."
       />
       <CouponManager coupons={rows} />
     </div>

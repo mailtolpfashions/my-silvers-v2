@@ -139,7 +139,7 @@ export default async function AdminNewsletterPage({
     <div className="space-y-6">
       <PageHeader
         title="Newsletter"
-        description="Everyone who has signed up. Copy the active list into whatever you send with."
+        description="Everyone who signed up for emails — copy the list into your mail tool."
         actions={
           activeRows.length > 0 ? (
             <CopyButton value={activeEmails} label={`Copy ${activeRows.length} active`} />

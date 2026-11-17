@@ -63,7 +63,7 @@ export default async function CmsDashboardPage() {
     <div className="max-w-6xl space-y-8">
       <PageHeader
         title="Studio"
-        description="Everything the storefront reads its words and pictures from. Changes are saved as drafts and only go live when published."
+        description="Where the storefront's words and pictures come from — edits stay drafts until published."
       />
 
       <section>
