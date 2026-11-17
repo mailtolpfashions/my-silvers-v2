@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { describeContentType } from "@/lib/cms-type-order";
 import { getCurrentRole } from "@/server/auth/require-role";
 import { isOwner } from "@/server/auth/roles";
 import { getContentType, getEntryForEdit, CmsError } from "@/server/cms/entries";
@@ -55,6 +56,7 @@ export default async function EntryEditorPage({
       <EntryEditor
         typeName={type.name}
         typeLabel={type.label}
+        typeDescription={describeContentType(type)}
         fields={fields}
         entryId={null}
         initialData={{}}
@@ -97,6 +99,7 @@ export default async function EntryEditorPage({
     <EntryEditor
       typeName={type.name}
       typeLabel={type.label}
+        typeDescription={describeContentType(type)}
       fields={fields}
       entryId={entry.id}
       initialData={entry.data as EntryData}

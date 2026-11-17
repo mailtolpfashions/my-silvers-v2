@@ -102,7 +102,7 @@ export default async function AdminPaymentsPage({
     <div className="space-y-6">
       <PageHeader
         title="Payments"
-        description="Every order as a money movement: what was captured, what is stuck, and what went back."
+        description="Every order's money: captured, still pending, failed or refunded."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

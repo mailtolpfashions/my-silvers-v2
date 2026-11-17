@@ -82,6 +82,7 @@ export default async function AdminOrdersPage({
     <div className="space-y-6">
       <PageHeader
         title="Orders"
+        description="Every order, newest first — search, filter, and ship from here."
         // Exports hand over customers' personal details in bulk — owner only.
         actions={
           isOwner && (

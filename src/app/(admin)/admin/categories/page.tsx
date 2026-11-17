@@ -16,7 +16,7 @@ export default async function AdminCategoriesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Categories"
-        description="Categories drive the storefront's navigation and the homepage's category band. A category with no image is skipped by that band."
+        description="The storefront menu and the homepage's category band — a category with no image skips the band."
       />
       <CategoryManager
         categories={categories.map((c) => ({

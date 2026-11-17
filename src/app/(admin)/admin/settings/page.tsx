@@ -43,7 +43,7 @@ export default async function AdminSettingsPage() {
     <>
       <PageHeader
         title="Settings"
-        description="These take effect immediately — there is no publish step."
+        description="Shop-wide switches — changes take effect immediately."
       />
       <StoreSettingsForm
         initial={{

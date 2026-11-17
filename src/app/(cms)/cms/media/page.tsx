@@ -44,7 +44,7 @@ export default async function MediaLibraryPage({
     <div className="space-y-6">
       <PageHeader
         title="Media library"
-        description="Every image uploaded to the Studio. Pick from here rather than re-uploading — the same file used twice is one asset, not two."
+        description="Every image uploaded to the Studio — reuse from here instead of uploading again."
       />
       <MediaLibrary
         assets={assets.map((a) => ({

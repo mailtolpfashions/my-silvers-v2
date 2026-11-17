@@ -86,7 +86,7 @@ export default async function AdminReviewsPage({
     <div className="space-y-6">
       <PageHeader
         title="Reviews"
-        description="Nothing a shopper writes appears on the storefront until it is approved here. Approving and rejecting are both reversible; deleting lets the customer write a new one."
+        description="Shoppers' reviews — nothing appears on the storefront until it's approved here."
       />
 
       <div className="flex flex-wrap items-center gap-3">

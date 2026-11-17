@@ -113,6 +113,7 @@ export default async function AdminProductsPage({
     <div className="space-y-6">
       <PageHeader
         title="Products"
+        description="Your catalogue — edit pieces, prices and stock, or change many at once."
         actions={
           // Becomes the selection toolbar once rows are ticked, and is the ONLY
           // place the bulk actions appear — see the component.

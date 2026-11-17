@@ -141,7 +141,7 @@ export default async function AdminFinancePage({
     <div className="space-y-8">
       <PageHeader
         title="Finance"
-        description="Revenue, costs and each partner's share, by month. A ledger for the people running this — not books of account."
+        description="Revenue, costs and each partner's share, month by month."
         actions={
           <MonthPicker year={year} monthIndex={monthIndex} sort={sp.sort} dir={sp.dir} />
         }

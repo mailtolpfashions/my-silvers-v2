@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { describeContentType } from "@/lib/cms-type-order";
 import { entryTitle } from "@/lib/cms-entry-title";
 import { notFound } from "next/navigation";
 import {
@@ -99,7 +100,7 @@ export default async function ContentListPage({
     const entry = await getSingletonEntry(typeName);
     return (
       <div className="space-y-6">
-        <PageHeader title={type.label} />
+        <PageHeader title={type.label} description={describeContentType(type)} />
         <div className="rounded-lg border p-6">
           {entry ? (
             <div className="flex items-center justify-between">
@@ -157,6 +158,7 @@ export default async function ContentListPage({
     <div className="space-y-6">
       <PageHeader
         title={type.label}
+        description={describeContentType(type)}
         actions={
           <Button asChild size="sm">
             <Link href={`/cms/content/${typeName}/new`}>New entry</Link>

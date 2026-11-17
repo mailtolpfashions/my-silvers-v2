@@ -42,7 +42,7 @@ export default async function AdminStaffPage() {
     <div className="space-y-6">
       <PageHeader
         title="Staff & roles"
-        description="Who can use the admin and the CMS, and what each person may do. Changes apply on their next click."
+        description="Who can use the admin and the Studio, and what each person may do."
       />
       <StaffManager staff={rows} />
     </div>
