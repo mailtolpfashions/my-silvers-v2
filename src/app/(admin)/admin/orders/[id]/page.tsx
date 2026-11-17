@@ -373,8 +373,13 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
                   ) : (
                     <p>{order.trackingNumber}</p>
                   )}
-                  {order.courierName && (
-                    <p className="text-xs text-muted-foreground">{order.courierName}</p>
+                  {(order.courierName || order.courierProvider) && (
+                    <p className="text-xs text-muted-foreground">
+                      {order.courierName}
+                      {order.courierProvider &&
+                        ` via ${order.courierProvider === "nimbuspost" ? "NimbusPost" : "Shiprocket"}`}
+                      {order.shippingCost !== null && ` · ₹${Number(order.shippingCost).toLocaleString("en-IN")}`}
+                    </p>
                   )}
                   {/* The waybill exists, so the remaining act is physical:
                       book the collection and print the label. */}
@@ -383,10 +388,7 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
                   </div>
                 </div>
               ) : canShip ? (
-                <ShipOrderButton
-                  orderId={order.id}
-                  hasShiprocketOrder={Boolean(order.shiprocketOrderId)}
-                />
+                <ShipOrderButton orderId={order.id} />
               ) : (
                 <p className="text-xs text-muted-foreground">
                   {order.paymentStatus !== "paid" && order.paymentMethod !== "cod"

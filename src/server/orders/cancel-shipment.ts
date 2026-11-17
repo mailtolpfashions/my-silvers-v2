@@ -1,18 +1,19 @@
 import { prisma } from "@/server/db";
-import {
-  cancelShiprocketOrders,
-  cancelShiprocketAwbs,
-} from "@/server/integrations/shiprocket";
+import { cancelCourier, providerOf } from "@/server/couriers";
+import { PROVIDER_LABEL, type CourierProviderId } from "@/lib/courier-quotes";
 
 type Cancellable = {
   id: string;
   orderNumber: string;
   shiprocketOrderId: string | null;
   trackingNumber: string | null;
+  /** Which partner holds it — Shiprocket when unset (orders from before NimbusPost). */
+  courierProvider?: CourierProviderId | null;
 };
 
 /**
- * Releases whatever this order is holding at Shiprocket.
+ * Releases whatever this order is holding at its courier partner (Shiprocket
+ * or NimbusPost — server/couriers dispatches on courierProvider).
  *
  * Two different endpoints, because there are two different things to undo:
  *   trackingNumber present   a courier is booked and expecting the parcel —
@@ -35,17 +36,18 @@ type Cancellable = {
 export async function releaseShipment(order: Cancellable): Promise<void> {
   if (!order.shiprocketOrderId && !order.trackingNumber) return;
 
+  const partner = PROVIDER_LABEL[providerOf({ courierProvider: order.courierProvider ?? null })];
   try {
-    if (order.trackingNumber) {
-      await cancelShiprocketAwbs([order.trackingNumber]);
-    } else if (order.shiprocketOrderId) {
-      await cancelShiprocketOrders([order.shiprocketOrderId]);
-    }
+    await cancelCourier({
+      courierProvider: order.courierProvider ?? null,
+      trackingNumber: order.trackingNumber,
+      shiprocketOrderId: order.shiprocketOrderId,
+    });
   } catch (err) {
     console.error(
-      `[shiprocket] FAILED to cancel shipment for ${order.orderNumber} ` +
+      `[couriers] FAILED to cancel the ${partner} shipment for ${order.orderNumber} ` +
         `(awb=${order.trackingNumber ?? "none"}, srOrder=${order.shiprocketOrderId ?? "none"}). ` +
-        "Cancel it by hand in the Shiprocket dashboard.",
+        `Cancel it by hand in the ${partner} dashboard.`,
       err
     );
   }
@@ -58,7 +60,7 @@ export async function releaseShipment(order: Cancellable): Promise<void> {
 export async function releaseShipmentByOrderId(orderId: string): Promise<void> {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    select: { id: true, orderNumber: true, shiprocketOrderId: true, trackingNumber: true },
+    select: { id: true, orderNumber: true, shiprocketOrderId: true, trackingNumber: true, courierProvider: true },
   });
   if (order) await releaseShipment(order);
 }

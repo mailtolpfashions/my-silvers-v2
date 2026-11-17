@@ -98,6 +98,11 @@ const settingsSchema = z
       .refine((v) => v === "" || normaliseIndianMobile(v) !== "", {
         message: "WhatsApp: enter a 10-digit Indian mobile number, e.g. 98765 43210.",
       }),
+    courierPartners: z.object({ shiprocket: z.boolean(), nimbuspost: z.boolean() }),
+  })
+  .refine((v) => v.courierPartners.shiprocket || v.courierPartners.nimbuspost, {
+    message: "Courier partners: keep at least one switched on, or no order can be shipped.",
+    path: ["courierPartners"],
   })
   /**
    * A range whose maximum is below its minimum is not a slow estimate, it is a
@@ -153,6 +158,7 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
     navShopFor: data.navShopFor,
     charmPricing: data.charmPricing,
     whatsappNumber: normaliseIndianMobile(data.whatsappNumber),
+    courierPartners: data.courierPartners,
   };
 
   // Read before writing, to tell whether the header lists changed — see below.

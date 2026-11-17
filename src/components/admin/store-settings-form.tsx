@@ -32,6 +32,8 @@ export type StoreSettingsFormValues = {
   charmPricing: "off" | CharmStyle;
   /** As stored ("919876543210") or "" — shown to the owner without the 91. */
   whatsappNumber: string;
+  /** Which courier partners the Ship order dialog compares. */
+  courierPartners: { shiprocket: boolean; nimbuspost: boolean };
 };
 
 /** A published collection, as offered in the "Shop for" picker. */
@@ -281,10 +283,13 @@ function DayField({
 export function StoreSettingsForm({
   initial,
   collections,
+  courierConnected,
 }: {
   initial: StoreSettingsFormValues;
   /** Published collections, for the "Shop for" picker. */
   collections: CollectionOption[];
+  /** Which partners have API keys in the environment — a partner without them can't be switched on. */
+  courierConnected: { shiprocket: boolean; nimbuspost: boolean };
 }) {
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -361,6 +366,7 @@ export function StoreSettingsForm({
       navShopFor: form.navShopFor,
       charmPricing: form.charmPricing,
       whatsappNumber: whatsapp,
+      courierPartners: form.courierPartners,
     });
     setSaving(false);
 
@@ -398,6 +404,35 @@ export function StoreSettingsForm({
           onChange={(guestCheckoutEnabled) => setForm((f) => ({ ...f, guestCheckoutEnabled }))}
           disabled={saving}
         />
+      </section>
+
+      <section className={CARD}>
+        <h2 className="label-eyebrow mb-1">Courier partners</h2>
+        <p className="text-sm text-muted-foreground">
+          Who ships your parcels. When you press Ship order, every partner switched on here is
+          asked for prices and the cheapest courier is selected for you. Keep at least one on.
+        </p>
+        {(["shiprocket", "nimbuspost"] as const).map((p) => {
+          const label = p === "shiprocket" ? "Shiprocket" : "NimbusPost";
+          const connected = courierConnected[p];
+          return (
+            <ToggleRow
+              key={p}
+              id={`courier-${p}`}
+              label={label}
+              description={
+                connected
+                  ? `Include ${label}'s couriers and prices when shipping.`
+                  : `Not connected — add the ${label} API keys in Vercel, then switch it on here.`
+              }
+              checked={connected && form.courierPartners[p]}
+              onChange={(on) =>
+                setForm((f) => ({ ...f, courierPartners: { ...f.courierPartners, [p]: on } }))
+              }
+              disabled={saving || !connected}
+            />
+          );
+        })}
       </section>
 
       <section className={CARD}>

@@ -439,7 +439,15 @@ export type Serviceability = {
   estimatedDays: number | null;
   /** Cheapest quoted rate in rupees — informational; we do not pass it to the shopper. */
   cheapestRate: number | null;
-  couriers: Array<{ id: number; name: string; estimatedDays: number | null; rate: number }>;
+  /** `rate` is Shiprocket's all-in figure (freight + COD); the parts are broken out for the comparison table. */
+  couriers: Array<{
+    id: number;
+    name: string;
+    estimatedDays: number | null;
+    rate: number;
+    freight: number;
+    codCharges: number;
+  }>;
 };
 
 /**
@@ -454,6 +462,13 @@ export async function checkServiceability(input: {
   deliveryPincode: string;
   weightKg: number;
   cod: boolean;
+  /**
+   * The order's value in rupees. Shiprocket's COD charge is a percentage of
+   * it (the response's `cod_multiplier`), so without it the COD price is a
+   * guess — and the Ship order dialog compares that price against NimbusPost,
+   * which is told the real value. Optional for the checkout's display check.
+   */
+  declaredValue?: number;
 }): Promise<Serviceability> {
   const pickup = process.env.SHIPROCKET_PICKUP_PINCODE;
   if (!pickup) {
@@ -465,6 +480,8 @@ export async function checkServiceability(input: {
     delivery_postcode: input.deliveryPincode,
     weight: String(input.weightKg),
     cod: input.cod ? "1" : "0",
+    // Whole rupees — the docs type it as an integer.
+    ...(input.declaredValue ? { declared_value: String(Math.ceil(input.declaredValue)) } : {}),
   });
 
   const res = await srFetch(`/courier/serviceability/?${query.toString()}`);
@@ -476,6 +493,8 @@ export async function checkServiceability(input: {
           courier_name?: string;
           estimated_delivery_days?: string | number;
           rate?: string | number;
+          freight_charge?: string | number;
+          cod_charges?: string | number;
         }>
       | undefined) ?? [];
 
@@ -486,6 +505,8 @@ export async function checkServiceability(input: {
       name: String(c.courier_name),
       estimatedDays: Number(c.estimated_delivery_days) || null,
       rate: Number(c.rate) || 0,
+      freight: Number(c.freight_charge) || 0,
+      codCharges: Number(c.cod_charges) || 0,
     }))
     .sort((a, b) => a.rate - b.rate);
 

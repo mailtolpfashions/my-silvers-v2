@@ -113,6 +113,8 @@ export const TIERS = {
    * known AWB regardless.
    */
   shiprocketWebhook: { tokens: 120, window: "1 m", prefix: "rl:srwebhook" },
+  /** NimbusPost's tracking pushes — same shape of traffic as Shiprocket's, so the same ceiling. */
+  nimbuspostWebhook: { tokens: 120, window: "1 m", prefix: "rl:npwebhook" },
   // Looser than the order tiers because it fires while someone is typing their
   // pincode, but still capped: it is an unauthenticated hop to a paid upstream.
   pincode: { tokens: 20, window: "5 m", prefix: "rl:pincode" },

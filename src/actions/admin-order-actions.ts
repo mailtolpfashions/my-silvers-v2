@@ -10,13 +10,15 @@ import { addressSchema, PINCODE_STATE_MISMATCH, pincodeMatchesState } from "@/li
 import { OrderStatus } from "@/generated/prisma/enums";
 import {
   updateOrderStatus,
-  createShipmentForOrder,
-  assignAwbForOrder,
+  getShippingQuotes,
+  bookShipment,
   schedulePickupForOrder,
   processReturn,
   AdminOrderError,
 } from "@/server/orders/admin";
 import { ShiprocketError } from "@/server/integrations/shiprocket";
+import { NimbusPostError } from "@/server/integrations/nimbuspost";
+import { PROVIDER_LABEL, type CourierProviderId, type CourierQuote } from "@/lib/courier-quotes";
 import { cancelOrderAsStaff, CancelError } from "@/server/orders/cancel-order";
 import { isOwner } from "@/server/auth/roles";
 import { CANCEL_REASONS, isCancelReason, type CancelReason } from "@/lib/order-cancel-reasons";
@@ -173,33 +175,78 @@ async function emailCustomerAboutCancellation(orderId: string, reason: CancelRea
   }
 }
 
+/** A partner's own error, worded for the admin — safe to show as is. */
+function isCourierError(err: unknown): err is Error {
+  return err instanceof AdminOrderError || err instanceof ShiprocketError || err instanceof NimbusPostError;
+}
+
 /**
- * Step one — free, and the safe end of the integration to exercise. See the
- * note at the top of integrations/shiprocket.ts.
+ * The Ship order dialog's price list: every courier from every partner
+ * switched on in Settings, cheapest first. Free — rate checks book nothing.
  */
-export async function createShipmentAction(orderId: string): Promise<AdminOrderActionResult> {
-  const session = await requireRole("admin");
+export async function getShippingQuotesAction(orderId: string): Promise<
+  | { ok: true; quotes: CourierQuote[]; errors: Array<{ provider: CourierProviderId; message: string }> }
+  | { ok: false; error: string }
+> {
+  await requireRole("admin");
   try {
-    await createShipmentForOrder(orderId);
-    await logActivity(session, {
-      action: "order.shipment",
-      target: { type: "order", id: orderId },
-      summary: `Created the shipment for order ${(await orderLabel(orderId)).number}`,
-    });
-    revalidatePath("/admin/orders");
-    return { ok: true };
+    const result = await getShippingQuotes(orderId);
+    return { ok: true, ...result };
   } catch (err) {
-    if (err instanceof AdminOrderError || err instanceof ShiprocketError) {
-      return { ok: false, error: err.message };
-    }
-    console.error("createShipmentAction failed", err);
-    return { ok: false, error: "Shipment creation failed. Please try again." };
+    if (isCourierError(err)) return { ok: false, error: err.message };
+    console.error("getShippingQuotesAction failed", err);
+    return { ok: false, error: "Could not get courier prices. Please try again." };
   }
 }
 
 /**
- * Step three — free. Schedules the collection and returns the courier's label
- * PDF so the admin never has to open the Shiprocket dashboard.
+ * ⚠️ Billable. Books the courier the admin picked in the Ship order dialog
+ * and buys the waybill. `quotedTotal` is the all-in price the admin saw, kept
+ * as the cost when the partner doesn't report what it charged.
+ */
+export async function bookShipmentAction(
+  orderId: string,
+  provider: CourierProviderId,
+  courierId: string,
+  quotedTotal: number | null
+): Promise<AdminOrderActionResult | { ok: true; trackingNumber: string; courierName: string }> {
+  const session = await requireRole("admin");
+  if (provider !== "shiprocket" && provider !== "nimbuspost") return { ok: false, error: "Unknown courier partner." };
+  try {
+    const booked = await bookShipment(orderId, provider, String(courierId), quotedTotal);
+    await logActivity(session, {
+      action: "order.awb",
+      target: { type: "order", id: orderId },
+      summary:
+        `Booked ${booked.courierName} via ${PROVIDER_LABEL[provider]} (AWB ${booked.awb}` +
+        `${booked.charged !== null ? `, ₹${booked.charged}` : ""}) for order ${(await orderLabel(orderId)).number}`,
+    });
+    revalidatePath("/admin/orders");
+    revalidatePath(`/admin/orders/${orderId}`);
+    // Tell the customer it's on its way, with the tracking link. Sent here and
+    // only here: booking is the moment an order turns "shipped" and gets its
+    // tracking number, and bookShipment's claim lets it succeed only once per
+    // order, so the email can't go out twice. after(): the admin doesn't wait
+    // on Resend, and a failed send never undoes a waybill already paid for.
+    after(async () => {
+      try {
+        await sendOrderShippedEmail(orderId);
+      } catch (err) {
+        console.error("order-shipped email failed", orderId, err);
+      }
+    });
+    return { ok: true, trackingNumber: booked.awb, courierName: booked.courierName };
+  } catch (err) {
+    if (isCourierError(err)) return { ok: false, error: err.message };
+    console.error("bookShipmentAction failed", err);
+    return { ok: false, error: "Could not book the courier. Please try again." };
+  }
+}
+
+/**
+ * Free. Schedules the collection and returns the courier's label PDF, with
+ * whichever partner booked the parcel — so the admin never has to open the
+ * partner's dashboard.
  */
 export async function schedulePickupAction(
   orderId: string
@@ -215,46 +262,9 @@ export async function schedulePickupAction(
     revalidatePath("/admin/orders");
     return { ok: true, ...result };
   } catch (err) {
-    if (err instanceof AdminOrderError || err instanceof ShiprocketError) {
-      return { ok: false, error: err.message };
-    }
+    if (isCourierError(err)) return { ok: false, error: err.message };
     console.error("schedulePickupAction failed", err);
     return { ok: false, error: "Could not schedule the pickup. Please try again." };
-  }
-}
-
-/** Step two — ⚠️ billable. Books a courier and buys the waybill. */
-export async function assignAwbAction(
-  orderId: string
-): Promise<AdminOrderActionResult | { ok: true; trackingNumber: string }> {
-  const session = await requireRole("admin");
-  try {
-    const awb = await assignAwbForOrder(orderId);
-    await logActivity(session, {
-      action: "order.awb",
-      target: { type: "order", id: orderId },
-      summary: `Bought waybill ${awb.awbCode} for order ${(await orderLabel(orderId)).number}`,
-    });
-    revalidatePath("/admin/orders");
-    // Tell the customer it's on its way, with the tracking link. Sent here and
-    // only here: buying the waybill is the moment an order turns "shipped" and
-    // gets its tracking number, and it can succeed only once per order, so the
-    // email can't go out twice. after(): the admin doesn't wait on Resend, and
-    // a failed send never undoes a waybill that has already been paid for.
-    after(async () => {
-      try {
-        await sendOrderShippedEmail(orderId);
-      } catch (err) {
-        console.error("order-shipped email failed", orderId, err);
-      }
-    });
-    return { ok: true, trackingNumber: awb.awbCode };
-  } catch (err) {
-    if (err instanceof AdminOrderError || err instanceof ShiprocketError) {
-      return { ok: false, error: err.message };
-    }
-    console.error("assignAwbAction failed", err);
-    return { ok: false, error: "Could not assign a waybill. Please try again." };
   }
 }
 

@@ -5,6 +5,7 @@ import { prisma } from "@/server/db";
 import { PageHeader } from "@/components/layout/page-header";
 import { getStoreSettings } from "@/server/settings/store-settings";
 import { StoreSettingsForm } from "@/components/admin/store-settings-form";
+import { courierConnections } from "@/server/couriers";
 import { getCollections } from "@/server/cms/collections";
 
 /**
@@ -68,7 +69,9 @@ export default async function AdminSettingsPage() {
           navShopFor: settings.navShopFor,
           charmPricing: settings.charmPricing,
           whatsappNumber: settings.whatsappNumber,
+          courierPartners: settings.courierPartners,
         }}
+        courierConnected={courierConnections()}
         collections={collections.map((c) => ({ slug: c.slug, title: c.title }))}
       />
       <div className="mt-8">
