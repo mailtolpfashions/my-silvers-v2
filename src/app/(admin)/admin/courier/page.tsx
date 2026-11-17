@@ -1,7 +1,7 @@
 import { OwnerOnlyNotice, viewerIsOwner } from "@/components/admin/owner-only";
 import { PageHeader } from "@/components/layout/page-header";
 import { getStoreSettings } from "@/server/settings/store-settings";
-import { getCourierConfig } from "@/server/settings/courier-config";
+import { getCourierConfig, saveCourierConfig } from "@/server/settings/courier-config";
 import { courierConnections } from "@/server/couriers";
 import {
   listNimbusPostWarehouses,
@@ -39,6 +39,26 @@ export default async function AdminCourierPage() {
     connected.nimbuspost ? loadNimbusPost() : Promise.resolve(null),
     connected.shiprocket ? loadShiprocket() : Promise.resolve(null),
   ]);
+  /**
+   * A pickup chosen before its pincode was saved (the pincode is where that
+   * partner's prices are measured from) is completed here from the partner's
+   * own list — the owner can't re-save a choice that already reads "In use".
+   * Idempotent: once filled, nothing is written again.
+   */
+  const fill: Parameters<typeof saveCourierConfig>[0] = {};
+  if (nimbus && config.nimbuspostWarehouseId && !config.nimbuspostWarehousePincode) {
+    const pin = nimbus.warehouses.find((w) => w.id === config.nimbuspostWarehouseId)?.pincode;
+    if (pin && /^\d{6}$/.test(pin)) fill.nimbuspostWarehousePincode = pin;
+  }
+  if (shiprocket && config.shiprocketPickupLocation && !config.shiprocketPickupPincode) {
+    const pin = shiprocket.pickups.find((p) => p.location === config.shiprocketPickupLocation)?.pincode;
+    if (pin && /^\d{6}$/.test(pin)) fill.shiprocketPickupPincode = pin;
+  }
+  if (Object.keys(fill).length > 0) {
+    await saveCourierConfig(fill).catch((err) => console.error("[courier] pincode backfill failed", err));
+    Object.assign(config, fill);
+  }
+
   const base = resolveAppBaseUrl(process.env.APP_BASE_URL, process.env.VERCEL_ENV === "production");
   const defaults = warehouseDefaults();
 
