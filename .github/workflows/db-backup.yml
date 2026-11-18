@@ -1,4 +1,5 @@
-# Nightly backup of the LIVE shop database, kept 30 days.
+# Nightly backup of the LIVE shop database, kept 30 days; Sunday's copy is
+# also kept 90 days.
 #
 # Supabase's free plan has no backups, so this makes one: pg_dump of the
 # `public` schema (everything the shop stores), encrypted with a passphrase
@@ -51,7 +52,11 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          stamp=$(date -u +%Y-%m-%d)
+          # Named by the date in India: the 2:00 AM run on the 19th is "…-19",
+          # though it is still the 18th in UTC.
+          stamp=$(TZ=Asia/Kolkata date +%Y-%m-%d)
+          # Sunday in India → also kept as a weekly copy (see the last step).
+          if [ "$(TZ=Asia/Kolkata date +%u)" = "7" ]; then weekly=true; else weekly=false; fi
           /usr/lib/postgresql/17/bin/pg_dump "$DB" \
             --schema=public --format=custom --no-owner --no-privileges \
             --file=db.dump
@@ -62,6 +67,8 @@ jobs:
             --output "mysilvers-db-$stamp.dump.gpg" db.dump
           shred -u db.dump
           echo "name=mysilvers-db-$stamp" >> "$GITHUB_OUTPUT"
+          echo "weekly_name=mysilvers-db-weekly-$stamp" >> "$GITHUB_OUTPUT"
+          echo "weekly=$weekly" >> "$GITHUB_OUTPUT"
           ls -l mysilvers-db-*.gpg
 
       - name: Keep for 30 days
@@ -70,4 +77,16 @@ jobs:
           name: ${{ steps.dump.outputs.name }}
           path: mysilvers-db-*.dump.gpg
           retention-days: 30
+          if-no-files-found: error
+
+      # The same encrypted file again, kept 90 days (GitHub's maximum), so
+      # damage noticed weeks later can still be undone — the dailies only reach
+      # back 30 days. Sundays only: about 13 weekly copies at any time.
+      - name: Sunday — also keep for 90 days
+        if: steps.dump.outputs.weekly == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.dump.outputs.weekly_name }}
+          path: mysilvers-db-*.dump.gpg
+          retention-days: 90
           if-no-files-found: error

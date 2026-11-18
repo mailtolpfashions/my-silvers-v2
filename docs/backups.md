@@ -2,7 +2,11 @@
 
 The live database is backed up every night at 2:00 AM IST by
 `.github/workflows/db-backup.yml`. Each backup is kept for 30 days as a
-workflow artifact named `mysilvers-db-YYYY-MM-DD`.
+workflow artifact named `mysilvers-db-YYYY-MM-DD` (the date in India). Sunday's
+copy is also kept for 90 days as `mysilvers-db-weekly-YYYY-MM-DD`, so damage
+noticed more than a month later can still be undone. 90 days is the longest
+GitHub keeps an artifact — for anything older (a year-end copy, say), download
+one by hand and store it yourself.
 
 Supabase's free plan keeps no backups of its own, so these are the only copies.
 
