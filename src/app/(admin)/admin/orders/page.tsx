@@ -186,9 +186,9 @@ export default async function AdminOrdersPage({
                     })()}
                   </TableCell>
                   <TableCell className="max-w-56">
-                    <p className="truncate text-sm">{order.user.name ?? "—"}</p>
-                    <p className="truncate text-xs text-muted-foreground" title={order.user.email}>
-                      {order.user.email}
+                    <p className="truncate text-sm">{order.user?.name ?? "—"}</p>
+                    <p className="truncate text-xs text-muted-foreground" title={order.user?.email}>
+                      {order.user?.email}
                     </p>
                   </TableCell>
                   <TableCell className="text-sm">

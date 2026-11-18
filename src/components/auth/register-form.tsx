@@ -27,11 +27,11 @@ export function RegisterForm() {
       )}
       <div className="space-y-1.5">
         <Label htmlFor="name" required>Name</Label>
-        <Input id="name" name="name" required autoComplete="name" />
+        <Input id="name" name="name" required maxLength={80} autoComplete="name" />
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="email" required>Email</Label>
-        <Input id="email" name="email" type="email" required autoComplete="email" />
+        <Input id="email" name="email" type="email" required maxLength={254} autoComplete="email" />
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="password" required>Password</Label>
@@ -41,6 +41,7 @@ export function RegisterForm() {
           type="password"
           required
           minLength={8}
+          maxLength={128}
           autoComplete="new-password"
         />
       </div>

@@ -1,6 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { z } from "zod";
 import { AuthError } from "next-auth";
 import { prisma } from "@/server/db";
 import { signIn } from "@/server/auth/auth";
@@ -56,8 +57,25 @@ export async function registerAction(
   if (!name || !email || !password) {
     return "All fields are required.";
   }
+  /**
+   * Checked HERE, not only by the form. The form's type="email" and its
+   * limits are the browser's — a bot posting straight to this action skips
+   * them, and an account was created for "e2e-not-an-email" and for a
+   * 5,000-character name (Nov 2026 QA, abuse.spec.ts). 80 matches the
+   * profile form (lib/validation/account.ts), so a name that signs up can
+   * always be saved again there.
+   */
+  if (name.length > 80) {
+    return "Name must be 80 characters or fewer.";
+  }
+  if (email.length > 254 || !z.string().email().safeParse(email).success) {
+    return "Please enter a valid email address.";
+  }
   if (password.length < 8) {
     return "Password must be at least 8 characters.";
+  }
+  if (password.length > 128) {
+    return "Password must be 128 characters or fewer.";
   }
   if (await isDisposableEmail(email)) {
     return DISPOSABLE_EMAIL_MESSAGE;

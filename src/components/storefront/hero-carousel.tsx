@@ -7,6 +7,7 @@ import { ArrowRight, ChevronLeft, ChevronRight, Pause, Play } from "lucide-react
 import { useSwipe } from "@/lib/use-swipe";
 import { usePointerPause } from "@/lib/use-pointer-pause";
 import { heroVideoUrl, heroVideoPosterUrl } from "@/lib/cloudinary-video";
+import { phoneSrcSet } from "@/lib/cloudinary-image";
 
 export type HeroSlide = {
   id: string;
@@ -338,15 +339,22 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                      * otherwise it becomes the positioned ancestor of an
                      * <Image fill> and it is `static`.
                      *
-                     * The trade-off: a matched <source> bypasses Next's
-                     * optimizer, so the portrait asset is served as uploaded.
-                     * Acceptable, because a hand-cropped hero is already
-                     * authored at the right size — and it is exactly the case
-                     * where automatic resizing is wrong.
+                     * A matched <source> bypasses Next's optimizer, so the
+                     * portrait asset used to be served AS UPLOADED — a 1.7 MB
+                     * PNG per slide on a phone (Lighthouse, Nov 2026: 5.8 MB
+                     * homepage, main content at 14.3 s). phoneSrcSet asks
+                     * Cloudinary for the same picture compressed and
+                     * phone-sized; c_limit only ever shrinks, never crops, so
+                     * the editor's framing is untouched. See
+                     * lib/cloudinary-image.ts.
                      */
                     <picture className="contents">
                       {slide.mediaMobile && (
-                        <source media="(max-width: 1023px)" srcSet={slide.mediaMobile} />
+                        <source
+                          media="(max-width: 1023px)"
+                          srcSet={phoneSrcSet(slide.mediaMobile)}
+                          sizes="100vw"
+                        />
                       )}
                       <Image
                         src={slide.media}

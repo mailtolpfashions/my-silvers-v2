@@ -26,6 +26,14 @@ import { useCoupon, clearAppliedCoupon } from "@/components/storefront/cart/use-
 import { CouponBox } from "@/components/storefront/cart/coupon-box";
 import { suggestEmailFix } from "@/lib/email-typo";
 import { loadRazorpay, GATEWAY_UNAVAILABLE } from "@/lib/razorpay-script";
+
+/** Placing the order failed in transit — nothing was charged; retrying is safe. */
+const CONNECTION_LOST =
+  "We couldn't reach our shop — your connection may have dropped. Nothing has been charged. Please check your internet and press the button again.";
+
+/** Paid at Razorpay, but our confirmation call never arrived. Must not pay twice. */
+const PAID_BUT_UNCONFIRMED =
+  "Your payment went through, but your connection dropped before we could confirm it. Please don't pay again — we'll confirm your order automatically in a few minutes, and you'll see it under My orders and in your email.";
 import { formatINRPaise } from "@/lib/format";
 import {
   shippingChargePaise,
@@ -438,11 +446,24 @@ export function CheckoutForm({
         setPaymentStage("verifying");
 
         const began = performance.now();
-        const result = await verifyPaymentAction({
-          razorpayOrderId: resp.razorpay_order_id,
-          razorpayPaymentId: resp.razorpay_payment_id,
-          razorpaySignature: resp.razorpay_signature,
-        });
+        let result: Awaited<ReturnType<typeof verifyPaymentAction>>;
+        try {
+          result = await verifyPaymentAction({
+            razorpayOrderId: resp.razorpay_order_id,
+            razorpayPaymentId: resp.razorpay_payment_id,
+            razorpaySignature: resp.razorpay_signature,
+          });
+        } catch {
+          /**
+           * The money has ALREADY gone — only our confirmation call failed
+           * (signal lost). Razorpay's webhook confirms the order on its own,
+           * so the one thing this shopper must not do is pay again. Before
+           * this, "Confirming your payment" simply never went away.
+           */
+          setPaymentStage(null);
+          setError(PAID_BUT_UNCONFIRMED);
+          return;
+        }
         const verified = performance.now();
         console.info(`[checkout] verify=${Math.round(verified - began)}ms`);
 
@@ -612,6 +633,19 @@ export function CheckoutForm({
         toast.success(`Order ${result.orderNumber} placed!`);
         router.push(successUrl(result.orderId, result.confirmationToken));
       }
+    } catch {
+      /**
+       * The request itself failed — almost always the signal dropping on a
+       * phone. Without this the "Placing your order — please don't refresh"
+       * overlay stayed up forever: `finally` re-enabled the button but nothing
+       * took the overlay down or said what happened (found by human.spec.ts).
+       *
+       * Safe to retry: the same idempotencyKey goes with the next attempt, so
+       * if this one did reach the server, the retry returns that order rather
+       * than making a second.
+       */
+      setPaymentStage(null);
+      setError(CONNECTION_LOST);
     } finally {
       setSubmitting(false);
     }
