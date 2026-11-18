@@ -21,7 +21,7 @@ import {
   ReturnReviewButtons,
   ReceivedBackButton,
 } from "@/components/admin/order-row-actions";
-import { isComingBack } from "@/lib/order-coming-back";
+import { isComingBack, UNPAID_ATTEMPTS_FILTER } from "@/lib/order-coming-back";
 import { PdfExportButton } from "@/components/admin/pdf-export-button";
 import { viewerIsOwner } from "@/components/admin/owner-only";
 import { SortableHeader } from "@/components/admin/sortable-header";
@@ -66,7 +66,7 @@ export default async function AdminOrdersPage({
 }) {
   const params = await searchParams;
   const isOwner = await viewerIsOwner();
-  const { orders, total, page, pageSize } = await getAdminOrders({
+  const { orders, total, page, pageSize, hiddenUnpaid } = await getAdminOrders({
     // A string, not just an OrderStatus — "coming_back" is a filter too.
     status: params.status,
     payment: params.payment as PaymentStatus | undefined,
@@ -110,7 +110,18 @@ export default async function AdminOrdersPage({
         current={{ status: params.status, payment: params.payment, q: params.q }}
       />
 
-      <p className="text-sm text-muted-foreground">{total} orders</p>
+      <p className="text-sm text-muted-foreground">
+        {total} orders
+        {hiddenUnpaid > 0 && (
+          <>
+            {" "}
+            · {hiddenUnpaid} unpaid online attempt{hiddenUnpaid === 1 ? "" : "s"} hidden —{" "}
+            <Link href={`/admin/orders?status=${UNPAID_ATTEMPTS_FILTER}`} className="underline">
+              show
+            </Link>
+          </>
+        )}
+      </p>
 
       <div className="overflow-x-auto rounded-lg border">
         <Table>

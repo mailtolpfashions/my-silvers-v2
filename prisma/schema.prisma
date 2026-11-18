@@ -528,6 +528,10 @@ model Order {
   returnReason         String?
   /// Private note from the shop (Orders → Owner tools). Never shown to the customer.
   adminNote            String?
+  /// When the "complete your payment" reminder went to the customer, for an
+  /// online order left unpaid. Sent at most once. See
+  /// api/cron/payment-reminders.
+  paymentReminderSentAt DateTime?
   /// When the parcel reached the customer — set by the courier's delivered
   /// scan or the owner marking it delivered. Starts the return window
   /// (settings.returnRequestHours). See lib/return-window.ts.
