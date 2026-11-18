@@ -27,7 +27,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const form = await req.formData();
+  // formData() THROWS on a body that is not a form — which answered 500 to
+  // anyone who posted JSON or plain text here (found by api-guards.spec.ts).
+  // A malformed request is the caller's error, not the server's.
+  const form = await req.formData().catch(() => null);
+  if (!form) return new Response("Expected a form body", { status: 400 });
   const raw = form.get("ids");
   return exportProducts(typeof raw === "string" ? raw.split(",") : null, false);
 }

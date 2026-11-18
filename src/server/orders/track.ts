@@ -45,7 +45,8 @@ export function normaliseOrderNumber(raw: string): string | null {
 function normaliseMobile(raw: string): string | null {
   const value = raw.trim().replace(/[\s\-()]/g, "");
   if (!/^(\+?91|0)?[6-9]\d{9}$/.test(value)) return null;
-  return value.replace(/^(\+?91|0)/, "");
+  // Last ten digits — see phoneSchema for why stripping a "91" prefix is wrong.
+  return value.slice(-10);
 }
 
 export async function findOrderForTracking(
