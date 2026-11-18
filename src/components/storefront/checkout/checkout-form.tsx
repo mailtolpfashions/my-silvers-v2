@@ -25,6 +25,7 @@ import { clearCartLocal } from "@/lib/user-state-store";
 import { useCoupon, clearAppliedCoupon } from "@/components/storefront/cart/use-coupon";
 import { CouponBox } from "@/components/storefront/cart/coupon-box";
 import { suggestEmailFix } from "@/lib/email-typo";
+import { loadRazorpay, GATEWAY_UNAVAILABLE } from "@/lib/razorpay-script";
 import { formatINRPaise } from "@/lib/format";
 import {
   shippingChargePaise,
@@ -157,6 +158,8 @@ export function CheckoutForm({
   /** Needed to re-ask the browser about validity outside a submit event. */
   const formRef = useRef<HTMLFormElement>(null);
   const [pendingPayment, setPendingPayment] = useState<PendingPayment | null>(null);
+  /** While Retry payment waits for Razorpay's script — stops double taps. */
+  const [openingGateway, setOpeningGateway] = useState(false);
   const [paymentDismissed, setPaymentDismissed] = useState(false);
   const [saveAddress, setSaveAddress] = useState(true);
 
@@ -382,11 +385,21 @@ export function CheckoutForm({
       : `/orders/${orderId}?ot=${token}&placed=1`;
   }
 
-  function openRazorpay(payment: PendingPayment) {
-    if (!window.Razorpay) {
-      setError("Payment gateway failed to load. Please refresh and try again.");
+  async function openRazorpay(payment: PendingPayment) {
+    setOpeningGateway(true);
+    const loaded = await loadRazorpay();
+    setOpeningGateway(false);
+    if (!loaded || !window.Razorpay) {
+      /**
+       * The order already exists by now (unpaid), so the Retry payment box has
+       * to show — without it the only way forward was a refresh and a second,
+       * duplicate order.
+       */
+      setError(GATEWAY_UNAVAILABLE);
+      setPaymentDismissed(true);
       return;
     }
+    setError(null);
     setPaymentDismissed(false);
     const rzp = new window.Razorpay({
       key: payment.keyId,
@@ -508,6 +521,18 @@ export function CheckoutForm({
     setSubmitting(true);
     setPaymentStage("placing");
     try {
+      /**
+       * Online payment needs Razorpay's window, so make sure it can open BEFORE
+       * the order is created. Otherwise a failed download leaves an unpaid
+       * order behind and nothing to pay it with. Usually instant — the script
+       * is preloaded with the page.
+       */
+      if (!wantCod && !(await loadRazorpay())) {
+        setPaymentStage(null);
+        setError(GATEWAY_UNAVAILABLE);
+        return;
+      }
+
       const result: PlaceOrderResult = await placeOrderAction({
         address: {
           fullName: form.fullName,
@@ -574,7 +599,7 @@ export function CheckoutForm({
          * window closes and the confirmation begins.
          */
         setPaymentStage(null);
-        openRazorpay(payment);
+        await openRazorpay(payment);
       } else {
         // COD — order is final immediately.
         if (!isAuthed) clearGuestCart();
@@ -673,9 +698,10 @@ export function CheckoutForm({
                 variant="outline"
                 size="sm"
                 className="mt-2"
-                onClick={() => openRazorpay(pendingPayment)}
+                disabled={openingGateway}
+                onClick={() => void openRazorpay(pendingPayment)}
               >
-                Retry payment
+                {openingGateway ? "Opening payment…" : "Retry payment"}
               </Button>
             </div>
           )}

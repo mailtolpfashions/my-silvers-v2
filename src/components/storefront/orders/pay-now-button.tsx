@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { resumePaymentAction, verifyPaymentAction } from "@/actions/order-actions";
 import { PAYMENT_WINDOW_HOURS } from "@/lib/order-payment";
 import { clearCartLocal } from "@/lib/user-state-store";
+import { loadRazorpay, GATEWAY_UNAVAILABLE } from "@/lib/razorpay-script";
 
 /**
  * The notice and "Pay now" on an order whose payment was never completed.
@@ -32,15 +33,20 @@ export function PayNowNotice({
 
   async function pay() {
     setBusy(true);
-    const details = await resumePaymentAction({ orderId, token });
+    // Both at once: the script wait usually costs nothing, and when it doesn't
+    // it overlaps the server round trip instead of adding to it.
+    const [details, loaded] = await Promise.all([
+      resumePaymentAction({ orderId, token }),
+      loadRazorpay(),
+    ]);
     if (!details.ok) {
       toast.error(details.error);
       setBusy(false);
       router.refresh();
       return;
     }
-    if (!window.Razorpay) {
-      toast.error("Payment gateway failed to load. Please refresh and try again.");
+    if (!loaded || !window.Razorpay) {
+      toast.error(GATEWAY_UNAVAILABLE);
       setBusy(false);
       return;
     }
