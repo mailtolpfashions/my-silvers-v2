@@ -36,7 +36,7 @@ import {
   applyCharmPricesAction,
 } from "@/actions/admin-product-actions";
 import type { CharmChange } from "@/server/products/admin";
-import { CHARM_STYLES, type CharmStyle } from "@/lib/charm-price";
+import { CHARM_DIRECTIONS, CHARM_STYLES, type CharmDirection, type CharmStyle } from "@/lib/charm-price";
 import { formatINR } from "@/lib/format";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
@@ -93,22 +93,25 @@ export function ProductBulkBar({
   // Deletes are the owner's alone; Archive stays for every admin.
   const isOwner = useIsOwner();
   const [charmStyle, setCharmStyle] = useState<CharmStyle>("99");
-  const latestCharmStyle = useRef<CharmStyle>("99");
+  const [charmDirection, setCharmDirection] = useState<CharmDirection>("down");
+  const latestCharm = useRef("99/down");
   const [charmPreview, setCharmPreview] = useState<{
     sample: CharmChange[];
     total: number;
   } | null>(null);
 
   /** Opens the charm dialog (or switches its style) and fetches the preview. */
-  function openCharm(style: CharmStyle) {
+  function openCharm(style: CharmStyle, direction: CharmDirection = charmDirection) {
     setCharmStyle(style);
+    setCharmDirection(direction);
     setCharmPreview(null);
     setPrompt("charm");
-    latestCharmStyle.current = style;
+    const key = `${style}/${direction}`;
+    latestCharm.current = key;
     const ids = [...selected];
-    void previewCharmPricesAction(ids, style).then((result) => {
-      // Switching style quickly can land an older answer last; ignore it.
-      if (latestCharmStyle.current !== style) return;
+    void previewCharmPricesAction(ids, style, direction).then((result) => {
+      // Switching choices quickly can land an older answer last; ignore it.
+      if (latestCharm.current !== key) return;
       if (result.ok) setCharmPreview({ sample: result.sample, total: result.total });
       else toast.error(result.error);
     });
@@ -350,9 +353,9 @@ export function ProductBulkBar({
               <DialogHeader>
                 <DialogTitle>Charm prices</DialogTitle>
                 <DialogDescription>
-                  Rounds the selling price of {plural(count)} down — never up. Prices
-                  already in the style are left alone, and an offer&apos;s struck-through
-                  original stays as it is.
+                  Rounds the selling price of {plural(count)}. Prices already in the style
+                  are left alone, an offer&apos;s struck-through original stays as it is, and
+                  no price is rounded up to or past it.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-2" role="radiogroup" aria-label="Rounding style">
@@ -364,6 +367,23 @@ export function ProductBulkBar({
                       className="mt-1"
                       checked={charmStyle === option.value}
                       onChange={() => openCharm(option.value)}
+                    />
+                    <span>
+                      {option.label}
+                      <span className="block text-xs text-muted-foreground">{option.example}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div className="space-y-2 border-t pt-3" role="radiogroup" aria-label="Round which way">
+                {CHARM_DIRECTIONS.map((option) => (
+                  <label key={option.value} className="flex items-start gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="bulk-charm-direction"
+                      className="mt-1"
+                      checked={charmDirection === option.value}
+                      onChange={() => openCharm(charmStyle, option.value)}
                     />
                     <span>
                       {option.label}
@@ -407,7 +427,7 @@ export function ProductBulkBar({
                   disabled={isPending || !charmPreview || charmPreview.total === 0}
                   onClick={() =>
                     run(
-                      (ids) => applyCharmPricesAction(ids, charmStyle),
+                      (ids) => applyCharmPricesAction(ids, charmStyle, charmDirection),
                       (n) => (n === 0 ? "No prices needed changing." : `${plural(n)} repriced.`)
                     )
                   }
