@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { prisma } from "@/server/db";
+import { auth } from "@/server/auth/auth";
 import { subscribeToStock } from "@/server/products/stock-notifications";
 import { checkIpRateLimit, RATE_LIMIT_MESSAGE } from "@/server/rate-limit/limiter";
 import {
@@ -13,10 +14,18 @@ const schema = z.object({
   productId: z.string().min(1),
   // Empty string is the real value for an unsized product, not a missing one.
   size: z.string().max(30).optional(),
-  email: z.string().trim().email("Please enter a valid email address.").max(200),
+  // Optional: a signed-in shopper sends none and their account email is used.
+  email: z
+    .string()
+    .trim()
+    .email("Please enter a valid email address.")
+    .max(200)
+    .optional()
+    .or(z.literal("")),
 });
 
-export type NotifyResult = { ok: true } | { ok: false; error: string };
+/** `email` is where the alert will go — shown back to a signed-in shopper. */
+export type NotifyResult = { ok: true; email: string } | { ok: false; error: string };
 
 /**
  * "Tell me when this is back."
@@ -40,8 +49,17 @@ export async function notifyWhenBackAction(input: unknown): Promise<NotifyResult
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid request." };
   }
-  const { productId, email } = parsed.data;
+  const { productId } = parsed.data;
   const size = parsed.data.size ?? "";
+
+  // One tap for a signed-in shopper: their account email, never a typed one
+  // they would have to repeat. A guest must type it — the button asks.
+  let email = parsed.data.email || "";
+  if (!email) {
+    const session = await auth();
+    email = session?.user?.email ?? "";
+    if (!email) return { ok: false, error: "Please enter your email address." };
+  }
 
   if (await isDisposableEmail(email)) {
     return { ok: false, error: DISPOSABLE_EMAIL_MESSAGE };
@@ -71,7 +89,7 @@ export async function notifyWhenBackAction(input: unknown): Promise<NotifyResult
 
   try {
     await subscribeToStock({ productId, size, email });
-    return { ok: true };
+    return { ok: true, email };
   } catch (err) {
     console.error("notifyWhenBackAction failed", err);
     return { ok: false, error: "Could not save that. Please try again." };
