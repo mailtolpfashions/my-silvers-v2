@@ -83,6 +83,16 @@ export type StoreSettings = {
   returnShippingPaidBy: "customer" | "merchant";
 
   /**
+   * How long after delivery a customer may press "Request return", in hours.
+   * Enforced: the button goes and the server refuses once it has passed. Also
+   * the figure the shipped and delivered emails quote. 0 = no limit.
+   *
+   * Hours, not days, because the shop's promise is "48 hours with an unboxing
+   * video". Separate from returnWindowDays, which is only what Google is told.
+   */
+  returnRequestHours: number;
+
+  /**
    * Days between an order being placed and it leaving the shop, as a range.
    *
    * Zero on either end means unstated, and suppresses the delivery estimate in
@@ -197,6 +207,8 @@ export const STORE_SETTING_DEFAULTS: StoreSettings = {
    */
   returnWindowDays: 0,
   returnShippingPaidBy: "customer",
+  /** The shop's stated policy: report within 48 hours with an unboxing video. */
+  returnRequestHours: 48,
   handlingTimeMinDays: 0,
   handlingTimeMaxDays: 0,
   transitTimeMinDays: 0,
@@ -289,6 +301,7 @@ function parse(raw: unknown): StoreSettings {
     giftWrapChargePaise: whole(v.giftWrapChargePaise, d.giftWrapChargePaise),
     giftWrapEnabled: bool(v.giftWrapEnabled, d.giftWrapEnabled),
     returnWindowDays: whole(v.returnWindowDays, d.returnWindowDays),
+    returnRequestHours: whole(v.returnRequestHours, d.returnRequestHours),
     returnShippingPaidBy: oneOf(
       v.returnShippingPaidBy,
       ["customer", "merchant"] as const,

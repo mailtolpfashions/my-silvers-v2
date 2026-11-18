@@ -70,6 +70,8 @@ export async function loadOrderEmailData(orderId: string) {
     trackingUrl: order.trackingUrl,
     courierName: order.courierName,
     help: { whatsapp: settings.whatsappNumber || undefined, email: "support@mysilvers.in" } as Help,
+    /** settings.returnRequestHours — what the shipped and delivered emails quote. 0 = no limit. */
+    returnHours: settings.returnRequestHours,
   };
 }
 

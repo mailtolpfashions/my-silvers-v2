@@ -6,7 +6,8 @@ import { getUserOrder } from "@/server/orders/queries";
 import { OrderDetail } from "@/components/storefront/orders/order-detail";
 import { getReviewableItems } from "@/server/reviews/reviewable-items";
 import { CancelOrderButton } from "@/components/storefront/orders/cancel-order-button";
-import { RequestReturnButton } from "@/components/storefront/orders/request-return-button";
+import { ReturnOption } from "@/components/storefront/orders/return-option";
+import { getStoreSettings } from "@/server/settings/store-settings";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   PayNowNotice,
@@ -63,11 +64,12 @@ async function OrderDetailContent({
   const { id } = await params;
   if (!session?.user?.id) redirect(`/login?redirect=/account/orders/${id}`);
 
-  const [loaded, { placed }, reviewable] = await Promise.all([
+  const [loaded, { placed }, reviewable, settings] = await Promise.all([
     getUserOrder(id, session.user),
     searchParams,
     // Empty unless this order is delivered — reviewing is gated on receipt.
     getReviewableItems(id, session.user),
+    getStoreSettings(),
   ]);
   if (!loaded) notFound();
 
@@ -116,7 +118,13 @@ async function OrderDetailContent({
           {cancellable && (
             <CancelOrderButton orderId={order.id} wasPaid={order.paymentStatus === "paid"} />
           )}
-          {order.orderStatus === "delivered" && <RequestReturnButton orderId={order.id} />}
+          {order.orderStatus === "delivered" && (
+            <ReturnOption
+              order={order}
+              hours={settings.returnRequestHours}
+              whatsappNumber={settings.whatsappNumber}
+            />
+          )}
           {/* Same condition the invoice route enforces — offering a link that
               404s is worse than not offering one. */}
           {invoiceAvailable && (

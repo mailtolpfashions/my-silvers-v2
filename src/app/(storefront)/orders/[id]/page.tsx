@@ -5,7 +5,8 @@ import {
 } from "@/components/storefront/orders/pay-now-button";
 import { closeIfSoldOut } from "@/server/orders/sold-out";
 import { getReviewableItemsForGuest } from "@/server/reviews/reviewable-items";
-import { RequestReturnButton } from "@/components/storefront/orders/request-return-button";
+import { ReturnOption } from "@/components/storefront/orders/return-option";
+import { getStoreSettings } from "@/server/settings/store-settings";
 import { unpaidState } from "@/lib/order-payment";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
@@ -64,12 +65,13 @@ async function GuestOrder({
   // An online order the shopper never paid for — see lib/order-payment.ts.
   const unpaid = unpaidState(order);
 
-  const [user, claimEmail, reviewable] = await Promise.all([
+  const [user, claimEmail, reviewable, settings] = await Promise.all([
     prisma.user.findUnique({ where: { id: order.userId }, select: { email: true } }),
     getClaimableAccountEmail(order.id, ot),
     // A guest reviews and asks for a return through this same link — see
     // server/orders/guest-access.ts. Empty until the order is delivered.
     getReviewableItemsForGuest(order.id, ot),
+    getStoreSettings(),
   ]);
 
   return (
@@ -102,7 +104,12 @@ async function GuestOrder({
       <OrderDetail order={order} reviewable={reviewable} guest={{ orderId: order.id, token: ot }} />
       {order.orderStatus === "delivered" && (
         <div className="mt-6">
-          <RequestReturnButton orderId={order.id} guestToken={ot} />
+          <ReturnOption
+            order={order}
+            hours={settings.returnRequestHours}
+            whatsappNumber={settings.whatsappNumber}
+            guestToken={ot}
+          />
         </div>
       )}
     </>

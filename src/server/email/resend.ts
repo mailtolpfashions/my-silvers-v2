@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { formatINR } from "@/lib/format";
+import { windowLength } from "@/lib/return-window";
 import {
   renderEmail,
   button,
@@ -206,7 +207,7 @@ export function orderShippedHtml(d: OrderEmailData): string {
     itemsTable(d.items),
     sectionTitle("Delivering to"),
     box(addressBlock(d.address)),
-    `<p style="margin:20px 0 0;font-size:13px;line-height:20px;color:${C.muted}">Tracking can take a few hours to show the first update after pickup. You can also follow it at <a href="${appBaseUrl}/track-order" style="color:${C.oxide}">${site}/track-order</a> with your order number and mobile number. Please check the parcel when it arrives — if anything is damaged or wrong, record an unboxing video and tell us within 48 hours.</p>`,
+    `<p style="margin:20px 0 0;font-size:13px;line-height:20px;color:${C.muted}">Tracking can take a few hours to show the first update after pickup. You can also follow it at <a href="${appBaseUrl}/track-order" style="color:${C.oxide}">${site}/track-order</a> with your order number and mobile number. Please check the parcel when it arrives — if anything is damaged or wrong, record an unboxing video and tell us${d.returnHours > 0 ? ` within ${windowLength(d.returnHours)} of delivery` : " as soon as you can"}.</p>`,
   ].join("");
 
   return page({
@@ -221,7 +222,8 @@ export function orderShippedHtml(d: OrderEmailData): string {
  * "Delivered" — sent once, when the order first turns delivered (the
  * Shiprocket webhook, or the owner marking it by hand from a pre-delivery
  * status). The moment to ask for a review, point to the care guide, and
- * restate the 48-hour window for reporting damage — it starts now.
+ * restate the window for reporting damage (settings.returnRequestHours) —
+ * it starts now.
  */
 export async function sendOrderDeliveredEmail(orderId: string) {
   const d = await loadOrderEmailData(orderId);
@@ -253,7 +255,7 @@ export function orderDeliveredHtml(d: OrderEmailData): string {
     itemsTable(d.items),
     sectionTitle("Something not right?"),
     box(
-      `If anything arrived damaged, defective or wrong, tell us <strong>within 48 hours</strong> with an unboxing video and we'll make it right — a refund or an exchange, your choice. Reply to this email or use <a href="${orderHref}" style="color:${C.oxide};font-weight:600">Request a return</a> on your order.`
+      `If anything arrived damaged, defective or wrong, tell us ${d.returnHours > 0 ? `<strong>within ${windowLength(d.returnHours)}</strong>` : "<strong>as soon as you can</strong>"} with an unboxing video and we'll make it right — a refund or an exchange, your choice. Reply to this email or use <a href="${orderHref}" style="color:${C.oxide};font-weight:600">Request a return</a> on your order.`
     ),
     `<p style="margin:20px 0 0;font-size:13px;line-height:20px;color:${C.muted}">Keep your silver bright: store it dry, in a zip-lock bag or a closed box, and put it on after perfume and lotion, not before.</p>`,
   ].join("");
