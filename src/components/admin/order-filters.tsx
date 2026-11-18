@@ -61,26 +61,28 @@ export function AdminOrderFilters({
   const hasFilters = Boolean(current.status || current.payment || current.q);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    // Same shape as the Products list (product-table-controls.tsx): the search
+    // takes the free width, the filters sit on the right; stacked on a phone.
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
       <form
         onSubmit={(e) => {
           e.preventDefault();
           update("q", q.trim() || null);
         }}
-        className="relative"
+        className="relative flex-1"
       >
         <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Order number, name, email or phone"
+          placeholder="Search order number, name, email or phone…"
           aria-label="Search orders"
-          className="w-64 pl-8"
+          className="w-full pl-8"
         />
       </form>
 
       <Select value={current.status ?? ANY} onValueChange={(v) => update("status", v)}>
-        <SelectTrigger className="w-44">
+        <SelectTrigger className="w-full sm:w-[180px]">
           <SelectValue placeholder="Any status" />
         </SelectTrigger>
         <SelectContent>
@@ -99,7 +101,7 @@ export function AdminOrderFilters({
       </Select>
 
       <Select value={current.payment ?? ANY} onValueChange={(v) => update("payment", v)}>
-        <SelectTrigger className="w-40">
+        <SelectTrigger className="w-full sm:w-[160px]">
           <SelectValue placeholder="Any payment" />
         </SelectTrigger>
         <SelectContent>
