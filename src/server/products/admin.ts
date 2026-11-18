@@ -789,7 +789,7 @@ export async function bulkImportProducts(
             : null;
         const auto = priceFor(costing, pricingRule, mrp);
         if (auto === null) {
-          throw new Error("price is blank and the margins in Settings → Pricing can't be met — fill the price");
+          throw new Error("price is blank and the margins on the Pricing page can't be met — fill the price");
         }
         row = { ...row, price: String(auto) };
       }

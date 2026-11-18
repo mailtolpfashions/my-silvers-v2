@@ -46,7 +46,7 @@ const MARGINS: Array<{ key: NumKey; label: string }> = [
 type Preview = { sample: Array<{ id: string; sku: string; name: string; from: number; to: number }>; total: number; manual: number };
 
 /**
- * Settings → Pricing: everything a price is built from, in the order it is
+ * the Pricing page: everything a price is built from, in the order it is
  * built — ① costs of selling, ② margin by price band, ③ rounding — with a
  * live example, and Recalculate for prices already saved. Owner only (the
  * Settings page is owner-only; every action re-checks).
@@ -158,7 +158,6 @@ export function PricingSettings({
   return (
     <section id="pricing" className="scroll-mt-24 space-y-6 rounded-lg border p-5">
       <div>
-        <h2 className="label-eyebrow mb-1">Pricing</h2>
         <p className="text-sm text-muted-foreground">
           How a costed product&apos;s price is worked out: its cost (weight × the silver rate its batch
           was bought at + making charge), then the margin for its price band, then rounding. Enter

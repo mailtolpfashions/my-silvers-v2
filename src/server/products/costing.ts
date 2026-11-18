@@ -102,7 +102,7 @@ export type RecalcChange = { id: string; sku: string; name: string; from: number
 
 /**
  * What Recalculate would change: every costed product on an automatic price,
- * re-priced with today's Settings → Pricing. Manual prices are left out.
+ * re-priced with today's pricing rules. Manual prices are left out.
  * Writes nothing.
  */
 export async function planRecalculation(): Promise<{ changes: RecalcChange[]; manual: number }> {

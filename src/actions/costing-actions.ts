@@ -16,7 +16,7 @@ const pricingSchema = z.object({
 });
 
 /**
- * Settings → Pricing: costs of selling, margin bands and rounding, saved
+ * the Pricing page: costs of selling, margin bands and rounding, saved
  * together because together they ARE the price. Owner only.
  *
  * The costing figures go to their own row (costing-config.ts) and rounding to
@@ -62,7 +62,7 @@ export async function previewRecalculationAction(): Promise<
 
 /**
  * Re-prices every costed product on an automatic price with today's
- * Settings → Pricing. Recomputed here rather than trusting the preview, so a
+ * pricing rules. Recomputed here rather than trusting the preview, so a
  * setting changed between preview and apply is the one used. Manual prices
  * are never touched.
  */
