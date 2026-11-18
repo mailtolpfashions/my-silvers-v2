@@ -6,6 +6,12 @@ import type { SortDir } from "@/server/products/admin";
 import type { PaymentStatus } from "@/generated/prisma/client";
 import { toPaise } from "@/server/orders/money";
 import { COMING_BACK_FILTER } from "@/lib/order-coming-back";
+import {
+  formatDeadline,
+  isReturnWindowOpen,
+  returnDeadline,
+  windowLength,
+} from "@/lib/return-window";
 import { createRefund } from "@/server/payments/razorpay";
 import {
   activePartners,
@@ -229,6 +235,21 @@ export async function requestReturn(
     "guestToken" in owner
       ? { confirmationToken: owner.guestToken }
       : await accountOrderScope(owner);
+
+  // The return window. The order page already hides the button once it has
+  // passed; this is the check that counts, for a page left open past the
+  // deadline or a request made without the page at all.
+  const [order, settings] = await Promise.all([
+    prisma.order.findFirst({ where: { id: orderId, ...scope }, select: { deliveredAt: true } }),
+    getStoreSettings(),
+  ]);
+  if (order && !isReturnWindowOpen(order.deliveredAt, settings.returnRequestHours)) {
+    const deadline = returnDeadline(order.deliveredAt, settings.returnRequestHours)!;
+    throw new AdminOrderError(
+      `Returns can be requested within ${windowLength(settings.returnRequestHours)} of delivery — that closed on ${formatDeadline(deadline)}. Please contact us if something is wrong with your order.`
+    );
+  }
+
   const claim = await prisma.order.updateMany({
     // Scoped like every customer-side order action — see accountOrderScope.
     where: { id: orderId, ...scope, orderStatus: "delivered" },

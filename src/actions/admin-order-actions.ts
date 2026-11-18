@@ -87,6 +87,11 @@ export async function updateOrderStatusAction(
     parsed.data === "delivered" &&
     ["placed", "confirmed", "processing", "shipped"].includes(before.orderStatus)
   ) {
+    // Starts the return window, as the courier's delivered scan would have.
+    await prisma.order.updateMany({
+      where: { id: orderId, deliveredAt: null },
+      data: { deliveredAt: new Date() },
+    });
     after(async () => {
       try {
         await sendOrderDeliveredEmail(orderId);

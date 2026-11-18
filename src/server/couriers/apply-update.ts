@@ -78,6 +78,15 @@ export async function applyCourierUpdate(
     await markComingBackIfNeeded(order.id, order.orderStatus, next!);
   }
 
+  // The courier's delivered scan starts the return window. Stamped once — a
+  // repeated push must not push the deadline later.
+  if (moved && next === "delivered") {
+    await prisma.order.updateMany({
+      where: { id: order.id, deliveredAt: null },
+      data: { deliveredAt: new Date() },
+    });
+  }
+
   if (merged || update.courierName) {
     await prisma.order.update({
       where: { id: order.id },

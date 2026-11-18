@@ -18,6 +18,7 @@ export type StoreSettingsFormValues = {
   giftWrapCharge: number;
   /** Whole days. Zero throughout means "not stated" — see the section copy. */
   returnWindowDays: number;
+  returnRequestHours: number;
   returnShippingPaidBy: "customer" | "merchant";
   navFinishes: NavRow[];
   navOccasions: NavRow[];
@@ -293,6 +294,7 @@ export function StoreSettingsForm({
 
   /** Same reasoning as the money fields above: raw strings, parsed on submit. */
   const [returnWindow, setReturnWindow] = useState(String(initial.returnWindowDays));
+  const [returnHours, setReturnHours] = useState(String(initial.returnRequestHours));
 
   /** Shown as the 10 digits people recognise; the server adds the 91 back. */
   const [whatsapp, setWhatsapp] = useState(initial.whatsappNumber.replace(/^91(?=\d{10}$)/, ""));
@@ -303,7 +305,7 @@ export function StoreSettingsForm({
    * "Unsaved changes" line.
    */
   const snapshot = JSON.stringify([
-    form, giftWrapCharge, returnWindow, whatsapp,
+    form, giftWrapCharge, returnWindow, returnHours, whatsapp,
   ]);
   const [savedSnapshot, setSavedSnapshot] = useState(snapshot);
 
@@ -321,9 +323,11 @@ export function StoreSettingsForm({
     const dayCount = (raw: string) => (raw.trim() === "" ? 0 : Number(raw));
     const dayValues = {
       returnWindowDays: dayCount(returnWindow),
+      // Same rule: empty is 0, which here means no time limit.
+      returnRequestHours: dayCount(returnHours),
     };
     if (!Object.values(dayValues).every((n) => Number.isInteger(n) && n >= 0)) {
-      toast.error("Day counts must be whole numbers.");
+      toast.error("Days and hours must be whole numbers.");
       return;
     }
 
@@ -478,8 +482,24 @@ export function StoreSettingsForm({
       <div className="space-y-6">
       <section className={CARD}>
         <h2 className="label-eyebrow mb-1">Returns</h2>
+
+        <div className="mb-6 max-w-[16rem] space-y-1.5">
+          <Label htmlFor="returnRequestHours">Time to request a return (hours)</Label>
+          <Input
+            id="returnRequestHours"
+            inputMode="numeric"
+            value={returnHours}
+            onChange={(e) => setReturnHours(e.target.value)}
+            disabled={saving}
+          />
+          <p className="text-xs text-muted-foreground">
+            Counted from delivery. After this, customers no longer see Request return on their
+            order. The shipped and delivered emails quote it. 0 means no limit.
+          </p>
+        </div>
+
         <p className="mb-5 text-sm text-muted-foreground">
-          These are published to Google, and are what it shows next to the shop
+          The fields below are published to Google, and are what it shows next to the shop
           in search results. Leave a field at 0 and nothing is published for it —
           the shop simply makes no claim. Only fill these in once the policy is
           decided, and keep them in step with the returns wording in the CMS.

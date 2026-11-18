@@ -56,6 +56,7 @@ export default async function AdminSettingsPage() {
           // Days are already the storage unit — no conversion, unlike the money
           // above.
           returnWindowDays: settings.returnWindowDays,
+          returnRequestHours: settings.returnRequestHours,
           returnShippingPaidBy: settings.returnShippingPaidBy,
           navFinishes: settings.navFinishes,
           navOccasions: settings.navOccasions,
