@@ -8,40 +8,11 @@ import { requireOwner } from "@/server/auth/require-role";
 import { logActivity } from "@/server/activity/log";
 import {
   getStoreSettings,
-  NAV_FILTER_LIMITS,
-  NAV_MENU_TAG,
   CONTACT_TAG,
   saveStoreSettings,
   STORE_SETTINGS_TAG,
   type StoreSettings,
 } from "@/server/settings/store-settings";
-
-/**
- * A header-menu list as the form sends it. Rows with both halves blank are
- * dropped (an untouched "Add" row); a row with only one half filled is an
- * error, because guessing the other half would publish a link the admin never
- * saw. Duplicate labels are refused — two "Oxidised" links side by side is a
- * typo, not a choice.
- */
-const navFilters = (what: string, target = "search word") =>
-  z
-    .array(
-      z.object({
-        label: z.string().trim().max(NAV_FILTER_LIMITS.label, `${what}: a label is too long.`),
-        query: z.string().trim().max(NAV_FILTER_LIMITS.query, `${what}: a ${target} is too long.`),
-      })
-    )
-    .transform((rows) => rows.filter((r) => r.label || r.query))
-    .refine((rows) => rows.every((r) => r.label && r.query), {
-      message: `${what}: every row needs both a label and a ${target}.`,
-    })
-    .refine((rows) => rows.length <= NAV_FILTER_LIMITS.items, {
-      message: `${what}: at most ${NAV_FILTER_LIMITS.items} links.`,
-    })
-    .refine(
-      (rows) => new Set(rows.map((r) => r.label.toLowerCase())).size === rows.length,
-      { message: `${what}: the same label appears twice.` }
-    );
 
 const settingsSchema = z
   .object({
@@ -53,9 +24,6 @@ const settingsSchema = z
     returnWindowDays: days,
     returnRequestHours: z.number().int().min(0).max(24 * 90),
     returnShippingPaidBy: z.enum(["customer", "merchant"]),
-    navFinishes: navFilters("Finishes"),
-    navOccasions: navFilters("Occasions"),
-    navShopFor: navFilters("Shop for", "collection"),
     /**
      * Empty hides WhatsApp everywhere. Anything else must BE an Indian mobile
      * number: refused with a message rather than saved as "" — silently
@@ -105,9 +73,11 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
     returnWindowDays: data.returnWindowDays,
     returnRequestHours: data.returnRequestHours,
     returnShippingPaidBy: data.returnShippingPaidBy,
-    navFinishes: data.navFinishes,
-    navOccasions: data.navOccasions,
-    navShopFor: data.navShopFor,
+    // The header menu is edited in Studio (saveHeaderMenuAction) — carried
+    // over untouched here so this form can't overwrite it.
+    navFinishes: before.navFinishes,
+    navOccasions: before.navOccasions,
+    navShopFor: before.navShopFor,
     // Rounding is saved by the Pricing card (savePricingSettingsAction), so
     // this form must carry it over untouched rather than overwrite it with
     // whatever it loaded.
@@ -140,17 +110,6 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
 
   updateTag(STORE_SETTINGS_TAG);
 
-  /**
-   * The header lists have their own tag, expired ONLY when they changed.
-   *
-   * The header is on every page, so expiring its tag rebuilds every page's
-   * header on its next visit. Doing that on a COD or shipping save — the
-   * common case — is pure cost; see getNavMenuSettings.
-   */
-  const listsChanged =
-    JSON.stringify([before.navFinishes, before.navOccasions, before.navShopFor]) !==
-    JSON.stringify([next.navFinishes, next.navOccasions, next.navShopFor]);
-  if (listsChanged) updateTag(NAV_MENU_TAG);
   // Same for the WhatsApp number, read by the footer and menu on every page.
   if (before.whatsappNumber !== next.whatsappNumber) updateTag(CONTACT_TAG);
   // The cart and checkout quote the shipping charge, so a rate change has to

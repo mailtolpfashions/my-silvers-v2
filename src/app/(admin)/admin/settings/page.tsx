@@ -5,7 +5,6 @@ import { prisma } from "@/server/db";
 import { PageHeader } from "@/components/layout/page-header";
 import { getStoreSettings } from "@/server/settings/store-settings";
 import { StoreSettingsForm } from "@/components/admin/store-settings-form";
-import { getCollections } from "@/server/cms/collections";
 
 /**
  * The shop's operational switches.
@@ -32,9 +31,8 @@ export default async function AdminSettingsPage() {
   // every customer is charged and promised. The save action re-checks.
   if (!(await viewerIsOwner())) return <OwnerOnlyNotice area="Settings" />;
 
-  const [settings, collections, alertEmails, owners] = await Promise.all([
+  const [settings, alertEmails, owners] = await Promise.all([
     getStoreSettings(),
-    getCollections(),
     getOrderAlertEmails(),
     prisma.user.findMany({ where: { role: "superadmin" }, select: { email: true } }),
   ]);
@@ -59,12 +57,8 @@ export default async function AdminSettingsPage() {
           returnWindowDays: settings.returnWindowDays,
           returnRequestHours: settings.returnRequestHours,
           returnShippingPaidBy: settings.returnShippingPaidBy,
-          navFinishes: settings.navFinishes,
-          navOccasions: settings.navOccasions,
-          navShopFor: settings.navShopFor,
           whatsappNumber: settings.whatsappNumber,
         }}
-        collections={collections.map((c) => ({ slug: c.slug, title: c.title }))}
       />
       <div className="mt-8">
         <OrderAlertEmails

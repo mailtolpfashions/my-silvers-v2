@@ -68,6 +68,10 @@ async function CmsGate({ children }: { children: React.ReactNode }) {
       })),
     },
     {
+      label: "Site",
+      items: [{ href: "/cms/header-menu", label: "Header menu", icon: "headerMenu" }],
+    },
+    {
       label: "Library",
       items: [{ href: "/cms/media", label: "Media", icon: "media" }],
     },

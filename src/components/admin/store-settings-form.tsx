@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { FormSaveBar } from "@/components/layout/form-save-bar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,188 +19,14 @@ export type StoreSettingsFormValues = {
   returnWindowDays: number;
   returnRequestHours: number;
   returnShippingPaidBy: "customer" | "merchant";
-  navFinishes: NavRow[];
-  navOccasions: NavRow[];
-  /** `query` is a collection slug here — see StoreSettings.navShopFor. */
-  navShopFor: NavRow[];
   /** As stored ("919876543210") or "" — shown to the owner without the 91. */
   whatsappNumber: string;
 };
 
 /** A published collection, as offered in the "Shop for" picker. */
-type CollectionOption = { slug: string; title: string };
 
 /** Each settings group's card — the same treatment as the product form's sections. */
 const CARD = "rounded-lg border bg-background p-5";
-
-/** One header-menu link as edited here: a label, and the words it searches. */
-type NavRow = { label: string; query: string };
-
-/**
- * An ordered, editable list of header-menu links.
- *
- * The search word follows the label as it is typed ("Rose gold" → "rose
- * gold") until the admin edits the search word themselves — most rows want
- * exactly that, and the ones that do not ("Rhodium plated" searching
- * "rhodium") are one edit away. Nothing is filled in silently on save: what
- * is in the boxes is what gets published.
- */
-function NavListEditor({
-  id,
-  title,
-  description,
-  rows,
-  onChange,
-  disabled,
-  placeholder,
-  collections,
-}: {
-  id: string;
-  title: string;
-  description: string;
-  rows: NavRow[];
-  onChange: (rows: NavRow[]) => void;
-  disabled?: boolean;
-  placeholder: string;
-  /**
-   * When given, each row links to one of these collections, picked from a
-   * list, instead of searching for a typed word. A list rather than a slug box
-   * because a mistyped slug is a link to nowhere.
-   */
-  collections?: CollectionOption[];
-}) {
-  const update = (i: number, patch: Partial<NavRow>) =>
-    onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
-
-  const move = (i: number, by: -1 | 1) => {
-    const next = [...rows];
-    [next[i], next[i + by]] = [next[i + by], next[i]];
-    onChange(next);
-  };
-
-  return (
-    <div className="border-b py-5">
-      <p className="text-sm font-medium">{title}</p>
-      <p className="mt-1 mb-4 text-sm text-muted-foreground">{description}</p>
-
-      {rows.length === 0 ? (
-        <p className="mb-3 text-sm text-muted-foreground">
-          Empty — this column is hidden from the menu.
-        </p>
-      ) : (
-        <div className="mb-3 space-y-2">
-          <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs text-muted-foreground">
-            <span>Shown in menu</span>
-            <span>{collections ? "Opens collection" : "Searches for"}</span>
-            <span className="w-[7.5rem]" />
-          </div>
-          {rows.map((row, i) => (
-            // Index as key: rows have no id, and keying on the label would
-            // remount the input on every keystroke and drop focus.
-            <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
-              <Input
-                id={i === 0 ? `${id}-label` : undefined}
-                aria-label={`${title} ${i + 1}: label`}
-                value={row.label}
-                placeholder={placeholder}
-                maxLength={40}
-                disabled={disabled}
-                onChange={(e) => {
-                  const label = e.target.value;
-                  if (collections) return update(i, { label });
-                  // Follow the label only while the search word still matches
-                  // what following would have produced — i.e. untouched.
-                  const following = row.query === row.label.trim().toLowerCase();
-                  update(i, following ? { label, query: label.trim().toLowerCase() } : { label });
-                }}
-              />
-              {collections ? (
-                <select
-                  aria-label={`${title} ${i + 1}: collection`}
-                  value={row.query}
-                  disabled={disabled}
-                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                  onChange={(e) => {
-                    const picked = collections.find((c) => c.slug === e.target.value);
-                    // An empty label takes the collection's title, the common
-                    // case; one already typed is left alone.
-                    update(i, {
-                      query: e.target.value,
-                      ...(!row.label.trim() && picked ? { label: picked.title } : {}),
-                    });
-                  }}
-                >
-                  <option value="">Choose a collection…</option>
-                  {/* A saved slug whose collection has since been unpublished
-                      stays selectable, labelled, so saving doesn't silently
-                      drop it — the menu already hides it. */}
-                  {row.query && !collections.some((c) => c.slug === row.query) && (
-                    <option value={row.query}>{row.query} (not published)</option>
-                  )}
-                  {collections.map((c) => (
-                    <option key={c.slug} value={c.slug}>
-                      {c.title}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <Input
-                  aria-label={`${title} ${i + 1}: search word`}
-                  value={row.query}
-                  maxLength={60}
-                  disabled={disabled}
-                  onChange={(e) => update(i, { query: e.target.value })}
-                />
-              )}
-              <div className="flex w-[7.5rem] justify-end gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Move up"
-                  disabled={disabled || i === 0}
-                  onClick={() => move(i, -1)}
-                >
-                  ↑
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Move down"
-                  disabled={disabled || i === rows.length - 1}
-                  onClick={() => move(i, 1)}
-                >
-                  ↓
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Remove ${row.label || "row"}`}
-                  disabled={disabled}
-                  onClick={() => onChange(rows.filter((_, j) => j !== i))}
-                >
-                  ✕
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={disabled || rows.length >= 12}
-        onClick={() => onChange([...rows, { label: "", query: "" }])}
-      >
-        Add link
-      </Button>
-    </div>
-  );
-}
 
 /**
  * A labelled switch with the sentence explaining what it does.
@@ -272,14 +97,7 @@ export function DayField({
   );
 }
 
-export function StoreSettingsForm({
-  initial,
-  collections,
-}: {
-  initial: StoreSettingsFormValues;
-  /** Published collections, for the "Shop for" picker. */
-  collections: CollectionOption[];
-}) {
+export function StoreSettingsForm({ initial }: { initial: StoreSettingsFormValues }) {
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
 
@@ -342,9 +160,6 @@ export function StoreSettingsForm({
       codCharge: cod,
       returnShippingPaidBy: form.returnShippingPaidBy,
       ...dayValues,
-      navFinishes: form.navFinishes,
-      navOccasions: form.navOccasions,
-      navShopFor: form.navShopFor,
       whatsappNumber: whatsapp,
     });
     setSaving(false);
@@ -358,9 +173,10 @@ export function StoreSettingsForm({
   return (
     <form onSubmit={handleSubmit}>
       {/* Two columns of cards from xl up, matching the product form: what
-          happens at the till (checkout, pricing, gifting) on the left, what
-          the shop publishes about itself (returns, the header
-          menu) on the right. Below xl they stack in that order. */}
+          happens at the till (checkout, gifting) on the left, what the shop
+          publishes about itself (returns) on the right. Below xl they stack
+          in that order. Pricing has its own page; the header menu is in
+          Studio. */}
       <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
       <div className="space-y-6">
       <section className={CARD}>
@@ -533,49 +349,6 @@ export function StoreSettingsForm({
           Dispatch and delivery times are on the{" "}
           <Link href="/admin/courier" className="underline">Courier</Link> page.
         </p>
-      </section>
-
-      <section className={CARD}>
-        <h2 className="label-eyebrow mb-1">Header menu</h2>
-        <p className="mb-2 text-sm text-muted-foreground">
-          Each link searches product names, descriptions and tags for its search word. The
-          dependable way to put a piece under a link is to give it that word as a tag — in
-          Products, tick pieces and use Organise → Add a tag. A link nothing matches shows an
-          empty page, so only list what you stock.
-        </p>
-
-        <NavListEditor
-          id="navShopFor"
-          title="Jewellery → Shop for"
-          description={
-            collections.length > 0
-              ? "Men, Women, Kids, Devotional… Each link opens a collection — create one in CMS → Collections with a product tag (say “men”), then tag the pieces. A collection you unpublish drops out of the menu by itself."
-              : "Men, Women, Kids, Devotional… Each link opens a collection, and none are published yet. Create one in CMS → Collections with a product tag (say “men”), tag the pieces, then come back here."
-          }
-          placeholder="e.g. Men"
-          rows={form.navShopFor}
-          onChange={(navShopFor) => setForm((f) => ({ ...f, navShopFor }))}
-          disabled={saving}
-          collections={collections}
-        />
-        <NavListEditor
-          id="navFinishes"
-          title="Jewellery → By finish"
-          description="Shown in the Jewellery menu."
-          placeholder="e.g. Oxidised"
-          rows={form.navFinishes}
-          onChange={(navFinishes) => setForm((f) => ({ ...f, navFinishes }))}
-          disabled={saving}
-        />
-        <NavListEditor
-          id="navOccasions"
-          title="Gifting → By occasion"
-          description="Shown in the Gifting menu."
-          placeholder="e.g. Bridal"
-          rows={form.navOccasions}
-          onChange={(navOccasions) => setForm((f) => ({ ...f, navOccasions }))}
-          disabled={saving}
-        />
       </section>
 
       </div>
