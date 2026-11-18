@@ -5,6 +5,7 @@ import { ProductForm, type ProductFormValues } from "@/components/admin/product-
 import { PageHeader } from "@/components/layout/page-header";
 import { BreadcrumbLabel } from "@/components/layout/breadcrumb-label";
 import { listVendors } from "@/server/products/admin";
+import { costingContextForViewer } from "@/server/products/costing";
 
 /**
  * A deliberately blocking route.
@@ -33,13 +34,15 @@ export default async function EditProductPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [product, categories, vendors] = await Promise.all([
+  const [product, categories, vendors, costing] = await Promise.all([
     prisma.product.findUnique({ where: { id }, include: { variants: true } }),
     prisma.category.findMany({
       orderBy: CATEGORY_ORDER,
       select: { id: true, name: true },
     }),
     listVendors(),
+    // Owner only — undefined for staff, so no cost figure reaches their page.
+    costingContextForViewer(id),
   ]);
   if (!product) notFound();
 
@@ -49,7 +52,8 @@ export default async function EditProductPage({
     shortDescription: product.shortDescription ?? "",
     price: product.price.toString(),
     compareAtPrice: product.compareAtPrice?.toString() ?? "",
-    costPrice: product.costPrice?.toString() ?? "",
+    // Owner only: staff never see what a piece cost.
+    costPrice: costing ? (product.costPrice?.toString() ?? "") : "",
     vendor: product.vendor ?? "",
     images: product.images,
     videoUrl: product.videoUrl,
@@ -90,6 +94,7 @@ export default async function EditProductPage({
         initial={initial}
         categories={categories}
         vendors={vendors}
+        costing={costing}
       />
     </div>
   );

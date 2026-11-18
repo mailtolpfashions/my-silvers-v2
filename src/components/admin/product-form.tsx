@@ -22,6 +22,15 @@ import {
   createProductAction,
   updateProductAction,
 } from "@/actions/admin-product-actions";
+import { useIsOwner } from "@/components/admin/owner-context";
+import {
+  CostingPanel,
+  costingPayload,
+  type CostingContext,
+  type CostingFields,
+} from "@/components/admin/costing-panel";
+
+const NO_COSTING: CostingFields = { weight: "", rate: "", making: "" };
 
 export type ProductFormValues = {
   name: string;
@@ -81,15 +90,24 @@ export function ProductForm({
   initial,
   categories,
   vendors = [],
+  costing,
 }: {
   productId?: string;
   initial: ProductFormValues;
   categories: Array<{ id: string; name: string }>;
   /** Vendor names already in use, offered as suggestions. */
   vendors?: string[];
+  /**
+   * The owner's costing calculator. Passed by the page ONLY when the viewer is
+   * the owner — staff get no panel, and no costing data reaches their browser.
+   */
+  costing?: CostingContext & { initial: CostingFields | null };
 }) {
   const router = useRouter();
+  const isOwner = useIsOwner();
   const [form, setForm] = useState(initial);
+  const costingInitial = costing?.initial ?? NO_COSTING;
+  const [costingFields, setCostingFields] = useState<CostingFields>(costingInitial);
   const [saving, setSaving] = useState(false);
   const isEdit = !!productId;
 
@@ -101,7 +119,9 @@ export function ProductForm({
    * shape in the same order, so key order is stable. It would be the wrong tool
    * for a graph with optional keys or Dates.
    */
-  const dirty = JSON.stringify(form) !== JSON.stringify(initial);
+  const dirty =
+    JSON.stringify(form) !== JSON.stringify(initial) ||
+    JSON.stringify(costingFields) !== JSON.stringify(costingInitial);
 
   // Guards the tab close AND in-app link clicks — this form previously threw
   // away every field without a word if you touched the sidebar mid-edit.
@@ -143,6 +163,8 @@ export function ProductForm({
         isBestseller: form.isBestseller,
         isActive: form.isActive,
         tags: splitList(form.tags),
+        // Owner only, and only when the panel was touched.
+        ...(costing ? { costing: costingPayload(costingFields, costingInitial) } : {}),
       };
       const result = isEdit
         ? await updateProductAction(productId!, payload)
@@ -262,15 +284,37 @@ export function ProductForm({
 
         <div className="space-y-6">
           <Section title="Pricing">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className={`grid gap-4 ${isOwner ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
               {textField("price", "Price (₹)", { type: "number", min: 0, step: "0.01", required: true })}
               {textField("compareAtPrice", "Compare-at price (₹)", { type: "number", min: 0, step: "0.01" })}
-              {/* What WE paid. Admin-only and never rendered on the storefront —
-                  it is what every margin figure in /admin/finance is computed
-                  from, and a product left blank is excluded from those figures
-                  rather than counted as free. */}
-              {textField("costPrice", "Cost price (₹)", { type: "number", min: 0, step: "0.01" })}
+              {/* What WE paid. OWNER ONLY (staff never see it, and the save
+                  action keeps the stored figure when they save) and never
+                  rendered on the storefront — it is what every margin figure
+                  in /admin/finance is computed from, and a product left blank
+                  is excluded from those figures rather than counted as free.
+                  With a weight in the costing panel it is set from that. */}
+              {isOwner &&
+                textField("costPrice", "Cost price (₹)", {
+                  type: "number",
+                  min: 0,
+                  step: "0.01",
+                  disabled: Boolean(costing && Number(costingFields.weight) > 0),
+                  title: "Set from the costing calculator below",
+                })}
             </div>
+            {costing && (
+              <div className="mt-4">
+                <CostingPanel
+                  ctx={costing}
+                  fields={costingFields}
+                  onFields={setCostingFields}
+                  price={form.price}
+                  mrp={form.compareAtPrice}
+                  onUsePrice={(p) => set("price", String(p))}
+                  disabled={saving}
+                />
+              </div>
+            )}
           </Section>
 
           <Section title="Inventory">
