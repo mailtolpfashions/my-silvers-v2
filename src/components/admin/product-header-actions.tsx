@@ -110,6 +110,9 @@ export function ProductHeaderActions({
     <>
       <ProductExportButtons />
       <CsvImportDialog />
+      <Button asChild size="sm" variant="outline">
+        <Link href="/admin/products/photos">Bulk photos</Link>
+      </Button>
       <Button asChild size="sm">
         <Link href="/admin/products/new">Add product</Link>
       </Button>
