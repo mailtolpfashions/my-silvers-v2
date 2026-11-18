@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { formatINR } from "@/lib/format";
 import { windowLength } from "@/lib/return-window";
+import { PAYMENT_WINDOW_HOURS } from "@/lib/order-payment";
 import {
   renderEmail,
   button,
@@ -587,6 +588,51 @@ export async function sendParcelComingBackAlertEmail(
       label: "Parcel coming back",
       body,
       internal: true,
+    }),
+  });
+}
+
+/**
+ * "Complete your payment" — once, about an hour after an online order was left
+ * unpaid (api/cron/payment-reminders). Points at the order page, whose Pay now
+ * reopens the same Razorpay order. Says plainly that nothing was charged and
+ * that doing nothing is fine — a reminder, not pressure, and no discount.
+ */
+export async function sendPaymentReminderEmail(orderId: string) {
+  const d = await loadOrderEmailData(orderId);
+  if (!d) throw new Error(`order ${orderId} not found for the payment reminder`);
+  const deadline = new Date(d.createdAt.getTime() + PAYMENT_WINDOW_HOURS * 3_600_000);
+  const until = deadline.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const body = [
+    heading(d.firstName ? `Hi ${esc(d.firstName)}, your order is waiting` : "Your order is waiting"),
+    para(
+      `Your payment for order <strong>${esc(d.orderNumber)}</strong> (${formatINR(d.total)}) didn't go through, so the order isn't confirmed yet. <strong>You haven't been charged.</strong>`
+    ),
+    `<div style="padding-top:8px">${button(orderLink(d.id, d.confirmationToken), "Complete payment")}</div>`,
+    para(
+      `You can pay until <strong>${until}</strong>. After that the order is cancelled automatically — if you've changed your mind, there's nothing you need to do.`,
+      `font-size:13px;color:${C.muted};margin-top:12px`
+    ),
+    sectionTitle("Your order"),
+    itemsTable(d.items),
+  ].join("");
+
+  await deliver("payment-reminder", {
+    from,
+    replyTo,
+    to: d.email,
+    subject: `Complete your payment for ${d.orderNumber}`,
+    html: page({
+      preheader: `Your order ${d.orderNumber} is saved — complete payment to confirm it. You haven't been charged.`,
+      label: "Payment pending",
+      body,
+      help: d.help,
     }),
   });
 }

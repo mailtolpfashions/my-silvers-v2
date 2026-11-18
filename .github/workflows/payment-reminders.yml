@@ -1,0 +1,32 @@
+# Calls the site every 30 minutes so customers who left an online payment
+# unfinished get one "Complete your payment" email about an hour later.
+#
+# GitHub Actions instead of Vercel Cron: the Hobby plan only allows daily
+# crons. GitHub may start a scheduled run some minutes late — fine here.
+#
+# Needs one repository secret, CRON_SECRET, set to the SAME value as the
+# CRON_SECRET environment variable on Vercel (Settings → Secrets and
+# variables → Actions → New repository secret).
+name: Payment reminders
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Send due reminders
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET is not set in this repository's Actions secrets."
+            exit 1
+          fi
+          curl --fail-with-body -sS \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            https://www.mysilvers.in/api/cron/payment-reminders

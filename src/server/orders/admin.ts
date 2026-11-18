@@ -5,7 +5,7 @@ import { restoreStock } from "@/server/products/stock";
 import type { SortDir } from "@/server/products/admin";
 import type { PaymentStatus } from "@/generated/prisma/client";
 import { toPaise } from "@/server/orders/money";
-import { COMING_BACK_FILTER } from "@/lib/order-coming-back";
+import { COMING_BACK_FILTER, UNPAID_ATTEMPTS_FILTER } from "@/lib/order-coming-back";
 import {
   formatDeadline,
   isReturnWindowOpen,
@@ -454,6 +454,13 @@ function phoneSearch(q: string) {
   ];
 }
 
+/** See UNPAID_ATTEMPTS_FILTER in lib/order-coming-back.ts. */
+const UNPAID_ATTEMPT = {
+  paymentMethod: "razorpay" as const,
+  paymentStatus: { in: ["pending" as const, "failed" as const] },
+  razorpayPaymentId: null,
+};
+
 export async function getAdminOrders(params: {
   /** An OrderStatus, or "coming_back" — see lib/order-coming-back.ts. */
   status?: string;
@@ -468,12 +475,19 @@ export async function getAdminOrders(params: {
 
   const status = asOrderStatus(params.status);
   const comingBack = params.status === COMING_BACK_FILTER;
+  const unpaidAttempts = params.status === UNPAID_ATTEMPTS_FILTER;
   const payment = asPaymentStatus(params.payment);
+
+  // Hidden only from the plain list. Any filter or search shows everything it
+  // matches — searching an order number must find it, unpaid or not.
+  const hideUnpaid = !params.status && !params.payment && !params.q;
 
   const where = {
     ...(status ? { orderStatus: status } : {}),
     // Parcels the courier is bringing back, whatever their status label says.
     ...(comingBack ? { comingBackAt: { not: null }, receivedBackAt: null } : {}),
+    ...(unpaidAttempts ? UNPAID_ATTEMPT : {}),
+    ...(hideUnpaid ? { NOT: UNPAID_ATTEMPT } : {}),
     ...(payment ? { paymentStatus: payment } : {}),
     // Matches the order number, the customer's name/email, or the mobile the
     // order shipped to — what an admin has to hand when someone gets in touch.
@@ -505,5 +519,7 @@ export async function getAdminOrders(params: {
     }),
     prisma.order.count({ where }),
   ]);
-  return { orders, total, page, pageSize };
+  // How many the plain list is leaving out, for the "show them" line.
+  const hiddenUnpaid = hideUnpaid ? await prisma.order.count({ where: UNPAID_ATTEMPT }) : 0;
+  return { orders, total, page, pageSize, hiddenUnpaid };
 }
