@@ -23,7 +23,7 @@ import { getSimilarProducts, getAlsoLikeProducts } from "@/server/products/recom
 import { RecordProductView, RecentlyViewed } from "@/components/storefront/recently-viewed";
 import { ProductGallery } from "@/components/storefront/product-gallery";
 import { ProductAssurances } from "@/components/storefront/product-assurances";
-import { NotifyWhenBackForSelection } from "@/components/storefront/notify-when-back";
+import { NotifyMeButton, NotifyWhenBackForSelection } from "@/components/storefront/notify-when-back";
 import {
   ProductInfoSections,
   ProductInfoSectionsSkeleton,
@@ -440,8 +440,9 @@ async function ProductDetailContent({ params }: { params: Promise<{ slug: string
             </Suspense>
 
             {/* Inside the provider, because for a sized piece the question is
-                whether the CHOSEN size is sold out — not the product. It
-                renders nothing at all when there is stock. */}
+                whether the CHOSEN size is sold out — not the product. Only for
+                an in-stock piece whose chosen size is gone; a fully sold-out
+                piece gets "Notify me" in the buttons above instead. */}
             <NotifyWhenBackForSelection productId={product.id} stock={product.stock} />
           </SizeProvider>
 
@@ -531,7 +532,13 @@ async function ProductCta({ productId, stock }: { productId: string; stock: numb
           <BuyNowButton {...shared} />
         </div>
         <div className="flex-1">
-          <AddToCartButton {...shared} />
+          {/* Sold out: one "Out of stock" (Buy now, above) is enough to say so —
+              the second button becomes the way forward. See notify-when-back. */}
+          {stock === 0 ? (
+            <NotifyMeButton productId={productId} isAuthed={!!userId} />
+          ) : (
+            <AddToCartButton {...shared} />
+          )}
         </div>
       </div>
 
@@ -581,7 +588,11 @@ async function ProductCta({ productId, stock }: { productId: string; stock: numb
         {/* `compact` on Add to cart: the full version carries helper text under
             it, which would make the bar two lines tall. */}
         <div className="flex-1">
-          <AddToCartButton {...shared} compact />
+          {stock === 0 ? (
+            <NotifyMeButton productId={productId} isAuthed={!!userId} compact />
+          ) : (
+            <AddToCartButton {...shared} compact />
+          )}
         </div>
         <div className="flex-1">
           <BuyNowButton {...shared} />
