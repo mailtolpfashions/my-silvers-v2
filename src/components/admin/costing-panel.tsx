@@ -127,7 +127,7 @@ export function CostingPanel({
     <div className="space-y-4 rounded-md border border-dashed p-4">
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-sm font-medium">Costing calculator</p>
-        <span className="text-xs text-muted-foreground">Owner only · never shown to customers</span>
+        <span className="text-xs text-muted-foreground">Never shown to customers</span>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">

@@ -7,14 +7,14 @@ import {
 } from "@/lib/costing";
 import { charmPrice } from "@/lib/charm-price";
 import { getCurrentRole } from "@/server/auth/require-role";
-import { isOwner } from "@/server/auth/roles";
+import { canSeeCosts } from "@/server/auth/roles";
 import { getCostingDefaults } from "@/server/settings/costing-config";
 import { getStoreSettings } from "@/server/settings/store-settings";
 
 /**
- * Reading and writing a product's costing (ProductCosting). OWNER ONLY —
- * every caller checks the role first; nothing here does, so nothing outside
- * an owner-checked path may import it.
+ * Reading and writing a product's costing (ProductCosting). Owner and admins
+ * (canSeeCosts) — every caller checks the role first; nothing here does, so
+ * nothing outside a role-checked path may import it.
  */
 
 export type ProductCostingValues = {
@@ -141,11 +141,11 @@ export async function planRecalculation(): Promise<{ changes: RecalcChange[]; ma
 
 /**
  * Everything the product form's costing panel needs — or undefined when the
- * viewer isn't the owner, in which case NO costing data is sent to the
+ * viewer may not see costs (an editor), in which case NO costing data is sent to the
  * browser at all. The one place the pages get it from.
  */
 export async function costingContextForViewer(productId?: string) {
-  if (!isOwner(await getCurrentRole())) return undefined;
+  if (!canSeeCosts(await getCurrentRole())) return undefined;
 
   const [rule, saved, latest] = await Promise.all([
     getPricingRule(),
