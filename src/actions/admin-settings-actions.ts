@@ -56,6 +56,7 @@ const settingsSchema = z
     navOccasions: navFilters("Occasions"),
     navShopFor: navFilters("Shop for", "collection"),
     charmPricing: z.enum(["off", "99", "49-99"]),
+    charmDirection: z.enum(["down", "up", "nearest"]),
     /**
      * Empty hides WhatsApp everywhere. Anything else must BE an Indian mobile
      * number: refused with a message rather than saved as "" — silently
@@ -108,6 +109,7 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
     navOccasions: data.navOccasions,
     navShopFor: data.navShopFor,
     charmPricing: data.charmPricing,
+    charmDirection: data.charmDirection,
     whatsappNumber: normaliseIndianMobile(data.whatsappNumber),
   };
 

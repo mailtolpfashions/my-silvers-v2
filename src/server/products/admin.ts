@@ -1,7 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db";
 import { getStoreSettings } from "@/server/settings/store-settings";
-import { charmPrice, type CharmStyle } from "@/lib/charm-price";
+import { charmPrice, type CharmDirection, type CharmStyle } from "@/lib/charm-price";
 import { notifyBackInStock } from "@/server/products/stock-notifications";
 import { assertAllowedMediaUrls } from "@/server/media/url-allowlist";
 import { NO_VENDOR } from "@/lib/vendor";
@@ -333,13 +333,21 @@ export function isProductSortKey(value: unknown): value is ProductSortKey {
   return typeof value === "string" && (PRODUCT_SORT_KEYS as string[]).includes(value);
 }
 
+/** How a typed price is rounded: the ending, and which way it moves. */
+export type CharmRule = { style: CharmStyle; direction: CharmDirection };
+
 /**
- * The rounding style to apply to a typed price, or null when the setting is
- * off. See StoreSettings.charmPricing for which prices count as "typed".
+ * The rounding rule for a typed price, or null when the setting is off. See
+ * StoreSettings.charmPricing for which prices count as "typed".
  */
-export async function autoCharmStyle(): Promise<CharmStyle | null> {
-  const { charmPricing } = await getStoreSettings();
-  return charmPricing === "off" ? null : charmPricing;
+export async function autoCharmRule(): Promise<CharmRule | null> {
+  const { charmPricing, charmDirection } = await getStoreSettings();
+  return charmPricing === "off" ? null : { style: charmPricing, direction: charmDirection };
+}
+
+/** Rounds a typed price by the rule, keeping it below the piece's MRP. */
+export function applyCharmRule(price: number, rule: CharmRule | null, mrp?: number | null): number {
+  return rule ? charmPrice(price, rule.style, rule.direction, mrp) : price;
 }
 
 /** One product's price before and after rounding. */
@@ -349,14 +357,29 @@ export type CharmChange = { id: string; name: string; from: number; to: number }
  * What rounding would change across a selection, without writing anything.
  * Only products whose price actually moves are returned.
  */
-export async function planCharmPrices(ids: string[], style: CharmStyle): Promise<CharmChange[]> {
+export async function planCharmPrices(
+  ids: string[],
+  style: CharmStyle,
+  direction: CharmDirection = "down"
+): Promise<CharmChange[]> {
   const products = await prisma.product.findMany({
     where: { id: { in: ids } },
-    select: { id: true, name: true, price: true },
+    select: { id: true, name: true, price: true, compareAtPrice: true },
     orderBy: { name: "asc" },
   });
   return products
-    .map((p) => ({ id: p.id, name: p.name, from: Number(p.price), to: charmPrice(Number(p.price), style) }))
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      from: Number(p.price),
+      // The struck-through MRP caps rounding up — see lib/charm-price.ts.
+      to: charmPrice(
+        Number(p.price),
+        style,
+        direction,
+        p.compareAtPrice === null ? null : Number(p.compareAtPrice)
+      ),
+    }))
     .filter((c) => c.to !== c.from);
 }
 
@@ -566,7 +589,7 @@ async function updateFromCsvRow(
   id: string,
   row: CsvRow,
   categoryByKey: Map<string, string>,
-  charmStyle: CharmStyle | null,
+  charmRule: CharmRule | null,
 ) {
   const p = await prisma.product.findUniqueOrThrow({
     where: { id },
@@ -621,7 +644,10 @@ async function updateFromCsvRow(
     shortDescription: text("shortDescription") ?? p.shortDescription ?? undefined,
     // A price cell is a typed price, so it is rounded when that is switched on;
     // a blank cell keeps the stored price exactly as it is.
-    price: price === undefined ? Number(p.price) : charmStyle ? charmPrice(price, charmStyle) : price,
+    price:
+      price === undefined
+        ? Number(p.price)
+        : applyCharmRule(price, charmRule, num("compareAtPrice") ?? decimal(p.compareAtPrice)),
     compareAtPrice: num("compareAtPrice") ?? decimal(p.compareAtPrice),
     costPrice: num("costPrice") ?? decimal(p.costPrice),
     vendor: text("vendor") ?? p.vendor,
@@ -666,9 +692,9 @@ export async function bulkImportProducts(rows: CsvRow[]): Promise<{
     return { created: 0, updated: 0, errors: [{ row: 0, error: "Maximum 500 rows per import." }] };
   }
 
-  const [categories, charmStyle] = await Promise.all([
+  const [categories, charmRule] = await Promise.all([
     prisma.category.findMany(),
-    autoCharmStyle(),
+    autoCharmRule(),
   ]);
   const categoryByKey = new Map<string, string>();
   for (const c of categories) {
@@ -699,7 +725,7 @@ export async function bulkImportProducts(rows: CsvRow[]): Promise<{
 
       const existingId = existingSkus.get(skuKey);
       if (existingId) {
-        await updateFromCsvRow(existingId, row, categoryByKey, charmStyle);
+        await updateFromCsvRow(existingId, row, categoryByKey, charmRule);
         updated++;
         continue;
       }
@@ -736,7 +762,7 @@ export async function bulkImportProducts(rows: CsvRow[]): Promise<{
         name,
         description: (row.description ?? "").trim() || undefined,
         shortDescription: (row.shortDescription ?? "").trim() || undefined,
-        price: charmStyle ? charmPrice(price, charmStyle) : price,
+        price: applyCharmRule(price, charmRule, compareAtPrice),
         compareAtPrice,
         costPrice,
         vendor: row.vendor,

@@ -1,6 +1,6 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { prisma } from "@/server/db";
-import type { CharmStyle } from "@/lib/charm-price";
+import type { CharmDirection, CharmStyle } from "@/lib/charm-price";
 import { normaliseIndianMobile } from "@/lib/whatsapp";
 
 /**
@@ -147,6 +147,13 @@ export type StoreSettings = {
   charmPricing: "off" | CharmStyle;
 
   /**
+   * Which way a typed price moves to reach its charm ending: down (never
+   * raises a price), up (never lowers one) or nearest. See lib/charm-price.ts.
+   * Default down — what the shop did before the choice existed.
+   */
+  charmDirection: CharmDirection;
+
+  /**
    * The shop's WhatsApp number, as wa.me wants it ("919876543210"), or "" to
    * hide every WhatsApp link on the site.
    *
@@ -233,6 +240,7 @@ export const STORE_SETTING_DEFAULTS: StoreSettings = {
   ],
   navShopFor: [],
   charmPricing: "off",
+  charmDirection: "down",
   whatsappNumber: normaliseIndianMobile(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER),
   // Shiprocket only until the owner switches NimbusPost on — so deploying this
   // changes nothing about how parcels are shipped today.
@@ -315,6 +323,7 @@ function parse(raw: unknown): StoreSettings {
     navOccasions: filters(v.navOccasions, d.navOccasions),
     navShopFor: filters(v.navShopFor, d.navShopFor),
     charmPricing: oneOf(v.charmPricing, ["off", "99", "49-99"] as const, d.charmPricing),
+    charmDirection: oneOf(v.charmDirection, ["down", "up", "nearest"] as const, d.charmDirection),
     // Never saved → the default; saved empty → deliberately hidden, and kept.
     whatsappNumber:
       typeof v.whatsappNumber === "string" ? normaliseIndianMobile(v.whatsappNumber) : d.whatsappNumber,
