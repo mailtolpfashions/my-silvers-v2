@@ -8,6 +8,7 @@ import { verifyCheckoutSignature } from "@/server/payments/verify-signature";
 import { sendOrderConfirmationEmail } from "@/server/email/resend";
 import { alertOwnersOfNewOrder } from "@/server/orders/owner-alert";
 import { startFulfillTimer } from "@/server/orders/fulfill-timing";
+import { refundOrderPayment } from "@/server/orders/refund-payment";
 
 export class PaymentError extends Error {
   constructor(
@@ -156,15 +157,34 @@ export async function fulfillOrder(input: {
     return { alreadyHandled: false, order: updated };
   } catch (err) {
     // Payment was captured but fulfillment failed (e.g. stock sold out in the
-    // claim window). Mark failed — the auto-refund sweep picks these up.
+    // claim window). Mark failed with the payment id kept — that pair is what
+    // the refund keys on.
     console.error("fulfillment failed after claim", order.orderNumber, err);
     await prisma.order.update({
       where: { id: order.id },
       data: { paymentStatus: "failed", razorpayPaymentId: input.razorpayPaymentId },
     });
+    /**
+     * Refund NOW, not at the 03:00 sweep (owner decision, Nov 2026): someone
+     * who paid for a piece that sold out a moment earlier should not wait up
+     * to a day to see their refund start. In `after()` so the shopper's
+     * response is not held up by Razorpay's API. If it fails, the row is left
+     * refundStatus `failed` and the nightly sweep retries it; the shared claim
+     * in refundOrderPayment means the two can never both refund.
+     */
+    after(async () => {
+      const outcome = await refundOrderPayment({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        paymentStatus: "failed",
+        razorpayPaymentId: input.razorpayPaymentId,
+        totalAmount: order.totalAmount,
+      });
+      console.info(`[refund] ${order.orderNumber} sold out after payment → ${outcome}`);
+    });
     throw new PaymentError(
       "STOCK_SOLD_OUT",
-      "Payment received but an item sold out. The payment will be refunded."
+      "Your payment went through, but this piece sold out moments before it did. We've started a full refund — it usually reaches your account in 5–7 working days."
     );
   }
 }
