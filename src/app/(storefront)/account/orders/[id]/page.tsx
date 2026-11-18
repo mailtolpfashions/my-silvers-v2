@@ -16,6 +16,8 @@ import {
 } from "@/components/storefront/orders/pay-now-button";
 import { closeIfSoldOut } from "@/server/orders/sold-out";
 import { unpaidState } from "@/lib/order-payment";
+import { prisma } from "@/server/db";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 
 const CANCELLABLE = ["placed", "confirmed", "processing"] as const;
 
@@ -71,7 +73,16 @@ async function OrderDetailContent({
     getReviewableItems(id, session.user),
     getStoreSettings(),
   ]);
-  if (!loaded) notFound();
+  if (!loaded) {
+    // Not this account's order. If it exists at all, it is on ANOTHER account —
+    // typically a link from an email opened while signed in as someone else.
+    // Say so and offer the switch, rather than a bare "not found". Never says
+    // whose account it is on: the ids are unguessable, but the owner is still
+    // nobody else's business.
+    const exists = await prisma.order.findUnique({ where: { id }, select: { id: true } });
+    if (!exists) notFound();
+    return <OtherAccountNotice orderId={id} signedInAs={session.user.email ?? null} />;
+  }
 
   // Unpaid and payable, but a piece has sold out since? Then the order is
   // cancelled here and shown as such — never a Pay now that could only end in
@@ -135,6 +146,48 @@ async function OrderDetailContent({
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * The order exists but belongs to a different account than the one signed in.
+ * Signing out returns to the login page with this order as the destination,
+ * so signing in with the right email lands straight on it.
+ */
+function OtherAccountNotice({ orderId, signedInAs }: { orderId: string; signedInAs: string | null }) {
+  return (
+    <div className="mx-auto max-w-lg rhythm-commerce text-center">
+      <h1 className="text-h2">This order is on a different account</h1>
+      <p className="mt-3 text-sm text-muted-foreground">
+        {signedInAs ? (
+          <>
+            You&apos;re signed in as <strong className="text-foreground">{signedInAs}</strong>.{" "}
+          </>
+        ) : null}
+        Sign out and sign in with the email you used to place this order, and it will open
+        straight away.
+      </p>
+      <div className="mt-8 flex flex-wrap justify-center gap-3">
+        <SignOutButton
+          variant="default"
+          label="Sign out and switch account"
+          redirectTo={`/login?redirect=/account/orders/${orderId}`}
+        />
+        <Link
+          href="/account/orders"
+          className="inline-flex h-8 items-center rounded-md border px-3 text-sm"
+        >
+          See my orders
+        </Link>
+      </div>
+      <p className="mt-6 text-xs text-muted-foreground">
+        Placed it without an account? Use the link in your order email instead, or{" "}
+        <Link href="/track-order" className="underline">
+          track it here
+        </Link>
+        .
+      </p>
+    </div>
   );
 }
 
