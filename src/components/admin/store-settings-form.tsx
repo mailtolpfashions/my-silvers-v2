@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { saveStoreSettingsAction } from "@/actions/admin-settings-actions";
-import { CHARM_DIRECTIONS, CHARM_STYLES, type CharmDirection, type CharmStyle } from "@/lib/charm-price";
 
 export type StoreSettingsFormValues = {
   codEnabled: boolean;
@@ -25,8 +24,6 @@ export type StoreSettingsFormValues = {
   navOccasions: NavRow[];
   /** `query` is a collection slug here — see StoreSettings.navShopFor. */
   navShopFor: NavRow[];
-  charmPricing: "off" | CharmStyle;
-  charmDirection: CharmDirection;
   /** As stored ("919876543210") or "" — shown to the owner without the 91. */
   whatsappNumber: string;
 };
@@ -348,8 +345,6 @@ export function StoreSettingsForm({
       navFinishes: form.navFinishes,
       navOccasions: form.navOccasions,
       navShopFor: form.navShopFor,
-      charmPricing: form.charmPricing,
-      charmDirection: form.charmDirection,
       whatsappNumber: whatsapp,
     });
     setSaving(false);
@@ -430,65 +425,9 @@ export function StoreSettingsForm({
         </div>
       </section>
 
-      <section className={CARD}>
-        <h2 className="label-eyebrow mb-1">Pricing</h2>
-        <p className="mb-4 text-sm text-muted-foreground">
-          Round prices to a charm ending as they are saved — ₹1,500 saved as
-          ₹1,499. Applies to prices typed on the product page, prices in a CSV,
-          and Offer prices. Existing prices only change when you use Pricing →
-          Charm prices on the products list.
-        </p>
-        <div className="space-y-2" role="radiogroup" aria-label="Round prices">
-          {[{ value: "off" as const, label: "Off", example: "Prices are saved exactly as typed" }, ...CHARM_STYLES].map(
-            (option) => (
-              <label key={option.value} className="flex items-start gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="charmPricing"
-                  className="mt-1"
-                  value={option.value}
-                  checked={form.charmPricing === option.value}
-                  disabled={saving}
-                  onChange={() => setForm((f) => ({ ...f, charmPricing: option.value }))}
-                />
-                <span>
-                  {option.label}
-                  <span className="block text-xs text-muted-foreground">{option.example}</span>
-                </span>
-              </label>
-            )
-          )}
-        </div>
-
-        {/* Only asked once rounding is on — which way to round a price that
-            isn't rounded at all is a question with no answer. */}
-        {form.charmPricing !== "off" && (
-          <div className="mt-5 space-y-2 border-t pt-4" role="radiogroup" aria-label="Round which way">
-            <p className="text-sm font-medium">Which way</p>
-            {CHARM_DIRECTIONS.map((option) => (
-              <label key={option.value} className="flex items-start gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="charmDirection"
-                  className="mt-1"
-                  value={option.value}
-                  checked={form.charmDirection === option.value}
-                  disabled={saving}
-                  onChange={() => setForm((f) => ({ ...f, charmDirection: option.value }))}
-                />
-                <span>
-                  {option.label}
-                  <span className="block text-xs text-muted-foreground">{option.example}</span>
-                </span>
-              </label>
-            ))}
-            <p className="text-xs text-muted-foreground">
-              An offer price never rounds up to or past its struck-through price — it rounds down
-              instead, so a saving is never shown as negative.
-            </p>
-          </div>
-        )}
-      </section>
+      {/* Rounding moved to the Pricing card below (components/admin/
+          pricing-settings.tsx), with costs and margins — one pipeline, one
+          place. */}
 
       <section className={CARD}>
         <h2 className="label-eyebrow mb-1">Gifting</h2>

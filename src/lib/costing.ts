@@ -181,3 +181,31 @@ export function suggestedPrice(b: Breakdown, d: CostingDefaults): Suggestion | n
   }
   return null;
 }
+
+/** The shop's rounding rule (Settings → Pricing), or null when rounding is off. */
+export type CharmRuleLike = {
+  style: "99" | "49-99";
+  direction: "down" | "up" | "nearest";
+} | null;
+
+/**
+ * THE price of a costed product: cost → margin band → rounding. Used by the
+ * product form (live), the CSV import, saving a product and Recalculate, so a
+ * price can only ever be worked out one way. Null when the margins can't be
+ * met with these fees.
+ *
+ * `round` is passed in rather than imported so this file stays free of
+ * imports; callers hand it lib/charm-price's charmPrice.
+ */
+export function calculatedPrice(
+  b: Breakdown,
+  d: CostingDefaults,
+  charm: CharmRuleLike,
+  round: (price: number, style: "99" | "49-99", direction: "down" | "up" | "nearest", mrp?: number | null) => number,
+  mrp?: number | null
+): { price: number; suggestion: Suggestion } | null {
+  const suggestion = suggestedPrice(b, d);
+  if (!suggestion) return null;
+  const price = charm ? round(suggestion.price, charm.style, charm.direction, mrp) : suggestion.price;
+  return { price, suggestion };
+}

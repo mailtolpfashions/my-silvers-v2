@@ -1,6 +1,6 @@
 import { OwnerOnlyNotice, viewerIsOwner } from "@/components/admin/owner-only";
 import { OrderAlertEmails } from "@/components/admin/order-alert-emails";
-import { CostingSettings } from "@/components/admin/costing-settings";
+import { PricingSettings } from "@/components/admin/pricing-settings";
 import { getCostingDefaults } from "@/server/settings/costing-config";
 import { getOrderAlertEmails, MAX_ALERT_EMAILS } from "@/server/settings/order-alerts";
 import { prisma } from "@/server/db";
@@ -65,8 +65,6 @@ export default async function AdminSettingsPage() {
           navFinishes: settings.navFinishes,
           navOccasions: settings.navOccasions,
           navShopFor: settings.navShopFor,
-          charmPricing: settings.charmPricing,
-          charmDirection: settings.charmDirection,
           whatsappNumber: settings.whatsappNumber,
         }}
         collections={collections.map((c) => ({ slug: c.slug, title: c.title }))}
@@ -79,7 +77,11 @@ export default async function AdminSettingsPage() {
         />
       </div>
       <div className="mt-8">
-        <CostingSettings initial={costing} />
+        <PricingSettings
+          costing={costing}
+          charmPricing={settings.charmPricing}
+          charmDirection={settings.charmDirection}
+        />
       </div>
     </>
   );

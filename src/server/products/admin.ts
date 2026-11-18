@@ -2,9 +2,12 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db";
 import { getStoreSettings } from "@/server/settings/store-settings";
 import { charmPrice, type CharmDirection, type CharmStyle } from "@/lib/charm-price";
-import { costBreakdown, suggestedPrice } from "@/lib/costing";
-import { saveProductCosting, type ProductCostingValues } from "@/server/products/costing";
-import { getCostingDefaults } from "@/server/settings/costing-config";
+import {
+  getPricingRule,
+  priceFor,
+  saveProductCosting,
+  type ProductCostingValues,
+} from "@/server/products/costing";
 import { notifyBackInStock } from "@/server/products/stock-notifications";
 import { assertAllowedMediaUrls } from "@/server/media/url-allowlist";
 import { NO_VENDOR } from "@/lib/vendor";
@@ -710,7 +713,9 @@ function costingFromRow(row: CsvRow, batchSilverRate: number | null): ProductCos
   }
   const making = n("makingCharge");
   if (making === null) throw new Error("makingCharge is required with silverWeight (0 if none)");
-  return { weightGrams: weight, silverRatePerGram: rate, makingChargePerGram: making };
+  // A price in the file is the owner's own; a blank one is worked out.
+  const manualPrice = cell("price") !== "";
+  return { weightGrams: weight, silverRatePerGram: rate, makingChargePerGram: making, manualPrice };
 }
 
 export async function bulkImportProducts(
@@ -731,11 +736,12 @@ export async function bulkImportProducts(
     return { created: 0, updated: 0, errors: [{ row: 0, error: "Maximum 500 rows per import." }] };
   }
 
-  const [categories, charmRule, costingDefaults] = await Promise.all([
+  const [categories, charmRule, pricingRule] = await Promise.all([
     prisma.category.findMany(),
     autoCharmRule(),
-    opts.owner ? getCostingDefaults() : Promise.resolve(null),
+    opts.owner ? getPricingRule() : Promise.resolve(null),
   ]);
+  const costingDefaults = pricingRule?.defaults ?? null;
   const categoryByKey = new Map<string, string>();
   for (const c of categories) {
     categoryByKey.set(c.name.toLowerCase(), c.id);
@@ -769,6 +775,24 @@ export async function bulkImportProducts(
       if (!opts.owner) row = { ...row, costPrice: "" };
 
       const existingId = existingSkus.get(skuKey);
+
+      // A costed row with a blank price gets the automatic one — cost → margin
+      // band → rounding — written into the row so the create and update paths
+      // below save it like any typed price (rounding a rounded price is a
+      // no-op). Re-importing a weight or making charge re-prices it.
+      if (costing && !costing.manualPrice && pricingRule) {
+        const mrpCell = (row.compareAtPrice ?? "").trim();
+        const mrp = mrpCell
+          ? Number(mrpCell)
+          : existingId
+            ? Number((await prisma.product.findUnique({ where: { id: existingId }, select: { compareAtPrice: true } }))?.compareAtPrice ?? 0) || null
+            : null;
+        const auto = priceFor(costing, pricingRule, mrp);
+        if (auto === null) {
+          throw new Error("price is blank and the margins in Settings → Pricing can't be met — fill the price");
+        }
+        row = { ...row, price: String(auto) };
+      }
       if (existingId) {
         await updateFromCsvRow(existingId, row, categoryByKey, charmRule);
         if (costing && costingDefaults) await saveProductCosting(existingId, costing, costingDefaults);
@@ -778,17 +802,7 @@ export async function bulkImportProducts(
 
       const name = (row.name ?? "").trim();
       const sku = (row.sku ?? "").trim();
-      // A blank price on a costed new product → the calculator's suggestion
-      // for the target margin (charm rounding is applied below as usual).
-      let price = Number(row.price);
-      if ((row.price ?? "").trim() === "" && costing && costingDefaults) {
-        const b = costBreakdown(costing, costingDefaults);
-        const suggested = b ? suggestedPrice(b, costingDefaults) : null;
-        if (suggested === null) {
-          throw new Error("price is blank and the margins in Settings → Costing can't be met — fill the price");
-        }
-        price = suggested.price;
-      }
+      const price = Number(row.price);
       const stockCell = (row.stock ?? "").trim();
       const sizesCell = parseSizesCell(row.sizes);
       // Per-size stock gives the total itself; a stock cell beside it is only

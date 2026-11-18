@@ -873,5 +873,9 @@ model ProductCosting {
   silverRatePerGram   Decimal  @db.Decimal(10, 2)
   /// ₹ per gram making charge for this piece (0 when there is none).
   makingChargePerGram Decimal  @db.Decimal(10, 2)
+  /// The owner typed this product's price instead of taking the calculated
+  /// one (an offer, a round number). Recalculate leaves it alone. False =
+  /// the price is cost → margin band → rounding, worked out on save.
+  manualPrice         Boolean  @default(false)
   updatedAt           DateTime @updatedAt
 }

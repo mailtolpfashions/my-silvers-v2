@@ -56,8 +56,6 @@ const settingsSchema = z
     navFinishes: navFilters("Finishes"),
     navOccasions: navFilters("Occasions"),
     navShopFor: navFilters("Shop for", "collection"),
-    charmPricing: z.enum(["off", "99", "49-99"]),
-    charmDirection: z.enum(["down", "up", "nearest"]),
     /**
      * Empty hides WhatsApp everywhere. Anything else must BE an Indian mobile
      * number: refused with a message rather than saved as "" — silently
@@ -110,8 +108,11 @@ export async function saveStoreSettingsAction(input: unknown): Promise<SettingsA
     navFinishes: data.navFinishes,
     navOccasions: data.navOccasions,
     navShopFor: data.navShopFor,
-    charmPricing: data.charmPricing,
-    charmDirection: data.charmDirection,
+    // Rounding is saved by the Pricing card (savePricingSettingsAction), so
+    // this form must carry it over untouched rather than overwrite it with
+    // whatever it loaded.
+    charmPricing: before.charmPricing,
+    charmDirection: before.charmDirection,
     whatsappNumber: normaliseIndianMobile(data.whatsappNumber),
   };
 

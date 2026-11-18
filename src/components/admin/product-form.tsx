@@ -24,6 +24,7 @@ import {
 } from "@/actions/admin-product-actions";
 import { useIsOwner } from "@/components/admin/owner-context";
 import {
+  autoPrice,
   CostingPanel,
   costingPayload,
   costingProblem,
@@ -102,13 +103,33 @@ export function ProductForm({
    * The owner's costing calculator. Passed by the page ONLY when the viewer is
    * the owner — staff get no panel, and no costing data reaches their browser.
    */
-  costing?: CostingContext & { initial: CostingFields | null };
+  costing?: CostingContext & { initial: CostingFields | null; manualPrice: boolean };
 }) {
   const router = useRouter();
   const isOwner = useIsOwner();
   const [form, setForm] = useState(initial);
   const costingInitial = costing?.initial ?? NO_COSTING;
   const [costingFields, setCostingFields] = useState<CostingFields>(costingInitial);
+  /**
+   * Automatic: the Price field shows cost → margin band → rounding and follows
+   * the costing as it is typed. Typing in Price switches to manual (an offer,
+   * a round number); "Back to calculated price" switches back.
+   */
+  const initialManual = costing?.manualPrice ?? false;
+  const [manualPrice, setManualPrice] = useState(initialManual);
+  const calculated = costing ? autoPrice(costing, costingFields, form.compareAtPrice) : null;
+  /**
+   * Only a NEW product, or one whose costing is being changed, follows the
+   * calculation. Opening an existing product shows its saved price even when
+   * today's rules would give another — otherwise fixing a typo in the
+   * description would quietly re-price it. Settings → Pricing → Recalculate
+   * is the way to move saved prices, with a preview.
+   */
+  const costingTouched =
+    JSON.stringify(costingFields) !== JSON.stringify(costingInitial) || manualPrice !== initialManual;
+  const priceIsAuto =
+    Boolean(costing) && !manualPrice && calculated !== null && (!productId || costingTouched);
+  const effectivePrice = priceIsAuto ? String(calculated) : form.price;
   const [saving, setSaving] = useState(false);
   const isEdit = !!productId;
 
@@ -122,7 +143,8 @@ export function ProductForm({
    */
   const dirty =
     JSON.stringify(form) !== JSON.stringify(initial) ||
-    JSON.stringify(costingFields) !== JSON.stringify(costingInitial);
+    JSON.stringify(costingFields) !== JSON.stringify(costingInitial) ||
+    manualPrice !== initialManual;
 
   // Guards the tab close AND in-app link clicks — this form previously threw
   // away every field without a word if you touched the sidebar mid-edit.
@@ -149,7 +171,9 @@ export function ProductForm({
         name: form.name,
         description: form.description,
         shortDescription: form.shortDescription,
-        price: Number(form.price),
+        // The automatic price when it applies — the server works out the same
+        // figure itself; this is only what the form shows.
+        price: Number(effectivePrice),
         compareAtPrice: form.compareAtPrice ? Number(form.compareAtPrice) : null,
         costPrice: form.costPrice ? Number(form.costPrice) : null,
         vendor: form.vendor.trim() || null,
@@ -170,7 +194,9 @@ export function ProductForm({
         isActive: form.isActive,
         tags: splitList(form.tags),
         // Owner only, and only when the panel was touched.
-        ...(costing ? { costing: costingPayload(costingFields, costingInitial) } : {}),
+        ...(costing
+          ? { costing: costingPayload(costingFields, costingInitial, manualPrice, initialManual) }
+          : {}),
       };
       const result = isEdit
         ? await updateProductAction(productId!, payload)
@@ -291,7 +317,45 @@ export function ProductForm({
         <div className="space-y-6">
           <Section title="Pricing">
             <div className={`grid gap-4 ${isOwner ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
-              {textField("price", "Price (₹)", { type: "number", min: 0, step: "0.01", required: true })}
+              <div className="space-y-1.5">
+                <Label htmlFor="price" required>
+                  Price (₹)
+                </Label>
+                <Input
+                  id="price"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  required
+                  value={effectivePrice}
+                  onChange={(e) => {
+                    // Typing over a calculated price makes it the owner's own.
+                    if (priceIsAuto) setManualPrice(true);
+                    set("price", e.target.value);
+                  }}
+                />
+                {costing && priceIsAuto && (
+                  <p className="text-xs text-muted-foreground">Calculated from costing — type to set your own.</p>
+                )}
+                {costing && !manualPrice && !priceIsAuto && calculated !== null && String(calculated) !== form.price && (
+                  <p className="text-xs text-muted-foreground">
+                    Today&apos;s pricing would give ₹{calculated.toLocaleString("en-IN")} — this saved price is
+                    kept until you change the costing or use Recalculate in Settings → Pricing.
+                  </p>
+                )}
+                {costing && manualPrice && calculated !== null && (
+                  <p className="text-xs text-muted-foreground">
+                    Your own price.{" "}
+                    <button
+                      type="button"
+                      className="underline"
+                      onClick={() => setManualPrice(false)}
+                    >
+                      Back to calculated (₹{calculated.toLocaleString("en-IN")})
+                    </button>
+                  </p>
+                )}
+              </div>
               {textField("compareAtPrice", "Compare-at price (₹)", { type: "number", min: 0, step: "0.01" })}
               {/* What WE paid. OWNER ONLY (staff never see it, and the save
                   action keeps the stored figure when they save) and never
@@ -314,9 +378,8 @@ export function ProductForm({
                   ctx={costing}
                   fields={costingFields}
                   onFields={setCostingFields}
-                  price={form.price}
+                  price={effectivePrice}
                   mrp={form.compareAtPrice}
-                  onUsePrice={(p) => set("price", String(p))}
                   disabled={saving}
                 />
               </div>

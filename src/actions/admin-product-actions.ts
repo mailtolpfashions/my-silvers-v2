@@ -24,7 +24,7 @@ import {
 } from "@/server/products/admin";
 import { isCharmDirection, isCharmStyle } from "@/lib/charm-price";
 import { isOwner } from "@/server/auth/roles";
-import { saveProductCosting } from "@/server/products/costing";
+import { getPricingRule, priceFor, saveProductCosting } from "@/server/products/costing";
 import { getCostingDefaults } from "@/server/settings/costing-config";
 
 const productSchema = z.object({
@@ -69,6 +69,8 @@ const productSchema = z.object({
       // The product's own — never a shop default (lib/costing.ts).
       silverRatePerGram: z.number().positive("Enter the silver rate.").max(100_000),
       makingChargePerGram: z.number().min(0).max(100_000),
+      /** The owner typed the price; otherwise it is worked out on save. */
+      manualPrice: z.boolean(),
     })
     .nullable()
     .optional(),
@@ -137,6 +139,9 @@ export async function createProductAction(input: unknown): Promise<AdminActionRe
     // from them is ignored rather than trusted.
     const owner = isOwner(session.user.role);
     if (!owner) input.costPrice = null;
+    // An automatic price is worked out HERE, not taken from the page: the
+    // form shows the same figure, but the server's is the one that counts.
+    if (owner) input.price = (await automaticPrice(parsed.data.costing, input.compareAtPrice)) ?? input.price;
     const created = await createProduct(input);
     if (owner) await saveCostingIfOwner(created.id, parsed.data.costing);
     await logActivity(session, {
@@ -178,6 +183,7 @@ export async function updateProductAction(id: string, input: unknown): Promise<A
         input.price = applyCharmRule(input.price, rule, input.compareAtPrice);
       }
     }
+    if (owner) input.price = (await automaticPrice(parsed.data.costing, input.compareAtPrice)) ?? input.price;
     await updateProduct(id, input);
     if (owner) await saveCostingIfOwner(id, parsed.data.costing);
     await logActivity(session, {
@@ -191,6 +197,19 @@ export async function updateProductAction(id: string, input: unknown): Promise<A
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to update product." };
   }
+}
+
+/**
+ * The price a costed product gets when it isn't a manual one: cost → margin
+ * band → rounding, with today's Settings → Pricing. Null leaves the typed
+ * price as it is (no costing, a manual price, or margins that can't be met).
+ */
+async function automaticPrice(
+  costing: z.infer<typeof productSchema>["costing"],
+  mrp: number | null | undefined
+): Promise<number | null> {
+  if (!costing || costing.manualPrice) return null;
+  return priceFor(costing, await getPricingRule(), mrp ?? null);
 }
 
 /**

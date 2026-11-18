@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { costBreakdown, profitAt, suggestedPrice, type CostingDefaults } from "@/lib/costing";
+import { calculatedPrice, costBreakdown, profitAt, suggestedPrice, type CostingDefaults } from "@/lib/costing";
 import { charmPrice, type CharmDirection, type CharmStyle } from "@/lib/charm-price";
 import { formatINR } from "@/lib/format";
 
@@ -23,18 +22,38 @@ const num = (s: string): number | null => {
 };
 
 /**
+ * The automatic price for what is typed — cost → margin band → rounding — or
+ * null until weight, rate and making charge are all there. The same function
+ * the server uses on save (lib/costing.ts calculatedPrice), so the figure in
+ * the Price field is the one that gets saved.
+ */
+export function autoPrice(ctx: CostingContext, fields: CostingFields, mrp: string): number | null {
+  const b = costBreakdown(
+    { weightGrams: num(fields.weight), silverRatePerGram: num(fields.rate), makingChargePerGram: num(fields.making) },
+    ctx.defaults
+  );
+  return b ? (calculatedPrice(b, ctx.defaults, ctx.charm, charmPrice, num(mrp))?.price ?? null) : null;
+}
+
+/**
  * What the form sends: undefined = untouched, null = cleared (no weight), else
  * the values. A weight with the rate or making charge missing is an error the
  * form reports before saving — see costingProblem.
  */
-export function costingPayload(fields: CostingFields, initial: CostingFields) {
-  if (JSON.stringify(fields) === JSON.stringify(initial)) return undefined;
+export function costingPayload(
+  fields: CostingFields,
+  initial: CostingFields,
+  manualPrice: boolean,
+  initialManual: boolean
+) {
+  if (JSON.stringify(fields) === JSON.stringify(initial) && manualPrice === initialManual) return undefined;
   const weight = num(fields.weight);
   if (!weight || weight <= 0) return null;
   return {
     weightGrams: weight,
     silverRatePerGram: num(fields.rate) ?? 0,
     makingChargePerGram: num(fields.making) ?? 0,
+    manualPrice,
   };
 }
 
@@ -61,7 +80,6 @@ export function CostingPanel({
   onFields,
   price,
   mrp,
-  onUsePrice,
   disabled,
 }: {
   ctx: CostingContext;
@@ -71,7 +89,6 @@ export function CostingPanel({
   price: string;
   /** The Compare-at price (MRP) — rounding never reaches it. */
   mrp: string;
-  onUsePrice: (price: number) => void;
   disabled?: boolean;
 }) {
   const d = ctx.defaults;
@@ -153,7 +170,7 @@ export function CostingPanel({
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted px-3 py-2">
               <div>
                 <p>
-                  Suggested: <strong>{formatINR(rounded)}</strong>
+                  Calculated price: <strong>{formatINR(rounded)}</strong>
                   <span className="text-xs text-muted-foreground">
                     {" "}
                     · {suggestion.band}
@@ -168,9 +185,6 @@ export function CostingPanel({
                   </p>
                 )}
               </div>
-              <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => onUsePrice(rounded)}>
-                Use {formatINR(rounded)}
-              </Button>
             </div>
           )}
 
