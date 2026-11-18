@@ -815,3 +815,35 @@ model StoreSetting {
   value     Json
   updatedAt DateTime @updatedAt
 }
+
+// ─── Free-plan usage ────────────────────────────────────────────────────────
+
+/// One row per email the site tried to send — see deliver() in
+/// server/email/resend.ts. Resend's free plan caps sending (100 a day, 3,000 a
+/// month) and offers no usage figures to read, so the site counts its own.
+/// `recipients` because the cap counts addresses, not API calls. Pruned after
+/// 90 days by the daily usage check.
+model EmailSend {
+  id         String   @id @default(cuid())
+  /// The email's kind, e.g. "order-confirmation", "payment-reminder".
+  kind       String
+  recipients Int
+  ok         Boolean
+  /// Resend's error name when it refused — a quota error shows up here first.
+  error      String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// The daily usage check's reading of every free-plan meter it can measure
+/// (api/cron/usage-check). Kept so the dashboard can warn without calling
+/// Cloudinary on every page load. Pruned to the last 60.
+model UsageCheck {
+  id      String   @id @default(cuid())
+  takenAt DateTime @default(now())
+  /// UsageMeter[] — see server/admin/usage.ts.
+  meters  Json
+
+  @@index([takenAt])
+}

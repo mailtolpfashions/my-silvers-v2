@@ -25,6 +25,7 @@ import {
   Users,
   UserCog,
   History,
+  Gauge,
   type LucideIcon,
   TicketPercent,
 } from "lucide-react";
@@ -54,6 +55,7 @@ const ICONS: Record<string, LucideIcon> = {
   courier: Truck,
   staff: UserCog,
   activity: History,
+  usage: Gauge,
   media: ImageIcon,
   homepage: Home,
   page: FileText,
