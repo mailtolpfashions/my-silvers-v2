@@ -5,6 +5,7 @@ import { restoreStock } from "@/server/products/stock";
 import type { SortDir } from "@/server/products/admin";
 import type { PaymentStatus } from "@/generated/prisma/client";
 import { toPaise } from "@/server/orders/money";
+import { COMING_BACK_FILTER } from "@/lib/order-coming-back";
 import { createRefund } from "@/server/payments/razorpay";
 import {
   activePartners,
@@ -433,7 +434,8 @@ function phoneSearch(q: string) {
 }
 
 export async function getAdminOrders(params: {
-  status?: OrderStatus;
+  /** An OrderStatus, or "coming_back" — see lib/order-coming-back.ts. */
+  status?: string;
   payment?: PaymentStatus;
   q?: string;
   page?: number;
@@ -444,10 +446,13 @@ export async function getAdminOrders(params: {
   const pageSize = 20;
 
   const status = asOrderStatus(params.status);
+  const comingBack = params.status === COMING_BACK_FILTER;
   const payment = asPaymentStatus(params.payment);
 
   const where = {
     ...(status ? { orderStatus: status } : {}),
+    // Parcels the courier is bringing back, whatever their status label says.
+    ...(comingBack ? { comingBackAt: { not: null }, receivedBackAt: null } : {}),
     ...(payment ? { paymentStatus: payment } : {}),
     // Matches the order number, the customer's name/email, or the mobile the
     // order shipped to — what an admin has to hand when someone gets in touch.

@@ -14,7 +14,9 @@ import {
   CancelOrderButton,
   ShipOrderButton,
   SchedulePickupButton,
+  ReceivedBackButton,
 } from "@/components/admin/order-row-actions";
+import { isComingBack } from "@/lib/order-coming-back";
 import { CopyButton } from "@/components/admin/copy-button";
 import { OrderOwnerTools } from "@/components/admin/order-owner-tools";
 import { viewerIsOwner } from "@/components/admin/owner-only";
@@ -329,6 +331,22 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
                     explainWhenHidden
                   />
                 </div>
+              )}
+
+              {isComingBack(order) && (
+                <div className="border-t pt-3">
+                  <p className="mb-2 text-xs text-amber-900">
+                    The courier is bringing this parcel back. Its items are still counted as sold
+                    until you mark it received.
+                  </p>
+                  <ReceivedBackButton orderId={order.id} orderNumber={order.orderNumber} />
+                </div>
+              )}
+              {order.receivedBackAt && (
+                <p className="border-t pt-3 text-xs text-muted-foreground">
+                  Received back on{" "}
+                  {order.receivedBackAt.toLocaleDateString("en-IN", { dateStyle: "medium" })}.
+                </p>
               )}
             </CardContent>
           </Card>

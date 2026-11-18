@@ -530,6 +530,15 @@ model Order {
   adminNote            String?
   returnRequestedAt    DateTime?
   returnResolvedAt     DateTime?
+  /// The parcel is on its way back to the shop without going through a return
+  /// approval — a courier RTO (refused or undeliverable), a courier-side
+  /// cancellation after booking, or the owner relabelling a shipped order as
+  /// returned. Its stock is still counted as sold until `receivedBackAt`.
+  /// See server/orders/coming-back.ts.
+  comingBackAt         DateTime?
+  /// Staff pressed "Received back": the piece is in the shop and its stock has
+  /// been added back. Set once; it is also what stops a second restore.
+  receivedBackAt       DateTime?
   refundAmount         Decimal?      @db.Decimal(10, 2)
   refundProcessedAt    DateTime?
   shiprocketOrderId    String?

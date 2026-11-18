@@ -28,6 +28,7 @@ import {
   schedulePickupAction,
   processReturnAction,
   cancelOrderAsStaffAction,
+  receiveBackAction,
 } from "@/actions/admin-order-actions";
 import { CANCEL_REASONS, type CancelReason } from "@/lib/order-cancel-reasons";
 import { allowedStatusMoves } from "@/lib/order-status-moves";
@@ -395,6 +396,67 @@ export function ReturnReviewButtons({
               {isPending ? "Processing…" : "Approve return"}
             </Button>
           )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * "Received back" — for a parcel the courier brought back (RTO) or that was
+ * cancelled after booking. Pressed with the piece in hand: stock goes up only
+ * then, never on the courier's say-so. A damaged piece can be marked received
+ * without being counted as sellable again.
+ */
+export function ReceivedBackButton({
+  orderId,
+  orderNumber,
+}: {
+  orderId: string;
+  orderNumber: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  function run(restock: boolean) {
+    startTransition(async () => {
+      const result = await receiveBackAction(orderId, restock);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(
+        restock ? `${orderNumber} received — items added back to stock.` : `${orderNumber} marked as received.`
+      );
+      setOpen(false);
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          Received back
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Has {orderNumber} come back to you?</DialogTitle>
+          <DialogDescription>
+            Press this once the parcel is in your hands and you&apos;ve checked the piece. Its items
+            go back into stock and can be sold again.
+          </DialogDescription>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Came back damaged? Mark it received without adding it to stock.
+        </p>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => run(false)} disabled={isPending}>
+            Damaged — don&apos;t add to stock
+          </Button>
+          <Button onClick={() => run(true)} disabled={isPending}>
+            {isPending ? "Saving…" : "Received — add to stock"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
