@@ -143,7 +143,7 @@ export default async function AdminReviewsPage({
             status: r.status,
             isVerifiedPurchase: r.isVerifiedPurchase,
             createdAt: r.createdAt.toISOString(),
-            customerName: r.user.name ?? r.user.email,
+            customerName: r.user?.name ?? r.user?.email,
             productName: r.product.name,
             productSlug: r.product.slug,
             productImage: r.product.images[0] ?? null,

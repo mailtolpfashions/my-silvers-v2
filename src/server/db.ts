@@ -100,6 +100,17 @@ export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL, ...POOL }),
+    /**
+     * How long a transaction may QUEUE for one of the pool's 5 connections.
+     *
+     * ⚠️  Prisma's default is 2 seconds. With 20 shoppers pressing Place order
+     * in the same second (test:load, Nov 2026), five waited longer than that
+     * and were told "Could not place the order" — turned away, with free
+     * connections only moments off. A checkout is a few short queries; ten
+     * seconds of queueing turns a rush into a slower checkout instead of lost
+     * sales. `timeout` (how long one may RUN) stays well clear of it.
+     */
+    transactionOptions: { maxWait: 10_000, timeout: 15_000 },
   });
 
 if (process.env.NODE_ENV !== "production") {

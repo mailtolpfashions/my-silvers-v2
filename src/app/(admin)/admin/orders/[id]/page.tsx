@@ -404,12 +404,12 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
             <CardContent className="space-y-1 text-sm">
               <p className="font-medium">
                 <Link href={`/admin/customers/${order.user.id}`} className="hover:underline">
-                  {order.user.name ?? "—"}
+                  {order.user?.name ?? "—"}
                 </Link>
               </p>
               <p>
-                <a href={`mailto:${order.user.email}`} className="underline">
-                  {order.user.email}
+                <a href={`mailto:${order.user?.email}`} className="underline">
+                  {order.user?.email}
                 </a>
               </p>
               {order.user.phone && <p className="text-muted-foreground">{order.user.phone}</p>}

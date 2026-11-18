@@ -140,7 +140,7 @@ export function RecentOrdersTable({
                         {o.orderNumber}
                       </Link>
                     </td>
-                    <td className="max-w-[12rem] truncate px-3 py-2.5">{o.user.name ?? o.user.email}</td>
+                    <td className="max-w-[12rem] truncate px-3 py-2.5">{o.user?.name ?? o.user?.email}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">
                       {o.createdAt.toLocaleString("en-IN", {
                         day: "numeric",

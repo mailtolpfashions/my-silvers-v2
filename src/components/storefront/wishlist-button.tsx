@@ -93,6 +93,13 @@ export function WishlistButton({
         toast.success(result.added ? "Added to wishlist" : "Removed from wishlist");
       } catch {
         setWishlistLocal(productId, inWishlist); // roll back
+        // Tapped before the page knew who was signed in: the redirect above
+        // could not fire yet, so a guest reached the action and was refused.
+        // Send them where the redirect would have (found by product.spec.ts).
+        if (state.status !== "ready" || !state.isAuthed) {
+          router.push("/login?redirect=/wishlist");
+          return;
+        }
         toast.error("Could not update wishlist.");
       }
     });

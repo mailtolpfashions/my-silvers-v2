@@ -189,8 +189,12 @@ export default async function AdminPaymentsPage({
                       </span>
                     </TableCell>
                     <TableCell>
-                      {row.user.name ?? "—"}
-                      <span className="block text-xs text-muted-foreground">{row.user.email}</span>
+                      {/* `?.` although the relation is required: Prisma loads the
+                          customers in a second query, so one deleted between the
+                          two (the owner removing a customer while this page loads)
+                          arrives as null and used to crash the whole page. */}
+                      {row.user?.name ?? "—"}
+                      <span className="block text-xs text-muted-foreground">{row.user?.email}</span>
                     </TableCell>
                     <TableCell className="uppercase">{row.paymentMethod}</TableCell>
                     <TableCell>
