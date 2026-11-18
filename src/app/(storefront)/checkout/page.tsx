@@ -101,6 +101,7 @@ async function CheckoutBody() {
         giftWrapChargePaise: settings.giftWrapChargePaise,
       }}
       codEnabled={settings.codEnabled}
+      codChargePaise={settings.codChargePaise}
       geocodingEnabled={isGeocodingConfigured()}
     />
   );

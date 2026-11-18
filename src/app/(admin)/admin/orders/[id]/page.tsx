@@ -372,6 +372,12 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
                     : formatINR(order.shippingCharge.toString())
                 }
               />
+              {Number(order.giftWrapCharge) > 0 && (
+                <Row label="Gift wrap" value={formatINR(order.giftWrapCharge.toString())} />
+              )}
+              {Number(order.codCharge) > 0 && (
+                <Row label="COD charge" value={formatINR(order.codCharge.toString())} />
+              )}
               <div className="flex justify-between border-t pt-2 font-semibold">
                 <span>Total</span>
                 <span>{formatINR(order.totalAmount.toString())}</span>

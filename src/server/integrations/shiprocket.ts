@@ -214,6 +214,13 @@ export type ShipmentInput = {
   items: Array<{ name: string; sku: string; units: number; sellingPrice: number }>;
   paymentMethod: "COD" | "Prepaid";
   subTotal: number;
+  /**
+   * The other parts of the order total, rupees. Shiprocket collects
+   * sub_total + these − discount on a COD parcel, so each must be passed or
+   * the courier collects the wrong cash. They were all missing until Nov 2026
+   * (shipping, gift wrap and coupon discounts included).
+   */
+  charges?: { shipping: number; giftWrap: number; cod: number; discount: number };
   /** Total weight in KILOGRAMS (product weights are stored in grams — convert before calling). */
   weightKg: number;
 };
@@ -257,6 +264,14 @@ export async function createShiprocketOrder(input: ShipmentInput): Promise<Creat
     })),
     payment_method: input.paymentMethod,
     sub_total: input.subTotal,
+    ...(input.charges
+      ? {
+          shipping_charges: input.charges.shipping,
+          giftwrap_charges: input.charges.giftWrap,
+          transaction_charges: input.charges.cod,
+          total_discount: input.charges.discount,
+        }
+      : {}),
     length: 10,
     breadth: 10,
     height: 5,

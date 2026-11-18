@@ -48,6 +48,17 @@ export type GiftOptions = {
 };
 
 /**
+ * What paying cash on delivery adds to this order.
+ *
+ * Like gift wrap: shown at checkout from the page's copy of the setting, but
+ * create-order.ts recomputes it from the settings at the moment of sale and
+ * snapshots it onto the order. Zero for an online payment, always.
+ */
+export function codChargePaise(paymentMethod: "cod" | "razorpay", options: { codChargePaise: number }): number {
+  return paymentMethod === "cod" ? Math.max(0, options.codChargePaise) : 0;
+}
+
+/**
  * What gift wrap costs on this order.
  *
  * Zero unless it was asked for AND is currently on offer. The second half
