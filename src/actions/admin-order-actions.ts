@@ -29,6 +29,7 @@ import {
   sendReturnDecisionEmail,
 } from "@/server/email/resend";
 import { canMoveStatus } from "@/lib/order-status-moves";
+import { markComingBackIfNeeded, receiveBack, ReceiveBackError } from "@/server/orders/coming-back";
 
 export type AdminOrderActionResult = { ok: true } | { ok: false; error: string };
 
@@ -69,6 +70,9 @@ export async function updateOrderStatusAction(
     };
   }
   await updateOrderStatus(orderId, parsed.data);
+  // Relabelling a shipped order as returned/refunded moves no stock — flag the
+  // parcel as coming back so "Received back" can put it in stock.
+  await markComingBackIfNeeded(orderId, before.orderStatus, parsed.data);
   const { number } = await orderLabel(orderId);
   await logActivity(session, {
     action: "order.status",
@@ -265,6 +269,35 @@ export async function schedulePickupAction(
     if (isCourierError(err)) return { ok: false, error: err.message };
     console.error("schedulePickupAction failed", err);
     return { ok: false, error: "Could not schedule the pickup. Please try again." };
+  }
+}
+
+/**
+ * "Received back" — the parcel the courier returned is in the shop, so its
+ * stock goes back. Any admin: it moves stock, not money.
+ */
+export async function receiveBackAction(
+  orderId: string,
+  restock: boolean
+): Promise<AdminOrderActionResult> {
+  const session = await requireRole("admin");
+  try {
+    const { orderNumber } = await receiveBack(orderId, { restock: restock === true });
+    await logActivity(session, {
+      action: "order.received_back",
+      target: { type: "order", id: orderId },
+      summary: restock
+        ? `Received order ${orderNumber} back and added its items to stock`
+        : `Received order ${orderNumber} back damaged — not added to stock`,
+    });
+    revalidatePath("/admin/orders");
+    revalidatePath(`/admin/orders/${orderId}`);
+    revalidatePath("/admin/inventory");
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof ReceiveBackError) return { ok: false, error: err.message };
+    console.error("receiveBackAction failed", err);
+    return { ok: false, error: "Could not add the items back to stock. Please try again." };
   }
 }
 

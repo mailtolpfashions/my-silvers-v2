@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ConfirmCodWhatsapp } from "@/components/admin/confirm-cod-whatsapp";
 import { isCancellable } from "@/lib/order-cancel-reasons";
 import { getAdminOrders } from "@/server/orders/admin";
-import type { OrderStatus, PaymentStatus } from "@/generated/prisma/client";
+import type { PaymentStatus } from "@/generated/prisma/client";
 import { formatINR } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,9 @@ import {
   CancelOrderButton,
   ShipOrderButton,
   ReturnReviewButtons,
+  ReceivedBackButton,
 } from "@/components/admin/order-row-actions";
+import { isComingBack } from "@/lib/order-coming-back";
 import { PdfExportButton } from "@/components/admin/pdf-export-button";
 import { viewerIsOwner } from "@/components/admin/owner-only";
 import { SortableHeader } from "@/components/admin/sortable-header";
@@ -65,7 +67,8 @@ export default async function AdminOrdersPage({
   const params = await searchParams;
   const isOwner = await viewerIsOwner();
   const { orders, total, page, pageSize } = await getAdminOrders({
-    status: params.status as OrderStatus | undefined,
+    // A string, not just an OrderStatus — "coming_back" is a filter too.
+    status: params.status,
     payment: params.payment as PaymentStatus | undefined,
     q: params.q,
     page: params.page ? Number(params.page) || 1 : 1,
@@ -189,6 +192,11 @@ export default async function AdminOrdersPage({
                   </TableCell>
                   <TableCell>
                     <OrderStatusSelect orderId={order.id} status={order.orderStatus} paymentStatus={order.paymentStatus} />
+                    {isComingBack(order) && (
+                      <Badge variant="outline" className="mt-1 block w-fit border-amber-300 bg-amber-50 text-amber-900">
+                        Coming back
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-xs">
                     {order.trackingNumber ? (
@@ -235,6 +243,9 @@ export default async function AdminOrdersPage({
                           reason={order.returnReason}
                           canRefund={order.paymentStatus === "paid"}
                         />
+                      )}
+                      {isComingBack(order) && (
+                        <ReceivedBackButton orderId={order.id} orderNumber={order.orderNumber} />
                       )}
                     </div>
                   </TableCell>

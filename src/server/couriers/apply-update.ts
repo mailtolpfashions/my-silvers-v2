@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { prisma } from "@/server/db";
 import { sendOrderDeliveredEmail } from "@/server/email/resend";
 import { normaliseScans, type ScanEvent } from "@/server/integrations/shiprocket";
+import { markComingBackIfNeeded } from "@/server/orders/coming-back";
 import type { Order, OrderStatus } from "@/generated/prisma/client";
 
 /**
@@ -56,6 +57,13 @@ export async function applyCourierUpdate(
       data: { orderStatus: next! },
     });
     moved = claim.count === 1;
+  }
+
+  // An RTO or a courier-side cancellation: the parcel is heading home but its
+  // stock is still counted as sold. Flag it for "Received back" — see
+  // server/orders/coming-back.ts for why stock isn't restored right here.
+  if (moved) {
+    await markComingBackIfNeeded(order.id, order.orderStatus, next!);
   }
 
   if (merged || update.courierName) {

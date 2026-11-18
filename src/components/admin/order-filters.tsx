@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { COMING_BACK_FILTER } from "@/lib/order-coming-back";
 
 /** Radix Select has no empty-string value, so "any" stands in for "no filter". */
 const ANY = "any";
@@ -89,6 +90,9 @@ export function AdminOrderFilters({
               {humanise(s)}
             </SelectItem>
           ))}
+          {/* Not a status: parcels the courier is bringing back that are still
+              waiting for "Received back". */}
+          <SelectItem value={COMING_BACK_FILTER}>Coming back</SelectItem>
         </SelectContent>
       </Select>
 
