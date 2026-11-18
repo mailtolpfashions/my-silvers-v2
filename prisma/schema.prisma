@@ -296,6 +296,9 @@ model Product {
   reviews      Review[]
   cartItems    CartItem[]
   variants     ProductVariant[]
+  /// Owner-only cost inputs. Its own table so no storefront query, which
+  /// loads whole Product rows, can ever carry them — see ProductCosting.
+  costing      ProductCosting?
   wishlistedIn Wishlist[]       @relation("WishlistProducts")
   stockAlerts  StockNotification[]
 
@@ -850,4 +853,24 @@ model UsageCheck {
   meters  Json
 
   @@index([takenAt])
+}
+
+/// What a piece cost, by weight — the owner's costing calculator
+/// (lib/costing.ts). OWNER ONLY, and deliberately not on Product: storefront
+/// queries load whole Product rows, and a field there is one careless spread
+/// away from the page payload. Nothing outside the admin reads this table.
+///
+/// A blank rate or making charge means "use the shop default" (Settings →
+/// Costing) at the time of calculation. The resulting purchase cost is also
+/// written to Product.costPrice, which Finance and order snapshots read.
+model ProductCosting {
+  productId           String   @id
+  product             Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Net silver weight in grams (not the shipping weight).
+  weightGrams         Decimal  @db.Decimal(10, 3)
+  /// ₹ per gram paid for this piece; null = the shop default.
+  silverRatePerGram   Decimal? @db.Decimal(10, 2)
+  /// ₹ per gram making charge; null = the shop default.
+  makingChargePerGram Decimal? @db.Decimal(10, 2)
+  updatedAt           DateTime @updatedAt
 }

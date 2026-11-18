@@ -23,6 +23,9 @@ import {
   type CsvRow,
 } from "@/server/products/admin";
 import { isCharmDirection, isCharmStyle } from "@/lib/charm-price";
+import { isOwner } from "@/server/auth/roles";
+import { saveProductCosting } from "@/server/products/costing";
+import { getCostingDefaults } from "@/server/settings/costing-config";
 
 const productSchema = z.object({
   name: z.string().trim().min(2).max(200),
@@ -55,11 +58,27 @@ const productSchema = z.object({
   isBestseller: z.boolean(),
   isActive: z.boolean().optional(),
   tags: z.array(z.string().trim().min(1)).max(30),
+  /**
+   * The owner's costing panel. Absent = not touched (and always absent for
+   * staff, who never see the panel); null = remove the costing. Saved only
+   * when the person saving is the owner — see saveCostingIfOwner.
+   */
+  costing: z
+    .object({
+      weightGrams: z.number().positive().max(100_000),
+      silverRatePerGram: z.number().min(0).max(100_000).nullable(),
+      makingChargePerGram: z.number().min(0).max(100_000).nullable(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export type AdminActionResult = { ok: true } | { ok: false; error: string };
 
-function toInput(data: z.infer<typeof productSchema>) {
+function toInput(full: z.infer<typeof productSchema>) {
+  // Costing has its own table and its own owner check — never a product field.
+  const { costing, ...data } = full;
+  void costing;
   return {
     ...data,
     description: data.description || undefined,
@@ -113,7 +132,12 @@ export async function createProductAction(input: unknown): Promise<AdminActionRe
     const rule = await autoCharmRule();
     const input = toInput(parsed.data);
     input.price = applyCharmRule(input.price, rule, input.compareAtPrice);
+    // Costs are the owner's: staff never see the field, so whatever arrives
+    // from them is ignored rather than trusted.
+    const owner = isOwner(session.user.role);
+    if (!owner) input.costPrice = null;
     const created = await createProduct(input);
+    if (owner) await saveCostingIfOwner(created.id, parsed.data.costing);
     await logActivity(session, {
       action: "product.create",
       target: { type: "product", id: created.id },
@@ -139,6 +163,10 @@ export async function updateProductAction(id: string, input: unknown): Promise<A
       where: { id },
       select: { price: true, compareAtPrice: true, costPrice: true },
     });
+    // Staff don't see the Cost price field, so their form posts it empty.
+    // Keep what is stored rather than wiping the owner's figure.
+    const owner = isOwner(session.user.role);
+    if (!owner) input.costPrice = before?.costPrice === null || !before ? null : Number(before.costPrice);
     // Only a price the admin CHANGED is rounded. The form posts every field
     // on every save, so without this, fixing a typo in a description would
     // quietly reprice a piece that was saved before rounding was turned on.
@@ -150,6 +178,7 @@ export async function updateProductAction(id: string, input: unknown): Promise<A
       }
     }
     await updateProduct(id, input);
+    if (owner) await saveCostingIfOwner(id, parsed.data.costing);
     await logActivity(session, {
       action: "product.update",
       target: { type: "product", id },
@@ -161,6 +190,19 @@ export async function updateProductAction(id: string, input: unknown): Promise<A
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to update product." };
   }
+}
+
+/**
+ * Saves the owner's costing panel, which also sets Cost price to the purchase
+ * cost it works out to. Only ever called after an isOwner check; `undefined`
+ * (panel not touched) changes nothing.
+ */
+async function saveCostingIfOwner(
+  productId: string,
+  costing: z.infer<typeof productSchema>["costing"]
+) {
+  if (costing === undefined) return;
+  await saveProductCosting(productId, costing, await getCostingDefaults());
 }
 
 export async function archiveProductAction(id: string): Promise<AdminActionResult> {
@@ -622,7 +664,8 @@ export async function setProductsOfferAction(
 
 export async function bulkImportProductsAction(rows: CsvRow[]) {
   const session = await requireRole("admin");
-  const result = await bulkImportProducts(rows);
+  // Costing columns and costPrice count only when the owner imports.
+  const result = await bulkImportProducts(rows, { owner: isOwner(session.user.role) });
   await logActivity(session, {
     action: "product.import",
     target: { type: "product" },

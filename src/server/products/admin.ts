@@ -2,6 +2,9 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db";
 import { getStoreSettings } from "@/server/settings/store-settings";
 import { charmPrice, type CharmDirection, type CharmStyle } from "@/lib/charm-price";
+import { costBreakdown, suggestedPrice } from "@/lib/costing";
+import { saveProductCosting, type ProductCostingValues } from "@/server/products/costing";
+import { getCostingDefaults } from "@/server/settings/costing-config";
 import { notifyBackInStock } from "@/server/products/stock-notifications";
 import { assertAllowedMediaUrls } from "@/server/media/url-allowlist";
 import { NO_VENDOR } from "@/lib/vendor";
@@ -682,7 +685,38 @@ async function updateFromCsvRow(
  * Matched on SKU, never name: names repeat and get edited, so a typo would
  * quietly create a duplicate instead of updating.
  */
-export async function bulkImportProducts(rows: CsvRow[]): Promise<{
+/**
+ * The costing columns of one CSV row, or undefined when the row has none.
+ * Rate and making blank → null → the shop default at calculation time.
+ */
+function costingFromRow(row: CsvRow): ProductCostingValues | undefined {
+  const cell = (k: string) => (row[k] ?? "").trim();
+  if (!cell("silverWeight")) return undefined;
+  const n = (k: string, label: string) => {
+    const raw = cell(k);
+    if (!raw) return null;
+    const v = Number(raw);
+    if (!Number.isFinite(v) || v < 0) throw new Error(`${label} must be a number ≥ 0`);
+    return v;
+  };
+  const weight = n("silverWeight", "silverWeight");
+  if (!weight || weight <= 0) throw new Error("silverWeight must be more than 0");
+  return {
+    weightGrams: weight,
+    silverRatePerGram: n("silverRate", "silverRate"),
+    makingChargePerGram: n("makingCharge", "makingCharge"),
+  };
+}
+
+export async function bulkImportProducts(
+  rows: CsvRow[],
+  /**
+   * Whether the importer is the owner. Costing columns and costPrice are the
+   * owner's: from anyone else they are ignored (a new product gets no cost, an
+   * existing one keeps its own).
+   */
+  opts: { owner: boolean } = { owner: false }
+): Promise<{
   created: number;
   updated: number;
   errors: RowError[];
@@ -692,9 +726,10 @@ export async function bulkImportProducts(rows: CsvRow[]): Promise<{
     return { created: 0, updated: 0, errors: [{ row: 0, error: "Maximum 500 rows per import." }] };
   }
 
-  const [categories, charmRule] = await Promise.all([
+  const [categories, charmRule, costingDefaults] = await Promise.all([
     prisma.category.findMany(),
     autoCharmRule(),
+    opts.owner ? getCostingDefaults() : Promise.resolve(null),
   ]);
   const categoryByKey = new Map<string, string>();
   for (const c of categories) {
@@ -715,7 +750,7 @@ export async function bulkImportProducts(rows: CsvRow[]): Promise<{
   let updated = 0;
 
   for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
+    let row = rows[i];
     const rowNum = i + 2; // 1-based + header row, matching what users see in a spreadsheet
     try {
       const skuKey = (row.sku ?? "").trim().toLowerCase();
@@ -723,16 +758,32 @@ export async function bulkImportProducts(rows: CsvRow[]): Promise<{
       if (batchSkus.has(skuKey)) throw new Error(`SKU "${row.sku.trim()}" is duplicated in this file`);
       batchSkus.add(skuKey);
 
+      // Owner only; validated before anything is written for this row.
+      const costing = costingDefaults ? costingFromRow(row) : undefined;
+      // Staff: the costPrice cell is ignored, so it can't overwrite or set one.
+      if (!opts.owner) row = { ...row, costPrice: "" };
+
       const existingId = existingSkus.get(skuKey);
       if (existingId) {
         await updateFromCsvRow(existingId, row, categoryByKey, charmRule);
+        if (costing && costingDefaults) await saveProductCosting(existingId, costing, costingDefaults);
         updated++;
         continue;
       }
 
       const name = (row.name ?? "").trim();
       const sku = (row.sku ?? "").trim();
-      const price = Number(row.price);
+      // A blank price on a costed new product → the calculator's suggestion
+      // for the target margin (charm rounding is applied below as usual).
+      let price = Number(row.price);
+      if ((row.price ?? "").trim() === "" && costing && costingDefaults) {
+        const b = costBreakdown(costing, costingDefaults);
+        const suggested = b ? suggestedPrice(b, costingDefaults) : null;
+        if (suggested === null) {
+          throw new Error("price is blank and can't be worked out — set the silver rate in Settings → Costing, or fill the price");
+        }
+        price = suggested;
+      }
       const stockCell = (row.stock ?? "").trim();
       const sizesCell = parseSizesCell(row.sizes);
       // Per-size stock gives the total itself; a stock cell beside it is only
@@ -758,7 +809,7 @@ export async function bulkImportProducts(rows: CsvRow[]): Promise<{
       const categoryId = categoryByKey.get(categoryKey);
       if (!categoryId) throw new Error(`unknown category "${row.category}"`);
 
-      await createProduct({
+      const createdProduct = await createProduct({
         name,
         description: (row.description ?? "").trim() || undefined,
         shortDescription: (row.shortDescription ?? "").trim() || undefined,
@@ -785,6 +836,9 @@ export async function bulkImportProducts(rows: CsvRow[]): Promise<{
         isBestseller: parseBool(row.isBestseller),
         isActive: row.isActive === undefined || row.isActive === "" ? true : parseBool(row.isActive),
       });
+      if (costing && costingDefaults) {
+        await saveProductCosting(createdProduct.id, costing, costingDefaults);
+      }
 
       created++;
     } catch (err) {

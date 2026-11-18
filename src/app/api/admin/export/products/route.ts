@@ -54,6 +54,9 @@ async function exportProducts(rawIds: string[] | null, asJson: boolean) {
     include: {
       category: { select: { name: true } },
       variants: { select: { size: true, stock: true } },
+      // Owner-only export (requireOwner above), so the costing columns can go
+      // out — and a re-import of this file keeps them.
+      costing: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -115,6 +118,9 @@ async function exportProducts(rawIds: string[] | null, asJson: boolean) {
         isActive: p.isActive,
         images: p.images.join(","),
         videoUrl: p.videoUrl ?? "",
+        silverWeight: p.costing?.weightGrams.toString() ?? "",
+        silverRate: p.costing?.silverRatePerGram?.toString() ?? "",
+        makingCharge: p.costing?.makingChargePerGram?.toString() ?? "",
         slug: p.slug,
         createdAt: p.createdAt.toISOString(),
       };

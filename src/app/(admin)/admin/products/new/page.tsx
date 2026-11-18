@@ -4,6 +4,7 @@ import { ProductForm, EMPTY_PRODUCT_FORM } from "@/components/admin/product-form
 import { PageHeader } from "@/components/layout/page-header";
 import { FreshOnNavigate } from "@/components/layout/fresh-on-navigate";
 import { listVendors } from "@/server/products/admin";
+import { costingContextForViewer } from "@/server/products/costing";
 
 /**
  * Blocking, like every other admin route — see admin/reviews/page.tsx.
@@ -15,13 +16,14 @@ import { listVendors } from "@/server/products/admin";
 export const instant = false;
 
 export default async function NewProductPage() {
-  const [categories, vendors] = await Promise.all([
+  const [categories, vendors, costing] = await Promise.all([
     prisma.category.findMany({
       where: { isActive: true },
       orderBy: CATEGORY_ORDER,
       select: { id: true, name: true },
     }),
     listVendors(),
+    costingContextForViewer(),
   ]);
 
   return (
@@ -34,7 +36,12 @@ export default async function NewProductPage() {
       />
       {/* Blank on every "Add product" click — see FreshOnNavigate. */}
       <FreshOnNavigate>
-        <ProductForm initial={EMPTY_PRODUCT_FORM} categories={categories} vendors={vendors} />
+        <ProductForm
+          initial={EMPTY_PRODUCT_FORM}
+          categories={categories}
+          vendors={vendors}
+          costing={costing}
+        />
       </FreshOnNavigate>
     </div>
   );
