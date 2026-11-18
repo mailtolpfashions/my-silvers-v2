@@ -275,13 +275,20 @@ export async function getLiveToShip() {
     prisma.order.findFirst({
       where: TO_SHIP_WHERE,
       orderBy: { createdAt: "desc" },
-      select: { id: true, orderNumber: true, totalAmount: true },
+      select: { id: true, orderNumber: true, totalAmount: true, createdAt: true },
     }),
   ]);
   return {
     toShip: count,
     newest: newest
-      ? { id: newest.id, orderNumber: newest.orderNumber, total: Number(newest.totalAmount) }
+      ? {
+          id: newest.id,
+          orderNumber: newest.orderNumber,
+          total: Number(newest.totalAmount),
+          // Lets the watcher spot a NEW order even when the count did not rise
+          // (one shipped while another arrived) — see new-order-watcher.tsx.
+          createdAt: newest.createdAt.toISOString(),
+        }
       : null,
   };
 }

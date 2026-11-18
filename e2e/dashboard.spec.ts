@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { signInAs, TEST_PASSWORD } from "./helpers/auth";
-import { createTestUser, deleteOrdersForUser, deleteUser, insertOrderInState } from "./helpers/db";
+import { createTestUser, deleteOrdersForUser, deleteUser, insertOrderInState, queryOne } from "./helpers/db";
 
 /**
  * The admin home (Nov 2026 redesign). Built because a paid order went
@@ -120,6 +120,36 @@ test.describe("new-order alert", () => {
 
       await expect(page.getByText(`New order ${order.orderNumber}`)).toBeVisible({ timeout: 45_000 });
       await expect(page).toHaveTitle(/^\(\d+\)/);
+    } finally {
+      await deleteOrdersForUser(buyerId);
+      await deleteUser(buyerId).catch(() => {});
+      await admin.dispose();
+    }
+  });
+
+  /**
+   * Nov 2026 QA: the watcher compared only the To ship COUNT, so one order
+   * shipped and one new order paid within the same 30 s poll cancelled out
+   * and the new order was never announced.
+   */
+  test("a new order is announced even if another was shipped in the same moment", async ({ page }) => {
+    test.setTimeout(90_000);
+    const admin = await signInAs(page, "admin", "dash-swap");
+    const { id: buyerId } = await buyer();
+    try {
+      const older = await insertOrderInState(buyerId, { paymentMethod: "razorpay", paymentStatus: "paid" });
+      // Make sure `older` really is older than what comes next.
+      await queryOne(`UPDATE "Order" SET "createdAt" = NOW() - interval '1 hour' WHERE "id" = $1 RETURNING 1`, [older.id]);
+
+      const baseline = page.waitForResponse((r) => r.url().includes("/api/admin/live"), { timeout: 20_000 });
+      await page.goto("/admin");
+      await baseline;
+
+      // In the same poll window: one leaves To ship, one arrives.
+      await queryOne(`UPDATE "Order" SET "shipmentCreatedAt" = NOW() WHERE "id" = $1 RETURNING 1`, [older.id]);
+      const fresh = await insertOrderInState(buyerId, { paymentMethod: "razorpay", paymentStatus: "paid" });
+
+      await expect(page.getByText(`New order ${fresh.orderNumber}`)).toBeVisible({ timeout: 45_000 });
     } finally {
       await deleteOrdersForUser(buyerId);
       await deleteUser(buyerId).catch(() => {});
