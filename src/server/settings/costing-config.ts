@@ -2,7 +2,7 @@ import { prisma } from "@/server/db";
 import { COSTING_DEFAULTS, type CostingDefaults } from "@/lib/costing";
 
 /**
- * The shop-wide costing figures — Settings → Costing. OWNER ONLY.
+ * The shop-wide costing figures — the Pricing page. OWNER ONLY.
  *
  * Only the costs of SELLING and the margin bands. The silver rate and making
  * charge are never here: they belong to each product, fixed when its batch

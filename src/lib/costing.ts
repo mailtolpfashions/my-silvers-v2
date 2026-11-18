@@ -6,7 +6,7 @@
  * PRODUCT and never come from a shop-wide figure — a piece bought at ₹110/g
  * must still be costed at ₹110/g after the market falls to ₹95, or it gets
  * sold at a loss. Only the costs of selling (packing, delivery, gateway, GST)
- * and the margin bands are shop-wide (Settings → Costing).
+ * and the margin bands are shop-wide (the Pricing page).
  *
  * Pure, with no imports, so the product form's live preview, the CSV import
  * and the server write all use one rule.
@@ -182,7 +182,7 @@ export function suggestedPrice(b: Breakdown, d: CostingDefaults): Suggestion | n
   return null;
 }
 
-/** The shop's rounding rule (Settings → Pricing), or null when rounding is off. */
+/** The shop's rounding rule (the Pricing page), or null when rounding is off. */
 export type CharmRuleLike = {
   style: "99" | "49-99";
   direction: "down" | "up" | "nearest";

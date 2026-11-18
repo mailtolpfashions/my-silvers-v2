@@ -12,7 +12,7 @@ export type CostingFields = { weight: string; rate: string; making: string };
 
 export type CostingContext = {
   defaults: CostingDefaults;
-  /** The shop's charm rule (Settings → Pricing), or null when rounding is off. */
+  /** The shop's charm rule (the Pricing page), or null when rounding is off. */
   charm: { style: CharmStyle; direction: CharmDirection } | null;
 };
 
@@ -140,8 +140,8 @@ export function CostingPanel({
         <p className="text-xs text-muted-foreground">
           Enter this piece&apos;s weight, the silver rate you bought its batch at, and its making
           charge. Packing, delivery, fees and margins come from{" "}
-          <Link href="/admin/settings#costing" className="underline">
-            Settings → Costing
+          <Link href="/admin/pricing" className="underline">
+            the Pricing page
           </Link>
           .
         </p>

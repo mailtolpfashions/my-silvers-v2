@@ -1,7 +1,5 @@
 import { OwnerOnlyNotice, viewerIsOwner } from "@/components/admin/owner-only";
 import { OrderAlertEmails } from "@/components/admin/order-alert-emails";
-import { PricingSettings } from "@/components/admin/pricing-settings";
-import { getCostingDefaults } from "@/server/settings/costing-config";
 import { getOrderAlertEmails, MAX_ALERT_EMAILS } from "@/server/settings/order-alerts";
 import { prisma } from "@/server/db";
 import { PageHeader } from "@/components/layout/page-header";
@@ -34,12 +32,11 @@ export default async function AdminSettingsPage() {
   // every customer is charged and promised. The save action re-checks.
   if (!(await viewerIsOwner())) return <OwnerOnlyNotice area="Settings" />;
 
-  const [settings, collections, alertEmails, owners, costing] = await Promise.all([
+  const [settings, collections, alertEmails, owners] = await Promise.all([
     getStoreSettings(),
     getCollections(),
     getOrderAlertEmails(),
     prisma.user.findMany({ where: { role: "superadmin" }, select: { email: true } }),
-    getCostingDefaults(),
   ]);
 
   return (
@@ -74,13 +71,6 @@ export default async function AdminSettingsPage() {
           initial={alertEmails}
           ownerEmails={owners.map((o) => o.email)}
           max={MAX_ALERT_EMAILS}
-        />
-      </div>
-      <div className="mt-8">
-        <PricingSettings
-          costing={costing}
-          charmPricing={settings.charmPricing}
-          charmDirection={settings.charmDirection}
         />
       </div>
     </>

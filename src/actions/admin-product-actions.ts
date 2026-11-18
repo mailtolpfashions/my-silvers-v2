@@ -201,7 +201,7 @@ export async function updateProductAction(id: string, input: unknown): Promise<A
 
 /**
  * The price a costed product gets when it isn't a manual one: cost → margin
- * band → rounding, with today's Settings → Pricing. Null leaves the typed
+ * band → rounding, with today's pricing rules. Null leaves the typed
  * price as it is (no costing, a manual price, or margins that can't be met).
  */
 async function automaticPrice(

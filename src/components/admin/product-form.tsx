@@ -122,7 +122,7 @@ export function ProductForm({
    * Only a NEW product, or one whose costing is being changed, follows the
    * calculation. Opening an existing product shows its saved price even when
    * today's rules would give another — otherwise fixing a typo in the
-   * description would quietly re-price it. Settings → Pricing → Recalculate
+   * description would quietly re-price it. Pricing → Recalculate
    * is the way to move saved prices, with a preview.
    */
   const costingTouched =
@@ -340,7 +340,7 @@ export function ProductForm({
                 {costing && !manualPrice && !priceIsAuto && calculated !== null && String(calculated) !== form.price && (
                   <p className="text-xs text-muted-foreground">
                     Today&apos;s pricing would give ₹{calculated.toLocaleString("en-IN")} — this saved price is
-                    kept until you change the costing or use Recalculate in Settings → Pricing.
+                    kept until you change the costing or use Recalculate on the Pricing page.
                   </p>
                 )}
                 {costing && manualPrice && calculated !== null && (
