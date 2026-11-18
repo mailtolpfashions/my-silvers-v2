@@ -114,6 +114,34 @@ test.describe("live smoke", () => {
     expect(broken, "broken images/videos").toEqual([]);
   });
 
+  /**
+   * Nov 2026: the hero's hand-cropped phone photos were sent as uploaded —
+   * 1.6–1.8 MB PNGs, a 5.8 MB homepage, main content at 14.3 s on a mid-range
+   * phone (Lighthouse). They now go through Cloudinary's f_auto/q_auto (see
+   * lib/cloudinary-image.ts). This holds the line on whichever site it runs.
+   */
+  test("on a phone, the homepage's pictures stay light", { tag: [LIVE_SAFE] }, async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "mobile", "the phone hero only exists below lg");
+    let bytes = 0;
+    const heavy: string[] = [];
+    page.on("response", async (r) => {
+      if (r.request().resourceType() !== "image" || r.status() >= 400) return;
+      const len = Number(r.headers()["content-length"] ?? (await r.body().catch(() => Buffer.alloc(0))).length);
+      bytes += len;
+      if (len > 400 * 1024) heavy.push(`${Math.round(len / 1024)} KB ${r.url().slice(0, 120)}`);
+    });
+    await page.goto("/");
+    await page.waitForLoadState("networkidle").catch(() => {});
+
+    for (const srcset of await page.locator("picture source[media]").evaluateAll((s) => s.map((e) => e.getAttribute("srcset") ?? ""))) {
+      if (srcset.includes("res.cloudinary.com")) {
+        expect(srcset, "a phone hero photo is served as uploaded, not compressed").toContain("f_auto");
+      }
+    }
+    expect(heavy, "single images over 400 KB on the phone homepage").toEqual([]);
+    expect(bytes, `phone homepage images total ${Math.round(bytes / 1024)} KB`).toBeLessThan(1.5 * 1024 * 1024);
+  });
+
   test("a missing page is a friendly 404, marked noindex", { tag: [LIVE_SAFE] }, async ({ page }) => {
     await page.goto("/this-page-does-not-exist-e2e");
     const body = (await page.textContent("body"))?.toLowerCase() ?? "";
