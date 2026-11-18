@@ -10,6 +10,10 @@ import { requestReturn, AdminOrderError } from "@/server/orders/admin";
 import { after } from "next/server";
 import { sendReturnReceivedEmail, sendReturnRequestedAlertEmail } from "@/server/email/resend";
 import { resolveAlertRecipients } from "@/server/settings/order-alerts";
+import {
+  alertShopAboutCustomerCancellation,
+  emailCustomerAboutCancellation,
+} from "@/server/orders/cancel-emails";
 import { revalidatePath, updateTag } from "next/cache";
 import {
   checkIpRateLimit,
@@ -317,6 +321,13 @@ export async function cancelOrderAction(orderId: string) {
 
   try {
     const result = await cancelOrder({ orderId, owner: session.user });
+    // In writing for the customer (above all the refund), and a heads-up for
+    // the shop so nobody packs it. after(): the customer doesn't wait on
+    // Resend; neither helper throws.
+    after(async () => {
+      await emailCustomerAboutCancellation(orderId, "customer");
+      await alertShopAboutCustomerCancellation(orderId);
+    });
     revalidatePath("/account/orders");
     revalidatePath(`/account/orders/${orderId}`);
     return { ok: true as const, refunded: result.refunded };

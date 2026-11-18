@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { prisma } from "@/server/db";
-import { sendOrderDeliveredEmail } from "@/server/email/resend";
+import { sendOrderDeliveredEmail, sendParcelComingBackAlertEmail } from "@/server/email/resend";
+import { resolveAlertRecipients } from "@/server/settings/order-alerts";
 import { normaliseScans, type ScanEvent } from "@/server/integrations/shiprocket";
 import { markComingBackIfNeeded } from "@/server/orders/coming-back";
 import type { Order, OrderStatus } from "@/generated/prisma/client";
@@ -74,8 +75,17 @@ export async function applyCourierUpdate(
   // An RTO or a courier-side cancellation: the parcel is heading home but its
   // stock is still counted as sold. Flag it for "Received back" — see
   // server/orders/coming-back.ts for why stock isn't restored right here.
-  if (moved) {
-    await markComingBackIfNeeded(order.id, order.orderStatus, next!);
+  if (moved && (await markComingBackIfNeeded(order.id, order.orderStatus, next!))) {
+    // Tell the shop: nobody else will, and the stock waits on "Received back".
+    const cause = next === "cancelled" ? "cancelled" : "returned";
+    after(async () => {
+      try {
+        const { to } = await resolveAlertRecipients();
+        if (to.length > 0) await sendParcelComingBackAlertEmail(to, order.id, cause);
+      } catch (err) {
+        console.error("coming-back alert failed", order.orderNumber, err);
+      }
+    });
   }
 
   // The courier's delivered scan starts the return window. Stamped once — a
