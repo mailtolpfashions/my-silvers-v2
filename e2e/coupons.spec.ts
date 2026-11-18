@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { getInStockProduct, createCoupon, deleteCoupon } from "./helpers/db";
+import { pieceAddButton } from "./helpers/ui";
 
 /**
  * Coupons in the cart — see src/server/coupons/coupons.ts.
@@ -13,10 +14,10 @@ const stamp = () => `${Date.now().toString(36)}${Math.random().toString(36).slic
 
 async function addToCartAndOpen(page: Page, slug: string) {
   await page.goto(`/products/${slug}`);
-  const add = page.getByRole("button", { name: /add to (cart|bag)/i }).locator("visible=true");
-  await expect(add.first()).toBeVisible({ timeout: 20_000 });
-  await add.first().click();
-  await expect(page.getByText(/added to cart/i).first()).toBeVisible({ timeout: 15_000 });
+  const add = pieceAddButton(page);
+  await expect(add).toBeVisible({ timeout: 20_000 });
+  await add.click();
+  await expect(page.locator("[data-sonner-toast]").filter({ hasText: /added to cart/i }).first()).toBeVisible({ timeout: 15_000 });
   await page.goto("/cart");
 }
 

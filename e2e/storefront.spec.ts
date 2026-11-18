@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { getInStockProduct } from "./helpers/db";
+import { pieceAddButton } from "./helpers/ui";
 
 /**
  * Storefront smoke cover — the shopping path a customer actually walks, kept
@@ -118,10 +119,7 @@ test.describe("guest cart", () => {
 
     // `visible=true` matters: the product page carries both an inline CTA and a
     // sticky mobile bar, and which one is hidden depends on the viewport.
-    const addToCart = page
-      .getByRole("button", { name: /add to (cart|bag)/i })
-      .locator("visible=true")
-      .first();
+    const addToCart = pieceAddButton(page);
 
     await expect(addToCart).toBeVisible({ timeout: 20_000 });
     await expect(addToCart, "add to cart never became clickable").toBeEnabled({ timeout: 20_000 });

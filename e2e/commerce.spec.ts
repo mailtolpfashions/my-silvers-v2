@@ -17,7 +17,9 @@ import {
   deleteTestProduct,
   getStock,
   countOrdersForUser,
+  queryOne,
 } from "./helpers/db";
+import { pieceAddButton } from "./helpers/ui";
 
 /**
  * The shop's operational switches, and an order placed through them.
@@ -253,11 +255,9 @@ test.describe("cash on delivery, end to end", () => {
       await signIn(page, email);
 
       await page.goto(`/products/${product!.slug}`);
-      const addToCart = page
-        .getByRole("button", { name: /add to (cart|bag)/i })
-        .locator("visible=true");
-      await expect(addToCart.first()).toBeVisible({ timeout: 20_000 });
-      await addToCart.first().click();
+      const addToCart = pieceAddButton(page);
+      await expect(addToCart).toBeVisible({ timeout: 20_000 });
+      await addToCart.click();
 
       /**
        * Wait for the TOAST, not for the cart badge.
@@ -279,7 +279,7 @@ test.describe("cash on delivery, end to end", () => {
        * it". Assert on the real signal rather than a proxy for it.
        */
       await expect(
-        page.getByText(/added to cart/i).first(),
+        page.locator("[data-sonner-toast]").filter({ hasText: /added to cart/i }).first(),
         "the add-to-cart action never confirmed"
       ).toBeVisible({ timeout: 20_000 });
 
@@ -491,14 +491,12 @@ test.describe("cash on delivery, end to end", () => {
       await signIn(page, email);
 
       await page.goto(`/products/${product!.slug}`);
-      const addToCart = page
-        .getByRole("button", { name: /add to (cart|bag)/i })
-        .locator("visible=true");
-      await expect(addToCart.first()).toBeVisible({ timeout: 20_000 });
-      await addToCart.first().click();
+      const addToCart = pieceAddButton(page);
+      await expect(addToCart).toBeVisible({ timeout: 20_000 });
+      await addToCart.click();
       // The toast, not the badge — see the fuller note on the test above.
       await expect(
-        page.getByText(/added to cart/i).first(),
+        page.locator("[data-sonner-toast]").filter({ hasText: /added to cart/i }).first(),
         "the add-to-cart action never confirmed"
       ).toBeVisible({ timeout: 20_000 });
 
@@ -756,10 +754,10 @@ test.describe("coupons on a real order", () => {
 
   async function addToCartAndOpen(page: Page, slug: string) {
     await page.goto(`/products/${slug}`);
-    const add = page.getByRole("button", { name: /add to (cart|bag)/i }).locator("visible=true");
-    await expect(add.first()).toBeVisible({ timeout: 20_000 });
-    await add.first().click();
-    await expect(page.getByText(/added to cart/i).first()).toBeVisible({ timeout: 15_000 });
+    const add = pieceAddButton(page);
+    await expect(add).toBeVisible({ timeout: 20_000 });
+    await add.click();
+    await expect(page.locator("[data-sonner-toast]").filter({ hasText: /added to cart/i }).first()).toBeVisible({ timeout: 15_000 });
     await page.goto("/cart");
   }
 
@@ -867,12 +865,18 @@ test.describe("checkout journey on a test-owned piece", () => {
 
   async function addAndCheckout(page: Page, slug: string) {
     await page.goto(`/products/${slug}`);
-    const add = page.getByRole("button", { name: /add to (cart|bag)/i }).locator("visible=true").first();
+    const name = (await page.locator("h1:visible").first().innerText()).trim();
+    // THIS piece's own button. A bare "first visible Add to cart" can be a
+    // recommended product further down the page — which is how the race test
+    // once "sold the last piece twice" while one buyer was really ordering a
+    // different pendant.
+    const add = pieceAddButton(page);
     await expect(add).toBeEnabled({ timeout: 20_000 });
     await add.click();
-    await expect(page.getByText(/added to cart/i).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator("[data-sonner-toast]").filter({ hasText: /added to cart/i }).first()).toBeVisible({ timeout: 20_000 });
     await page.goto("/checkout");
     await expect(page.locator("#fullName")).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator("main"), "the piece is not in the cart at checkout").toContainText(name);
   }
 
   async function fillAddress(page: Page, phone = "9876543210", pincode = "641001") {
@@ -961,6 +965,189 @@ test.describe("checkout journey on a test-owned piece", () => {
     } finally {
       await deleteUser(userId).catch(() => {});
       await deleteTestProduct(product.id).catch(() => {});
+    }
+  });
+
+  // ─── Rounds 1 & 2 of the Nov 2026 QA pass: people who are not genuine, and
+  // people who do what real people do. COD is the one path that completes
+  // without a gateway, so these live here, in the serial file.
+
+  test("two shoppers press Place order on the last piece at the same moment: one order, never two", async ({ browser }) => {
+    test.slow();
+    const product = await createTestProduct({ stock: 1, price: 2200 });
+    await enableCod(browser, true);
+    const ctxA = await browser.newContext();
+    const ctxB = await browser.newContext();
+    const a = await ctxA.newPage();
+    const b = await ctxB.newPage();
+    const userA = await signInAs(a, "customer", "race-a");
+    const userB = await signInAs(b, "customer", "race-b");
+    try {
+      for (const p of [a, b]) {
+        await addAndCheckout(p, product.slug);
+        await fillAddress(p);
+        await p.locator('input[name="paymentMethod"][value="cod"]').check({ force: true });
+        await expect(placeOrderButton(p)).toBeEnabled({ timeout: 20_000 });
+      }
+      await Promise.all([placeOrderButton(a).click(), placeOrderButton(b).click()]);
+      await Promise.all([a.waitForTimeout(8000), b.waitForTimeout(8000)]);
+
+      const orders = (await countOrdersForUser(userA.id)) + (await countOrdersForUser(userB.id));
+      expect(orders, "the last piece was sold twice").toBe(1);
+      expect(await getStock(product.id), "stock went negative or was not taken").toBe(0);
+
+      // The loser is told, rather than left on a spinner.
+      const loser = (await countOrdersForUser(userA.id)) === 0 ? a : b;
+      await expect(loser).toHaveURL(/\/checkout/);
+      await expect(loser.locator("body")).toContainText(/only 0 left|sold out|no longer available|out of stock|left of/i);
+    } finally {
+      await deleteOrdersForUser(userA.id).catch(() => {});
+      await deleteOrdersForUser(userB.id).catch(() => {});
+      await userA.dispose();
+      await userB.dispose();
+      await ctxA.close();
+      await ctxB.close();
+      await deleteTestProduct(product.id).catch(() => {});
+      await enableCod(browser, false).catch(() => {});
+    }
+  });
+
+  test("a guest who edits their cart to 999 of a 2-stock piece cannot order 999", async ({ page, browser }) => {
+    test.slow();
+    const product = await createTestProduct({ stock: 2, price: 700 });
+    await enableCod(browser, true);
+    try {
+      await page.goto("/");
+      // What a tinkerer does in DevTools: rewrite the stored cart.
+      await page.evaluate((id) => {
+        localStorage.setItem("mys-guest-cart", JSON.stringify([{ productId: id, size: "", quantity: 999 }]));
+      }, product.id);
+      await page.goto("/checkout");
+      await expect(page.locator("#fullName")).toBeVisible({ timeout: 20_000 });
+      await fillAddress(page);
+      const email = page.locator('input[type="email"]').first();
+      if (await email.count()) await email.fill(`e2e-tamper-${Date.now()}@example.test`);
+      await page.locator('input[name="paymentMethod"][value="cod"]').check({ force: true });
+      const place = placeOrderButton(page);
+      if (await place.isEnabled().catch(() => false)) await place.click();
+      await page.waitForTimeout(6000);
+
+      expect(await getStock(product.id), "stock went below zero").toBeGreaterThanOrEqual(0);
+      const sold = await queryOne<{ n: number }>(
+        `SELECT coalesce(sum("quantity"),0)::int n FROM "OrderItem" WHERE "productId" = $1`,
+        [product.id]
+      );
+      expect(sold?.n ?? 0, "more units were ordered than exist").toBeLessThanOrEqual(2);
+    } finally {
+      await deleteTestProduct(product.id).catch(() => {});
+      await enableCod(browser, false).catch(() => {});
+    }
+  });
+
+  test("the piece sells out while it sits in my cart: checkout says so and takes no order", async ({ page, browser }) => {
+    test.slow();
+    const product = await createTestProduct({ stock: 1, price: 1300 });
+    const { id: userId } = await signInAs(page, "customer", "soldout-in-cart");
+    await enableCod(browser, true);
+    try {
+      await addAndCheckout(page, product.slug);
+      await fillAddress(page);
+      await page.locator('input[name="paymentMethod"][value="cod"]').check({ force: true });
+      // Someone else bought it in the meantime.
+      await queryOne(`UPDATE "Product" SET "stock" = 0 WHERE "id" = $1 RETURNING 1`, [product.id]);
+      await placeOrderButton(page).click();
+      await page.waitForTimeout(5000);
+      expect(await countOrdersForUser(userId), "an order was taken for a sold-out piece").toBe(0);
+      await expect(page.locator("body")).toContainText(/only 0 left|sold out|no longer available|out of stock|left of/i);
+    } finally {
+      await deleteOrdersForUser(userId).catch(() => {});
+      await deleteUser(userId).catch(() => {});
+      await deleteTestProduct(product.id).catch(() => {});
+      await enableCod(browser, false).catch(() => {});
+    }
+  });
+
+  test("the price goes up while it sits in my cart: the order is at today's price, and I saw it", async ({ page, browser }) => {
+    test.slow();
+    const product = await createTestProduct({ stock: 3, price: 1000 });
+    const { id: userId } = await signInAs(page, "customer", "price-change");
+    await enableCod(browser, true);
+    try {
+      await page.goto(`/products/${product.slug}`);
+      const add = pieceAddButton(page);
+      await expect(add).toBeEnabled({ timeout: 20_000 });
+      await add.click();
+      await expect(page.locator("[data-sonner-toast]").filter({ hasText: /added to cart/i }).first()).toBeVisible({ timeout: 20_000 });
+
+      await queryOne(`UPDATE "Product" SET "price" = 1500 WHERE "id" = $1 RETURNING 1`, [product.id]);
+
+      await page.goto("/checkout");
+      await expect(page.locator("#fullName")).toBeVisible({ timeout: 20_000 });
+      await expect(page.locator("main"), "checkout still shows the old price").toContainText("1,500");
+      await fillAddress(page);
+      await page.locator('input[name="paymentMethod"][value="cod"]').check({ force: true });
+      await placeOrderButton(page).click();
+      await page.waitForURL(/\/orders\//, { timeout: 30_000 });
+      const order = await getLatestOrderForUser(userId);
+      expect(Number(order?.subtotal), "the order was charged at a stale price").toBe(1500);
+    } finally {
+      await deleteOrdersForUser(userId).catch(() => {});
+      await deleteUser(userId).catch(() => {});
+      await deleteTestProduct(product.id).catch(() => {});
+      await enableCod(browser, false).catch(() => {});
+    }
+  });
+
+  test("Back and refresh after ordering do not place a second order", async ({ page, browser }) => {
+    test.slow();
+    const product = await createTestProduct({ stock: 5, price: 600 });
+    const { id: userId } = await signInAs(page, "customer", "back-button");
+    await enableCod(browser, true);
+    try {
+      await addAndCheckout(page, product.slug);
+      await fillAddress(page);
+      await page.locator('input[name="paymentMethod"][value="cod"]').check({ force: true });
+      await placeOrderButton(page).click();
+      await page.waitForURL(/\/orders\//, { timeout: 30_000 });
+      await page.reload();
+      await page.goBack();
+      await page.waitForTimeout(2000);
+      // Back lands on checkout with an empty cart — nothing to place again.
+      const again = placeOrderButton(page);
+      if ((await again.isVisible().catch(() => false)) && (await again.isEnabled().catch(() => false))) {
+        await again.click();
+        await page.waitForTimeout(4000);
+      }
+      expect(await countOrdersForUser(userId), "Back/refresh placed a second order").toBe(1);
+      expect(await getStock(product.id)).toBe(4);
+    } finally {
+      await deleteOrdersForUser(userId).catch(() => {});
+      await deleteUser(userId).catch(() => {});
+      await deleteTestProduct(product.id).catch(() => {});
+      await enableCod(browser, false).catch(() => {});
+    }
+  });
+
+  test("signed out in another tab mid-checkout: no order lands on the signed-out account", async ({ page, browser }) => {
+    test.slow();
+    const product = await createTestProduct({ stock: 3, price: 800 });
+    const { id: userId } = await signInAs(page, "customer", "logout-mid");
+    await enableCod(browser, true);
+    try {
+      await addAndCheckout(page, product.slug);
+      await fillAddress(page);
+      await page.locator('input[name="paymentMethod"][value="cod"]').check({ force: true });
+      await page.context().clearCookies(); // the other tab signed out
+      await placeOrderButton(page).click();
+      await page.waitForTimeout(6000);
+      // Either refused, or placed as a GUEST order (guest checkout is on by
+      // default) — but never attached to the signed-out account.
+      expect(await countOrdersForUser(userId), "an order was attached to a signed-out account").toBe(0);
+      expect(page.url()).not.toMatch(/\/500|error/);
+    } finally {
+      await deleteUser(userId).catch(() => {});
+      await deleteTestProduct(product.id).catch(() => {});
+      await enableCod(browser, false).catch(() => {});
     }
   });
 });

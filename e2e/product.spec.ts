@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { signInAs } from "./helpers/auth";
 import { createTestProduct, deleteTestProduct, queryOne } from "./helpers/db";
 import { SMOKE } from "./helpers/target";
+import { pieceAddButton } from "./helpers/ui";
 
 /**
  * The product page — what a shopper does on it.
@@ -11,8 +12,7 @@ import { SMOKE } from "./helpers/target";
  * and the rules for a one-off are the ones most worth proving.
  */
 
-const addButton = (page: import("@playwright/test").Page) =>
-  page.getByRole("button", { name: /add to (cart|bag)/i }).locator("visible=true").first();
+const addButton = pieceAddButton;
 
 test.describe("product page", () => {
   test("shows name and price, and adds to the cart", { tag: [SMOKE] }, async ({ page }) => {

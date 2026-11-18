@@ -33,7 +33,19 @@ loadEnv();
  * Giving the suite its own port means a dev server can stay open beside it and
  * the two never meet.
  */
-const TEST_PORT = 3100;
+/**
+ * Rate-limit mode (`npm run test:ratelimits`): a SEPARATE server, on its own
+ * port, with the limiter switched ON — the normal server runs with
+ * RATE_LIMIT_FAIL_OPEN=1 so a busy suite is not throttled by its own speed,
+ * which means no ordinary run can prove a limit works. Only @ratelimit tests
+ * run in this mode, and only in it.
+ */
+const rateLimitMode = process.env.E2E_RATE_LIMITS === "1";
+/** Load mode (`npm run test:load`): only @load tests — many shoppers at once. */
+const loadMode = process.env.E2E_LOAD === "1";
+const TEST_PORT = rateLimitMode ? 3101 : 3100;
+/** Tags that only run in their own mode, never in an ordinary run. */
+const SPECIAL = /@ratelimit|@load/;
 
 const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${TEST_PORT}`;
 const usingLocalServer = !process.env.E2E_BASE_URL;
@@ -60,6 +72,9 @@ export default defineConfig({
    * customers.
    */
   ...(remote && { grep: new RegExp(LIVE_SAFE) }),
+  ...(!remote && rateLimitMode && { grep: /@ratelimit/ }),
+  ...(!remote && loadMode && { grep: /@load/ }),
+  ...(!remote && !rateLimitMode && !loadMode && { grepInvert: SPECIAL }),
   // Full isolation between files; the suite touches a shared database.
   fullyParallel: true,
   // A stray test.only in CI is a silently reduced suite.
@@ -148,7 +163,8 @@ export default defineConfig({
          * Set here rather than in .env so it stays scoped to the test server
          * and can never follow a real deployment.
          */
-        RATE_LIMIT_FAIL_OPEN: "1",
+        // "0" in rate-limit mode — the limiter ON, against the dev Upstash.
+        RATE_LIMIT_FAIL_OPEN: rateLimitMode ? "0" : "1",
 
         /**
          * The server has to be told where it lives.
