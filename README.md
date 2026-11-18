@@ -51,10 +51,10 @@ saying nothing about what ships.
 
 The suite needs `DATABASE_URL` pointing at the same database the server under
 test uses — it creates and deletes its own users and orders. To run against a
-deployed preview instead of a local server:
+deployed site instead (read-only `@live-safe` tests only — see `docs/testing.md`):
 
 ```bash
-E2E_BASE_URL="https://<preview>.vercel.app" npx playwright test
+npm run test:smoke:live -- https://<preview>.vercel.app
 ```
 
 Two suites are chromium-only. `commerce.spec.ts` writes the single-row

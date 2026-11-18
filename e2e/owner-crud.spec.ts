@@ -145,6 +145,8 @@ test.describe("staff and newsletter", () => {
     const email = `e2e-newstaff-${stamp()}@example.test`;
     try {
       await page.goto("/admin/staff");
+      // The form opens behind "Add staff" since the staff page redesign.
+      await page.getByRole("button", { name: "Add staff" }).click();
       await page.getByRole("tab", { name: /create a new login/i }).click();
       await page.locator("#staff-name").fill("New Staff");
       await page.locator("#staff-email").fill(email);
