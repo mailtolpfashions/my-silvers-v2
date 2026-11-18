@@ -94,6 +94,14 @@ async function loadShippable(orderId: string) {
     })),
     paymentMethod: order.paymentMethod === "cod" ? "COD" : "Prepaid",
     subTotal: Number(order.subtotal),
+    // So Shiprocket's collected amount adds up to the order total — see the
+    // note on ShipmentInput.charges.
+    charges: {
+      shipping: Number(order.shippingCharge),
+      giftWrap: Number(order.giftWrapCharge),
+      cod: Number(order.codCharge),
+      discount: Number(order.discount),
+    },
     // Shiprocket's unit, with its 0.5 kg courier minimum.
     weightKg: Math.max(0.5, weightGrams / 1000),
     weightGrams: Math.max(1, weightGrams),

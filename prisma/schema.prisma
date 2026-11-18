@@ -513,6 +513,10 @@ model Order {
   /// price is an admin setting, and changing it must not rewrite what past
   /// invoices say was charged. Zero on every order that was not gift wrapped.
   giftWrapCharge       Decimal       @default(0) @db.Decimal(10, 2)
+  /// The cash-on-delivery handling charge on THIS order — a snapshot of the
+  /// setting at the moment of sale, like shippingCharge. Zero on every online
+  /// order, and on COD orders placed while the charge was 0.
+  codCharge            Decimal       @default(0) @db.Decimal(10, 2)
   totalAmount          Decimal       @db.Decimal(10, 2)
   /// Instructions for the SHOP — "leave with the neighbour", "call before
   /// delivery". Not the gift message; see below.

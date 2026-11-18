@@ -123,6 +123,9 @@ export type Invoice = {
   giftWrapGrossPaise: number;
   giftWrapTaxablePaise: number;
   giftWrapTaxPaise: number;
+  codGrossPaise: number;
+  codTaxablePaise: number;
+  codTaxPaise: number;
   taxablePaise: number;
   cgstPaise: number;
   sgstPaise: number;
@@ -261,7 +264,13 @@ export async function buildInvoice(order: OrderWithItems): Promise<Invoice> {
   const giftWrapGrossPaise = toPaise(order.giftWrapCharge);
   const giftWrap = splitInclusive(giftWrapGrossPaise, rate);
 
-  const totalTaxPaise = itemsTaxPaise + shipping.taxPaise + giftWrap.taxPaise;
+  // The COD charge, for the same reason: it is in order.totalAmount, so it
+  // must be in the taxable base or the invoice's parts won't add up to its
+  // total. A charge for collecting payment on this supply, taxed with it.
+  const codGrossPaise = toPaise(order.codCharge);
+  const cod = splitInclusive(codGrossPaise, rate);
+
+  const totalTaxPaise = itemsTaxPaise + shipping.taxPaise + giftWrap.taxPaise + cod.taxPaise;
 
   /**
    * Place of supply decides the split. Same state as the seller and the tax is
@@ -304,7 +313,11 @@ export async function buildInvoice(order: OrderWithItems): Promise<Invoice> {
     giftWrapGrossPaise,
     giftWrapTaxablePaise: giftWrap.taxablePaise,
     giftWrapTaxPaise: giftWrap.taxPaise,
-    taxablePaise: itemsTaxablePaise + shipping.taxablePaise + giftWrap.taxablePaise,
+    codGrossPaise,
+    codTaxablePaise: cod.taxablePaise,
+    codTaxPaise: cod.taxPaise,
+    taxablePaise:
+      itemsTaxablePaise + shipping.taxablePaise + giftWrap.taxablePaise + cod.taxablePaise,
     cgstPaise,
     sgstPaise,
     igstPaise,

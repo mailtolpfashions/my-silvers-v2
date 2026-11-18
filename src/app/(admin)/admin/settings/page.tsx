@@ -53,6 +53,7 @@ export default async function AdminSettingsPage() {
           // works in rupees throughout and the action converts back.
           giftWrapEnabled: settings.giftWrapEnabled,
           giftWrapCharge: settings.giftWrapChargePaise / 100,
+          codCharge: settings.codChargePaise / 100,
           // Days are already the storage unit — no conversion, unlike the money
           // above.
           returnWindowDays: settings.returnWindowDays,

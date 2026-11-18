@@ -16,6 +16,7 @@ export type StoreSettingsFormValues = {
   guestCheckoutEnabled: boolean;
   giftWrapEnabled: boolean;
   giftWrapCharge: number;
+  codCharge: number;
   /** Whole days. Zero throughout means "not stated" — see the section copy. */
   returnWindowDays: number;
   returnRequestHours: number;
@@ -292,6 +293,7 @@ export function StoreSettingsForm({
    * submit instead, where an unparseable value can be reported.
    */
   const [giftWrapCharge, setGiftWrapCharge] = useState(String(initial.giftWrapCharge));
+  const [codCharge, setCodCharge] = useState(String(initial.codCharge));
 
   /** Same reasoning as the money fields above: raw strings, parsed on submit. */
   const [returnWindow, setReturnWindow] = useState(String(initial.returnWindowDays));
@@ -306,7 +308,7 @@ export function StoreSettingsForm({
    * "Unsaved changes" line.
    */
   const snapshot = JSON.stringify([
-    form, giftWrapCharge, returnWindow, returnHours, whatsapp,
+    form, giftWrapCharge, codCharge, returnWindow, returnHours, whatsapp,
   ]);
   const [savedSnapshot, setSavedSnapshot] = useState(snapshot);
 
@@ -314,7 +316,9 @@ export function StoreSettingsForm({
     e.preventDefault();
 
     const wrap = Number(giftWrapCharge);
-    if (!Number.isFinite(wrap)) {
+    // Empty reads as 0 — free COD — rather than an error.
+    const cod = codCharge.trim() === "" ? 0 : Number(codCharge);
+    if (!Number.isFinite(wrap) || !Number.isFinite(cod) || cod < 0) {
       toast.error("Amounts must be numbers.");
       return;
     }
@@ -338,6 +342,7 @@ export function StoreSettingsForm({
       guestCheckoutEnabled: form.guestCheckoutEnabled,
       giftWrapEnabled: form.giftWrapEnabled,
       giftWrapCharge: wrap,
+      codCharge: cod,
       returnShippingPaidBy: form.returnShippingPaidBy,
       ...dayValues,
       navFinishes: form.navFinishes,
@@ -374,6 +379,25 @@ export function StoreSettingsForm({
           onChange={(codEnabled) => setForm((f) => ({ ...f, codEnabled }))}
           disabled={saving}
         />
+
+        {/* Hidden while COD is off, like the gift wrap price — a charge for a
+            method nobody can choose is a question with no answer. */}
+        {form.codEnabled && (
+          <div className="mb-5 ml-0 max-w-[16rem] space-y-1.5">
+            <Label htmlFor="codCharge">COD charge (₹)</Label>
+            <Input
+              id="codCharge"
+              inputMode="decimal"
+              value={codCharge}
+              onChange={(e) => setCodCharge(e.target.value)}
+              disabled={saving}
+            />
+            <p className="text-xs text-muted-foreground">
+              Added to cash-on-delivery orders as its own line at checkout. Set to 0 for free COD.
+              Orders already placed keep what they were charged.
+            </p>
+          </div>
+        )}
 
         <ToggleRow
           id="guestCheckoutEnabled"

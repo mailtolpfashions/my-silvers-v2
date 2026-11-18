@@ -54,6 +54,7 @@ export async function loadOrderEmailData(orderId: string) {
     couponCode: order.couponCode,
     shipping: Number(order.shippingCharge),
     giftWrap: Number(order.giftWrapCharge),
+    codFee: Number(order.codCharge),
     total: Number(order.totalAmount),
     isGift: order.isGift,
     giftMessage: order.giftMessage,
@@ -150,6 +151,7 @@ export function priceSummary(d: OrderEmailData): string {
       : "",
     row("Shipping", d.shipping > 0 ? formatINR(d.shipping) : "FREE", d.shipping > 0 ? C.ink : C.saving),
     d.giftWrap > 0 ? row("Gift wrap", formatINR(d.giftWrap)) : "",
+    d.codFee > 0 ? row("Cash on delivery charge", formatINR(d.codFee)) : "",
   ].join("");
   const saved =
     d.discount > 0

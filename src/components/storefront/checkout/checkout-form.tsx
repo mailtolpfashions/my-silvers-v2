@@ -99,6 +99,7 @@ export function CheckoutForm({
   rates,
   gifting,
   codEnabled,
+  codChargePaise: codFeePaise = 0,
   geocodingEnabled,
 }: {
   isAuthed: boolean;
@@ -120,6 +121,8 @@ export function CheckoutForm({
    * treat this prop as the enforcement point.
    */
   codEnabled: boolean;
+  /** The COD charge setting, for display — create-order.ts charges its own reading. */
+  codChargePaise?: number;
   /**
    * Whether a reverse-geocoding key is configured on the server.
    *
@@ -377,7 +380,8 @@ export function CheckoutForm({
    */
   const giftWrapPaise = giftWrapChargePaise(form.isGift, gifting);
   const couponPaise = coupon.error ? 0 : coupon.discountPaise;
-  const totalPaise = subtotalPaise - couponPaise + shippingPaise + giftWrapPaise;
+  const codPaise = wantCod ? codFeePaise : 0;
+  const totalPaise = subtotalPaise - couponPaise + shippingPaise + giftWrapPaise + codPaise;
 
   function successUrl(orderId: string, token: string | null) {
     return isAuthed
@@ -949,7 +953,12 @@ export function CheckoutForm({
               {(
                 [
                   ["razorpay", "Pay online (UPI / Card / Netbanking)"],
-                  ["cod", "Cash on delivery"],
+                  [
+                    "cod",
+                    codFeePaise > 0
+                      ? `Cash on delivery (+${formatINRPaise(codFeePaise)})`
+                      : "Cash on delivery",
+                  ],
                 ] as const
               ).map(([value, label]) => (
                 <label key={value} className="flex items-center gap-2 text-sm">
@@ -1145,6 +1154,14 @@ export function CheckoutForm({
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Gift wrap</span>
                 <span className="figures">{formatINRPaise(giftWrapPaise)}</span>
+              </div>
+            )}
+            {/* Its own line, named, so the extra on a COD order is never a
+                mystery in the total. Only while COD is the chosen method. */}
+            {codPaise > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Cash on delivery charge</span>
+                <span className="figures">{formatINRPaise(codPaise)}</span>
               </div>
             )}
             {/* Steps up while the line items stay at 14px — same reasoning as

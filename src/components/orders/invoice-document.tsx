@@ -155,6 +155,16 @@ export function InvoiceDocument({ invoice }: { invoice: Invoice }) {
               <td className="py-2.5 text-right">{formatINRPaise(invoice.giftWrapGrossPaise)}</td>
             </tr>
           )}
+          {invoice.codGrossPaise > 0 && (
+            <tr className="border-b border-black/10">
+              <td className="py-2.5 pr-3" colSpan={4}>
+                Cash on delivery charge
+              </td>
+              <td className="py-2.5 text-right">{formatINRPaise(invoice.codTaxablePaise)}</td>
+              <td className="py-2.5 text-right">{formatINRPaise(invoice.codTaxPaise)}</td>
+              <td className="py-2.5 text-right">{formatINRPaise(invoice.codGrossPaise)}</td>
+            </tr>
+          )}
         </tbody>
       </table>
 

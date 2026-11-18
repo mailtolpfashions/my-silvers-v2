@@ -10,6 +10,7 @@ import {
   paiseToRupeeString,
   shippingChargePaise,
   giftWrapChargePaise,
+  codChargePaise,
   MAX_ITEM_QUANTITY,
 } from "@/server/orders/money";
 import { createRazorpayOrder } from "@/server/payments/razorpay";
@@ -304,7 +305,9 @@ export async function createOrder(input: {
    * the line prices — see the note at the top of this function.
    */
   const giftWrapPaise = giftWrapChargePaise(input.isGift === true, settings);
-  const totalPaise = subtotalPaise - discountPaise + shippingPaise + giftWrapPaise;
+  // Same rule: from the settings now, never from what the page showed.
+  const codPaise = codChargePaise(input.paymentMethod, settings);
+  const totalPaise = subtotalPaise - discountPaise + shippingPaise + giftWrapPaise + codPaise;
 
   // ── Razorpay order first (external call — never inside the DB transaction).
   // If the DB write below fails, the gateway order is simply never paid. ──
@@ -360,6 +363,7 @@ export async function createOrder(input: {
           subtotal: paiseToRupeeString(subtotalPaise),
           shippingCharge: paiseToRupeeString(shippingPaise),
           giftWrapCharge: paiseToRupeeString(giftWrapPaise),
+          codCharge: paiseToRupeeString(codPaise),
           discount: paiseToRupeeString(discountPaise),
           couponCode: coupon?.code ?? null,
           couponId: coupon?.id ?? null,

@@ -273,6 +273,20 @@ export function OrderDetail({
                   : formatINR(order.shippingCharge.toString())}
               </span>
             </div>
+            {/* Every charge in the total gets its own line, so the arithmetic
+                adds up on the page — gift wrap was missing here before. */}
+            {Number(order.giftWrapCharge) > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Gift wrap</span>
+                <span>{formatINR(order.giftWrapCharge.toString())}</span>
+              </div>
+            )}
+            {Number(order.codCharge) > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Cash on delivery charge</span>
+                <span>{formatINR(order.codCharge.toString())}</span>
+              </div>
+            )}
             {/* Subtotal and Shipping stay at 14px — they are the arithmetic.
                 Only the total steps up, matching the cart and checkout
                 summaries this block mirrors. */}

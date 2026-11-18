@@ -54,6 +54,13 @@ export type StoreSettings = {
   giftWrapChargePaise: number;
 
   /**
+   * The charge added to a cash-on-delivery order, in paise. Zero makes COD
+   * free. Covers the courier's COD fee and the risk of a refused parcel —
+   * shown to the shopper as its own line, never folded into the price.
+   */
+  codChargePaise: number;
+
+  /**
    * Whether gift wrap is offered at all.
    *
    * Separate from the price, because zero is a legitimate PRICE — free gift
@@ -199,6 +206,8 @@ export const STORE_SETTING_DEFAULTS: StoreSettings = {
   // ₹50, matching what GIVA charges for the same thing on the same kind of
   // product. A number a shopper in this market has already seen.
   giftWrapChargePaise: 50 * 100,
+  /** ₹49 — what the owner chose, Nov 2026. */
+  codChargePaise: 49 * 100,
   giftWrapEnabled: true,
 
   /**
@@ -307,6 +316,7 @@ function parse(raw: unknown): StoreSettings {
       d.freeShippingThresholdPaise
     ),
     giftWrapChargePaise: whole(v.giftWrapChargePaise, d.giftWrapChargePaise),
+    codChargePaise: whole(v.codChargePaise, d.codChargePaise),
     giftWrapEnabled: bool(v.giftWrapEnabled, d.giftWrapEnabled),
     returnWindowDays: whole(v.returnWindowDays, d.returnWindowDays),
     returnRequestHours: whole(v.returnRequestHours, d.returnRequestHours),
