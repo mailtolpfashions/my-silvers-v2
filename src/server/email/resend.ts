@@ -595,8 +595,8 @@ export async function sendParcelComingBackAlertEmail(
 /**
  * "Complete your payment" — once, about an hour after an online order was left
  * unpaid (api/cron/payment-reminders). Points at the order page, whose Pay now
- * reopens the same Razorpay order. Says plainly that nothing was charged and
- * that doing nothing is fine — a reminder, not pressure, and no discount.
+ * reopens the same Razorpay order. Warm and a little excited — they chose
+ * these pieces — and says doing nothing is fine. No pressure, no discount.
  */
 export async function sendPaymentReminderEmail(orderId: string) {
   const d = await loadOrderEmailData(orderId);
@@ -609,17 +609,28 @@ export async function sendPaymentReminderEmail(orderId: string) {
     hour: "numeric",
     minute: "2-digit",
   });
+  /**
+   * Warm, not transactional: the shopper chose these pieces and is one step
+   * away. Two things it must never claim: that the pieces are "kept aside"
+   * (an unpaid order reserves no stock — someone else can buy the last one),
+   * or anything that reads like a debt. "Nothing has been paid yet" says the
+   * money fact gently, as part of the plan, not as a warning.
+   */
   const body = [
-    heading(d.firstName ? `Hi ${esc(d.firstName)}, your order is waiting` : "Your order is waiting"),
-    para(
-      `Your payment for order <strong>${esc(d.orderNumber)}</strong> (${formatINR(d.total)}) didn't go through, so the order isn't confirmed yet. <strong>You haven't been charged.</strong>`
+    heading(
+      d.firstName
+        ? `${esc(d.firstName)}, your silver is almost yours ✨`
+        : "Your silver is almost yours ✨"
     ),
-    `<div style="padding-top:8px">${button(orderLink(d.id, d.confirmationToken), "Complete payment")}</div>`,
     para(
-      `You can pay until <strong>${until}</strong>. After that the order is cancelled automatically — if you've changed your mind, there's nothing you need to do.`,
+      `Lovely choice! The pieces you picked are still in stock, and your order <strong>${esc(d.orderNumber)}</strong> is saved and ready — the payment just didn't finish. One quick step and they're on their way to you.`
+    ),
+    `<div style="padding-top:8px">${button(orderLink(d.id, d.confirmationToken), `Complete my order · ${formatINR(d.total)}`)}</div>`,
+    para(
+      `Nothing has been paid yet, so you'll pay just once. Your order stays open until <strong>${until}</strong> — and if you've changed your mind, no worries, it simply closes on its own.`,
       `font-size:13px;color:${C.muted};margin-top:12px`
     ),
-    sectionTitle("Your order"),
+    sectionTitle("Waiting for you"),
     itemsTable(d.items),
   ].join("");
 
@@ -627,10 +638,10 @@ export async function sendPaymentReminderEmail(orderId: string) {
     from,
     replyTo,
     to: d.email,
-    subject: `Complete your payment for ${d.orderNumber}`,
+    subject: `Your silver is waiting for you ✨ ${d.orderNumber}`,
     html: page({
-      preheader: `Your order ${d.orderNumber} is saved — complete payment to confirm it. You haven't been charged.`,
-      label: "Payment pending",
+      preheader: "Just one step left to make it yours.",
+      label: "Almost yours",
       body,
       help: d.help,
     }),
