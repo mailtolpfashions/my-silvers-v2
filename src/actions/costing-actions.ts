@@ -15,7 +15,7 @@ export async function saveCostingDefaultsAction(
     await logActivity(session, {
       action: "settings.update",
       target: { type: "settings", id: "costing" },
-      summary: `Updated costing defaults (silver ₹${saved.silverRatePerGram}/g, margin ${saved.targetMarginPercent}%)`,
+      summary: `Updated costing (margins ${saved.margins.under1k}% / ${saved.margins.upTo10k}% / ${saved.margins.over10k}%)`,
     });
     revalidatePath("/admin/settings");
     revalidatePath("/admin/products");

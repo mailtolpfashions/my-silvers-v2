@@ -35,10 +35,11 @@ export const CSV_TEMPLATE_HEADERS = [
   // ── Costing, OWNER ONLY (internal — never shown to customers). The import
   // reads them only when the owner imports; for staff they are ignored.
   //   silverWeight   net silver, grams
-  //   silverRate     ₹ per gram — blank uses Settings → Costing
-  //   makingCharge   ₹ per gram — blank uses Settings → Costing
+  //   silverRate     ₹ per gram this piece was bought at — blank uses the
+  //                  "Silver rate for this batch" typed in the import box
+  //   makingCharge   ₹ per gram for this piece — required with silverWeight
   // With silverWeight filled and price left blank on a NEW product, the price
-  // is the costing calculator's suggestion for the target margin.
+  // is the calculator's suggestion for its margin band.
   "silverWeight",
   "silverRate",
   "makingCharge",

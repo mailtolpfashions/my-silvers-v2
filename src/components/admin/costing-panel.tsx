@@ -4,12 +4,7 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import {
-  costBreakdown,
-  profitAt,
-  suggestedPrice,
-  type CostingDefaults,
-} from "@/lib/costing";
+import { costBreakdown, profitAt, suggestedPrice, type CostingDefaults } from "@/lib/costing";
 import { charmPrice, type CharmDirection, type CharmStyle } from "@/lib/charm-price";
 import { formatINR } from "@/lib/format";
 
@@ -27,16 +22,29 @@ const num = (s: string): number | null => {
   return s.trim() === "" || !Number.isFinite(n) ? null : n;
 };
 
-/** What the form sends: undefined = untouched, null = cleared, else the values. */
+/**
+ * What the form sends: undefined = untouched, null = cleared (no weight), else
+ * the values. A weight with the rate or making charge missing is an error the
+ * form reports before saving — see costingProblem.
+ */
 export function costingPayload(fields: CostingFields, initial: CostingFields) {
   if (JSON.stringify(fields) === JSON.stringify(initial)) return undefined;
   const weight = num(fields.weight);
   if (!weight || weight <= 0) return null;
   return {
     weightGrams: weight,
-    silverRatePerGram: num(fields.rate),
-    makingChargePerGram: num(fields.making),
+    silverRatePerGram: num(fields.rate) ?? 0,
+    makingChargePerGram: num(fields.making) ?? 0,
   };
+}
+
+/** Why the costing can't be saved as it stands, or null when it can. */
+export function costingProblem(fields: CostingFields): string | null {
+  const weight = num(fields.weight);
+  if (!weight) return null; // no costing at all is fine
+  if (!(num(fields.rate) ?? 0)) return "Costing: enter the silver rate this piece was bought at.";
+  if (num(fields.making) === null) return "Costing: enter the making charge (0 if there is none).";
+  return null;
 }
 
 /**
@@ -44,7 +52,8 @@ export function costingPayload(fields: CostingFields, initial: CostingFields) {
  *
  * Only ever rendered for the owner — the page passes the costing context only
  * when the viewer is the owner, and the save action ignores costing from
- * anyone else. See lib/costing.ts for the arithmetic.
+ * anyone else. The silver rate and making charge are THIS piece's, fixed when
+ * its batch was bought; see lib/costing.ts for why nothing here is global.
  */
 export function CostingPanel({
   ctx,
@@ -71,10 +80,12 @@ export function CostingPanel({
     d
   );
 
-  const raw = b ? suggestedPrice(b, d) : null;
-  const suggested =
-    raw !== null && ctx.charm ? charmPrice(raw, ctx.charm.style, ctx.charm.direction, num(mrp)) : raw;
-  const atSuggested = b && suggested !== null ? profitAt(suggested, b, d) : null;
+  const suggestion = b ? suggestedPrice(b, d) : null;
+  const rounded =
+    suggestion && ctx.charm
+      ? charmPrice(suggestion.price, ctx.charm.style, ctx.charm.direction, num(mrp))
+      : (suggestion?.price ?? null);
+  const atSuggested = b && rounded !== null ? profitAt(rounded, b, d) : null;
   const current = num(price);
   const atCurrent = b && current && current > 0 ? profitAt(current, b, d) : null;
 
@@ -104,15 +115,14 @@ export function CostingPanel({
 
       <div className="grid gap-3 sm:grid-cols-3">
         {field("weight", "Silver weight (g)", "e.g. 4.5")}
-        {field("rate", "Silver rate (₹/g)", d.silverRatePerGram ? `${d.silverRatePerGram} (default)` : "Set in Settings")}
-        {field("making", "Making (₹/g)", `${d.makingChargePerGram} (default)`)}
+        {field("rate", "Silver rate bought at (₹/g)", "e.g. 105")}
+        {field("making", "Making charge (₹/g)", "e.g. 20")}
       </div>
 
       {!b ? (
         <p className="text-xs text-muted-foreground">
-          {num(fields.weight) && !(num(fields.rate) ?? d.silverRatePerGram)
-            ? "Enter the silver rate here, or set today's rate in "
-            : "Enter the silver weight to see the cost and a suggested price. Defaults come from "}
+          Enter this piece&apos;s weight, the silver rate you bought its batch at, and its making
+          charge. Packing, delivery, fees and margins come from{" "}
           <Link href="/admin/settings#costing" className="underline">
             Settings → Costing
           </Link>
@@ -135,18 +145,21 @@ export function CostingPanel({
             <dd className="text-right tabular-nums">{formatINR(b.packing + b.delivery)}</dd>
           </dl>
 
-          {suggested === null ? (
+          {!suggestion || rounded === null ? (
             <p className="text-destructive">
-              A {d.targetMarginPercent}% margin isn&apos;t possible with these fees — lower it in Settings.
+              These margins aren&apos;t possible with the fees in Settings — lower a margin there.
             </p>
           ) : (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted px-3 py-2">
               <div>
                 <p>
-                  For {d.targetMarginPercent}% margin: <strong>{formatINR(suggested)}</strong>
-                  {ctx.charm && raw !== suggested && (
-                    <span className="text-xs text-muted-foreground"> (rounded from {formatINR(raw!)})</span>
-                  )}
+                  Suggested: <strong>{formatINR(rounded)}</strong>
+                  <span className="text-xs text-muted-foreground">
+                    {" "}
+                    · {suggestion.band}
+                    {suggestion.targetPercent !== null ? `, ${suggestion.targetPercent}% margin` : ""}
+                    {rounded !== suggestion.price ? ` · rounded from ${formatINR(suggestion.price)}` : ""}
+                  </span>
                 </p>
                 {atSuggested && (
                   <p className="text-xs text-muted-foreground">
@@ -155,13 +168,13 @@ export function CostingPanel({
                   </p>
                 )}
               </div>
-              <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => onUsePrice(suggested)}>
-                Use {formatINR(suggested)}
+              <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => onUsePrice(rounded)}>
+                Use {formatINR(rounded)}
               </Button>
             </div>
           )}
 
-          {atCurrent && current !== suggested && (
+          {atCurrent && current !== rounded && (
             <p className={atCurrent.profit < 0 ? "text-destructive" : "text-muted-foreground"}>
               At the current price {formatINR(atCurrent.price)}: profit{" "}
               <strong>{formatINR(atCurrent.profit)}</strong> ({atCurrent.marginPercent}%)

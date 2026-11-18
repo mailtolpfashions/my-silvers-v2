@@ -26,6 +26,7 @@ import { useIsOwner } from "@/components/admin/owner-context";
 import {
   CostingPanel,
   costingPayload,
+  costingProblem,
   type CostingContext,
   type CostingFields,
 } from "@/components/admin/costing-panel";
@@ -135,6 +136,11 @@ export function ProductForm({
     e.preventDefault();
     if (!form.categoryId) {
       toast.error("Choose a category.");
+      return;
+    }
+    const costingError = costing ? costingProblem(costingFields) : null;
+    if (costingError) {
+      toast.error(costingError);
       return;
     }
     setSaving(true);

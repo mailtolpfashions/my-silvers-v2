@@ -860,17 +860,18 @@ model UsageCheck {
 /// queries load whole Product rows, and a field there is one careless spread
 /// away from the page payload. Nothing outside the admin reads this table.
 ///
-/// A blank rate or making charge means "use the shop default" (Settings →
-/// Costing) at the time of calculation. The resulting purchase cost is also
-/// written to Product.costPrice, which Finance and order snapshots read.
+/// The silver rate and making charge are THIS piece's, fixed when its batch
+/// was bought — never a shop-wide figure, so a later fall in the silver rate
+/// can't make old stock look cheaper than it was. The resulting purchase cost
+/// is also written to Product.costPrice, which Finance and order snapshots read.
 model ProductCosting {
   productId           String   @id
   product             Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   /// Net silver weight in grams (not the shipping weight).
   weightGrams         Decimal  @db.Decimal(10, 3)
-  /// ₹ per gram paid for this piece; null = the shop default.
-  silverRatePerGram   Decimal? @db.Decimal(10, 2)
-  /// ₹ per gram making charge; null = the shop default.
-  makingChargePerGram Decimal? @db.Decimal(10, 2)
+  /// ₹ per gram of silver, at the rate this piece's batch was bought.
+  silverRatePerGram   Decimal  @db.Decimal(10, 2)
+  /// ₹ per gram making charge for this piece (0 when there is none).
+  makingChargePerGram Decimal  @db.Decimal(10, 2)
   updatedAt           DateTime @updatedAt
 }

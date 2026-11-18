@@ -66,8 +66,9 @@ const productSchema = z.object({
   costing: z
     .object({
       weightGrams: z.number().positive().max(100_000),
-      silverRatePerGram: z.number().min(0).max(100_000).nullable(),
-      makingChargePerGram: z.number().min(0).max(100_000).nullable(),
+      // The product's own — never a shop default (lib/costing.ts).
+      silverRatePerGram: z.number().positive("Enter the silver rate.").max(100_000),
+      makingChargePerGram: z.number().min(0).max(100_000),
     })
     .nullable()
     .optional(),
@@ -662,10 +663,16 @@ export async function setProductsOfferAction(
   }
 }
 
-export async function bulkImportProductsAction(rows: CsvRow[]) {
+export async function bulkImportProductsAction(
+  rows: CsvRow[],
+  /** The import dialog's "Silver rate for this batch" — owner only, else ignored. */
+  batchSilverRate?: number | null
+) {
   const session = await requireRole("admin");
   // Costing columns and costPrice count only when the owner imports.
-  const result = await bulkImportProducts(rows, { owner: isOwner(session.user.role) });
+  const owner = isOwner(session.user.role);
+  const rate = owner && typeof batchSilverRate === "number" && batchSilverRate > 0 ? batchSilverRate : null;
+  const result = await bulkImportProducts(rows, { owner, batchSilverRate: rate });
   await logActivity(session, {
     action: "product.import",
     target: { type: "product" },
