@@ -13,8 +13,9 @@ import { getStoreSettings } from "@/server/settings/store-settings";
 
 export type ProductCostingValues = {
   weightGrams: number;
-  silverRatePerGram: number | null;
-  makingChargePerGram: number | null;
+  /** At the rate this piece's batch was bought. */
+  silverRatePerGram: number;
+  makingChargePerGram: number;
 };
 
 export async function getProductCosting(productId: string): Promise<ProductCostingValues | null> {
@@ -22,8 +23,8 @@ export async function getProductCosting(productId: string): Promise<ProductCosti
   if (!row) return null;
   return {
     weightGrams: Number(row.weightGrams),
-    silverRatePerGram: row.silverRatePerGram === null ? null : Number(row.silverRatePerGram),
-    makingChargePerGram: row.makingChargePerGram === null ? null : Number(row.makingChargePerGram),
+    silverRatePerGram: Number(row.silverRatePerGram),
+    makingChargePerGram: Number(row.makingChargePerGram),
   };
 }
 
@@ -68,10 +69,15 @@ export async function saveProductCosting(
 export async function costingContextForViewer(productId?: string) {
   if (!isOwner(await getCurrentRole())) return undefined;
 
-  const [defaults, settings, saved] = await Promise.all([
+  const [defaults, settings, saved, latest] = await Promise.all([
     getCostingDefaults(),
     getStoreSettings(),
     productId ? getProductCosting(productId) : Promise.resolve(null),
+    // A new product starts with the rate of the most recently costed piece —
+    // usually the same batch. Only a starting value; it is the product's own.
+    productId
+      ? Promise.resolve(null)
+      : prisma.productCosting.findFirst({ orderBy: { updatedAt: "desc" }, select: { silverRatePerGram: true } }),
   ]);
   const s = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n));
   return {
@@ -82,6 +88,8 @@ export async function costingContextForViewer(productId?: string) {
         : { style: settings.charmPricing, direction: settings.charmDirection },
     initial: saved
       ? { weight: s(saved.weightGrams), rate: s(saved.silverRatePerGram), making: s(saved.makingChargePerGram) }
-      : null,
+      : latest
+        ? { weight: "", rate: s(Number(latest.silverRatePerGram)), making: "" }
+        : null,
   };
 }

@@ -687,25 +687,30 @@ async function updateFromCsvRow(
  */
 /**
  * The costing columns of one CSV row, or undefined when the row has none.
- * Rate and making blank → null → the shop default at calculation time.
+ *
+ * The silver rate is the row's own `silverRate`, else the batch rate typed in
+ * the import dialog — the rate this batch was bought at. Making charge is per
+ * product and required. Neither ever falls back to a shop-wide figure.
  */
-function costingFromRow(row: CsvRow): ProductCostingValues | undefined {
+function costingFromRow(row: CsvRow, batchSilverRate: number | null): ProductCostingValues | undefined {
   const cell = (k: string) => (row[k] ?? "").trim();
   if (!cell("silverWeight")) return undefined;
-  const n = (k: string, label: string) => {
+  const n = (k: string) => {
     const raw = cell(k);
     if (!raw) return null;
     const v = Number(raw);
-    if (!Number.isFinite(v) || v < 0) throw new Error(`${label} must be a number ≥ 0`);
+    if (!Number.isFinite(v) || v < 0) throw new Error(`${k} must be a number ≥ 0`);
     return v;
   };
-  const weight = n("silverWeight", "silverWeight");
+  const weight = n("silverWeight");
   if (!weight || weight <= 0) throw new Error("silverWeight must be more than 0");
-  return {
-    weightGrams: weight,
-    silverRatePerGram: n("silverRate", "silverRate"),
-    makingChargePerGram: n("makingCharge", "makingCharge"),
-  };
+  const rate = n("silverRate") ?? batchSilverRate;
+  if (!rate || rate <= 0) {
+    throw new Error("no silver rate — fill silverRate, or the batch rate in the import box");
+  }
+  const making = n("makingCharge");
+  if (making === null) throw new Error("makingCharge is required with silverWeight (0 if none)");
+  return { weightGrams: weight, silverRatePerGram: rate, makingChargePerGram: making };
 }
 
 export async function bulkImportProducts(
@@ -715,7 +720,7 @@ export async function bulkImportProducts(
    * owner's: from anyone else they are ignored (a new product gets no cost, an
    * existing one keeps its own).
    */
-  opts: { owner: boolean } = { owner: false }
+  opts: { owner: boolean; batchSilverRate?: number | null } = { owner: false }
 ): Promise<{
   created: number;
   updated: number;
@@ -759,7 +764,7 @@ export async function bulkImportProducts(
       batchSkus.add(skuKey);
 
       // Owner only; validated before anything is written for this row.
-      const costing = costingDefaults ? costingFromRow(row) : undefined;
+      const costing = costingDefaults ? costingFromRow(row, opts.batchSilverRate ?? null) : undefined;
       // Staff: the costPrice cell is ignored, so it can't overwrite or set one.
       if (!opts.owner) row = { ...row, costPrice: "" };
 
@@ -780,9 +785,9 @@ export async function bulkImportProducts(
         const b = costBreakdown(costing, costingDefaults);
         const suggested = b ? suggestedPrice(b, costingDefaults) : null;
         if (suggested === null) {
-          throw new Error("price is blank and can't be worked out — set the silver rate in Settings → Costing, or fill the price");
+          throw new Error("price is blank and the margins in Settings → Costing can't be met — fill the price");
         }
-        price = suggested;
+        price = suggested.price;
       }
       const stockCell = (row.stock ?? "").trim();
       const sizesCell = parseSizesCell(row.sizes);
