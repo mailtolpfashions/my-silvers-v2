@@ -1,4 +1,6 @@
 import { Resend } from "resend";
+import { prisma } from "@/server/db";
+import { formatUsage, share, type UsageMeter } from "@/server/admin/usage";
 import { formatINR } from "@/lib/format";
 import { windowLength } from "@/lib/return-window";
 import { PAYMENT_WINDOW_HOURS } from "@/lib/order-payment";
@@ -50,8 +52,25 @@ type SendPayload = Parameters<typeof resend.emails.send>[0];
  */
 async function deliver(kind: string, payload: SendPayload): Promise<void> {
   const { error } = await resend.emails.send(payload);
+  await recordSend(kind, payload, error?.name ?? null);
   if (error) {
     throw new Error(`Resend refused the ${kind} email: ${error.name}: ${error.message}`);
+  }
+}
+
+/**
+ * Counts the send for the Usage page — Resend's free plan caps sending and
+ * offers no figures to read back (see EmailSend in schema.prisma). Failures
+ * are counted too: a quota refusal is exactly what the page must show.
+ * Never throws — a counting failure must not lose an email.
+ */
+async function recordSend(kind: string, payload: SendPayload, error: string | null) {
+  try {
+    const to = (payload as { to?: string | string[] }).to;
+    const recipients = Array.isArray(to) ? to.length : to ? 1 : 0;
+    await prisma.emailSend.create({ data: { kind, recipients, ok: error === null, error } });
+  } catch (err) {
+    console.error("[email] could not record the send", kind, err);
   }
 }
 /**
@@ -644,6 +663,41 @@ export async function sendPaymentReminderEmail(orderId: string) {
       label: "Almost yours",
       body,
       help: d.help,
+    }),
+  });
+}
+
+/**
+ * To the OWNER(s) when the daily usage check finds a free plan at 80% or more
+ * (api/cron/usage-check). Lists only the meters that need attention, each with
+ * what hitting it would do. If email itself is what ran out, this may not
+ * arrive — the dashboard shows the same warning for that reason.
+ */
+export async function sendUsageWarningEmail(to: string[], warnings: UsageMeter[]) {
+  const rows = warnings
+    .map(
+      (m) =>
+        `<strong>${esc(m.label)} (${esc(m.window)}): ${Math.round(share(m) * 100)}%</strong><br>${esc(formatUsage(m))}. ${esc(m.impact)}`
+    )
+    .join("<br><br>");
+  const body = [
+    heading("A free plan is nearly used up"),
+    para(
+      "The daily usage check found these at 80% or more of their free limit. Upgrading the plan, or waiting for it to reset, avoids an interruption."
+    ),
+    box(rows, "alert"),
+    `<div style="padding-top:20px">${button(`${appBaseUrl}/admin/usage`, "Open the Usage page")}</div>`,
+  ].join("");
+
+  await deliver("usage-warning", {
+    from,
+    to,
+    subject: `⚠️ Free plan nearly used up: ${warnings.map((m) => m.label).join(", ")}`,
+    html: page({
+      preheader: warnings.map((m) => `${m.label} ${Math.round(share(m) * 100)}%`).join(" · "),
+      label: "Usage warning",
+      body,
+      internal: true,
     }),
   });
 }

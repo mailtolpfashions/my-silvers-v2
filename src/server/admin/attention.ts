@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/server/db";
 import { requireRoleForPage } from "@/server/auth/require-role";
+import { isWarning, latestCheck, measureLocal } from "@/server/admin/usage";
 
 /**
  * What needs doing, for the top of the dashboard.
@@ -65,7 +66,25 @@ export async function getAttentionItems() {
       prisma.order.count({ where: { orderStatus: "return_requested" } }),
     ]);
 
+  // Free-plan limits. Emails and the database are read live (two cheap
+  // queries); Cloudinary only from the last daily check, since asking it is a
+  // network call. Shown here as well as emailed, because when email is the
+  // thing that ran out, the warning email can't arrive.
+  const [localMeters, lastCheck] = await Promise.all([measureLocal(), latestCheck()]);
+  const usageWarnings = [
+    ...localMeters,
+    ...(lastCheck?.meters.filter((m) => m.key === "cloudinary") ?? []),
+  ].filter(isWarning);
+  const usageNames = [...new Set(usageWarnings.map((m) => m.label))].join(", ");
+
   const items: AttentionItem[] = [
+    {
+      key: "free-plan-usage",
+      count: usageWarnings.length,
+      label: () => `Free plan nearly used up: ${usageNames}`,
+      href: "/admin/usage",
+      urgent: true,
+    },
     {
       key: "returns",
       count: returnRequests,

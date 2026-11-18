@@ -56,6 +56,7 @@ const OWNER_NAV: NavGroup = {
     { href: "/admin/coupons", label: "Coupons", icon: "coupons" },
     { href: "/admin/courier", label: "Courier", icon: "courier" },
     { href: "/admin/settings", label: "Settings", icon: "settings" },
+    { href: "/admin/usage", label: "Usage & backups", icon: "usage" },
   ],
 };
 

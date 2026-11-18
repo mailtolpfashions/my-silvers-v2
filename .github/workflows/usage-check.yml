@@ -1,0 +1,28 @@
+# Once a day: reads how close the shop is to each free plan's limits and
+# emails the owner when anything is at 80% or more. See
+# src/server/admin/usage.ts. Uses the same CRON_SECRET repository secret as
+# the payment reminders.
+name: Usage check
+
+on:
+  schedule:
+    # 03:30 UTC = 9:00 AM in India.
+    - cron: "30 3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check free-plan usage
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET is not set in this repository's Actions secrets."
+            exit 1
+          fi
+          curl --fail-with-body -sS \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            https://www.mysilvers.in/api/cron/usage-check

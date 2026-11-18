@@ -1,0 +1,73 @@
+# Nightly backup of the LIVE shop database, kept 30 days.
+#
+# Supabase's free plan has no backups, so this makes one: pg_dump of the
+# `public` schema (everything the shop stores), encrypted with a passphrase
+# only the owner holds, uploaded as a workflow artifact.
+#
+# ⚠️  The repository is PUBLIC, and artifacts of a public repository can be
+# downloaded by any signed-in GitHub user. That is why the dump is encrypted
+# (AES-256, gpg) before it is uploaded — an unencrypted copy must never be
+# written to an artifact or a log.
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   BACKUP_DATABASE_URL  the live database's session-pooler URL (port 5432)
+#   BACKUP_PASSPHRASE    the encryption passphrase — also kept by the owner
+#                        somewhere safe; without it no backup can be opened
+#
+# Restoring: docs/backups.md.
+name: Nightly database backup
+
+on:
+  schedule:
+    # 20:30 UTC = 2:00 AM in India.
+    - cron: "30 20 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check secrets
+        env:
+          DB: ${{ secrets.BACKUP_DATABASE_URL }}
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          [ -n "$DB" ] || { echo "::error::BACKUP_DATABASE_URL is not set."; exit 1; }
+          [ ${#PASSPHRASE} -ge 20 ] || { echo "::error::BACKUP_PASSPHRASE is missing or shorter than 20 characters."; exit 1; }
+
+      - name: Install the Postgres 17 client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Dump and encrypt
+        id: dump
+        env:
+          DB: ${{ secrets.BACKUP_DATABASE_URL }}
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          umask 077
+          stamp=$(date -u +%Y-%m-%d)
+          /usr/lib/postgresql/17/bin/pg_dump "$DB" \
+            --schema=public --format=custom --no-owner --no-privileges \
+            --file=db.dump
+          # A dump this small means something went wrong — fail loudly.
+          [ "$(stat -c %s db.dump)" -gt 10000 ] || { echo "::error::Dump is suspiciously small."; exit 1; }
+          printf '%s' "$PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --symmetric --cipher-algo AES256 \
+            --output "mysilvers-db-$stamp.dump.gpg" db.dump
+          shred -u db.dump
+          echo "name=mysilvers-db-$stamp" >> "$GITHUB_OUTPUT"
+          ls -l mysilvers-db-*.gpg
+
+      - name: Keep for 30 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.dump.outputs.name }}
+          path: mysilvers-db-*.dump.gpg
+          retention-days: 30
+          if-no-files-found: error
