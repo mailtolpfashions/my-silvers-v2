@@ -417,10 +417,9 @@ export async function sendReturnDecisionEmail(params: {
 }
 
 /**
- * "Your order has been cancelled" — sent when the SHOP cancels (the Cancel
- * order button). A customer who cancels themselves sees it happen on screen;
- * one whose order the shop cancelled would otherwise find out only when
- * nothing arrived.
+ * "Your order has been cancelled" — sent whenever an order is cancelled: by
+ * the shop (the Cancel order button), or by the customer themselves, who also
+ * needs it in writing — above all the refund amount for a paid order.
  *
  * `why` is what the customer is told, never the internal reason: an order
  * cancelled as "Suspicious order" must not say so to the person who placed it,
@@ -474,6 +473,120 @@ export async function sendOrderCancelledEmail(params: {
       label: "Order cancelled",
       body,
       help: d?.help ?? SUPPORT_HELP,
+    }),
+  });
+}
+
+/**
+ * To the OWNER(s) when a CUSTOMER cancels their own order. Before this the shop
+ * only found out by opening the Orders page — after perhaps packing the piece.
+ * Only for orders the shop was told about (COD, or paid online): an unpaid
+ * online order never raised a new-order alert, so its cancellation is noise.
+ */
+export async function sendOrderCancelledAlertEmail(
+  to: string[],
+  orderId: string,
+  refund: { amount: number | string; state: "sent" | "pending" } | null
+) {
+  const d = await loadOrderEmailData(orderId);
+  if (!d) throw new Error(`order ${orderId} not found for the cancellation alert`);
+  const body = [
+    heading(`Order cancelled by the customer: ${esc(d.orderNumber)}`),
+    para(
+      `${esc(d.customerName)} has cancelled this order (${formatINR(d.total)}). The items are back in stock${
+        refund
+          ? refund.state === "sent"
+            ? `, and <strong>${formatINR(refund.amount)} has been refunded</strong> to them through Razorpay.`
+            : `. <strong>The ${formatINR(refund.amount)} refund did not go through yet</strong> — it is queued for retry; check Payments if it doesn't clear.`
+          : "."
+      } <strong>Don't pack or ship it.</strong>`
+    ),
+    `<div style="padding-top:20px">${button(`${appBaseUrl}/admin/orders/${d.id}`, "View the order")}</div>`,
+    sectionTitle("Pieces"),
+    itemsTable(d.items),
+    sectionTitle("Customer"),
+    box(
+      [
+        `<strong>${esc(d.customerName)}</strong>`,
+        d.customerPhone ? `Phone: ${esc(d.customerPhone)}` : "",
+        `Email: ${esc(d.email)}`,
+      ]
+        .filter(Boolean)
+        .join("<br>")
+    ),
+  ].join("");
+
+  await deliver("order-cancelled-alert", {
+    from,
+    to,
+    subject: `❌ Cancelled by customer: ${d.orderNumber}`,
+    html: page({
+      preheader: `${d.customerName} cancelled ${d.orderNumber} — don't ship it.`,
+      label: "Order cancelled",
+      body,
+      internal: true,
+    }),
+  });
+}
+
+/**
+ * To the OWNER(s) when the courier starts bringing a parcel back — refused,
+ * undeliverable, or the shipment cancelled on their side. Its stock is still
+ * counted as sold until someone presses "Received back" with the piece in hand
+ * (server/orders/coming-back.ts), so the email says exactly that.
+ */
+export async function sendParcelComingBackAlertEmail(
+  to: string[],
+  orderId: string,
+  cause: "returned" | "cancelled"
+) {
+  const d = await loadOrderEmailData(orderId);
+  if (!d) throw new Error(`order ${orderId} not found for the coming-back alert`);
+  const what =
+    cause === "cancelled"
+      ? "The courier has cancelled this shipment."
+      : "The courier is sending this parcel back to you — usually the customer refused it or couldn't be reached.";
+  const body = [
+    heading(`Parcel coming back: ${esc(d.orderNumber)}`),
+    para(
+      `${what} ${
+        d.paidOnline
+          ? `It was paid online (${formatINR(d.total)}) — decide whether to reship or refund.`
+          : `It was cash on delivery (${formatINR(d.total)}), so nothing was collected.`
+      }`
+    ),
+    box(
+      "The items are <strong>still counted as sold</strong>. When the parcel reaches you and you've checked it, open the order and press <strong>Received back</strong> to put them back in stock.",
+      "alert"
+    ),
+    `<div style="padding-top:20px">${button(`${appBaseUrl}/admin/orders/${d.id}`, "Open the order")}</div>`,
+    d.trackingNumber
+      ? sectionTitle("Tracking") +
+        box(`${d.courierName ? `${esc(d.courierName)} · ` : ""}${esc(d.trackingNumber)}`)
+      : "",
+    sectionTitle("Pieces"),
+    itemsTable(d.items),
+    sectionTitle("Customer"),
+    box(
+      [
+        `<strong>${esc(d.customerName)}</strong>`,
+        d.customerPhone ? `Phone: ${esc(d.customerPhone)}` : "",
+        `Email: ${esc(d.email)}`,
+      ]
+        .filter(Boolean)
+        .join("<br>")
+    ),
+  ].join("");
+
+  await deliver("parcel-coming-back-alert", {
+    from,
+    to,
+    subject: `📦 Parcel coming back: ${d.orderNumber}`,
+    html: page({
+      preheader: `${d.orderNumber} is on its way back — press Received back when it arrives.`,
+      label: "Parcel coming back",
+      body,
+      internal: true,
     }),
   });
 }

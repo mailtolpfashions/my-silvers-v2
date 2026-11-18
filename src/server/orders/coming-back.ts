@@ -40,13 +40,15 @@ function stockWasTaken(order: Pick<Order, "paymentMethod" | "paymentStatus">) {
  *
  * @param from  the status before the move — only a parcel that had left the
  *              shop (or had a courier booking) can be coming back.
+ * @returns true when THIS call marked it — the caller's cue to alert the shop,
+ *          so a repeated courier push doesn't send the alert twice.
  */
 export async function markComingBackIfNeeded(
   orderId: string,
   from: string,
   to: OrderStatus
-): Promise<void> {
-  if (!BACK_STATUSES.includes(to)) return;
+): Promise<boolean> {
+  if (!BACK_STATUSES.includes(to)) return false;
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     select: {
@@ -56,15 +58,16 @@ export async function markComingBackIfNeeded(
       comingBackAt: true,
     },
   });
-  if (!order || order.comingBackAt) return;
+  if (!order || order.comingBackAt) return false;
   const leftTheShop = OUT_STATUSES.includes(from) || order.shipmentCreatedAt !== null;
-  if (!leftTheShop || !stockWasTaken(order)) return;
+  if (!leftTheShop || !stockWasTaken(order)) return false;
 
   // Guarded on null so two webhook pushes at once stamp it once.
-  await prisma.order.updateMany({
+  const claim = await prisma.order.updateMany({
     where: { id: orderId, comingBackAt: null },
     data: { comingBackAt: new Date() },
   });
+  return claim.count === 1;
 }
 
 export class ReceiveBackError extends Error {}
