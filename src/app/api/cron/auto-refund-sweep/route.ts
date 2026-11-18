@@ -1,6 +1,5 @@
 import { prisma } from "@/server/db";
-import { toPaise } from "@/server/orders/money";
-import { createRefund } from "@/server/payments/razorpay";
+import { refundOrderPayment } from "@/server/orders/refund-payment";
 
 /**
  * Vercel Cron (daily at 03:00 UTC — see vercel.json): the safety net for
@@ -12,7 +11,9 @@ import { createRefund } from "@/server/payments/razorpay";
  *  A) Abandoned checkouts: paymentStatus 'pending' for >24h → mark failed;
  *     refund if a payment was somehow captured.
  *  B) Captured-but-unfulfilled: paymentStatus 'failed' WITH a razorpayPaymentId
- *     (e.g. stock sold out inside the fulfillment window) → refund.
+ *     (e.g. stock sold out inside the fulfillment window) → refund. Since Nov
+ *     2026 fulfillOrder refunds these the moment they happen; this only
+ *     catches the ones whose instant refund failed (left `failed`).
  *
  * The refundStatus idle/failed → processing claim is atomic, so overlapping
  * cron invocations can't double-refund; 'failed' rows are retried next cycle.
@@ -65,44 +66,15 @@ export async function GET(req: Request) {
   let failed = 0;
 
   for (const order of candidates) {
-    // Atomic claim — losers of a concurrent sweep skip silently.
-    const claim = await prisma.order.updateMany({
-      where: { id: order.id, refundStatus: { in: ["idle", "failed"] } },
-      data: {
-        refundStatus: "processing",
-        ...(order.paymentStatus === "pending" ? { paymentStatus: "failed" as const } : {}),
-      },
-    });
-    if (claim.count === 0) continue;
+    // The claim, the refund and the bookkeeping live in refundOrderPayment —
+    // shared with fulfillOrder's instant sold-out refund. Its atomic claim
+    // means a concurrent sweep (or the instant refund) is skipped, never
+    // doubled.
+    const outcome = await refundOrderPayment(order);
+    if (outcome === "skipped") continue;
     processed++;
-
-    try {
-      if (order.razorpayPaymentId) {
-        await createRefund(order.razorpayPaymentId, toPaise(order.totalAmount));
-        await prisma.order.update({
-          where: { id: order.id },
-          data: {
-            refundStatus: "completed",
-            refundAmount: order.totalAmount,
-            refundProcessedAt: new Date(),
-          },
-        });
-        refunded++;
-      } else {
-        // Genuinely abandoned — nothing was captured, nothing to refund.
-        await prisma.order.update({
-          where: { id: order.id },
-          data: { refundStatus: "completed" },
-        });
-      }
-    } catch (err) {
-      console.error("auto-refund failed for", order.orderNumber, err);
-      await prisma.order.update({
-        where: { id: order.id },
-        data: { refundStatus: "failed" },
-      });
-      failed++;
-    }
+    if (outcome === "refunded") refunded++;
+    if (outcome === "failed") failed++;
   }
 
   return Response.json({ ok: true, candidates: candidates.length, processed, refunded, failed });

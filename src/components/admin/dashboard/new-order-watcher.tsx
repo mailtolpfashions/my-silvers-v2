@@ -9,7 +9,7 @@ const PREFIX = /^\(\d+\)\s/;
 
 type Live = {
   toShip: number;
-  newest: { id: string; orderNumber: string; total: number } | null;
+  newest: { id: string; orderNumber: string; total: number; createdAt?: string } | null;
 };
 
 /**
@@ -29,6 +29,8 @@ export function NewOrderWatcher() {
   const router = useRouter();
   const pathname = usePathname();
   const last = useRef<number | null>(null);
+  /** When the newest to-ship order seen so far was placed (ms). */
+  const lastNewestAt = useRef<number | null>(null);
   const pathRef = useRef(pathname);
 
   useEffect(() => {
@@ -48,7 +50,21 @@ export function NewOrderWatcher() {
         const live = (await res.json()) as Live;
         setTitle(live.toShip);
 
-        if (last.current !== null && live.toShip > last.current && live.newest) {
+        /**
+         * Two ways an order is new, either is enough:
+         *   - the count went up (also catches an older online order whose
+         *     payment has just landed);
+         *   - the newest order is newer than any seen before.
+         * Count alone missed one case (Nov 2026 QA): an order marked shipped
+         * and a new one paid within the same 30 s left the count unchanged,
+         * and the new order was never announced.
+         */
+        const newestAt = live.newest?.createdAt ? Date.parse(live.newest.createdAt) : null;
+        const countRose = last.current !== null && live.toShip > last.current;
+        const newerArrived =
+          lastNewestAt.current !== null && newestAt !== null && newestAt > lastNewestAt.current;
+
+        if ((countRose || newerArrived) && live.newest) {
           const amount = `₹${live.newest.total.toLocaleString("en-IN")}`;
           const id = live.newest.id;
           toast.success(`New order ${live.newest.orderNumber} — ${amount}`, {
@@ -59,6 +75,10 @@ export function NewOrderWatcher() {
           if (pathRef.current === "/admin") router.refresh();
         }
         last.current = live.toShip;
+        // Only ever moves forward: the newest one being shipped must not make
+        // an older order look new next time.
+        if (newestAt !== null) lastNewestAt.current = Math.max(lastNewestAt.current ?? 0, newestAt);
+        else if (lastNewestAt.current === null) lastNewestAt.current = 0;
       } catch {
         // Offline or a deploy in progress — the next poll will catch up.
       }

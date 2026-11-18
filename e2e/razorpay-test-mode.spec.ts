@@ -170,7 +170,7 @@ test.describe("online payment (Razorpay test mode)", () => {
     }
   });
 
-  test("two people pay online for the last piece: one gets it, the other is told and queued for a refund", async ({ browser }) => {
+  test("two people pay online for the last piece: one gets it, the other is refunded at once", async ({ browser }) => {
     test.setTimeout(300_000);
     const p = await createTestProduct({ stock: 1, price: 1600 });
     const a = await newShopper(browser, "rzp-race-a");
@@ -202,11 +202,20 @@ test.describe("online payment (Razorpay test mode)", () => {
       expect(ob?.paymentStatus, "the second buyer's order was confirmed for a sold-out piece").not.toBe("paid");
       expect(await getStock(p.id), "the last piece was sold twice").toBe(0);
 
-      // B is told plainly, and B's money is where the refund job finds it.
-      await expect(b.page.locator("body")).toContainText(/refund/i);
+      // B is told plainly, and B's refund starts at once — not at the 03:00
+      // sweep (owner decision, Nov 2026; see server/orders/refund-payment.ts).
+      await expect(b.page.locator("body")).toContainText(/started a full refund/i);
       expect(ob?.paymentStatus).toBe("failed");
       expect(ob?.razorpayPaymentId, "the second payment id was not kept — it could never be refunded").toMatch(/^pay_/);
-      expect(["idle", "failed"]).toContain(ob?.refundStatus);
+      await expect
+        .poll(async () => (await latestOrder(b.user.id))?.refundStatus, { timeout: 30_000 })
+        .toBe("completed");
+      const refunded = await queryOne<{ amt: string; total: string; at: Date | null }>(
+        `SELECT "refundAmount"::text amt, "totalAmount"::text total, "refundProcessedAt" at FROM "Order" WHERE "id" = $1`,
+        [ob!.id]
+      );
+      expect(Number(refunded?.amt), "the refund was not for the full amount paid").toBe(Number(refunded?.total));
+      expect(refunded?.at).not.toBeNull();
     } finally {
       for (const s of [a, b]) {
         await deleteOrdersForUser(s.user.id).catch(() => {});
