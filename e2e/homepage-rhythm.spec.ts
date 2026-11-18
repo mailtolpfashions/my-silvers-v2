@@ -76,9 +76,13 @@ for (const [name, width, height] of [
     expect(measured.length, "no measurable section seams on the homepage").toBeGreaterThan(3);
 
     const distinct = [...new Set(measured)].sort((a, b) => a - b);
+    // 1px of slack: text boxes sit on fractional pixels, so the same 96px
+    // rhythm measures 96 or 97 depending on where a line box rounds. A section
+    // padding itself differently is off by 8px or more, not by one.
+    const spread = distinct[distinct.length - 1] - distinct[0];
     expect(
-      distinct,
+      spread,
       `section gaps disagree at ${name}: ${distinct.join(", ")}px. One section is padding itself differently from the rest — see the .page-over-hero rhythm rule in globals.css.`
-    ).toHaveLength(1);
+    ).toBeLessThanOrEqual(1);
   });
 }

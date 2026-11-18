@@ -68,7 +68,15 @@ export async function generateMetadata({
   // search results. See the note in collections/[slug]/page.tsx.
   if (!product) return { title: "Not found", robots: { index: false, follow: false } };
 
-  const description = product.shortDescription ?? product.description ?? undefined;
+  // A piece uploaded without any description used to share with NO preview
+  // text — a bare title in WhatsApp (found by seo.spec.ts). The fallback is
+  // built only from facts stored on the product (purity, price): the shop never
+  // invents a claim, so nothing here is copywriting. `||`, not `??`, so an
+  // emptied field ("") falls through too.
+  const description =
+    product.shortDescription?.trim() ||
+    product.description?.trim() ||
+    `${product.name} in ${product.purity}. ${formatINR(product.price.toString())} at MY Silvers.`;
   const url = `/products/${product.slug}`;
   // The photograph a shopper sees when this link lands in WhatsApp. Padded to
   // 1200x630 and flattened to JPEG rather than handed over raw — see

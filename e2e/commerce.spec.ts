@@ -13,6 +13,10 @@ import {
   createCoupon,
   deleteCoupon,
   getOrderDiscount,
+  createTestProduct,
+  deleteTestProduct,
+  getStock,
+  countOrdersForUser,
 } from "./helpers/db";
 
 /**
@@ -68,9 +72,36 @@ async function readSettings(page: Page) {
   return {
     cod: (await page.locator("#codEnabled").getAttribute("data-state")) === "checked",
     guest: (await page.locator("#guestCheckoutEnabled").getAttribute("data-state")) === "checked",
+  };
+}
+
+/**
+ * Shipping rates moved from Settings to the Courier page (Nov 2026), with its
+ * own Save button and toast. These read and write them there.
+ */
+async function openCourier(page: Page) {
+  await page.goto("/admin/courier");
+  await expect(page.locator("#shippingCharge")).toBeVisible({ timeout: 15_000 });
+}
+
+async function readShipping(page: Page) {
+  await openCourier(page);
+  return {
     shipping: await page.locator("#shippingCharge").inputValue(),
     threshold: await page.locator("#freeShippingThreshold").inputValue(),
   };
+}
+
+/** Fills and saves; a no-op save (nothing changed) is not an error. */
+async function writeShipping(page: Page, shipping: string, threshold: string) {
+  await openCourier(page);
+  await page.locator("#shippingCharge").fill(shipping);
+  await page.locator("#freeShippingThreshold").fill(threshold);
+  const save = page.getByRole("button", { name: "Save", exact: true });
+  if (await save.isEnabled()) {
+    await save.click();
+    await expect(page.getByText("Courier settings saved.").first()).toBeVisible({ timeout: 15_000 });
+  }
 }
 
 async function setToggle(page: Page, id: string, on: boolean) {
@@ -125,22 +156,17 @@ test.describe("store settings gate what the shop actually does", () => {
 
   test("shipping rates entered by the admin survive the round trip", async ({ page }) => {
     const admin = await signInAs(page, "superadmin", "shiprate");
-    const original = await readSettings(page);
+    const original = await readShipping(page);
 
     try {
-      await page.locator("#shippingCharge").fill(SHIPPING);
-      await page.locator("#freeShippingThreshold").fill(THRESHOLD);
-      await saveSettings(page);
+      await writeShipping(page, SHIPPING, THRESHOLD);
 
       // Rupees → paise → rupees is where money bugs live.
-      const saved = await readSettings(page);
+      const saved = await readShipping(page);
       expect(saved.shipping).toBe(SHIPPING);
       expect(saved.threshold).toBe(THRESHOLD);
     } finally {
-      await openSettings(page);
-      await page.locator("#shippingCharge").fill(original.shipping);
-      await page.locator("#freeShippingThreshold").fill(original.threshold);
-      await saveSettings(page).catch(() => {});
+      await writeShipping(page, original.shipping, original.threshold).catch(() => {});
       await admin.dispose();
     }
   });
@@ -200,17 +226,19 @@ test.describe("cash on delivery, end to end", () => {
     page,
     browser,
   }) => {
-    const product = await getInStockProduct();
+    const product = await createTestProduct({ stock: 5 });
+    // A piece made for this test: a placed COD order takes stock, and deleting
+    // the order afterwards does not give it back — on a demo piece that leaked
+    // a unit per run. global-teardown removes it with its order lines.
     test.skip(!product, "no in-stock, single-variant product in this database");
 
     await withAdmin(browser, async (adminPage) => {
       await openSettings(adminPage);
       await setToggle(adminPage, "codEnabled", true);
-      await adminPage.locator("#shippingCharge").fill(SHIPPING);
-      await adminPage.locator("#freeShippingThreshold").fill(THRESHOLD);
       await setToggle(adminPage, "giftWrapEnabled", true);
       await adminPage.locator("#giftWrapCharge").fill(GIFT_WRAP);
       await saveSettings(adminPage);
+      await writeShipping(adminPage, SHIPPING, THRESHOLD);
     });
 
     const email = `${E2E_EMAIL_PREFIX}cod-${Date.now()}@example.test`;
@@ -391,7 +419,9 @@ test.describe("cash on delivery, end to end", () => {
       expect(
         Number(order!.totalAmount),
         "total is not subtotal + shipping + gift wrap as the server computes it"
-      ).toBeCloseTo(expectedSubtotal + shipping + giftWrap, 2);
+      // Plus the COD handling charge (Settings, default ₹49) — added to COD
+      // orders since the charge was introduced; read back, not assumed.
+      ).toBeCloseTo(expectedSubtotal + shipping + giftWrap + Number(order!.codCharge), 2);
 
       expect(order!.paymentMethod).toBe("cod");
       // COD stays 'pending' by design — money has not moved, and the refund
@@ -442,7 +472,10 @@ test.describe("cash on delivery, end to end", () => {
     page,
     browser,
   }) => {
-    const product = await getInStockProduct();
+    const product = await createTestProduct({ stock: 5 });
+    // A piece made for this test: a placed COD order takes stock, and deleting
+    // the order afterwards does not give it back — on a demo piece that leaked
+    // a unit per run. global-teardown removes it with its order lines.
     test.skip(!product, "no in-stock, single-variant product in this database");
 
     await withAdmin(browser, async (adminPage) => {
@@ -495,7 +528,9 @@ test.describe("cash on delivery, end to end", () => {
         if (route.request().method() === "POST") {
           await new Promise((resolve) => setTimeout(resolve, 4000));
         }
-        await route.continue();
+        // The page may have moved on during the hold (the order landed and it
+        // navigated), which leaves the route already settled — not a failure.
+        await route.continue().catch(() => {});
       });
 
       await placeOrder.click();
@@ -610,6 +645,18 @@ test.describe("WhatsApp number comes from store settings", () => {
 });
 
 test.describe("header menu lists come from store settings", () => {
+  /** The menu moved from Settings to Studio (/cms/header-menu) in Nov 2026. */
+  async function openMenu(page: Page) {
+    await page.goto("/cms/header-menu");
+    await expect(page.getByRole("button", { name: "Add link" }).first()).toBeVisible({ timeout: 15_000 });
+  }
+  async function saveMenu(page: Page) {
+    const save = page.getByRole("button", { name: "Save header menu" });
+    if (!(await save.isEnabled())) return; // nothing changed
+    await save.click();
+    await expect(page.getByText(/Header menu saved/).first()).toBeVisible({ timeout: 15_000 });
+  }
+
   const FINISHES = "Jewellery → By finish";
   const OCCASIONS = "Gifting → By occasion";
   type Row = { label: string; query: string };
@@ -658,7 +705,7 @@ test.describe("header menu lists come from store settings", () => {
     const label = `E2E Antique ${stamp}`;
     const query = `e2e-antique-${stamp}`;
 
-    await openSettings(page);
+    await openMenu(page);
     const originalFinishes = await readRows(page, FINISHES);
     const originalOccasions = await readRows(page, OCCASIONS);
 
@@ -674,17 +721,17 @@ test.describe("header menu lists come from store settings", () => {
       await page.getByLabel(`${FINISHES} ${n}: search word`, { exact: true }).fill(query);
 
       await writeRows(page, OCCASIONS, 2, []);
-      await saveSettings(page);
+      await saveMenu(page);
 
       const html = await headerHtml(page);
       expect(html, "the new finish is not in the header").toContain(`/products?q=${query}`);
       expect(html, "the new finish's label is not in the header").toContain(label);
       expect(html, "an emptied occasion list still renders its column").not.toContain("By occasion");
     } finally {
-      await openSettings(page);
+      await openMenu(page);
       await writeRows(page, FINISHES, 1, originalFinishes);
       await writeRows(page, OCCASIONS, 2, originalOccasions);
-      await saveSettings(page);
+      await saveMenu(page);
       await admin.dispose();
     }
 
@@ -730,7 +777,10 @@ test.describe("coupons on a real order", () => {
     browser,
   }) => {
     test.slow();
-    const product = await getInStockProduct();
+    const product = await createTestProduct({ stock: 5 });
+    // A piece made for this test: a placed COD order takes stock, and deleting
+    // the order afterwards does not give it back — on a demo piece that leaked
+    // a unit per run. global-teardown removes it with its order lines.
     test.skip(!product, "no in-stock, single-variant product in this database");
 
     await withAdmin(browser, async (adminPage) => {
@@ -779,7 +829,7 @@ test.describe("coupons on a real order", () => {
       const expected = Math.floor(paise(order!.subtotal) / 10);
       expect(paise(stored!.discount), "the server did not apply 10%").toBe(expected);
       expect(paise(order!.totalAmount)).toBe(
-        paise(order!.subtotal) - expected + paise(order!.shippingCharge) + paise(order!.giftWrapCharge),
+        paise(order!.subtotal) - expected + paise(order!.shippingCharge) + paise(order!.giftWrapCharge) + paise(order!.codCharge),
       );
 
       // Second time round, the same shopper is no longer on a first order.
@@ -790,6 +840,127 @@ test.describe("coupons on a real order", () => {
       await deleteOrdersForUser(customer.id).catch(() => {});
       await deleteUser(customer.id).catch(() => {});
       await deleteCoupon(code);
+    }
+  });
+});
+
+/**
+ * The checkout journey on a piece made for the test (QA suite, Nov 2026).
+ *
+ * Lives in this file, not its own, because it needs COD switched on — and this
+ * file is the serial one that owns the store settings. A second file toggling
+ * the same single row in parallel is exactly the fight the mobile-project note
+ * in playwright.config.ts describes.
+ *
+ * Its own product means stock is known to the unit, so "the order took one"
+ * and "cancelling gave it back" are exact assertions, and no real demo piece is
+ * left one short when the order row is deleted afterwards.
+ */
+test.describe("checkout journey on a test-owned piece", () => {
+  async function enableCod(browser: Browser, on: boolean) {
+    await withAdmin(browser, async (adminPage) => {
+      await openSettings(adminPage);
+      await setToggle(adminPage, "codEnabled", on);
+      await saveSettings(adminPage);
+    });
+  }
+
+  async function addAndCheckout(page: Page, slug: string) {
+    await page.goto(`/products/${slug}`);
+    const add = page.getByRole("button", { name: /add to (cart|bag)/i }).locator("visible=true").first();
+    await expect(add).toBeEnabled({ timeout: 20_000 });
+    await add.click();
+    await expect(page.getByText(/added to cart/i).first()).toBeVisible({ timeout: 20_000 });
+    await page.goto("/checkout");
+    await expect(page.locator("#fullName")).toBeVisible({ timeout: 20_000 });
+  }
+
+  async function fillAddress(page: Page, phone = "9876543210", pincode = "641001") {
+    await page.locator("#fullName").fill("E2E Journey Buyer");
+    await page.locator("#phone").fill(phone);
+    await page.locator("#addressLine1").fill("12 Test Street");
+    await page.locator("#city").fill("Coimbatore");
+    await page.locator("#state").selectOption("Tamil Nadu");
+    await page.locator("#pincode").fill(pincode);
+  }
+
+  const placeOrderButton = (page: Page) =>
+    page.getByRole("button", { name: /place order/i }).locator("visible=true").first();
+
+  test("a COD order takes the stock, shows in the account, and cancelling gives it back", { tag: ["@smoke"] }, async ({ page, browser }) => {
+    test.slow(); // two admin sign-ins (COD on, COD off) around a full checkout
+    const product = await createTestProduct({ stock: 2, price: 1500 });
+    const { id: userId } = await signInAs(page, "customer", "journey");
+    await enableCod(browser, true);
+    try {
+      await addAndCheckout(page, product.slug);
+      await fillAddress(page);
+      await page.locator('input[name="paymentMethod"][value="cod"]').check({ force: true });
+      await expect(placeOrderButton(page)).toBeEnabled({ timeout: 20_000 });
+      await placeOrderButton(page).click();
+      await page.waitForURL(/\/orders\//, { timeout: 30_000 });
+
+      expect(await getStock(product.id), "a COD order did not take stock").toBe(1);
+
+      const order = await getLatestOrderForUser(userId);
+      expect(order).not.toBeNull();
+      await page.goto("/account/orders");
+      await expect(page.locator("main")).toContainText(order!.orderNumber);
+
+      await page.getByRole("link", { name: new RegExp(order!.orderNumber) }).first().click();
+      await page.getByRole("button", { name: "Cancel order" }).click();
+      await page.getByRole("button", { name: "Yes, cancel" }).click();
+      await expect(page.getByText("Order cancelled.")).toBeVisible({ timeout: 15_000 });
+
+      expect(await getStock(product.id), "cancelling did not return the stock").toBe(2);
+    } finally {
+      await deleteOrdersForUser(userId).catch(() => {});
+      await deleteUser(userId).catch(() => {});
+      await deleteTestProduct(product.id).catch(() => {});
+      await enableCod(browser, false).catch(() => {});
+    }
+  });
+
+  test("a double-click on Place order makes exactly one order", async ({ page, browser }) => {
+    test.slow(); // two admin sign-ins (COD on, COD off) around a full checkout
+    const product = await createTestProduct({ stock: 5, price: 900 });
+    const { id: userId } = await signInAs(page, "customer", "dblclick");
+    await enableCod(browser, true);
+    try {
+      await addAndCheckout(page, product.slug);
+      await fillAddress(page);
+      await page.locator('input[name="paymentMethod"][value="cod"]').check({ force: true });
+      await expect(placeOrderButton(page)).toBeEnabled({ timeout: 20_000 });
+      await placeOrderButton(page).dblclick();
+      await page.waitForURL(/\/orders\//, { timeout: 30_000 });
+      await page.waitForTimeout(2000);
+
+      expect(await countOrdersForUser(userId), "a double-click placed two orders").toBe(1);
+      expect(await getStock(product.id)).toBe(4);
+    } finally {
+      await deleteOrdersForUser(userId).catch(() => {});
+      await deleteUser(userId).catch(() => {});
+      await deleteTestProduct(product.id).catch(() => {});
+      await enableCod(browser, false).catch(() => {});
+    }
+  });
+
+  test("checkout refuses a mobile number and PIN that cannot be Indian", async ({ page }) => {
+    const product = await createTestProduct({ stock: 2 });
+    const { id: userId } = await signInAs(page, "customer", "badaddr");
+    try {
+      await addAndCheckout(page, product.slug);
+      await fillAddress(page, "12345", "000");
+      await page.locator('button[type="submit"]').locator("visible=true").first().click();
+      await page.waitForTimeout(2500);
+
+      await expect(page).toHaveURL(/\/checkout/);
+      expect(await countOrdersForUser(userId), "an order was placed with a bad phone/PIN").toBe(0);
+      await expect(page.locator("#phone")).toHaveAttribute("aria-invalid", "true");
+      await expect(page.locator("#pincode")).toHaveAttribute("aria-invalid", "true");
+    } finally {
+      await deleteUser(userId).catch(() => {});
+      await deleteTestProduct(product.id).catch(() => {});
     }
   });
 });

@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { config as loadEnv } from "dotenv";
+import { isRemoteRun, LIVE_SAFE } from "./e2e/helpers/target";
 
 // Next loads .env itself; this process does not, and the suite needs
 // DATABASE_URL to set up and tear down its own fixtures.
@@ -36,6 +37,8 @@ const TEST_PORT = 3100;
 
 const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${TEST_PORT}`;
 const usingLocalServer = !process.env.E2E_BASE_URL;
+/** Against the live shop (or any real host): browser-only, read-only. See e2e/helpers/target.ts. */
+const remote = isRemoteRun();
 
 /**
  * Shared between this config (which hands it to the server) and the webhook
@@ -43,10 +46,20 @@ const usingLocalServer = !process.env.E2E_BASE_URL;
  * two can never drift into a test that passes because both sides are wrong.
  */
 export const WEBHOOK_TEST_SECRET = "e2e-razorpay-webhook-secret-do-not-deploy";
+export const CRON_TEST_SECRET = "e2e-cron-secret-do-not-deploy";
 
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
+  /**
+   * A remote run executes ONLY tests tagged @live-safe, whatever the command
+   * line asked for. Enforced here rather than trusted to a script, because
+   * `E2E_BASE_URL=… npx playwright test` (the old launch checklist) would
+   * otherwise run order-placing, settings-flipping specs against real
+   * customers.
+   */
+  ...(remote && { grep: new RegExp(LIVE_SAFE) }),
   // Full isolation between files; the suite touches a shared database.
   fullyParallel: true,
   // A stray test.only in CI is a silently reduced suite.
@@ -59,7 +72,9 @@ export default defineConfig({
 
   use: {
     baseURL,
-    trace: "on-first-retry",
+    // Kept for every failure, not only retries: locally there are no retries,
+    // so "on-first-retry" meant a local failure never had a trace to open.
+    trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },
@@ -79,8 +94,26 @@ export default defineConfig({
        * at once means two suites fighting over one global resource, which is
        * exactly how it started failing.
        */
-      testMatch: /(storefront|access-control)\.spec\.ts/,
+      testMatch: /(storefront|access-control|catalogue|product|live-smoke)\.spec\.ts/,
     },
+    /**
+     * iPhone Safari, smoke only. A real share of Indian shoppers browse on
+     * iPhones, and WebKit is where layout and storage quirks show up — but the
+     * functional specs assert server behaviour that cannot differ by engine,
+     * so running all of them a third time would only cost time.
+     */
+    // ⚠️  A project-level grep REPLACES the top-level one, so on a remote run
+    // this must be the live-safe filter, not the smoke one — otherwise @smoke
+    // tests that write data are started against the live shop. (Caught in the
+    // Nov 2026 QA run, where the DB guard in helpers/db.ts stopped every one of
+    // them at its first query, before anything was written.)
+    //
+    // REMOTE (https) runs only. Against the local http://127.0.0.1 server,
+    // Playwright's Windows WebKit drops the Secure session cookie (sign-in
+    // never lands) and the catalogue failed to render — while the same tests
+    // passed on the live https site. Locally it measured the test machine,
+    // not the shop.
+    ...(remote ? [{ name: "webkit", use: { ...devices["iPhone 14"] }, grep: new RegExp(LIVE_SAFE) }] : []),
   ],
 
   ...(usingLocalServer && {
@@ -169,6 +202,17 @@ export default defineConfig({
          * secret is whatever Razorpay issues.
          */
         RAZORPAY_WEBHOOK_SECRET: WEBHOOK_TEST_SECRET,
+
+        /**
+         * No real email leaves a test run — see deliver() in
+         * src/server/email/resend.ts. Without it every placed test order sent
+         * a confirmation to an @example.test address (a hard bounce) and a
+         * new-order alert to the owner's real inbox.
+         */
+        E2E_EMAIL_DRY_RUN: "1",
+
+        /** Cron endpoints are tested with a known secret, never the real one. */
+        CRON_SECRET: CRON_TEST_SECRET,
       },
     },
   }),

@@ -45,7 +45,11 @@ export const phoneSchema = z
   .refine((value) => /^(\+?91|0)?[6-9]\d{9}$/.test(value), {
     message: "Enter a valid 10-digit Indian mobile number.",
   })
-  .transform((value) => value.replace(/^(\+?91|0)/, ""));
+  // The last ten digits ARE the number once the refine has passed — whatever
+  // prefix came first. ⚠️ Not `replace(/^(\+?91|0)/, "")`: that also ate the
+  // "91" from a bare number that merely starts with it, saving 91234 56780 as
+  // 23456780 (found by the Nov 2026 QA suite, account.spec.ts).
+  .transform((value) => value.slice(-10));
 
 /** Indian PIN codes are 6 digits and never start with 0. */
 export const pincodeSchema = z

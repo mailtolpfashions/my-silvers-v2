@@ -209,6 +209,8 @@ test.describe("the owner", () => {
 
     try {
       await page.goto("/admin/staff");
+      // The form opens behind "Add staff" since the staff page redesign.
+      await page.getByRole("button", { name: "Add staff" }).click();
       await page.locator("#staff-email").fill(email);
       await page.locator("#staff-role").selectOption("admin");
       await page.getByRole("button", { name: /^add$/i }).click();

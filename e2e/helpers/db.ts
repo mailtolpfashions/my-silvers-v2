@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
+import { isRemoteRun } from "./target";
 
 /**
  * Direct database access for tests, over `pg` rather than Prisma.
@@ -21,6 +22,12 @@ import bcrypt from "bcryptjs";
 let pool: Pool | null = null;
 
 function getPool(): Pool {
+  // A remote run (the live shop) must never touch a database — see target.ts.
+  if (isRemoteRun()) {
+    throw new Error(
+      "DB helpers are disabled on a remote run (E2E_BASE_URL is set). Only @live-safe, browser-only tests may run there."
+    );
+  }
   if (!process.env.DATABASE_URL) {
     throw new Error(
       "DATABASE_URL is not set. The e2e suite needs the same database the server under test is using."
@@ -90,12 +97,13 @@ export async function getLatestOrderForUser(userId: string): Promise<{
   paymentMethod: string;
   paymentStatus: string;
   giftWrapCharge: string;
+  codCharge: string;
   isGift: boolean;
   giftMessage: string | null;
 } | null> {
   const { rows } = await getPool().query(
     `SELECT "orderNumber", "subtotal", "shippingCharge", "totalAmount",
-            "paymentMethod"::text, "paymentStatus"::text, "giftWrapCharge", "isGift", "giftMessage"
+            "paymentMethod"::text, "paymentStatus"::text, "giftWrapCharge", "codCharge"::text, "isGift", "giftMessage"
        FROM "Order"
       WHERE "userId" = $1
       ORDER BY "createdAt" DESC
@@ -125,6 +133,8 @@ export async function getInStockProduct(): Promise<{
        FROM "Product" p
       WHERE p."stock" > 0
         AND p."isActive" = true
+        -- Never a product another test made: it can vanish mid-test.
+        AND p."slug" NOT LIKE 'e2e-%'
         AND NOT EXISTS (SELECT 1 FROM "ProductVariant" v WHERE v."productId" = p."id")
       ORDER BY p."price" ASC
       LIMIT 1`
@@ -193,7 +203,7 @@ export async function getTwoActiveProducts(): Promise<
 > {
   const { rows } = await getPool().query(
     `SELECT "id", "slug", "name", "price"::text FROM "Product"
-      WHERE "isActive" = true ORDER BY "createdAt" ASC LIMIT 2`
+      WHERE "isActive" = true AND "slug" NOT LIKE 'e2e-%' ORDER BY "createdAt" ASC LIMIT 2`
   );
   return rows;
 }
@@ -430,4 +440,144 @@ export async function orderExists(id: string): Promise<boolean> {
 export async function getOrderNote(id: string): Promise<string | null> {
   const { rows } = await getPool().query(`SELECT "adminNote" FROM "Order" WHERE "id" = $1`, [id]);
   return rows[0]?.adminNote ?? null;
+}
+
+// ─── QA suite additions (Nov 2026) ──────────────────────────────────────────
+
+/**
+ * A product owned by the test that made it: slug `e2e-…`, SKU `E2E-…`, so the
+ * teardown sweep and the data-count script can find leftovers. Images are
+ * borrowed from an existing product — the page layout expects at least one.
+ * Remove with deleteTestProduct (order lines referencing it go first).
+ */
+export async function createTestProduct(opts: {
+  stock: number;
+  price?: number;
+  name?: string;
+  isActive?: boolean;
+}): Promise<{ id: string; slug: string; name: string; price: number }> {
+  const suffix = crypto.randomBytes(4).toString("hex");
+  const id = `e2e_${crypto.randomBytes(12).toString("hex")}`;
+  const slug = `e2e-piece-${suffix}`;
+  const name = opts.name ?? `E2E Piece ${suffix}`;
+  const price = opts.price ?? 1234;
+  const { rows: donor } = await getPool().query(
+    `SELECT "categoryId", "images" FROM "Product" WHERE "isActive" = true AND cardinality("images") > 0
+      ORDER BY "createdAt" ASC LIMIT 1`
+  );
+  if (!donor[0]) throw new Error("no active product with images to borrow a category from");
+  await getPool().query(
+    `INSERT INTO "Product" ("id", "name", "slug", "price", "categoryId", "images", "sizes", "tags",
+                            "stock", "sku", "isActive", "updatedAt")
+     VALUES ($1, $2, $3, $4, $5, $6, '{}', '{}', $7, $8, $9, NOW())`,
+    [id, name, slug, price, donor[0].categoryId, donor[0].images, opts.stock, `E2E-${suffix}`, opts.isActive ?? true]
+  );
+  return { id, slug, name, price };
+}
+
+export async function deleteTestProduct(id: string): Promise<void> {
+  const p = getPool();
+  await p.query(`DELETE FROM "StockNotification" WHERE "productId" = $1`, [id]).catch(() => {});
+  await p.query(`DELETE FROM "Review" WHERE "productId" = $1`, [id]).catch(() => {});
+  await p.query(`DELETE FROM "CartItem" WHERE "productId" = $1`, [id]).catch(() => {});
+  await p.query(`DELETE FROM "OrderItem" WHERE "productId" = $1`, [id]);
+  await p.query(`DELETE FROM "Product" WHERE "id" = $1`, [id]);
+}
+
+export async function getStock(productId: string): Promise<number> {
+  const { rows } = await getPool().query(`SELECT "stock" FROM "Product" WHERE "id" = $1`, [productId]);
+  return rows[0]?.stock ?? -1;
+}
+
+export async function getProductBySlug(slug: string): Promise<{
+  id: string; name: string; price: string; stock: number; isActive: boolean; tags: string[];
+} | null> {
+  const { rows } = await getPool().query(
+    `SELECT "id", "name", "price"::text, "stock", "isActive", "tags" FROM "Product" WHERE "slug" = $1`,
+    [slug]
+  );
+  return rows[0] ?? null;
+}
+
+/** Sweep for products a crashed run left behind. */
+export async function deleteTestProducts(): Promise<void> {
+  const { rows } = await getPool().query(`SELECT "id" FROM "Product" WHERE "slug" LIKE 'e2e-%'`);
+  for (const r of rows) await deleteTestProduct(r.id).catch(() => {});
+}
+
+/**
+ * An order with one line on a given product, in any state, with an order
+ * number the TRACKING form accepts. Tracking only understands MYS-<digits>;
+ * nine digits starting 9 sits far above the real sequence (order_number_seq
+ * is a Postgres sequence, so a hand-written number never moves it).
+ * Removed by deleteOrdersForUser.
+ */
+export async function insertOrderWithItem(opts: {
+  userId: string;
+  productId: string;
+  name: string;
+  price: number;
+  quantity?: number;
+  paymentMethod?: "cod" | "razorpay";
+  paymentStatus?: "pending" | "paid" | "failed";
+  orderStatus?: "placed" | "confirmed" | "shipped" | "delivered" | "cancelled";
+  deliveredDaysAgo?: number | null;
+  phone?: string;
+  razorpayOrderId?: string | null;
+}): Promise<{ id: string; orderNumber: string }> {
+  const id = `e2e_${crypto.randomBytes(12).toString("hex")}`;
+  const orderNumber = `MYS-9${String(crypto.randomInt(0, 99_999_999)).padStart(8, "0")}`;
+  const qty = opts.quantity ?? 1;
+  const total = opts.price * qty;
+  const address = {
+    fullName: "E2E Buyer", phone: opts.phone ?? "9876543210", addressLine1: "12 Test Street",
+    city: "Coimbatore", state: "Tamil Nadu", pincode: "641001",
+  };
+  await getPool().query(
+    `INSERT INTO "Order" ("id", "orderNumber", "userId", "shippingAddress", "paymentMethod",
+                          "paymentStatus", "orderStatus", "razorpayOrderId", "subtotal", "shippingCharge",
+                          "totalAmount", "deliveredAt", "updatedAt")
+     VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, 0, $9,
+             CASE WHEN $10::int IS NULL THEN NULL ELSE NOW() - make_interval(days => $10::int) END, NOW())`,
+    [
+      id, orderNumber, opts.userId, JSON.stringify(address), opts.paymentMethod ?? "cod",
+      opts.paymentStatus ?? "pending", opts.orderStatus ?? "placed", opts.razorpayOrderId ?? null,
+      total, opts.deliveredDaysAgo ?? null,
+    ]
+  );
+  await getPool().query(
+    `INSERT INTO "OrderItem" ("id", "orderId", "productId", "name", "price", "quantity")
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [`e2e_${crypto.randomBytes(12).toString("hex")}`, id, opts.productId, opts.name, opts.price, qty]
+  );
+  return { id, orderNumber };
+}
+
+export async function getOrderState(id: string): Promise<{
+  orderStatus: string; paymentStatus: string; refundStatus: string;
+} | null> {
+  const { rows } = await getPool().query(
+    `SELECT "orderStatus"::text, "paymentStatus"::text, "refundStatus"::text FROM "Order" WHERE "id" = $1`,
+    [id]
+  );
+  return rows[0] ?? null;
+}
+
+export async function countOrdersForUser(userId: string): Promise<number> {
+  const { rows } = await getPool().query(`SELECT count(*)::int n FROM "Order" WHERE "userId" = $1`, [userId]);
+  return rows[0].n;
+}
+
+export async function getAddresses(userId: string): Promise<Array<{ fullName: string; city: string; isDefault: boolean }>> {
+  const { rows } = await getPool().query(
+    `SELECT "fullName", "city", "isDefault" FROM "Address" WHERE "userId" = $1 ORDER BY "fullName"`,
+    [userId]
+  );
+  return rows;
+}
+
+/** Any single read for raw assertions the named helpers do not cover. */
+export async function queryOne<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T | null> {
+  const { rows } = await getPool().query(sql, params);
+  return (rows[0] as T) ?? null;
 }

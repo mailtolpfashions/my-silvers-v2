@@ -51,6 +51,17 @@ type SendPayload = Parameters<typeof resend.emails.send>[0];
  * `kind` names the email in the message, so a log line says which one failed.
  */
 async function deliver(kind: string, payload: SendPayload): Promise<void> {
+  /**
+   * Test server only — set by playwright.config.ts, never in .env or Vercel.
+   *
+   * Without it every e2e run really sent: order confirmations to
+   * `@example.test` addresses (hard bounces, which damage the sending
+   * domain's reputation), new-order alerts to the owner's real inbox, and all
+   * of it against Resend's free daily cap. Skipped BEFORE recordSend so the
+   * Usage page does not count mail that never left.
+   */
+  if (process.env.E2E_EMAIL_DRY_RUN === "1") return;
+
   const { error } = await resend.emails.send(payload);
   await recordSend(kind, payload, error?.name ?? null);
   if (error) {

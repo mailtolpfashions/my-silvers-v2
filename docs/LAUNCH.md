@@ -261,11 +261,15 @@ Also set, in the Shiprocket dashboard:
 
 ## 6. Verify before announcing
 
-Run the suite against the deployed site:
+Run the read-only smoke pack against the deployed site:
 
 ```bash
-E2E_BASE_URL="https://<domain>" npx playwright test
+npm run test:smoke:live -- https://<domain>
 ```
+
+Against any non-local URL the suite runs ONLY tests tagged `@live-safe` and
+refuses to touch a database — no sign-ins, no orders, no settings changes.
+The full suite runs locally against the dev database. See `docs/testing.md`.
 
 Then, by hand, the things the suite cannot do:
 
