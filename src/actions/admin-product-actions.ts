@@ -23,7 +23,7 @@ import {
   type CsvRow,
 } from "@/server/products/admin";
 import { isCharmDirection, isCharmStyle } from "@/lib/charm-price";
-import { isOwner } from "@/server/auth/roles";
+import { canSeeCosts } from "@/server/auth/roles";
 import { getPricingRule, priceFor, saveProductCosting } from "@/server/products/costing";
 import { getCostingDefaults } from "@/server/settings/costing-config";
 
@@ -59,9 +59,9 @@ const productSchema = z.object({
   isActive: z.boolean().optional(),
   tags: z.array(z.string().trim().min(1)).max(30),
   /**
-   * The owner's costing panel. Absent = not touched (and always absent for
+   * The costing panel. Absent = not touched (and always absent for
    * staff, who never see the panel); null = remove the costing. Saved only
-   * when the person saving is the owner — see saveCostingIfOwner.
+   * when the person saving may see costs — see saveCostingIfAllowed.
    */
   costing: z
     .object({
@@ -135,15 +135,15 @@ export async function createProductAction(input: unknown): Promise<AdminActionRe
     const rule = await autoCharmRule();
     const input = toInput(parsed.data);
     input.price = applyCharmRule(input.price, rule, input.compareAtPrice);
-    // Costs are the owner's: staff never see the field, so whatever arrives
-    // from them is ignored rather than trusted.
-    const owner = isOwner(session.user.role);
-    if (!owner) input.costPrice = null;
+    // Costs are the owner's and admins' (canSeeCosts). Anyone else never sees
+    // the field, so whatever arrives from them is ignored rather than trusted.
+    const canCost = canSeeCosts(session.user.role);
+    if (!canCost) input.costPrice = null;
     // An automatic price is worked out HERE, not taken from the page: the
     // form shows the same figure, but the server's is the one that counts.
-    if (owner) input.price = (await automaticPrice(parsed.data.costing, input.compareAtPrice)) ?? input.price;
+    if (canCost) input.price = (await automaticPrice(parsed.data.costing, input.compareAtPrice)) ?? input.price;
     const created = await createProduct(input);
-    if (owner) await saveCostingIfOwner(created.id, parsed.data.costing);
+    if (canCost) await saveCostingIfAllowed(created.id, parsed.data.costing);
     await logActivity(session, {
       action: "product.create",
       target: { type: "product", id: created.id },
@@ -171,8 +171,8 @@ export async function updateProductAction(id: string, input: unknown): Promise<A
     });
     // Staff don't see the Cost price field, so their form posts it empty.
     // Keep what is stored rather than wiping the owner's figure.
-    const owner = isOwner(session.user.role);
-    if (!owner) input.costPrice = before?.costPrice === null || !before ? null : Number(before.costPrice);
+    const canCost = canSeeCosts(session.user.role);
+    if (!canCost) input.costPrice = before?.costPrice === null || !before ? null : Number(before.costPrice);
     // Only a price the admin CHANGED is rounded. The form posts every field
     // on every save, so without this, fixing a typo in a description would
     // quietly reprice a piece that was saved before rounding was turned on.
@@ -183,9 +183,9 @@ export async function updateProductAction(id: string, input: unknown): Promise<A
         input.price = applyCharmRule(input.price, rule, input.compareAtPrice);
       }
     }
-    if (owner) input.price = (await automaticPrice(parsed.data.costing, input.compareAtPrice)) ?? input.price;
+    if (canCost) input.price = (await automaticPrice(parsed.data.costing, input.compareAtPrice)) ?? input.price;
     await updateProduct(id, input);
-    if (owner) await saveCostingIfOwner(id, parsed.data.costing);
+    if (canCost) await saveCostingIfAllowed(id, parsed.data.costing);
     await logActivity(session, {
       action: "product.update",
       target: { type: "product", id },
@@ -214,10 +214,10 @@ async function automaticPrice(
 
 /**
  * Saves the owner's costing panel, which also sets Cost price to the purchase
- * cost it works out to. Only ever called after an isOwner check; `undefined`
+ * cost it works out to. Only ever called after a canSeeCosts check; `undefined`
  * (panel not touched) changes nothing.
  */
-async function saveCostingIfOwner(
+async function saveCostingIfAllowed(
   productId: string,
   costing: z.infer<typeof productSchema>["costing"]
 ) {
@@ -684,14 +684,14 @@ export async function setProductsOfferAction(
 
 export async function bulkImportProductsAction(
   rows: CsvRow[],
-  /** The import dialog's "Silver rate for this batch" — owner only, else ignored. */
+  /** The import dialog's "Silver rate for this batch" — owner and admins, else ignored. */
   batchSilverRate?: number | null
 ) {
   const session = await requireRole("admin");
-  // Costing columns and costPrice count only when the owner imports.
-  const owner = isOwner(session.user.role);
-  const rate = owner && typeof batchSilverRate === "number" && batchSilverRate > 0 ? batchSilverRate : null;
-  const result = await bulkImportProducts(rows, { owner, batchSilverRate: rate });
+  // Costing columns and costPrice count for the owner and admins (canSeeCosts).
+  const canCost = canSeeCosts(session.user.role);
+  const rate = canCost && typeof batchSilverRate === "number" && batchSilverRate > 0 ? batchSilverRate : null;
+  const result = await bulkImportProducts(rows, { owner: canCost, batchSilverRate: rate });
   await logActivity(session, {
     action: "product.import",
     target: { type: "product" },

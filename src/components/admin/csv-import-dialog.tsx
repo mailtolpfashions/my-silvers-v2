@@ -14,7 +14,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { bulkImportProductsAction } from "@/actions/admin-product-actions";
-import { useIsOwner } from "@/components/admin/owner-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CSV_TEMPLATE_HEADERS as TEMPLATE_HEADERS } from "@/lib/product-csv";
@@ -33,7 +32,6 @@ export function CsvImportDialog() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [importing, setImporting] = useState(false);
-  const isOwner = useIsOwner();
   /** The rate this batch was bought at — rows with their own silverRate keep it. */
   const [batchRate, setBatchRate] = useState("");
   const [result, setResult] = useState<{
@@ -59,7 +57,7 @@ export function CsvImportDialog() {
           const rate = Number(batchRate);
           const res = await bulkImportProductsAction(
             parsed.data,
-            isOwner && batchRate.trim() !== "" && Number.isFinite(rate) && rate > 0 ? rate : null
+            batchRate.trim() !== "" && Number.isFinite(rate) && rate > 0 ? rate : null
           );
           setResult(res);
           if (res.created + res.updated > 0) {
@@ -116,27 +114,26 @@ export function CsvImportDialog() {
             Download template
           </Button>
 
-          {/* Owner only: costs are the owner's. Applies to every row with a
+          {/* For the owner and admins — the only people on the Products page.
+              The server ignores it from anyone else. Applies to every row with a
               silverWeight and no silverRate of its own, and is saved on each
               product — a later change in the market never re-costs them. */}
-          {isOwner && (
-            <div className="space-y-1.5 rounded-md border border-dashed p-3">
-              <Label htmlFor="batch-silver-rate">Silver rate for this batch (₹ per gram)</Label>
-              <Input
-                id="batch-silver-rate"
-                inputMode="decimal"
-                placeholder="e.g. 105"
-                value={batchRate}
-                disabled={importing}
-                onChange={(e) => setBatchRate(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                The rate you bought this batch at. Used for every row with a silverWeight, unless the
-                row has its own silverRate. Saved on each product, so a later fall in the rate never
-                changes its cost. Put each piece&apos;s makingCharge in the file.
-              </p>
-            </div>
-          )}
+          <div className="space-y-1.5 rounded-md border border-dashed p-3">
+            <Label htmlFor="batch-silver-rate">Silver rate for this batch (₹ per gram)</Label>
+            <Input
+              id="batch-silver-rate"
+              inputMode="decimal"
+              placeholder="e.g. 105"
+              value={batchRate}
+              disabled={importing}
+              onChange={(e) => setBatchRate(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              The rate you bought this batch at. Used for every row with a silverWeight, unless the
+              row has its own silverRate. Saved on each product, so a later fall in the rate never
+              changes its cost. Put each piece&apos;s makingCharge in the file.
+            </p>
+          </div>
 
           <Button
             onClick={() => inputRef.current?.click()}

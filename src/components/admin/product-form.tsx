@@ -22,7 +22,6 @@ import {
   createProductAction,
   updateProductAction,
 } from "@/actions/admin-product-actions";
-import { useIsOwner } from "@/components/admin/owner-context";
 import {
   autoPrice,
   CostingPanel,
@@ -100,13 +99,14 @@ export function ProductForm({
   /** Vendor names already in use, offered as suggestions. */
   vendors?: string[];
   /**
-   * The owner's costing calculator. Passed by the page ONLY when the viewer is
-   * the owner — staff get no panel, and no costing data reaches their browser.
+   * The costing calculator. Passed by the page ONLY when the viewer may see
+   * costs (owner and admins) — an editor gets no panel and no costing data.
    */
   costing?: CostingContext & { initial: CostingFields | null; manualPrice: boolean };
 }) {
   const router = useRouter();
-  const isOwner = useIsOwner();
+  // Cost price shows to whoever gets the costing panel (owner and admins).
+  const showCost = Boolean(costing);
   const [form, setForm] = useState(initial);
   const costingInitial = costing?.initial ?? NO_COSTING;
   const [costingFields, setCostingFields] = useState<CostingFields>(costingInitial);
@@ -316,7 +316,7 @@ export function ProductForm({
 
         <div className="space-y-6">
           <Section title="Pricing">
-            <div className={`grid gap-4 ${isOwner ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+            <div className={`grid gap-4 ${showCost ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
               <div className="space-y-1.5">
                 <Label htmlFor="price" required>
                   Price (₹)
@@ -363,7 +363,7 @@ export function ProductForm({
                   in /admin/finance is computed from, and a product left blank
                   is excluded from those figures rather than counted as free.
                   With a weight in the costing panel it is set from that. */}
-              {isOwner &&
+              {showCost &&
                 textField("costPrice", "Cost price (₹)", {
                   type: "number",
                   min: 0,

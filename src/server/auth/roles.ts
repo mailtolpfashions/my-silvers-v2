@@ -18,6 +18,15 @@ export const isOwner = (role: MaybeRole) => role === "superadmin";
 
 export const isAdmin = (role: MaybeRole) => role === "admin" || role === "superadmin";
 
+/**
+ * Who sees product costs — weight, silver rate, making charge, cost price,
+ * profit — and gets the automatic price when adding products. The owner and
+ * admins: the shop's admins are the owner's partners (Nov 2026). Editors (CMS
+ * only) never. Setting the pricing RULES (margins, rounding, Recalculate)
+ * stays owner only — those re-price the whole shop.
+ */
+export const canSeeCosts = isAdmin;
+
 export const isStaff = (role: MaybeRole) =>
   role === "admin" || role === "editor" || role === "superadmin";
 
