@@ -45,7 +45,19 @@ export async function applyCourierUpdate(
 ): Promise<boolean> {
   const { next } = update;
   const merged = mergeScans(order.shipmentScans, update.scans);
-  const advances = Boolean(next) && (RANK[next!] ?? 0) > (RANK[order.orderStatus] ?? 0);
+  /**
+   * A return the customer has asked for is the shop's decision, not the
+   * courier's. When their return parcel arrives the courier pushes "return
+   * delivered"; moving the order to returned on that would skip the review —
+   * no Review return button, no refund choice, no stock back. So the status
+   * stays return_requested (the scan still lands in the trail below) and the
+   * owner approves it, which restores the stock and refunds in one step.
+   */
+  const returnAwaitingReview = order.orderStatus === "return_requested";
+  const advances =
+    Boolean(next) &&
+    !returnAwaitingReview &&
+    (RANK[next!] ?? 0) > (RANK[order.orderStatus] ?? 0);
 
   // The status moves by compare-and-set on the status we read: a partner can
   // push the same scan twice at once, and only the push that actually moves
