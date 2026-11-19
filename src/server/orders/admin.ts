@@ -59,10 +59,16 @@ type ShippingAddress = {
  * from the order. Product weights are stored in GRAMS; each partner converts
  * to its own unit (see server/couriers).
  */
+/** The SKU a courier sees; the size is added so two sizes of one piece stay apart. */
+export function courierSku(sku: string | null | undefined, size: string, productId: string | null, itemId: string): string {
+  const base = sku?.trim() || (productId ? `SKU-${productId}` : `ITEM-${itemId}`);
+  return size ? `${base}-${size}` : base;
+}
+
 async function loadShippable(orderId: string) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { items: true, user: true },
+    include: { items: { include: { product: { select: { sku: true } } } }, user: true },
   });
   if (!order) throw new AdminOrderError("Order not found.");
   if (order.paymentMethod === "razorpay" && order.paymentStatus !== "paid") {
@@ -89,7 +95,10 @@ async function loadShippable(orderId: string) {
     },
     items: order.items.map((i) => ({
       name: i.name,
-      sku: i.productId ? `SKU-${i.productId}` : `ITEM-${i.id}`,
+      // The product's own SKU — what the shop knows the piece by. It used to
+      // send "SKU-<database id>", which is what printed on the courier's
+      // label (Nov 2026). The id is only a fallback for a deleted product.
+      sku: courierSku(i.product?.sku, i.size, i.productId, i.id),
       units: i.quantity,
       sellingPrice: Number(i.price),
     })),

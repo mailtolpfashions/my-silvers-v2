@@ -65,10 +65,14 @@ test.describe("address labels", () => {
       await expect(label).toContainText("E2E Buyer");
       await expect(label).toContainText("12 Test Street");
       await expect(label.locator("[data-label-pin]")).toHaveText("PIN 641001");
-      await expect(label).toContainText("Phone: 9876543210");
-      await expect(label).toContainText("From");
+      await expect(label).toContainText("Ph: 9876543210");
+      await expect(label).toContainText("return to");
+      await expect(label).toContainText("PREPAID");
+      await expect(page.getByRole("link", { name: "Back to orders" })).toBeVisible();
+      // The product's own SKU, never "SKU-<database id>" (Nov 2026).
+      await expect(label.locator("[data-label-sku]").first()).not.toHaveText(/^SKU-/);
       await expect(label).toContainText(o.orderNumber);
-      await expect(label.locator("svg")).toHaveCount(1); // the QR code
+      await expect(label.locator("svg")).toHaveCount(2); // order barcode + QR code
       await expect(label.locator("[data-label-cod]")).toHaveCount(0);
       await expect(label, "a price is printed on a prepaid label").not.toContainText("₹");
       await expect(label).not.toContainText("GIFT");
@@ -84,7 +88,7 @@ test.describe("address labels", () => {
     try {
       const [cod, gift] = s.orders;
       await page.goto(`/admin/orders/labels?ids=${cod.id},${gift.id}`);
-      await expect(page.locator(`[data-label="${cod.orderNumber}"] [data-label-cod]`)).toHaveText(/COD — Collect ₹1,349/, {
+      await expect(page.locator(`[data-label="${cod.orderNumber}"] [data-label-cod]`)).toHaveText(/CODs*Collect ₹1,349/, {
         timeout: 20_000,
       });
       await expect(page.locator(`[data-label="${gift.orderNumber}"]`)).toContainText("GIFT");
