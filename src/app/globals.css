@@ -2087,3 +2087,33 @@
     padding-block: 3rem;
   }
 }
+
+/* ── Printing an invoice prints the invoice, and nothing else ──────────────
+   Printing from the admin put "Admin > Orders > Edit > Invoice" and the
+   signed-in name across the top of a customer's tax invoice (Nov 2026); the
+   customer's own copy would carry the shop header, footer and floating
+   buttons. Rather than hide each piece of chrome one by one — and miss the
+   next one added, or a toast that happens to be open — any page containing
+   [data-invoice] prints that element alone, from the top of the sheet. */
+@media print {
+  /* Everything that neither holds the invoice nor sits inside it is removed
+     — display:none, not visibility:hidden, so the hidden header and footer
+     take no space (they printed as trailing blank pages) and nothing that
+     sets its own visibility (the footer's Subscribe button did) can show. */
+  body:has([data-invoice]) *:not(:has([data-invoice])):not([data-invoice]):not([data-invoice] *) {
+    display: none !important;
+  }
+  /* The invoice's containers keep only their place in the tree. */
+  body:has([data-invoice]) *:has([data-invoice]) {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    min-height: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+  }
+  body:has([data-invoice]) [data-invoice] {
+    margin: 0;
+    max-width: none;
+  }
+}
