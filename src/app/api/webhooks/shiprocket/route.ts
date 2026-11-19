@@ -119,6 +119,7 @@ export async function POST(req: Request) {
     next,
     scans: normaliseScans(event.scans),
     courierName: event.courier_name ? String(event.courier_name) : null,
+    statusText: event.current_status ?? event.shipment_status ?? null,
   });
 
   return new Response(moved ? "OK" : "Recorded", { status: 200 });

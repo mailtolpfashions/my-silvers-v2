@@ -5,12 +5,19 @@ import { OrderItemReview } from "@/components/storefront/orders/order-item-revie
 import type { ReviewableItem } from "@/server/reviews/reviewable-items";
 import type { Order, OrderItem } from "@/generated/prisma/client";
 import { REFUND_STARTED, REFUND_TIMING } from "@/lib/payment-labels";
-import { courierLabel, scanActivity, scanLocation } from "@/lib/courier-text";
+import { courierLabel, isOutForDelivery, scanActivity, scanLocation } from "@/lib/courier-text";
 
+/**
+ * What the CUSTOMER calls each status — their flow is Order confirmed →
+ * Shipped → Out for delivery → Delivered (owner's decision, Nov 2026).
+ * "Packed" (stored as processing) is the shop's own step, so to the customer a
+ * packed order is still "Order confirmed"; "Out for delivery" is read from the
+ * courier's scans (see customerStatusLabel).
+ */
 const ORDER_STATUS_LABELS: Record<Order["orderStatus"], string> = {
-  placed: "Placed",
-  confirmed: "Confirmed",
-  processing: "Packed",
+  placed: "Order confirmed",
+  confirmed: "Order confirmed",
+  processing: "Order confirmed",
   shipped: "Shipped",
   delivered: "Delivered",
   cancelled: "Cancelled",
@@ -139,6 +146,14 @@ function StatusLabel({
   );
 }
 
+/** Shipped, or "Out for delivery" once the courier has said so. */
+function customerStatusLabel(order: Order): string {
+  if (order.orderStatus === "shipped" && parseScans(order.shipmentScans).some((s) => isOutForDelivery(s.activity))) {
+    return "Out for delivery";
+  }
+  return ORDER_STATUS_LABELS[order.orderStatus];
+}
+
 export function OrderStatusBadges({ order }: { order: Order }) {
   // An online order nobody paid for is not "Placed" in any sense a shopper
   // means — one alert label says what actually happened. See order-payment.ts.
@@ -157,7 +172,7 @@ export function OrderStatusBadges({ order }: { order: Order }) {
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
         <StatusLabel tone={order.orderStatus === "cancelled" ? "alert" : "neutral"}>
-          {ORDER_STATUS_LABELS[order.orderStatus]}
+          {customerStatusLabel(order)}
         </StatusLabel>
         <StatusLabel tone={order.paymentStatus === "failed" ? "alert" : "neutral"}>
           {PAYMENT_STATUS_LABELS[order.paymentStatus]}

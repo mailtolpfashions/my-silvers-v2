@@ -59,10 +59,19 @@ async function deliver(kind: string, payload: SendPayload): Promise<void> {
    * Without it every e2e run really sent: order confirmations to
    * `@example.test` addresses (hard bounces, which damage the sending
    * domain's reputation), new-order alerts to the owner's real inbox, and all
-   * of it against Resend's free daily cap. Skipped BEFORE recordSend so the
-   * Usage page does not count mail that never left.
+   * of it against Resend's free daily cap.
+   *
+   * Instead of sending, the test server notes WHICH email would have gone,
+   * and to whom, in EmailSend with error "e2e-dry-run:<address>" — so tests
+   * can prove an email is triggered at each step (e.g. out for delivery)
+   * without one leaving. Only ever on the test server's dev database;
+   * global-teardown removes the notes.
    */
-  if (process.env.E2E_EMAIL_DRY_RUN === "1") return;
+  if (process.env.E2E_EMAIL_DRY_RUN === "1") {
+    const to = (payload as { to?: string | string[] }).to;
+    await recordSend(kind, payload, `e2e-dry-run:${Array.isArray(to) ? to.join(",") : (to ?? "")}`.slice(0, 190));
+    return;
+  }
 
   const { error } = await resend.emails.send(payload);
   await recordSend(kind, payload, error?.name ?? null);
@@ -250,7 +259,7 @@ export function orderShippedHtml(d: OrderEmailData): string {
         : "Your order has been packed and handed to the courier — it's on its way to you."
     ),
     facts(rows),
-    progress(3),
+    progress(2),
     `<div style="padding-top:20px">${button(trackHref, "Track your parcel")}${button(orderLink(d.id, d.confirmationToken), "View your order", "secondary")}</div>`,
     // Always on dispatch: in GST terms the sale happens when the goods leave.
     invoiceLine(d),
@@ -264,6 +273,55 @@ export function orderShippedHtml(d: OrderEmailData): string {
   return page({
     preheader: `${d.orderNumber} is on its way${d.arrival ? ` — expected ${d.arrival}` : ""}.`,
     label: "Shipped",
+    body,
+    help: d.help,
+  });
+}
+
+/**
+ * "Out for delivery" — the customer's third step (owner's decision, Nov 2026:
+ * Order confirmed → Shipped → Out for delivery → Delivered, an email at each).
+ * Sent once, the first time the courier reports it (server/couriers/apply-update).
+ * For COD it is the moment to have the money ready, so it says how much.
+ */
+export async function sendOrderOutForDeliveryEmail(orderId: string) {
+  const d = await loadOrderEmailData(orderId);
+  if (!d) throw new Error(`order ${orderId} not found for the out-for-delivery email`);
+  await deliver("order-out-for-delivery", {
+    from,
+    replyTo,
+    to: d.email,
+    subject: `Arriving today: your order ${d.orderNumber} is out for delivery`,
+    html: orderOutForDeliveryHtml(d),
+  });
+}
+
+/** The out-for-delivery email's HTML, apart from sending — so it can be previewed. */
+export function orderOutForDeliveryHtml(d: OrderEmailData): string {
+  const trackHref = d.trackingUrl || `${appBaseUrl}/track-order`;
+  const rows: Array<[string, string]> = [["Order number", esc(d.orderNumber)]];
+  if (d.courierName) rows.push(["Courier", esc(courierLabel(d.courierName))]);
+  if (d.trackingNumber) rows.push(["Tracking number", esc(d.trackingNumber)]);
+  if (d.cod) rows.push(["To pay on delivery", `<strong>${formatINR(d.total)}</strong>`]);
+
+  const body = [
+    heading(d.firstName ? `Arriving today, ${esc(d.firstName)}!` : "Arriving today!"),
+    para(
+      d.cod
+        ? `Your order is out for delivery and should reach you today. Please keep <strong>${formatINR(d.total)}</strong> ready to pay the delivery partner, and keep your phone handy — they may call before arriving.`
+        : "Your order is out for delivery and should reach you today. Please keep your phone handy — the delivery partner may call before arriving."
+    ),
+    facts(rows),
+    progress(3),
+    `<div style="padding-top:20px">${button(trackHref, "Track your parcel")}${button(orderLink(d.id, d.confirmationToken), "View your order", "secondary")}</div>`,
+    sectionTitle("Delivering to"),
+    box(addressBlock(d.address)),
+    `<p style="margin:20px 0 0;font-size:13px;line-height:20px;color:${C.muted}">When it arrives, please record an unboxing video as you open it — if anything is damaged or wrong, that video lets us put it right quickly${d.returnHours > 0 ? `. Tell us within ${windowLength(d.returnHours)} of delivery` : ""}.</p>`,
+  ].join("");
+
+  return page({
+    preheader: `${d.orderNumber} is out for delivery — arriving today.`,
+    label: "Out for delivery",
     body,
     help: d.help,
   });

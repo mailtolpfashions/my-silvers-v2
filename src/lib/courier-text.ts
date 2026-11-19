@@ -64,3 +64,8 @@ export function courierLabel(raw: string): string {
   // Unknown: capitalise each word only if the courier sent it all-lowercase.
   return raw === raw.toLowerCase() ? raw.replace(/\b\w/g, (c) => c.toUpperCase()) : raw;
 }
+
+/** Does this courier status or scan mean the parcel is out for delivery today? */
+export function isOutForDelivery(text: string): boolean {
+  return /out\s*for\s*deliver/i.test(text.replace(/_/g, " "));
+}

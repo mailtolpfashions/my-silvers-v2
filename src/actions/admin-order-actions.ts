@@ -100,6 +100,20 @@ export async function updateOrderStatusAction(
       }
     });
   }
+  // Marked shipped by hand — a parcel sent outside the courier integration
+  // (India Post, a local courier). The customer gets the same Shipped email a
+  // booked parcel sends: every step of their flow sends one (owner's
+  // decision, Nov 2026). Only forward from before shipping, never on undoing
+  // a wrong "cancelled".
+  if (parsed.data === "shipped" && ["placed", "confirmed", "processing"].includes(before.orderStatus)) {
+    after(async () => {
+      try {
+        await sendOrderShippedEmail(orderId);
+      } catch (err) {
+        console.error("order-shipped email failed", orderId, err);
+      }
+    });
+  }
   revalidatePath("/admin/orders");
   return { ok: true };
 }

@@ -39,6 +39,8 @@ export default async function globalTeardown() {
   await deleteTestProducts().catch(() => {});
   await deleteTestUsersByPrefix(E2E_EMAIL_PREFIX).catch(() => {});
   await sweep(`DELETE FROM "Coupon" WHERE "code" LIKE 'E2E%'`);
+  // Notes of emails the test server would have sent (see deliver() dry run).
+  await sweep(`DELETE FROM "EmailSend" WHERE "error" LIKE 'e2e-dry-run:%'`);
   await sweep(`DELETE FROM "NewsletterSubscriber" WHERE "email" LIKE 'e2e-%'`);
   await sweep(`DELETE FROM "StockNotification" WHERE "email" LIKE 'e2e-%'`);
   await sweep(
