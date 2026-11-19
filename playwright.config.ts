@@ -59,6 +59,7 @@ const remote = isRemoteRun();
  */
 export const WEBHOOK_TEST_SECRET = "e2e-razorpay-webhook-secret-do-not-deploy";
 export const CRON_TEST_SECRET = "e2e-cron-secret-do-not-deploy";
+export const SHIPROCKET_TEST_TOKEN = "e2e-shiprocket-webhook-token-do-not-deploy";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -208,6 +209,9 @@ export default defineConfig({
          */
         SHIPROCKET_EMAIL: "",
         SHIPROCKET_PASSWORD: "",
+        // A known token so tests can push tracking updates the way Shiprocket
+        // does (out for delivery, delivered). Test server only.
+        SHIPROCKET_WEBHOOK_TOKEN: SHIPROCKET_TEST_TOKEN,
 
         /**
          * A known webhook secret, so the suite can sign payloads the way

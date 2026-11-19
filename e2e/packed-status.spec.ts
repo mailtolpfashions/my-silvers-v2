@@ -61,7 +61,7 @@ async function asCustomer(browser: Browser, email: string) {
 }
 
 test.describe("packed status", () => {
-  test("an admin marks a paid order packed; admin and customer both see 'Packed', and it can still ship", async ({ page, browser }) => {
+  test("an admin marks a paid order packed; the admin sees Packed, the customer still sees Order confirmed, and it can still ship", async ({ page, browser }) => {
     const s = await setup(["paid"]);
     const admin = await signInAs(page, "admin", "packed-admin");
     try {
@@ -78,7 +78,10 @@ test.describe("packed status", () => {
 
       const customer = await asCustomer(browser, s.email);
       await customer.page.goto(`/account/orders/${o.id}`);
-      await expect(customer.page.locator("main")).toContainText("Packed", { timeout: 20_000 });
+      // Packed is the shop's own step — the customer's flow is Order confirmed
+      // → Shipped → Out for delivery → Delivered (owner's decision, Nov 2026).
+      await expect(customer.page.locator("main")).toContainText("Order confirmed", { timeout: 20_000 });
+      await expect(customer.page.locator("main")).not.toContainText("Packed");
       await expect(customer.page.locator("main")).not.toContainText("Processing");
       // Still cancellable by the customer until it ships.
       await expect(customer.page.getByRole("button", { name: "Cancel order" })).toBeVisible();

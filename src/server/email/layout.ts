@@ -151,12 +151,13 @@ export function facts(rows: Array<[string, string]>): string {
 }
 
 /**
- * The four-step tracker under the greeting — Confirmed, Packed, Shipped,
- * Delivered — with `done` steps filled. Drawn as table cells, which every
+ * The four-step tracker under the greeting — Confirmed, Shipped, Out for
+ * delivery, Delivered — with `done` steps filled. The customer's flow (owner's
+ * decision, Nov 2026); "Packed" is the shop's own step and is not shown here. Drawn as table cells, which every
  * client renders; no images, so it survives "images off".
  */
 export function progress(done: number): string {
-  const steps = ["Confirmed", "Packed", "Shipped", "Delivered"];
+  const steps = ["Confirmed", "Shipped", "Out for delivery", "Delivered"];
   const cells = steps
     .map((s, i) => {
       const on = i < done;
