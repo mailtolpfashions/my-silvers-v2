@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { test, expect, type Page } from "@playwright/test";
 import { signInAs } from "./helpers/auth";
 import { createTestProduct, deleteTestProduct, deleteOrdersForUser, insertOrderWithItem } from "./helpers/db";
@@ -91,6 +92,61 @@ test.describe("printing an invoice", () => {
       for (const chrome of ["Jewellery", "Collections", "Track order", "Newsletter", "Subscribe", "SUBSCRIBE", "Print"]) {
         expect(text, `"${chrome}" from the shop is printed on the invoice`).not.toContain(chrome);
       }
+    } finally {
+      await deleteOrdersForUser(customer.id).catch(() => {});
+      await customer.dispose();
+      await deleteTestProduct(p.id);
+    }
+  });
+});
+
+test.describe("downloading an invoice", () => {
+  /**
+   * Nov 2026: testers got a blank-looking PDF on a phone and a 0 KB file on a
+   * desktop from the browser's print window. Download PDF builds the file
+   * itself; these check it is a real, one-page PDF named after the order —
+   * on desktop and (via the mobile project) on a phone.
+   */
+  test("Download PDF saves a real one-page PDF named after the order", async ({ page }) => {
+    const p = await createTestProduct({ stock: 0, price: 1499 });
+    const customer = await signInAs(page, "customer", "dl-own");
+    const order = await insertOrderWithItem({ userId: customer.id, productId: p.id, name: p.name, price: 1499 });
+    try {
+      await page.goto(`/account/orders/${order.id}/invoice`);
+      await expect(page.locator("[data-invoice]")).toBeVisible({ timeout: 20_000 });
+
+      const [download] = await Promise.all([
+        page.waitForEvent("download", { timeout: 60_000 }),
+        page.getByRole("button", { name: "Download PDF" }).click(),
+      ]);
+      expect(download.suggestedFilename()).toBe(`${order.orderNumber}-invoice.pdf`);
+
+      const file = test.info().outputPath(download.suggestedFilename());
+      await download.saveAs(file);
+      const bytes = fs.readFileSync(file);
+      expect(bytes.subarray(0, 5).toString(), "not a PDF").toBe("%PDF-");
+      expect(bytes.length, "the PDF is empty or near-empty (the '0 KB' report)").toBeGreaterThan(15_000);
+      const pages = (bytes.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+      expect(pages, "an ordinary invoice should fit one page").toBe(1);
+    } finally {
+      await deleteOrdersForUser(customer.id).catch(() => {});
+      await customer.dispose();
+      await deleteTestProduct(p.id);
+    }
+  });
+
+  test("while printing, the page title is the order number — so Save as PDF is named after it", async ({ page }) => {
+    const p = await createTestProduct({ stock: 0, price: 999 });
+    const customer = await signInAs(page, "customer", "dl-title");
+    const order = await insertOrderWithItem({ userId: customer.id, productId: p.id, name: p.name, price: 999 });
+    try {
+      await page.goto(`/account/orders/${order.id}/invoice`);
+      await expect(page.locator("[data-invoice]")).toBeVisible({ timeout: 20_000 });
+      const before = await page.title();
+      await page.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
+      expect(await page.title()).toBe(`Invoice ${order.orderNumber}`);
+      await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+      expect(await page.title()).toBe(before);
     } finally {
       await deleteOrdersForUser(customer.id).catch(() => {});
       await customer.dispose();

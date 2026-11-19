@@ -4,7 +4,7 @@ import { requireRoleForPage } from "@/server/auth/require-role";
 import { prisma } from "@/server/db";
 import { buildInvoice } from "@/server/orders/invoice";
 import { InvoiceDocument } from "@/components/orders/invoice-document";
-import { PrintButton } from "@/components/orders/print-button";
+import { InvoiceActions } from "@/components/orders/invoice-actions";
 
 /**
  * A deliberately blocking route.
@@ -64,7 +64,7 @@ export default async function AdminInvoicePage({
         <Link href={`/admin/orders/${id}`} className="text-sm underline">
           ← Back to order
         </Link>
-        <PrintButton label="Print invoice" />
+        <InvoiceActions orderNumber={order.orderNumber} printLabel="Print invoice" />
       </div>
       <InvoiceDocument invoice={invoice} />
     </div>
