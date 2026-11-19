@@ -3,6 +3,7 @@ import type { Order } from "@/generated/prisma/client";
 import { formatINR } from "@/lib/format";
 import { unpaidState } from "@/lib/order-payment";
 import type { RecentTab } from "@/server/admin/dashboard";
+import { REFUND_STARTED } from "@/lib/payment-labels";
 
 type Row = Order & { user: { name: string | null; email: string } };
 
@@ -12,7 +13,7 @@ type Row = Order & { user: { name: string | null; email: string } };
  * showed one "Placed" badge that answered neither.
  */
 function payment(o: Row): { text: string; tone: "ok" | "warn" | "bad" | "muted" } {
-  if (o.paymentStatus === "refunded") return { text: "Refunded", tone: "muted" };
+  if (o.paymentStatus === "refunded") return { text: REFUND_STARTED, tone: "muted" };
   if (o.paymentMethod === "cod") return { text: "COD", tone: "muted" };
   if (o.paymentStatus === "paid") return { text: "Paid", tone: "ok" };
   const u = unpaidState(o);
@@ -37,7 +38,7 @@ function fulfilment(o: Row): { text: string; tone: "ok" | "warn" | "bad" | "mute
     case "returned":
       return { text: "Returned", tone: "muted" };
     case "refunded":
-      return { text: "Refunded", tone: "muted" };
+      return { text: REFUND_STARTED, tone: "muted" };
     default: {
       const ready = o.paymentStatus === "paid" || o.paymentMethod === "cod";
       if (o.shipmentCreatedAt) return { text: "Shipment booked", tone: "ok" };

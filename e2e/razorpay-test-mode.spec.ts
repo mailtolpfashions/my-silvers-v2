@@ -155,7 +155,7 @@ test.describe("online payment (Razorpay test mode)", () => {
       await expect(dialog).toContainText(/refunded/i);
       await dialog.getByRole("radio").first().check();
       await dialog.getByRole("button", { name: "Cancel order" }).click();
-      await expect(page.getByText(`${paid!.orderNumber} cancelled and refunded.`)).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText(`${paid!.orderNumber} cancelled — refund started.`)).toBeVisible({ timeout: 30_000 });
 
       const after = await latestOrder(buyer.user.id);
       expect(after?.orderStatus).toBe("cancelled");

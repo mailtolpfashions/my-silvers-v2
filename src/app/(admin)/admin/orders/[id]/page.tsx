@@ -23,6 +23,7 @@ import { viewerIsOwner } from "@/components/admin/owner-only";
 import { isCancellable } from "@/lib/order-cancel-reasons";
 import { orderDeletable } from "@/actions/admin-order-actions";
 import { BreadcrumbLabel } from "@/components/layout/breadcrumb-label";
+import { paymentStatusLabel } from "@/lib/payment-labels";
 
 /**
  * A deliberately blocking route.
@@ -109,7 +110,7 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-h2 font-semibold">{order.orderNumber}</h1>
           <Badge variant={order.paymentStatus === "failed" ? "destructive" : "outline"}>
-            {order.paymentMethod === "cod" ? "COD" : order.paymentStatus}
+            {order.paymentMethod === "cod" ? "COD" : paymentStatusLabel(order.paymentStatus)}
           </Badge>
           <span className="text-sm text-muted-foreground">
             {order.createdAt.toLocaleString("en-IN", {
@@ -386,7 +387,7 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
                 label="Method"
                 value={order.paymentMethod === "cod" ? "Cash on delivery" : "Razorpay"}
               />
-              <Row label="Status" value={order.paymentStatus} />
+              <Row label="Status" value={paymentStatusLabel(order.paymentStatus)} />
               {order.razorpayPaymentId && (
                 <Row label="Payment ID" value={order.razorpayPaymentId} mono />
               )}
