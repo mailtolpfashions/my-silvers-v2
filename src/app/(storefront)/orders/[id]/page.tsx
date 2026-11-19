@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   PayNowNotice,
   PaymentExpiredNotice,
@@ -16,6 +17,7 @@ import { prisma } from "@/server/db";
 import { GuestOrderHelp } from "@/components/storefront/orders/guest-order-help";
 import { OrderDetail } from "@/components/storefront/orders/order-detail";
 import { Skeleton } from "@/components/ui/skeleton";
+import { hasInvoice, invoicePath } from "@/lib/invoice-links";
 
 /**
  * Guest tokenized order view — the ?ot= confirmation token issued at guest
@@ -102,6 +104,15 @@ async function GuestOrder({
         </div>
       )}
       <OrderDetail order={order} reviewable={reviewable} guest={{ orderId: order.id, token: ot }} />
+      {/* A guest's invoice opens with the same private token as this page —
+          they have no account to sign in to (see orders/[id]/invoice). */}
+      {hasInvoice(order) && (
+        <div className="mt-6">
+          <Link href={invoicePath(order)} className="text-sm underline">
+            View tax invoice
+          </Link>
+        </div>
+      )}
       {order.orderStatus === "delivered" && (
         <div className="mt-6">
           <ReturnOption

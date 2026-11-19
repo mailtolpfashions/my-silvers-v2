@@ -18,6 +18,7 @@ import { closeIfSoldOut } from "@/server/orders/sold-out";
 import { unpaidState } from "@/lib/order-payment";
 import { prisma } from "@/server/db";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { hasInvoice } from "@/lib/invoice-links";
 
 const CANCELLABLE = ["placed", "confirmed", "processing"] as const;
 
@@ -97,9 +98,7 @@ async function OrderDetailContent({
   // An online order the shopper never paid for — see lib/order-payment.ts.
   const unpaid = unpaidState(order);
 
-  const invoiceAvailable =
-    order.orderStatus !== "cancelled" &&
-    (order.paymentStatus === "paid" || order.paymentMethod === "cod");
+  const invoiceAvailable = hasInvoice(order);
 
   return (
     <>

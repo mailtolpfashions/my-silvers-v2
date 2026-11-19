@@ -4,6 +4,7 @@ import { formatUsage, share, type UsageMeter } from "@/server/admin/usage";
 import { formatINR } from "@/lib/format";
 import { windowLength } from "@/lib/return-window";
 import { PAYMENT_WINDOW_HOURS } from "@/lib/order-payment";
+import { invoicePath } from "@/lib/invoice-links";
 import {
   renderEmail,
   button,
@@ -130,6 +131,20 @@ function page(opts: Omit<Parameters<typeof renderEmail>[0], "baseUrl" | "assetUr
 const SUPPORT_HELP = { email: "support@mysilvers.in" };
 
 /** Where a shopper's own order lives: the tokenised page for a guest, the account page otherwise. */
+/**
+ * "Download your tax invoice" — a plain line under an email's buttons
+ * (partners' request, Nov 2026). It opens the invoice page, whose Download PDF
+ * button saves <order number>-invoice.pdf; a guest's link carries the order's
+ * private token, so it works without an account. A line rather than a third
+ * button: three side by side wrap badly on a phone.
+ */
+function invoiceLine(d: { id: string; confirmationToken: string | null }): string {
+  return para(
+    `<a href="${appBaseUrl}${invoicePath(d)}" style="color:${C.oxide};font-weight:600">Download your tax invoice</a> — keep it for warranty, gifting or your records.`,
+    "padding-top:12px;"
+  );
+}
+
 function orderLink(orderId: string, token: string | null): string {
   return token
     ? `${appBaseUrl}/orders/${orderId}?ot=${token}`
@@ -181,6 +196,8 @@ export function orderConfirmationHtml(d: OrderEmailData): string {
     facts(rows),
     progress(1),
     `<div style="padding-top:20px">${button(orderLink(d.id, d.confirmationToken), "View your order")}${button(`${appBaseUrl}/track-order`, "Track order", "secondary")}</div>`,
+    // Only once the money has come in; a COD order gets it with dispatch.
+    d.paidOnline ? invoiceLine(d) : "",
     sectionTitle(`Your order (${count} ${count === 1 ? "item" : "items"})`),
     itemsTable(d.items),
     priceSummary(d),
@@ -234,6 +251,8 @@ export function orderShippedHtml(d: OrderEmailData): string {
     facts(rows),
     progress(3),
     `<div style="padding-top:20px">${button(trackHref, "Track your parcel")}${button(orderLink(d.id, d.confirmationToken), "View your order", "secondary")}</div>`,
+    // Always on dispatch: in GST terms the sale happens when the goods leave.
+    invoiceLine(d),
     sectionTitle("In this parcel"),
     itemsTable(d.items),
     sectionTitle("Delivering to"),
