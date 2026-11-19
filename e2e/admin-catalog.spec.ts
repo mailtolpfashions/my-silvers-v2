@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { signInAs } from "./helpers/auth";
-import { createTestProduct, deleteTestProduct, getProductBySlug } from "./helpers/db";
+import { createTestProduct, deleteTestProduct, getProductBySlug, queryOne } from "./helpers/db";
 import { SMOKE } from "./helpers/target";
 
 /**
@@ -43,6 +43,32 @@ test.describe("admin catalogue", () => {
     } finally {
       await admin.dispose();
       await deleteTestProduct(p.id);
+    }
+  });
+
+  /**
+   * Reported Nov 2026 (setting up the ₹1 live test product): a duplicate SKU
+   * showed the raw database error — "Invalid `prisma.product.update()`
+   * invocation: Unique constraint failed on … Product_sku_key".
+   */
+  test("a SKU already in use is refused in plain words, naming the other product", async ({ page }) => {
+    const a = await createTestProduct({ stock: 1, name: `E2E Sku Owner ${Date.now()}` });
+    const b = await createTestProduct({ stock: 1 });
+    const admin = await signInAs(page, "admin", "cat-sku");
+    try {
+      const taken = await queryOne<{ sku: string }>(`SELECT "sku" FROM "Product" WHERE "id" = $1`, [a.id]);
+      await page.goto(`/admin/products/${b.id}`);
+      await expect(page.locator("#sku")).toBeVisible({ timeout: 20_000 });
+      await page.locator("#sku").fill(taken!.sku);
+      await page.getByRole("button", { name: "Save changes" }).click();
+
+      const toast = page.locator("[data-sonner-toast]").first();
+      await expect(toast).toContainText(`is already used by “${a.name}”`, { timeout: 15_000 });
+      await expect(toast).not.toContainText(/prisma|constraint|invocation/i);
+    } finally {
+      await admin.dispose();
+      await deleteTestProduct(a.id);
+      await deleteTestProduct(b.id);
     }
   });
 
