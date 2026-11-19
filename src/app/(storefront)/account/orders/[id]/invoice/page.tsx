@@ -8,6 +8,7 @@ import { InvoiceDocument } from "@/components/orders/invoice-document";
 import { InvoiceActions } from "@/components/orders/invoice-actions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { accountOrderScope } from "@/server/auth/email-verification";
+import { hasInvoice } from "@/lib/invoice-links";
 
 export const metadata = { title: "Tax invoice" };
 
@@ -49,10 +50,7 @@ async function Invoice({ params }: { params: Promise<{ id: string }> }) {
   });
   if (!order) notFound();
 
-  const billable =
-    order.orderStatus !== "cancelled" &&
-    (order.paymentStatus === "paid" || order.paymentMethod === "cod");
-  if (!billable) notFound();
+  if (!hasInvoice(order)) notFound();
 
   const invoice = await buildInvoice(order);
 

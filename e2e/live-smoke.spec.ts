@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { LIVE_SAFE, SMOKE } from "./helpers/target";
+import { LIVE_SAFE, SMOKE, isRemoteRun } from "./helpers/target";
 
 /**
  * The read-only smoke pack — safe against the LIVE shop.
@@ -140,6 +140,40 @@ test.describe("live smoke", () => {
     }
     expect(heavy, "single images over 400 KB on the phone homepage").toEqual([]);
     expect(bytes, `phone homepage images total ${Math.round(bytes / 1024)} KB`).toBeLessThan(1.5 * 1024 * 1024);
+  });
+
+  /**
+   * Nov 2026: on the live shop the footer's "Contact us" (/p/contact) and
+   * "Our story" (/p/about) led to "We couldn't find that page" — Studio pages
+   * the footer links to but that were never published there. Every link in
+   * the footer must open a real page.
+   */
+  test("every footer link opens a real page", { tag: [LIVE_SAFE] }, async ({ page }) => {
+    // Live only: the pages are shop CONTENT, and the dev database's Studio
+    // pages are not the shop's — locally this would always fail on dev data.
+    test.skip(!isRemoteRun(), "checks the real shop's published pages — run with test:smoke:live");
+    test.setTimeout(180_000);
+    await page.goto("/");
+    const hrefs = [
+      ...new Set(await page.locator("footer a[href^='/']").evaluateAll((as) => as.map((a) => a.getAttribute("href")!))),
+    ];
+    expect(hrefs.length, "no internal links found in the footer").toBeGreaterThan(5);
+    const missing: string[] = [];
+    for (const href of hrefs) {
+      // A fresh tab per link: going straight from one page to the next
+      // sometimes aborted mid-flight (the previous page still settling).
+      const tab = await page.context().newPage();
+      await tab.goto(href, { waitUntil: "load" }).catch(() => tab.goto(href, { waitUntil: "load" }));
+      // The not-found message streams in AFTER the page shell — read too early
+      // and a missing page looks like a page that is still loading. (A first
+      // version of this check passed on live while two pages were missing.)
+      await tab.waitForLoadState("networkidle").catch(() => {});
+      await tab.waitForTimeout(500);
+      const main = (await tab.locator("main").first().innerText().catch(() => "")).toLowerCase();
+      await tab.close();
+      if (/couldn't find that page|could not find|page not found/.test(main)) missing.push(href);
+    }
+    expect(missing, "footer links that lead to 'page not found'").toEqual([]);
   });
 
   test("a missing page is a friendly 404, marked noindex", { tag: [LIVE_SAFE] }, async ({ page }) => {
