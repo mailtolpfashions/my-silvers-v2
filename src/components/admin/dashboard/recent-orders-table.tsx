@@ -42,7 +42,9 @@ function fulfilment(o: Row): { text: string; tone: "ok" | "warn" | "bad" | "mute
     default: {
       const ready = o.paymentStatus === "paid" || o.paymentMethod === "cod";
       if (o.shipmentCreatedAt) return { text: "Shipment booked", tone: "ok" };
-      if (ready) return { text: "To ship", tone: "warn" };
+      // "processing" is Packed — waiting only for the courier (order-status-labels).
+      if (ready && o.orderStatus === "processing") return { text: "Packed", tone: "ok" };
+      if (ready) return { text: "To pack", tone: "warn" };
       // Not ready means an online order with no payment: still waiting for it,
       // or it failed and this order will never go out.
       return unpaidState(o) === "failed"

@@ -443,3 +443,56 @@ export async function deleteOrderAction(orderId: string): Promise<AdminOrderActi
   revalidatePath("/admin");
   return { ok: true };
 }
+
+/**
+ * Mark as packed (owner's decision, Nov 2026): Placed / Confirmed → Packed.
+ *
+ * Every admin, not just the owner — it is the person packing who presses it.
+ * Takes one id or many (the labels page offers "Mark all as packed"). The
+ * WHERE clause is the rule, not the page: only orders that are paid or COD,
+ * not cancelled, not already packed and not booked with a courier move; any
+ * others in the list are left exactly as they were and counted as skipped.
+ * "Packed" is stored as `processing` — see lib/order-status-labels.ts.
+ */
+export async function markOrdersPackedAction(
+  orderIds: string[]
+): Promise<{ ok: true; packed: number; skipped: number } | { ok: false; error: string }> {
+  const session = await requireRole("admin");
+  const ids = [...new Set(orderIds.filter((id) => typeof id === "string" && id.length > 0))].slice(0, 200);
+  if (ids.length === 0) return { ok: false, error: "No orders selected." };
+
+  const eligible = await prisma.order.findMany({
+    where: {
+      id: { in: ids },
+      orderStatus: { in: ["placed", "confirmed"] },
+      shipmentCreatedAt: null,
+      OR: [{ paymentStatus: "paid" }, { paymentMethod: "cod" }],
+    },
+    select: { id: true, orderNumber: true },
+  });
+  if (eligible.length === 0) {
+    return { ok: false, error: "Nothing to pack — these orders are already packed, shipped, cancelled or unpaid." };
+  }
+
+  // Re-checked in the update itself, so an order shipped or cancelled a
+  // moment ago is not dragged back to "packed".
+  const result = await prisma.order.updateMany({
+    where: {
+      id: { in: eligible.map((o) => o.id) },
+      orderStatus: { in: ["placed", "confirmed"] },
+      shipmentCreatedAt: null,
+    },
+    data: { orderStatus: "processing" },
+  });
+
+  for (const o of eligible) {
+    await logActivity(session, {
+      action: "order.status",
+      target: { type: "order", id: o.id },
+      summary: `Marked order ${o.orderNumber} as packed`,
+    });
+  }
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin");
+  return { ok: true, packed: result.count, skipped: ids.length - result.count };
+}

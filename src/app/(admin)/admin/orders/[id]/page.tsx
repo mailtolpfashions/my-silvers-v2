@@ -24,6 +24,9 @@ import { isCancellable } from "@/lib/order-cancel-reasons";
 import { orderDeletable } from "@/actions/admin-order-actions";
 import { BreadcrumbLabel } from "@/components/layout/breadcrumb-label";
 import { paymentStatusLabel } from "@/lib/payment-labels";
+import { courierLabel } from "@/lib/courier-text";
+import { MarkPackedButton } from "@/components/admin/mark-packed-button";
+import { canMarkPacked } from "@/lib/order-status-labels";
 
 /**
  * A deliberately blocking route.
@@ -185,7 +188,13 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
           <Card>
             <CardHeader className="flex-row items-center justify-between space-y-0">
               <CardTitle className="text-base">Delivery address</CardTitle>
-              <CopyButton value={addressForCopy} label="Copy address" />
+              <div className="flex items-center gap-3">
+                {/* A label to paste on the courier cover — see orders/labels. */}
+                <Link href={`/admin/orders/labels?ids=${order.id}`} className="text-sm underline underline-offset-4">
+                  Print address label
+                </Link>
+                <CopyButton value={addressForCopy} label="Copy address" />
+              </div>
             </CardHeader>
             <CardContent className="space-y-1 text-sm">
               {addressLines.length === 0 ? (
@@ -286,7 +295,7 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
                   )}
                   {(order.courierName || order.courierProvider) && (
                     <p className="text-xs text-muted-foreground">
-                      {order.courierName}
+                      {order.courierName ? courierLabel(order.courierName) : null}
                       {order.courierProvider &&
                         ` via ${order.courierProvider === "nimbuspost" ? "NimbusPost" : "Shiprocket"}`}
                       {order.shippingCost !== null && ` · ₹${Number(order.shippingCost).toLocaleString("en-IN")}`}
@@ -299,7 +308,10 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
                   </div>
                 </div>
               ) : canShip ? (
-                <ShipOrderButton orderId={order.id} />
+                <div className="flex flex-wrap items-center gap-2">
+                  {canMarkPacked(order) && <MarkPackedButton orderIds={[order.id]} />}
+                  <ShipOrderButton orderId={order.id} />
+                </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
                   {order.paymentStatus !== "paid" && order.paymentMethod !== "cod"
