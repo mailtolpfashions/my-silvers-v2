@@ -146,11 +146,29 @@ export function useCoupon(
   }, []);
 
   const current = quote?.key === key ? quote : null;
+  /**
+   * While re-checking after ONLY the contact details changed — same code,
+   * same cart total — keep showing the answer we already have.
+   *
+   * Reported Nov 2026: at checkout, choosing a different saved address
+   * changes the mobile number, which made this a "new question", and the
+   * discount dropped to ₹0 until the answer came back — the coupon line
+   * vanished and the total jumped up, then down again (₹1,350 → ₹1,500 →
+   * ₹1,350), on every address switch.
+   *
+   * The amount cannot differ for the same code and total; only eligibility
+   * can (a first-order code on a number that has ordered before), and the
+   * fresh answer removes it if so. A changed CODE or TOTAL still blanks the
+   * discount at once — that is the stale number that must never show. And
+   * the server recomputes the discount when the order is placed regardless.
+   */
+  const sameCodeAndTotal = (k: string) => k.split("|").slice(0, 2).join("|") === `${code}|${subtotalPaise}`;
+  const shown = current ?? (quote && sameCodeAndTotal(quote.key) ? quote : null);
   return {
-    offers: subtotalPaise > 0 ? (current?.offers ?? offers) : [],
+    offers: subtotalPaise > 0 ? (shown?.offers ?? offers) : [],
     code,
-    discountPaise: code ? (current?.discountPaise ?? 0) : 0,
-    error: code ? (current?.error ?? null) : null,
+    discountPaise: code ? (shown?.discountPaise ?? 0) : 0,
+    error: code ? (shown?.error ?? null) : null,
     pending: !!code && !current,
     apply,
     remove,
