@@ -62,7 +62,9 @@ const buttonVariants = cva(
         sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
         /** Pairs with variant="cta": tall, wide, and small-lettered. */
-        cta: "h-12 px-10 text-sm font-normal sm:h-[52px] sm:px-14",
+        // gap-2: every other size sets one, this did not — an icon sat flush
+        // against its label ("⚌FILTER", "🛍ADD TO CART") on phones.
+        cta: "h-12 gap-2 px-10 text-sm font-normal sm:h-[52px] sm:px-14",
         /** Pairs with variant="editorial": sits on the text baseline, not in a box. */
         editorial: "h-auto gap-2 pb-1 text-sm",
         icon: "size-8",

@@ -1136,7 +1136,7 @@ export function CheckoutForm({
               a plain submit button — `fixed` takes it out of flow either way.
               Checkout is the longest page on the site and the button was under
               an address form, a payment choice and a notes field. */}
-          <StickyActionBar>
+          <StickyActionBar stayOverFooter>
             <div className="min-w-0 flex-1">
               <p className="truncate text-base font-medium leading-tight">
                 {formatINRPaise(totalPaise)}
