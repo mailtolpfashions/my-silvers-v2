@@ -96,7 +96,14 @@ export default async function EntryEditorPage({
   return (
     <>
     <BreadcrumbLabel value={crumb} />
+    {/* key: a different entry is a different editor. EntryEditor keeps the
+        entry's content AND which entry Save writes to in its own state, so if
+        it were ever reused across entries it would show — and save over — the
+        one opened before. The owner reported Edit on "Contact us" opening the
+        Privacy policy (Nov 2026); this guarantees a fresh editor per entry
+        however Studio is navigated. */}
     <EntryEditor
+      key={entry.id}
       typeName={type.name}
       typeLabel={type.label}
         typeDescription={describeContentType(type)}
