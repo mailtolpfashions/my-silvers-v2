@@ -83,7 +83,7 @@ export function CartSummary({
           carries the total and the button; the block keeps the breakdown.
           Rendered here rather than on the page because the authed and guest
           carts both use this component — one place, both flows. */}
-      <StickyActionBar>
+      <StickyActionBar stayOverFooter>
         <div className="min-w-0 flex-1">
           <p className="figures truncate text-lg font-semibold leading-tight">
             {formatINRPaise(totalPaise)}

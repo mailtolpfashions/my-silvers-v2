@@ -4,6 +4,7 @@ import { unpaidState, UNPAID_LABELS } from "@/lib/order-payment";
 import { OrderItemReview } from "@/components/storefront/orders/order-item-review";
 import type { ReviewableItem } from "@/server/reviews/reviewable-items";
 import type { Order, OrderItem } from "@/generated/prisma/client";
+import { REFUND_STARTED, REFUND_TIMING } from "@/lib/payment-labels";
 
 const ORDER_STATUS_LABELS: Record<Order["orderStatus"], string> = {
   placed: "Placed",
@@ -14,7 +15,7 @@ const ORDER_STATUS_LABELS: Record<Order["orderStatus"], string> = {
   cancelled: "Cancelled",
   return_requested: "Return requested",
   returned: "Returned",
-  refunded: "Refunded",
+  refunded: REFUND_STARTED,
 };
 
 /**
@@ -103,7 +104,7 @@ const PAYMENT_STATUS_LABELS: Record<Order["paymentStatus"], string> = {
   paying: "Payment processing",
   paid: "Paid",
   failed: "Payment failed",
-  refunded: "Refunded",
+  refunded: REFUND_STARTED,
 };
 
 /**
@@ -152,14 +153,20 @@ export function OrderStatusBadges({ order }: { order: Order }) {
     );
   }
   return (
-    <div className="flex flex-wrap gap-2">
-      <StatusLabel tone={order.orderStatus === "cancelled" ? "alert" : "neutral"}>
-        {ORDER_STATUS_LABELS[order.orderStatus]}
-      </StatusLabel>
-      <StatusLabel tone={order.paymentStatus === "failed" ? "alert" : "neutral"}>
-        {PAYMENT_STATUS_LABELS[order.paymentStatus]}
-      </StatusLabel>
-      <StatusLabel>{order.paymentMethod === "cod" ? "COD" : "Online"}</StatusLabel>
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <StatusLabel tone={order.orderStatus === "cancelled" ? "alert" : "neutral"}>
+          {ORDER_STATUS_LABELS[order.orderStatus]}
+        </StatusLabel>
+        <StatusLabel tone={order.paymentStatus === "failed" ? "alert" : "neutral"}>
+          {PAYMENT_STATUS_LABELS[order.paymentStatus]}
+        </StatusLabel>
+        <StatusLabel>{order.paymentMethod === "cod" ? "COD" : "Online"}</StatusLabel>
+      </div>
+      {/* "Refund started" alone leaves the obvious question — when? */}
+      {order.paymentStatus === "refunded" && (
+        <p className="text-xs text-muted-foreground">{REFUND_TIMING}</p>
+      )}
     </div>
   );
 }

@@ -54,7 +54,12 @@ function AppliedCoupon({ coupon }: { coupon: CouponState }) {
         <span className="min-w-0">
           <span className="font-medium tracking-wide">{coupon.code}</span>{" "}
           <span className="text-muted-foreground">
-            {coupon.pending ? "checking…" : `applied — you save ${formatINRPaise(coupon.discountPaise)}`}
+            {/* "checking…" only when there is no answer yet. A re-check after a
+                new delivery address keeps the known saving on screen (see
+                useCoupon), rather than flashing "checking…" on every switch. */}
+            {coupon.pending && coupon.discountPaise === 0
+              ? "checking…"
+              : `applied — you save ${formatINRPaise(coupon.discountPaise)}`}
           </span>
         </span>
       </span>

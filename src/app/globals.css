@@ -2117,3 +2117,14 @@
     max-width: none;
   }
 }
+
+/* ── Room at the END of the page for a bar that never steps aside ──────────
+   Most phone action bars slide away when the footer arrives (StickyBarFrame).
+   The cart's and checkout's stay — they hold the only button — so those pages
+   end with room for them, below the footer, or the footer's last lines (the
+   legal and payment line) would sit under the bar for good. */
+@media (max-width: 767.98px) {
+  .storefront-shell:has([data-sticky-action-bar="pinned"]) {
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  }
+}

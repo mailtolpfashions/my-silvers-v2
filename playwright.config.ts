@@ -111,7 +111,7 @@ export default defineConfig({
        */
       // invoice-print: a tester on a phone, signed in as a customer, saved
       // the invoice as a PDF and got a blank page (Nov 2026).
-      testMatch: /(storefront|access-control|catalogue|product|live-smoke|invoice-print)\.spec\.ts/,
+      testMatch: /(storefront|access-control|catalogue|product|live-smoke|invoice-print|sticky-bar)\.spec\.ts/,
     },
     /**
      * iPhone Safari, smoke only. A real share of Indian shoppers browse on

@@ -500,7 +500,7 @@ export async function sendOrderCancelledEmail(params: {
     to: params.to,
     subject: `Order cancelled: ${params.orderNumber}`,
     html: page({
-      preheader: `Your order ${params.orderNumber} has been cancelled${params.refund ? " and refunded" : ""}.`,
+      preheader: `Your order ${params.orderNumber} has been cancelled${params.refund ? " — your refund has started" : ""}.`,
       label: "Order cancelled",
       body,
       help: d?.help ?? SUPPORT_HELP,
@@ -527,7 +527,7 @@ export async function sendOrderCancelledAlertEmail(
       `${esc(d.customerName)} has cancelled this order (${formatINR(d.total)}). The items are back in stock${
         refund
           ? refund.state === "sent"
-            ? `, and <strong>${formatINR(refund.amount)} has been refunded</strong> to them through Razorpay.`
+            ? `, and <strong>a ${formatINR(refund.amount)} refund has been started</strong> to them through Razorpay (it usually reaches their account in 5–7 working days).`
             : `. <strong>The ${formatINR(refund.amount)} refund did not go through yet</strong> — it is queued for retry; check Payments if it doesn't clear.`
           : "."
       } <strong>Don't pack or ship it.</strong>`

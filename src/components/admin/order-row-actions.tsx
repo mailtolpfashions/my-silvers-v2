@@ -512,7 +512,7 @@ export function CancelOrderButton({
         toast.error(result.error);
         return;
       }
-      toast.success(result.refunded ? `${orderNumber} cancelled and refunded.` : `${orderNumber} cancelled.`);
+      toast.success(result.refunded ? `${orderNumber} cancelled — refund started.` : `${orderNumber} cancelled.`);
       setOpen(false);
     });
   }

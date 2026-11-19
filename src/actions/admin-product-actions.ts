@@ -125,6 +125,45 @@ function productChangeSummary(
   return `Edited “${name}”${changes.length ? " — " + changes.join(", ") : ""}`;
 }
 
+
+/**
+ * What the admin is told when a save fails.
+ *
+ * ⚠️  These actions used to return `err.message` as-is, so a database
+ * refusal reached the screen verbatim — "Invalid `prisma.product.update()`
+ * invocation: Unique constraint failed on the constraint: `Product_sku_key`"
+ * (reported Nov 2026, while setting up the ₹1 live test product).
+ *
+ * - A duplicate SKU or web address names the product that already has it.
+ * - Any other database error is logged in full and shown as plain words —
+ *   its text is for developers, not for whoever is editing a product.
+ * - Our own errors (thrown with a deliberate message, e.g. a photo from an
+ *   unapproved host) are still shown as written.
+ */
+async function friendlyProductError(err: unknown, fallback: string, sku?: string): Promise<string> {
+  const isDbError = typeof err === "object" && err !== null && "code" in err && typeof (err as { code: unknown }).code === "string";
+  if (!isDbError) return err instanceof Error ? err.message : fallback;
+
+  const { code, message } = err as { code: string; message?: string };
+  if (code === "P2002") {
+    const text = `${message ?? ""} ${JSON.stringify((err as { meta?: unknown }).meta ?? "")}`;
+    if (/sku/i.test(text)) {
+      const other = sku
+        ? await prisma.product.findUnique({ where: { sku }, select: { name: true } }).catch(() => null)
+        : null;
+      return other
+        ? `The SKU “${sku}” is already used by “${other.name}”. Every product needs its own SKU — please choose a different one.`
+        : "That SKU is already used by another product. Every product needs its own SKU — please choose a different one.";
+    }
+    if (/slug/i.test(text)) {
+      return "Another product already has a web address made from this name. Please change the name slightly.";
+    }
+    return "Something on this product must be unique and is already used by another product.";
+  }
+  console.error("[admin-product] database error", err);
+  return fallback;
+}
+
 export async function createProductAction(input: unknown): Promise<AdminActionResult> {
   const session = await requireRole("admin");
   const parsed = productSchema.safeParse(input);
@@ -153,7 +192,7 @@ export async function createProductAction(input: unknown): Promise<AdminActionRe
     updateTag("products");
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Failed to create product." };
+    return { ok: false, error: await friendlyProductError(err, "Failed to create product.", parsed.data.sku) };
   }
 }
 
@@ -195,7 +234,7 @@ export async function updateProductAction(id: string, input: unknown): Promise<A
     updateTag("products");
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Failed to update product." };
+    return { ok: false, error: await friendlyProductError(err, "Failed to update product.", parsed.data.sku) };
   }
 }
 
@@ -243,7 +282,7 @@ export async function restoreProductAction(id: string): Promise<AdminActionResul
   try {
     await restoreProduct(id);
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Failed to restore product." };
+    return { ok: false, error: await friendlyProductError(err, "Failed to restore product.") };
   }
   await logActivity(session, {
     action: "product.restore",
@@ -429,7 +468,7 @@ export async function setProductsActiveAction(
   } catch (err) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : "Failed to update those products.",
+      error: await friendlyProductError(err, "Failed to update those products."),
     };
   }
 }
@@ -510,7 +549,7 @@ export async function setProductsTagAction(
     updateTag("products");
     return { ok: true, count };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Failed to update tags." };
+    return { ok: false, error: await friendlyProductError(err, "Failed to update tags.") };
   }
 }
 
@@ -541,7 +580,7 @@ export async function setProductsVendorAction(
     revalidatePath("/admin/products");
     return { ok: true, count: result.count };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Failed to set vendor." };
+    return { ok: false, error: await friendlyProductError(err, "Failed to set vendor.") };
   }
 }
 
@@ -567,7 +606,7 @@ export async function setProductsCategoryAction(
     updateTag("products");
     return { ok: true, count: result.count };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Failed to move products." };
+    return { ok: false, error: await friendlyProductError(err, "Failed to move products.") };
   }
 }
 
@@ -595,7 +634,7 @@ export async function setProductsFlagAction(
     updateTag("products");
     return { ok: true, count: result.count };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Failed to update products." };
+    return { ok: false, error: await friendlyProductError(err, "Failed to update products.") };
   }
 }
 
@@ -678,7 +717,7 @@ export async function setProductsOfferAction(
     updateTag("products");
     return { ok: true, count: updates.length };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Failed to update prices." };
+    return { ok: false, error: await friendlyProductError(err, "Failed to update prices.") };
   }
 }
 

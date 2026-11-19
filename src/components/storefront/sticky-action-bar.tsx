@@ -1,3 +1,5 @@
+import { StickyBarFrame } from "@/components/storefront/sticky-bar-frame";
+
 /**
  * The fixed bottom action bar used on mobile.
  *
@@ -28,20 +30,24 @@ export function StickyBarSpacer() {
   );
 }
 
-export function StickyActionBar({ children }: { children: React.ReactNode }) {
+/**
+ * The frame — fixed position, and stepping aside when the footer arrives —
+ * lives in StickyBarFrame, a client component. Kept apart so this module stays
+ * server-safe: pages import STICKY_BAR_SPACER from here, and a plain string
+ * exported from a "use client" file would reach a server component as a client
+ * reference, not as the string.
+ */
+export function StickyActionBar({
+  children,
+  stayOverFooter = false,
+}: {
+  children: React.ReactNode;
+  /** Cart and checkout: the bar is the only button there — see StickyBarFrame. */
+  stayOverFooter?: boolean;
+}) {
   return (
-    <div
-      // z-40 matches the header rather than exceeding it: a drawer or dialog
-      // (z-50) must still cover this.
-      className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:hidden"
-      // The iPhone home indicator and Android's gesture pill both sit over the
-      // bottom of the viewport. Without this the buttons are under them and the
-      // last few pixels are unreachable. Reads 0 on hardware that has neither —
-      // but only because the root layout sets viewport-fit: cover, which is
-      // what makes env() report anything at all.
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-    >
+    <StickyBarFrame stayOverFooter={stayOverFooter}>
       <div className="flex items-center gap-3 px-4 py-3">{children}</div>
-    </div>
+    </StickyBarFrame>
   );
 }

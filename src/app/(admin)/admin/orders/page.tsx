@@ -28,6 +28,7 @@ import { SortableHeader } from "@/components/admin/sortable-header";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/layout/empty-state";
 import { AdminOrderFilters } from "@/components/admin/order-filters";
+import { paymentStatusLabel } from "@/lib/payment-labels";
 
 /**
  * A deliberately blocking route.
@@ -198,7 +199,7 @@ export default async function AdminOrdersPage({
                     <Badge
                       variant={order.paymentStatus === "failed" ? "destructive" : "outline"}
                     >
-                      {order.paymentMethod === "cod" ? "COD" : order.paymentStatus}
+                      {order.paymentMethod === "cod" ? "COD" : paymentStatusLabel(order.paymentStatus)}
                     </Badge>
                   </TableCell>
                   <TableCell>

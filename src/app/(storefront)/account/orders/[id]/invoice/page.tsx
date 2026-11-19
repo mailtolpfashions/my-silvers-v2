@@ -5,7 +5,7 @@ import { auth } from "@/server/auth/auth";
 import { prisma } from "@/server/db";
 import { buildInvoice } from "@/server/orders/invoice";
 import { InvoiceDocument } from "@/components/orders/invoice-document";
-import { PrintButton } from "@/components/orders/print-button";
+import { InvoiceActions } from "@/components/orders/invoice-actions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { accountOrderScope } from "@/server/auth/email-verification";
 
@@ -62,7 +62,7 @@ async function Invoice({ params }: { params: Promise<{ id: string }> }) {
         <Link href={`/account/orders/${id}`} className="text-sm underline">
           ← Back to order
         </Link>
-        <PrintButton />
+        <InvoiceActions orderNumber={order.orderNumber} />
       </div>
       <InvoiceDocument invoice={invoice} />
     </>

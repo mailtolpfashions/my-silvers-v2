@@ -21,6 +21,7 @@ import { CopyButton } from "@/components/admin/copy-button";
 import { FilterTabs } from "@/components/admin/filter-tabs";
 import { AdminPagination } from "@/components/admin/admin-pagination";
 import { SortableHeader } from "@/components/admin/sortable-header";
+import { paymentStatusLabel } from "@/lib/payment-labels";
 
 /**
  * A deliberately blocking route.
@@ -201,7 +202,7 @@ export default async function AdminPaymentsPage({
                       <span
                         className={`rounded px-2 py-0.5 text-xs ${PAYMENT_TONE[row.paymentStatus] ?? "bg-muted"}`}
                       >
-                        {row.paymentStatus}
+                        {paymentStatusLabel(row.paymentStatus)}
                       </span>
                     </TableCell>
                     <TableCell>
