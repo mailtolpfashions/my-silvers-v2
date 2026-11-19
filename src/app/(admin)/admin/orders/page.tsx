@@ -88,8 +88,13 @@ export default async function AdminOrdersPage({
         title="Orders"
         description="Every order, newest first — search, filter, and ship from here."
         // Exports hand over customers' personal details in bulk — owner only.
+        // Address labels are for whoever packs, so every admin gets them.
         actions={
-          isOwner && (
+          <>
+            <Button asChild size="sm">
+              <Link href="/admin/orders/labels?toShip=1">Print labels — all To ship</Link>
+            </Button>
+          {isOwner && (
           <>
             <Button asChild variant="outline" size="sm">
               <a href="/api/admin/export/orders">Export orders CSV</a>
@@ -103,7 +108,8 @@ export default async function AdminOrdersPage({
               <a href="/api/admin/export/customers">Export customers CSV</a>
             </Button>
           </>
-          )
+          )}
+          </>
         }
       />
 

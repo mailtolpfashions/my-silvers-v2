@@ -185,7 +185,13 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
           <Card>
             <CardHeader className="flex-row items-center justify-between space-y-0">
               <CardTitle className="text-base">Delivery address</CardTitle>
-              <CopyButton value={addressForCopy} label="Copy address" />
+              <div className="flex items-center gap-3">
+                {/* A label to paste on the courier cover — see orders/labels. */}
+                <Link href={`/admin/orders/labels?ids=${order.id}`} className="text-sm underline underline-offset-4">
+                  Print address label
+                </Link>
+                <CopyButton value={addressForCopy} label="Copy address" />
+              </div>
             </CardHeader>
             <CardContent className="space-y-1 text-sm">
               {addressLines.length === 0 ? (
