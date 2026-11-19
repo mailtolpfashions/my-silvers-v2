@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { LIVE_SAFE, SMOKE } from "./helpers/target";
+import { LIVE_SAFE, SMOKE, isRemoteRun } from "./helpers/target";
 
 /**
  * The read-only smoke pack — safe against the LIVE shop.
@@ -149,7 +149,10 @@ test.describe("live smoke", () => {
    * the footer must open a real page.
    */
   test("every footer link opens a real page", { tag: [LIVE_SAFE] }, async ({ page }) => {
-    test.setTimeout(120_000);
+    // Live only: the pages are shop CONTENT, and the dev database's Studio
+    // pages are not the shop's — locally this would always fail on dev data.
+    test.skip(!isRemoteRun(), "checks the real shop's published pages — run with test:smoke:live");
+    test.setTimeout(180_000);
     await page.goto("/");
     const hrefs = [
       ...new Set(await page.locator("footer a[href^='/']").evaluateAll((as) => as.map((a) => a.getAttribute("href")!))),
