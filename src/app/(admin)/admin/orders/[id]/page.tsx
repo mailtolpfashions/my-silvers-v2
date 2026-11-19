@@ -24,6 +24,7 @@ import { isCancellable } from "@/lib/order-cancel-reasons";
 import { orderDeletable } from "@/actions/admin-order-actions";
 import { BreadcrumbLabel } from "@/components/layout/breadcrumb-label";
 import { paymentStatusLabel } from "@/lib/payment-labels";
+import { courierLabel } from "@/lib/courier-text";
 
 /**
  * A deliberately blocking route.
@@ -292,7 +293,7 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
                   )}
                   {(order.courierName || order.courierProvider) && (
                     <p className="text-xs text-muted-foreground">
-                      {order.courierName}
+                      {order.courierName ? courierLabel(order.courierName) : null}
                       {order.courierProvider &&
                         ` via ${order.courierProvider === "nimbuspost" ? "NimbusPost" : "Shiprocket"}`}
                       {order.shippingCost !== null && ` · ₹${Number(order.shippingCost).toLocaleString("en-IN")}`}

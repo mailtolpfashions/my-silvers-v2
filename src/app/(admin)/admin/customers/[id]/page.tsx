@@ -11,6 +11,7 @@ import { CustomerEditor } from "@/components/admin/customer-editor";
 import { ConfirmAction } from "@/components/admin/confirm-action";
 import { deleteCustomerAction, setCustomerBlockedAction } from "@/actions/admin-customer-actions";
 import { paymentStatusLabel } from "@/lib/payment-labels";
+import { scanActivity } from "@/lib/courier-text";
 
 /** Blocking, like every other admin route — see admin/customers/page.tsx. */
 export const instant = false;
@@ -123,7 +124,7 @@ export default async function AdminCustomerPage({ params }: { params: Promise<{ 
                         {o.createdAt.toLocaleDateString("en-IN", { dateStyle: "medium" })}
                       </span>
                       <span className="text-muted-foreground">
-                        {o.orderStatus.replace("_", " ")} · {o.paymentMethod === "cod" ? "COD" : paymentStatusLabel(o.paymentStatus)}
+                        {scanActivity(o.orderStatus)} · {o.paymentMethod === "cod" ? "COD" : paymentStatusLabel(o.paymentStatus)}
                       </span>
                       <span className="tabular-nums">{formatINR(o.totalAmount.toString())}</span>
                     </li>

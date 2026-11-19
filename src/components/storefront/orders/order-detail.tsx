@@ -5,6 +5,7 @@ import { OrderItemReview } from "@/components/storefront/orders/order-item-revie
 import type { ReviewableItem } from "@/server/reviews/reviewable-items";
 import type { Order, OrderItem } from "@/generated/prisma/client";
 import { REFUND_STARTED, REFUND_TIMING } from "@/lib/payment-labels";
+import { courierLabel, scanActivity, scanLocation } from "@/lib/courier-text";
 
 const ORDER_STATUS_LABELS: Record<Order["orderStatus"], string> = {
   placed: "Placed",
@@ -88,10 +89,10 @@ function ScanTimeline({
               i === 0 ? "bg-foreground" : "bg-border"
             }`}
           />
-          <p className={i === 0 ? "text-foreground" : "text-muted-foreground"}>{scan.activity}</p>
+          <p className={i === 0 ? "text-foreground" : "text-muted-foreground"}>{scanActivity(scan.activity)}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {formatScanDate(scan.at)}
-            {scan.location ? ` · ${scan.location}` : ""}
+            {scan.location ? ` · ${scanLocation(scan.location)}` : ""}
           </p>
         </li>
       ))}
@@ -352,7 +353,7 @@ export function OrderDetail({
                 same data that page renders; there is no reason to send anyone
                 there for it. */}
             <p className="text-muted-foreground">
-              {order.courierName ? `${order.courierName} — ` : ""}
+              {order.courierName ? `${courierLabel(order.courierName)} — ` : ""}
               <span className="text-foreground">{order.trackingNumber}</span>
             </p>
 

@@ -26,6 +26,7 @@ import {
   formatOrderDate,
   type OrderEmailData,
 } from "@/server/email/order-email";
+import { courierLabel } from "@/lib/courier-text";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const from = process.env.RESEND_FROM_EMAIL ?? "MY Silvers <orders@mysilvers.in>";
@@ -237,7 +238,7 @@ export async function sendOrderShippedEmail(orderId: string) {
 export function orderShippedHtml(d: OrderEmailData): string {
   const trackHref = d.trackingUrl || `${appBaseUrl}/track-order`;
   const rows: Array<[string, string]> = [["Order number", esc(d.orderNumber)]];
-  if (d.courierName) rows.push(["Courier", esc(d.courierName)]);
+  if (d.courierName) rows.push(["Courier", esc(courierLabel(d.courierName))]);
   if (d.trackingNumber) rows.push(["Tracking number", esc(d.trackingNumber)]);
   if (d.arrival) rows.push(["Expected delivery", `<span style="color:${C.saving}">${d.arrival}</span>`]);
 
@@ -612,7 +613,7 @@ export async function sendParcelComingBackAlertEmail(
     `<div style="padding-top:20px">${button(`${appBaseUrl}/admin/orders/${d.id}`, "Open the order")}</div>`,
     d.trackingNumber
       ? sectionTitle("Tracking") +
-        box(`${d.courierName ? `${esc(d.courierName)} · ` : ""}${esc(d.trackingNumber)}`)
+        box(`${d.courierName ? `${esc(courierLabel(d.courierName))} · ` : ""}${esc(d.trackingNumber)}`)
       : "",
     sectionTitle("Pieces"),
     itemsTable(d.items),
