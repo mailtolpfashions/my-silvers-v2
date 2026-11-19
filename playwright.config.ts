@@ -109,7 +109,9 @@ export default defineConfig({
        * at once means two suites fighting over one global resource, which is
        * exactly how it started failing.
        */
-      testMatch: /(storefront|access-control|catalogue|product|live-smoke)\.spec\.ts/,
+      // invoice-print: a tester on a phone, signed in as a customer, saved
+      // the invoice as a PDF and got a blank page (Nov 2026).
+      testMatch: /(storefront|access-control|catalogue|product|live-smoke|invoice-print)\.spec\.ts/,
     },
     /**
      * iPhone Safari, smoke only. A real share of Indian shoppers browse on

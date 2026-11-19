@@ -58,12 +58,12 @@ export function DashboardShell({
     // The provider wraps BOTH the breadcrumbs and the page: a detail page
     // publishes its record's name into it and the trail reads it back.
     <BreadcrumbLabelProvider>
-    <div className="admin-surface flex min-h-full flex-1 bg-muted/20">
+    <div className="admin-surface flex min-h-full flex-1 bg-muted/20 print:block print:bg-white">
       {/* ── Sidebar, lg and up ──────────────────────────────────────────────
           Sticky and its own scroll container: a long content-type list in the
           Studio must not push the storefront link off the bottom of a short
           window, and the nav should not scroll away with the page body. */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r bg-background lg:flex">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r bg-background lg:flex print:hidden">
         <div className="flex items-center justify-between gap-2 border-b px-4 py-4">
           <Link href={title === "Studio" ? "/cms" : "/admin"} className="font-semibold">
             {title}
@@ -92,7 +92,10 @@ export function DashboardShell({
         {/* ── Top bar ─────────────────────────────────────────────────────────
             Sticky, because the account menu and the way back up the hierarchy
             should not require scrolling to the top of a 200-row table. */}
-        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur-sm">
+        {/* print:hidden on the menu and this bar: printing an invoice from the
+            admin used to put "Admin > Orders > Edit > Invoice" and the
+            signed-in name across the top of the customer's tax invoice. */}
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur-sm print:hidden">
           <DashboardMobileNav title={title} groups={groups} />
           <DashboardBreadcrumbs labels={breadcrumbLabels} />
           <div className="ml-auto flex items-center gap-1">
@@ -108,7 +111,7 @@ export function DashboardShell({
         {/* min-w-0 throughout the column: without it a wide table stretches the
             flex item instead of scrolling inside it, and the whole page gains a
             horizontal scrollbar. */}
-        <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
+        <main className="min-w-0 flex-1 p-4 sm:p-6 print:p-0">{children}</main>
       </div>
     </div>
     </BreadcrumbLabelProvider>

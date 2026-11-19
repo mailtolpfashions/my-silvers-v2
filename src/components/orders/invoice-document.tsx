@@ -29,7 +29,9 @@ export function InvoiceDocument({ invoice }: { invoice: Invoice }) {
   } = invoice;
 
   return (
-    <article className="mx-auto max-w-3xl bg-white p-8 text-sm text-black print:p-0">
+    // data-invoice: when a page holds an invoice, printing shows ONLY the
+    // invoice — see the print rule at the end of globals.css.
+    <article data-invoice className="mx-auto max-w-3xl bg-white p-8 text-sm text-black print:p-0">
       <header className="flex items-start justify-between border-b border-black/20 pb-6">
         <div>
           <h1 className="text-lg font-medium tracking-wide">TAX INVOICE</h1>
