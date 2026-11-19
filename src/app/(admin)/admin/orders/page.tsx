@@ -29,6 +29,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/layout/empty-state";
 import { AdminOrderFilters } from "@/components/admin/order-filters";
 import { paymentStatusLabel } from "@/lib/payment-labels";
+import { MarkPackedButton } from "@/components/admin/mark-packed-button";
+import { canMarkPacked } from "@/lib/order-status-labels";
 
 /**
  * A deliberately blocking route.
@@ -236,6 +238,7 @@ export default async function AdminOrdersPage({
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      {canMarkPacked(order) && <MarkPackedButton orderIds={[order.id]} label="Packed" />}
                       {shippable && (
                         <ShipOrderButton orderId={order.id} />
                       )}

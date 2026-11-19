@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { COMING_BACK_FILTER, UNPAID_ATTEMPTS_FILTER } from "@/lib/order-coming-back";
+import { orderStatusLabel, TO_PACK_FILTER } from "@/lib/order-status-labels";
 
 /** Radix Select has no empty-string value, so "any" stands in for "no filter". */
 const ANY = "any";
@@ -32,8 +33,7 @@ const ORDER_STATUSES = [
 const PAYMENT_STATUSES = ["pending", "paying", "paid", "failed", "refunded"] as const;
 
 /** Turns return_requested into "Return requested". */
-const humanise = (value: string) =>
-  value.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+const humanise = (value: string) => orderStatusLabel(value);
 
 export function AdminOrderFilters({
   current,
@@ -94,6 +94,7 @@ export function AdminOrderFilters({
           ))}
           {/* Not a status: parcels the courier is bringing back that are still
               waiting for "Received back". */}
+          <SelectItem value={TO_PACK_FILTER}>To pack</SelectItem>
           <SelectItem value={COMING_BACK_FILTER}>Coming back</SelectItem>
           {/* Online payments never completed — hidden from the plain list. */}
           <SelectItem value={UNPAID_ATTEMPTS_FILTER}>Unpaid attempts</SelectItem>

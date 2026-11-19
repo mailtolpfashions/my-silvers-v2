@@ -6,6 +6,7 @@ import type { SortDir } from "@/server/products/admin";
 import type { PaymentStatus } from "@/generated/prisma/client";
 import { toPaise } from "@/server/orders/money";
 import { COMING_BACK_FILTER, UNPAID_ATTEMPTS_FILTER } from "@/lib/order-coming-back";
+import { TO_PACK_FILTER } from "@/lib/order-status-labels";
 import {
   formatDeadline,
   isReturnWindowOpen,
@@ -484,6 +485,8 @@ export async function getAdminOrders(params: {
   const status = asOrderStatus(params.status);
   const comingBack = params.status === COMING_BACK_FILTER;
   const unpaidAttempts = params.status === UNPAID_ATTEMPTS_FILTER;
+  // Paid or COD, not cancelled, not yet packed or booked — see canMarkPacked.
+  const toPack = params.status === TO_PACK_FILTER;
   const payment = asPaymentStatus(params.payment);
 
   // Hidden only from the plain list. Any filter or search shows everything it
@@ -495,6 +498,13 @@ export async function getAdminOrders(params: {
     // Parcels the courier is bringing back, whatever their status label says.
     ...(comingBack ? { comingBackAt: { not: null }, receivedBackAt: null } : {}),
     ...(unpaidAttempts ? UNPAID_ATTEMPT : {}),
+    ...(toPack
+      ? {
+          orderStatus: { in: ["placed" as const, "confirmed" as const] },
+          shipmentCreatedAt: null,
+          AND: [{ OR: [{ paymentStatus: "paid" as const }, { paymentMethod: "cod" as const }] }],
+        }
+      : {}),
     ...(hideUnpaid ? { NOT: UNPAID_ATTEMPT } : {}),
     ...(payment ? { paymentStatus: payment } : {}),
     // Matches the order number, the customer's name/email, or the mobile the

@@ -25,6 +25,8 @@ import { orderDeletable } from "@/actions/admin-order-actions";
 import { BreadcrumbLabel } from "@/components/layout/breadcrumb-label";
 import { paymentStatusLabel } from "@/lib/payment-labels";
 import { courierLabel } from "@/lib/courier-text";
+import { MarkPackedButton } from "@/components/admin/mark-packed-button";
+import { canMarkPacked } from "@/lib/order-status-labels";
 
 /**
  * A deliberately blocking route.
@@ -306,7 +308,10 @@ export default async function AdminOrderPage({ params }: { params: Params }) {
                   </div>
                 </div>
               ) : canShip ? (
-                <ShipOrderButton orderId={order.id} />
+                <div className="flex flex-wrap items-center gap-2">
+                  {canMarkPacked(order) && <MarkPackedButton orderIds={[order.id]} />}
+                  <ShipOrderButton orderId={order.id} />
+                </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
                   {order.paymentStatus !== "paid" && order.paymentMethod !== "cod"

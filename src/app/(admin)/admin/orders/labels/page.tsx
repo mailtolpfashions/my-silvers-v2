@@ -6,6 +6,8 @@ import { getSeller } from "@/server/orders/invoice";
 import { TO_SHIP_WHERE } from "@/server/admin/dashboard";
 import { formatINR } from "@/lib/format";
 import { LabelPrintButton } from "@/components/admin/label-print-button";
+import { MarkPackedButton } from "@/components/admin/mark-packed-button";
+import { canMarkPacked } from "@/lib/order-status-labels";
 
 /**
  * Address labels to paste on the courier cover (owner's request, Nov 2026).
@@ -59,6 +61,7 @@ export default async function LabelsPage({
         ? await prisma.order.findMany({ where: { id: { in: ids } }, orderBy: { createdAt: "asc" } })
         : [];
 
+  const toPackIds = orders.filter(canMarkPacked).map((o) => o.id);
   const seller = getSeller();
   const base = (process.env.APP_BASE_URL || "https://www.mysilvers.in").replace(/\/$/, "");
   const labels = await Promise.all(
@@ -111,6 +114,14 @@ export default async function LabelsPage({
               A4 sheet
             </Link>
           </div>
+          {/* Optional, and separate from printing: a label is often printed
+              BEFORE the piece is packed, so printing never marks anything. */}
+          {toPackIds.length > 0 && (
+            <MarkPackedButton
+              orderIds={toPackIds}
+              label={toPackIds.length === 1 ? "Mark as packed" : `Mark all ${toPackIds.length} as packed`}
+            />
+          )}
           {labels.length > 0 && <LabelPrintButton />}
         </div>
       </div>

@@ -33,6 +33,7 @@ import {
 import { CANCEL_REASONS, type CancelReason } from "@/lib/order-cancel-reasons";
 import { allowedStatusMoves } from "@/lib/order-status-moves";
 import { PROVIDER_LABEL, quoteKey, type CourierProviderId, type CourierQuote } from "@/lib/courier-quotes";
+import { orderStatusLabel } from "@/lib/order-status-labels";
 
 
 /**
@@ -65,9 +66,7 @@ export function OrderStatusSelect({
 
   if (!isOwner) {
     return (
-      <Badge variant="outline" className="capitalize">
-        {status.replaceAll("_", " ")}
-      </Badge>
+      <Badge variant="outline">{orderStatusLabel(status)}</Badge>
     );
   }
 
@@ -99,7 +98,7 @@ export function OrderStatusSelect({
       <SelectContent>
         {allowedStatusMoves(status, paymentStatus).map((s) => (
           <SelectItem key={s} value={s}>
-            {s.replaceAll("_", " ")}
+            {orderStatusLabel(s)}
           </SelectItem>
         ))}
       </SelectContent>

@@ -10,7 +10,7 @@ import { courierLabel, scanActivity, scanLocation } from "@/lib/courier-text";
 const ORDER_STATUS_LABELS: Record<Order["orderStatus"], string> = {
   placed: "Placed",
   confirmed: "Confirmed",
-  processing: "Processing",
+  processing: "Packed",
   shipped: "Shipped",
   delivered: "Delivered",
   cancelled: "Cancelled",
