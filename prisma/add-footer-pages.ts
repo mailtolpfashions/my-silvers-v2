@@ -387,6 +387,71 @@ ${GRIEVANCE_BLOCK}
 <h2>Contact</h2>
 <p>Questions about these terms? Email ${mail}.</p>`,
   },
+  // ── Contact ───────────────────────────────────────────────────────────────
+  // Added Nov 2026: the footer's "Contact us" opened "page not found" on live.
+  // Phone/WhatsApp 94428 63756 is the number already public on the live site
+  // (footer WhatsApp link, invoices). Hours and whether the Chengam address
+  // takes walk-in visitors are NOT known — marked as gaps.
+  {
+    slug: "contact",
+    title: "Contact us",
+    excerpt: "Questions about an order, a piece or a gift? Write to us or message us on WhatsApp — we're happy to help.",
+    metaTitle: "Contact Us",
+    metaDescription:
+      "Contact MY Silvers about your order, a piece or a gift — email support@mysilvers.in or message us on WhatsApp at +91 94428 63756.",
+    content: `
+<p>Whether it's a question about your order, a piece you have your eye on, or help choosing a gift — we're here.</p>
+
+<h2>Write to us</h2>
+<p>Email: ${mail}<br>
+WhatsApp: <a href="https://wa.me/919442863756">+91 94428 63756</a></p>
+<p>${gap("the hours you answer messages and calls, e.g. Monday–Saturday, 10 am – 7 pm")}</p>
+
+<h2>About an order</h2>
+<p>Please include your <strong>order number</strong> (it starts with MYS-) — it's in your confirmation email and under <strong>Your orders</strong>. It lets us find your order straight away.</p>
+<ul>
+<li>Where is my order? See ${link("/track-order", "Track your order")}.</li>
+<li>Damaged or wrong item? Tell us within 48 hours — see ${link("/p/returns", "Returns & exchanges")}.</li>
+<li>Delivery times and charges: ${link("/p/shipping", "Shipping & delivery")}.</li>
+<li>Caring for your silver: ${link("/p/care-guide", "Silver care guide")}.</li>
+</ul>
+
+<h2>Our registered address</h2>
+${BUSINESS_BLOCK}
+<p>${gap("whether customers can visit this address to see pieces in person — if yes, the shop's opening hours; if not, say it is our office and orders are online only")}</p>
+${GRIEVANCE_BLOCK}`,
+  },
+
+  // ── About ─────────────────────────────────────────────────────────────────
+  // Added Nov 2026 for the footer's "Our story". Only confirmed facts: 925
+  // sterling silver, made in India, packed by hand, from Chengam. The story
+  // itself is the owner's to tell — marked as gaps, never invented.
+  {
+    slug: "about",
+    title: "Our story",
+    excerpt: "925 sterling silver jewellery, made in India and packed by hand in Chengam, Tamil Nadu.",
+    metaTitle: "Our Story",
+    metaDescription:
+      "MY Silvers makes 925 sterling silver jewellery in India — designed to be worn every day, packed by hand in Chengam, Tamil Nadu.",
+    content: `
+<p>${gap("how MY Silvers began — who started it, when, and why (two or three sentences in your own words)")}</p>
+
+<h2>What we make</h2>
+<p>Every piece we sell is <strong>925 sterling silver</strong> and <strong>made in India</strong> — jewellery designed to be worn every day, not kept in a box for an occasion.</p>
+<p>${gap("what makes your pieces special — the designs, the craftsmanship, the artisans or region they come from")}</p>
+
+<h2>From Chengam, with care</h2>
+<p>We are based in Chengam, in Tiruvannamalai District, Tamil Nadu. Every order is checked and <strong>packed by hand</strong> before it leaves us.</p>
+
+<h2>Our promise</h2>
+<ul>
+<li>925 sterling silver, every piece.</li>
+<li>Secure online payment through Razorpay.</li>
+<li>Damaged or wrong item? We'll make it right — see ${link("/p/returns", "Returns & exchanges")}.</li>
+</ul>
+
+<p>Questions? We'd love to hear from you — ${link("/p/contact", "contact us")}.</p>`,
+  },
 ];
 
 async function main() {
