@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Playfair_Display, DM_Sans, Raleway, Archivo, DM_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 // Headings — the brand's display serif.
@@ -180,6 +181,7 @@ export default function RootLayout({
          * least useful thing in the notification.
          */}
         <Toaster position="bottom-right" duration={5000} />
+        <Analytics />
       </body>
     </html>
   );
